@@ -101,32 +101,13 @@ scrape_player_batting_data <- function(n, start_season, end_season){
 
 ### Get data
 
+In this example we get all leaderboards for the years 2015-2016.
+
 ```{r}
 fg_data <- scrape_player_batting_data("all", 2015, 2016)
 
 ```
 
-
-machado <- fg_data %>%
-  filter(Name == "Manny Machado") %>%
-  arrange(Season)
-
-#list Orioles players in descending order of wOBA for each year in the dataset.
-```{r}
-orioles_tabl <- fg_data %>%
-  filter(Team == "Orioles") %>%
-  group_by(Season, Name) %>%
-  dplyr::arrange(desc(wOBA)) %>%
-  select(Season, Name, Team, wOBA, PA)
-```
-
-#compute number of players for each team each year, also average wOBA for each year each team 
-plt_tabl <- fg_data %>%
-  filter(Season == 2016) %>%
-  group_by(Season, Team) %>%
-  dplyr::summarize(num_pos_players = n(),
-                   team_wOBA = round(mean(wOBA, na.rm=TRUE), 3)) %>%
-  arrange(Season, desc(team_wOBA))
 
 
 ```
