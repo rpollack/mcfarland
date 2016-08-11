@@ -1,0 +1,132 @@
+---
+title: "FanGraphs Leaderboard Scraper"
+output: html_document
+---
+
+### Load required packages
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+library(magrittr)
+library(XML)
+```
+
+### Create lookup table
+
+The user will pass named strings into scrape_player_batting_data(). These strings need to be transformed into numbers for use in the leaderboards URL.
+
+```{r}
+dashboards <- as.character(c("standard", "advanced", "batted_ball", "win_probability", "pitch_type",
+                             "plate_discipline", "value", "pitch_value", "pfx_pitch_type", "pfx_velocity", 
+                             "pfx_h_mov", "pfx_v_mov", "pfx_pitch_val","pfx_pitch_val_c", "pfx_plate_discipline"))
+types <- c(0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15)
+leaderboard_lookup <- data.frame(dashboards, types)
+```
+
+### Clean up data  
+  
+Clean up a number of inconsistencies associated with leaderboards data elements that prevent useful analysis in R.
+  
+```{r}    
+clean_data <- function(df){
+  df <- df[, !duplicated(colnames(df))] #Remove duplicate columns, like 'PA' which is returned from multiple dashboards
+  df %<>%
+    select(-matches("#")) #remove the 'Rank' column from the data
+
+  #Handle percentage columns, which reports rates as strings
+  for(i in names(df)){
+    if(is.na(grep("%", i, value = TRUE)[1]) == FALSE | i == "HR/FB"){
+      df[[i]] <- as.numeric(sub("%", "", df[[i]]))/100
+    }
+  }
+  
+  #Handle the "Dollars" column, which reports negative values in parentheses and has a $ character
+  if ("Dollars" %in% names(df)){
+    #Convert values in parentheses to strings with "-"" in front 
+    df$Dollars <- gsub("\\(", "-", df$Dollars)
+    df$Dollars <- gsub("\\)", "", df$Dollars)
+    
+    #Remove dollar sign & convert to numeric
+    df$Dollars <- as.numeric(sub("\\$", "", df$Dollars))
+  }
+  
+  #Convert every column except Name and Team to numeric. Otherwise they are characters & don't sort properly
+  cols_to_convert <- c(1, 4:ncol(df))
+  df[,cols_to_convert] %<>%
+    lapply(function(x) as.numeric(x))
+
+  return(df)
+}
+```
+
+
+### Scrape data
+
+```{r}
+scrape_player_batting_data <- function(n, start_season, end_season){
+  
+  #Get type IDs of dashboard(s) the user wants
+  if("all" %in% n){
+    types <- leaderboard_lookup$types
+  }
+  else{
+    n <- as.data.frame(n)
+    colnames(n)[1] <- "dashboards"
+    n <- inner_join(leaderboard_lookup, n, by="dashboards")
+    types <- n$types
+  }
+  
+  #Compute number of players to grab per dashboard; assume 900 non-pitchers per season
+  num_players <- 900 * (end_season - start_season) + 1
+
+  #Combine requested dashboards into one data frame
+  df <- plyr::join_all(
+    sapply(types, function(x){
+      url <- sprintf("http://www.fangraphs.com/leaders.aspx?pos=np&stats=bat&lg=all&qual=0&type=%s&season=%s&month=0&season1=%s&ind=1&team=0&rost=0&age=0&filter=&players=0&page=1_%s", x, end_season, start_season, num_players)
+      out <- readHTMLTable(url, stringsAsFactors = FALSE)
+      out <- as.data.frame(out$LeaderBoard1_dg1_ctl00)
+      }
+      ),
+    by=c("Name", "Team", "Season")
+  )
+  
+  df <- clean_data(df)
+  return(df)
+}
+  #Clean up data
+```
+  
+
+### Get data
+
+```{r}
+fg_data <- scrape_player_batting_data("all", 2015, 2016)
+
+```
+
+
+machado <- fg_data %>%
+  filter(Name == "Manny Machado") %>%
+  arrange(Season)
+
+#list Orioles players in descending order of wOBA for each year in the dataset.
+```{r}
+orioles_tabl <- fg_data %>%
+  filter(Team == "Orioles") %>%
+  group_by(Season, Name) %>%
+  dplyr::arrange(desc(wOBA)) %>%
+  select(Season, Name, Team, wOBA, PA)
+```
+
+#compute number of players for each team each year, also average wOBA for each year each team 
+plt_tabl <- fg_data %>%
+  filter(Season == 2016) %>%
+  group_by(Season, Team) %>%
+  dplyr::summarize(num_pos_players = n(),
+                   team_wOBA = round(mean(wOBA, na.rm=TRUE), 3)) %>%
+  arrange(Season, desc(team_wOBA))
+
+
+```
