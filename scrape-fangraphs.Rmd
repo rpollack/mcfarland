@@ -108,6 +108,3 @@ fg_data <- scrape_player_batting_data("all", 2015, 2016)
 
 ```
 
-
-
-```
