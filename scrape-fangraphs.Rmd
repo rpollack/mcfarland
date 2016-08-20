@@ -58,8 +58,8 @@ clean_data <- function(df){
     lapply(function(x) as.numeric(x))
   
   #replace unuseable characters in column names
-  colnames(df) <- gsub("\\/", " per ", colnames(df))
-  colnames(df) <- gsub("%", " perc", colnames(df))
+  colnames(df) <- gsub("\\/", "_per_", colnames(df))
+  colnames(df) <- gsub("%", "_p", colnames(df))
 
   return(df)
 }
@@ -105,22 +105,29 @@ scrape_player_batting_data <- function(n, start_season, end_season){
 
 ### Get data
 
-In this example we get all leaderboards for the years 2015-2016.
+In this example we get all leaderboards for the years 2012-2016.
 
 ```{r}
-fg_data <- scrape_player_batting_data("all", 2012, 2016)
+fg_data <- scrape_player_batting_data("all", 2015, 2016)
 
 ```
 
 ```{r}
 fg_grouped <- fg_data %>%
-  filter(Team == "Orioles") %>%
-  group_by(Season) %>%
-  mutate(offensive_WAR_perc = (WAR / sum(WAR)) * 100) %>%
-  arrange(desc(Season), desc(offensive_WAR_perc))
+  select(Name, Season, PA, GB_per_FB) %>%
+  group_by(Name) %>%
+  arrange(Name, Season) %>%
+  do(lag(., -1))
   
+  
+  
+#stuff <- fg_data %>%
+ # filter()
 
-streamgraph(fg_grouped, "Name", "offensive_WAR_perc", "Season") %>% sg_axis_x(tick_interval=1) %>% sg_legend(TRUE, "Player")
+
+#streamgraph(fg_grouped, "Name", "offense_p", "Season") %>%
+#  sg_axis_x(tick_interval=1) %>%
+#  sg_legend(TRUE, "Player")
 
 
 #split into chunks by names
