@@ -56,6 +56,10 @@ clean_data <- function(df){
   cols_to_convert <- c(1, 4:ncol(df))
   df[,cols_to_convert] %<>%
     lapply(function(x) as.numeric(x))
+  
+  #replace unuseable characters in column names
+  colnames(fg_data) <- gsub("\\/", " per ", colnames(fg_data))
+  colnames(fg_data) <- gsub("%", " perc", colnames(fg_data))
 
   return(df)
 }
@@ -111,9 +115,14 @@ fg_data <- scrape_player_batting_data("all", 2015, 2016)
 ```{r}
 fg_grouped <- fg_data %>%
   group_by(Name, Season) %>%
-  arrange(desc(Season))
+  arrange(desc(Season)) %>%
+  
 
-split into 
+#split into chunks by names
+#order by season
+#compute lag
+
+
 
 ```
 
