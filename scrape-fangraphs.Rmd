@@ -60,6 +60,7 @@ clean_data <- function(df){
   #replace unuseable characters in column names
   colnames(df) <- gsub("\\/", "_per_", colnames(df))
   colnames(df) <- gsub("%", "_p", colnames(df))
+  colnames(df) <- gsub("+", "_plus", colnames(df))
 
   return(df)
 }
