@@ -79,7 +79,7 @@ scrape_player_batting_data <- function(n, start_season, end_season){
   }
   
   #Compute number of players to grab per dashboard; assume 900 non-pitchers per season
-  num_players <- 900 * (end_season - start_season) + 1
+  num_players <- 900 * (end_season - start_season + 1)
 
   #Combine requested dashboards into one data frame
   df <- plyr::join_all(
@@ -108,3 +108,15 @@ fg_data <- scrape_player_batting_data("all", 2015, 2016)
 
 ```
 
+```{r}
+fg_grouped <- fg_data %>%
+  group_by(Name, Season) %>%
+  arrange(desc(Season))
+
+split into 
+
+```
+
+```
+
+```
