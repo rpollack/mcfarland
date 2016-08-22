@@ -11,6 +11,7 @@ library(dplyr)
 library(ggplot2)
 library(magrittr)
 library(XML)
+library(plotly)
 ```
 
 ### Create lookup table
@@ -57,10 +58,14 @@ clean_data <- function(df){
   df[,cols_to_convert] %<>%
     lapply(function(x) as.numeric(x))
   
-  #replace unuseable characters in column names
+  #Make a few column names R-friendly
   colnames(df) <- gsub("\\/", "_per_", colnames(df))
   colnames(df) <- gsub("%", "_p", colnames(df))
   colnames(df) <- gsub("+", "_plus", colnames(df))
+  colnames(df)[8] <- "Singles"
+  colnames(df)[9] <- "Doubles"
+  colnames(df)[10] <- "Triples"
+
 
   return(df)
 }
@@ -104,43 +109,144 @@ scrape_player_batting_data <- function(n, start_season, end_season){
 ```
   
 
-### Get data
-
-In this example we get all leaderboards for the years 2012-2016.
+### In progress
 
 ```{r}
-fg_data <- scrape_player_batting_data("all", 2015, 2016)
+compute_yoy_change <- function(df, stat){
+  new_column = sprintf("%s_perc_change", stat)
+  new_df <- df %>%
+    select_(Name, Season, Team, PA, stat, wOBA) %>%
+    filter(PA > 100) %>% #remove seasons shortened due to injury or whatever
+    group_by(Name) %>%
+    arrange(Name, Season) %>%
+    mutate(new_column = round(((stat - lag(stat)) / lag(stat)) * 100, 2)) %>%
+    filter(Season == 2016, is.na(new_column) == FALSE, is.finite(new_column) == TRUE) %>% #focus on current year; ignore rookies
+    arrange(desc(new_column))
+  
+  return(new_df)
+}
 
 ```
 
+### Get Data
+
 ```{r}
-fg_grouped <- fg_data %>%
-  select(Name, Season, PA, GB_per_FB) %>%
+fg_data <- scrape_player_batting_data("all", 2010, 2016)
+fg_team_data <- read_csv("~/Downloads/FanGraphs Leaderboard (32).csv")
+
+
+```
+
+### Get league K and ISO rates for each season 
+
+```{r}
+#get league K rates for each season
+league_rates <- fg_data %>%
+  group_by(Season) %>%
+  summarize(lg_K = sum(SO) / sum(PA) * 100,
+            lg_ISO = (sum(Doubles) + (2 * sum(Triples)) + (3 * sum(HR))) / sum(AB))
+```
+
+### Calculate relative changes in K and ISO rates for teams from 2010-2016.
+
+```{r}
+k_iso_rate_team_changes <- fg_team_data %>%
+  select(Season, Team, PA, SO, Doubles, Triples, HR, AB) %>%
+  group_by(Team, Season) %>%
+  arrange(Team, Season) %>%
+  summarize(team_k_rate = sum(SO) / sum(PA) * 100,
+            team_ISO = (Doubles + (2 * Triples) + (3 * HR)) / AB) %>%
+  inner_join(k_rate_per_season, by="Season") %>%
+  mutate(k_minus = round(team_k_rate / lg_K * 100, 0),
+         k_rate_increase_from_prev_yr = k_minus - lag(k_minus),
+         ISO_minus = round(team_ISO / lg_ISO * 100, 0),
+         iso_increase_from_prev_yr = ISO_minus - lag(ISO_minus))
+
+#plot all teams' changes
+p <- ggplot(data=k_rate_team_changes, aes(x=Season, y=k_minus, color=Team)) + geom_line() + geom_point() +
+  ggtitle("Relative strikeout rates for non-pitchers, 2010-2016") + labs(y="Relative K rate (100 = Lg. Avg.)")
+gg <- ggplotly(p)
+
+```
+
+
+## Do the same for ISO
+
+
+### Royals-specific calculations
+
+```{r}
+#get all teams in 2016, to show ranking this year. (Royals are 2nd)
+team_rate_changes_2016 <- k_iso_rate_team_changes %>%
+  filter(Season == "2016") %>%
+  arrange(desc(k_rate_increase_from_prev_yr))
+rank_2016 = ggplot(data=team_k_rate_changes_2016, aes(x=Team, y=k_rate_increase_from_prev_yr)) + geom_bar(stat="identity") + coord_flip()
+
+
+#get only Royals thru 2015, for graphing purposes
+royals_k_rate <- k_iso_rate_team_changes %>%
+  filter(Team == "Royals", Season < 2016)
+r_2015 <- ggplot(data=royals_k_rate, aes(x=Season, y=k_minus, color=Team)) + geom_line() + geom_point() +
+  ggtitle("Relative strikeout rates for Royals non-pitchers, 2010-2015") + labs(y="Relative K rate (100 = Lg. Avg.)") +
+  theme(legend.position="none")
+plot_2015 <- ggplotly(r_2015)
+
+
+#get only Royals thru 2016, for graphing purposes
+royals_k_rate <- k_iso_rate_team_changes %>%
+  filter(Team == "Royals")
+r_2016 <- ggplot(data=royals_k_rate, aes(x=Season, y=k_minus, color=Team)) + geom_line() + geom_point() +
+  ggtitle("Relative strikeout rates for Royals non-pitchers, 2010-2016") + labs(y="Relative K rate (100 = Lg. Avg.)") +
+  theme(legend.position="none")
+plot_2016 <- ggplotly(r_2016)
+
+
+```
+
+
+
+```{r}
+k_bb_rate_changers_players <- fg_data %>%
+  select(Name, Season, Team, PA, K_p, BB_p, ISO) %>%
+  group_by(Season) %>%
+  mutate(lg_K = mean(K_p), #compute league averages to normalize league changes in K and BB rates 
+         lg_BB = mean(BB_p)) %>%
+  filter(PA > 100) %>% #remove seasons shortened due to injury or whatever
   group_by(Name) %>%
   arrange(Name, Season) %>%
-  do(lag(., -1))
-  
-  
-  
-#stuff <- fg_data %>%
- # filter()
+  mutate(K_minus = round((K_p / lg_K) * 100, 0),
+         BB_minus = round((BB_p / lg_BB) * 100, 0),
+         K_perc_change = K_minus - lag(K_minus),
+         BB_perc_change = BB_minus - lag(BB_minus),
+         overall_change = BB_perc_change - K_perc_change) %>%
+  filter(Season == 2016, is.na(K_perc_change) == FALSE, is.finite(K_perc_change) == TRUE)
 
 
-#streamgraph(fg_grouped, "Name", "offense_p", "Season") %>%
-#  sg_axis_x(tick_interval=1) %>%
-#  sg_legend(TRUE, "Player")
+k_bb_decliners <- k_bb_rate_changers_players %>%
+  filter(K_perc_change > 0, BB_perc_change < 0)
 
-
-#split into chunks by names
-#order by season
-#compute lag
-
-
+k_bb_boosters <- k_bb_rate_changers_players %>%
+  filter(K_perc_change < 0, BB_perc_change > 0)
 
 ```
 
-### Positional changes in WAR?
+## Find GB rate changers among 2016 players with at least 100 PA in back-to-back seasons
 
-```
+```{r}
+gb_rate_changers_players <- fg_data %>%
+  select(Name, Season, Team, PA, GB_p, ISO) %>%
+  group_by(Season) %>%
+  mutate(lg_GB = mean(GB_p)) %>% #compute league averages to normalize league changes in stats we care about 
+  filter(PA > 100) %>% #remove seasons shortened due to injury or whatever
+  group_by(Name) %>%
+  arrange(Name, Season) %>%
+  mutate(GB_minus = round((GB_p / lg_GB) * 100, 0),
+         GB_perc_change = GB_minus - lag(GB_minus)) %>%
+  filter(Season == 2016, is.na(GB_perc_change) == FALSE, is.finite(GB_perc_change) == TRUE)
+  
+gb_rate_changers_teams <- gb_rate_changers_players %>%
+  group_by(Team) %>%
+  summarize(num_players = n(),
+            mean_gb_rate_change = round(mean(GB_perc_change), 2))
 
 ```
