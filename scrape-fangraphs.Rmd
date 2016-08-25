@@ -132,7 +132,7 @@ compute_yoy_change <- function(df, stat){
 
 ```{r}
 fg_data <- scrape_player_batting_data("all", 2010, 2016)
-fg_team_data <- read_csv("~/Downloads/FanGraphs Leaderboard (32).csv")
+fg_team_data <- read_csv("~/Downloads/fg-team-data.csv")
 
 
 ```
@@ -180,6 +180,7 @@ gg <- ggplotly(p)
 team_rate_changes_2016 <- k_iso_rate_team_changes %>%
   filter(Season == "2016") %>%
   arrange(desc(k_rate_increase_from_prev_yr))
+
 rank_2016 = ggplot(data=team_k_rate_changes_2016, aes(x=Team, y=k_rate_increase_from_prev_yr)) + geom_bar(stat="identity") + coord_flip()
 
 
@@ -195,6 +196,7 @@ plot_2015 <- ggplotly(r_2015)
 #get only Royals thru 2016, for graphing purposes
 royals_k_rate <- k_iso_rate_team_changes %>%
   filter(Team == "Royals")
+
 r_2016 <- ggplot(data=royals_k_rate, aes(x=Season, y=k_minus, color=Team)) + geom_line() + geom_point() +
   ggtitle("Relative strikeout rates for Royals non-pitchers, 2010-2016") + labs(y="Relative K rate (100 = Lg. Avg.)") +
   theme(legend.position="none")
@@ -206,6 +208,10 @@ plot_2016 <- ggplotly(r_2016)
 
 
 ```{r}
+
+
+
+
 k_bb_rate_changers_players <- fg_data %>%
   select(Name, Season, Team, PA, K_p, BB_p, ISO) %>%
   group_by(Season) %>%
