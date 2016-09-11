@@ -61,8 +61,9 @@ clean_data <- function(df){
   
   #Make a few column names R-friendly
   colnames(df) <- gsub("\\/", "_per_", colnames(df))
-  colnames(df) <- gsub("%", "_p", colnames(df))
+  colnames(df) <- gsub("%", "_perc", colnames(df))
   colnames(df) <- gsub("\\+", "_plus", colnames(df))
+  colnames(df) <- gsub("-", "_", colnames(df))
   colnames(df)[8] <- "Singles"
   colnames(df)[9] <- "Doubles"
   colnames(df)[10] <- "Triples"
@@ -133,14 +134,92 @@ compute_yoy_change <- function(df, stat){
 ### Get Data
 
 ```{r}
-fg_data <- scrape_player_batting_data("all", 2016, 2016)
-fg_team_data <- read_csv("~/Downloads/fg-team-data.csv")
-colnames(fg_team_data)[7] <- "Singles"
-colnames(fg_team_data)[8] <- "Doubles"
-colnames(fg_team_data)[9] <- "Triples"
-colnames(fg_team_data)[1] <- "Season"
+fg_data <- scrape_player_batting_data("all", 2015, 2016)
+#fg_team_data <- read_csv("~/Downloads/fg-team-data.csv")
+#colnames(fg_team_data)[7] <- "Singles"
+#colnames(fg_team_data)[8] <- "Doubles"
+#colnames(fg_team_data)[9] <- "Triples"
+#colnames(fg_team_data)[1] <- "Season"
 
 
 
 ```
 
+```{r}
+wrc_changers <- fg_data %>%
+  group_by(Name) %>%
+  arrange(Season) %>%
+  select(Season, Name, PA, wRC_plus) %>%
+  mutate(change = (wRC_plus - lag(wRC_plus))) %>%
+  filter(Season == 2016) %>%
+  arrange(desc(PA), desc(change))
+
+#robbie grossman is having a great under-the-radar season ... legit improved bb% abd k%
+#leads league in FA_perc_increase 
+
+
+discipline_changes <- fg_data %>%
+  mutate(z_minus_o_swing = Z_Swing_perc - O_Swing_perc) %>%
+  group_by(Name) %>%
+  arrange(Season) %>%
+  filter(G > 100) %>%
+  select(Name, Season,PA, z_minus_o_swing, Z_Swing_perc, O_Swing_perc) %>%
+  mutate(change = z_minus_o_swing - lag(z_minus_o_swing))
+
+contact_changes <- fg_data %>%
+  group_by(Name) %>%
+  arrange(Season) %>%
+  select(Season, Name, PA, Contact_perc, wRC_plus) %>%
+  mutate(change = (Contact_perc - lag(Contact_perc))) %>%
+  filter(Season == 2016, PA > 300) %>%
+  arrange(desc(PA), desc(change))
+
+#travis jankowski making a ton more contact
+
+zone_changes <- fg_data %>%
+  group_by(Name) %>%
+  arrange(Season) %>%
+  filter(G > 100) %>%
+  select(Season, Name, PA, Zone_perc) %>%
+  mutate(change = (Zone_perc - lag(Zone_perc))) %>%
+  filter(Season == 2016, PA > 300) %>%
+  arrange(desc(PA), desc(change))
+  
+FA_changes <- fg_data %>%
+  group_by(Name) %>%
+  arrange(Season) %>%
+  #filter(G > 100) %>%      #find only players who played 100 games in each year
+  select(Season, Name, PA, FA_perc) %>%
+  mutate(change = (FA_perc - lag(FA_perc))) %>%
+  filter(Season == 2016, PA > 300)
+
+#yadier molina seeing a big increase in fastball% ... ?
+
+```
+
+```{r}
+player_value_to_team <- fg_data %>%
+  filter(Season == 2016, Team != "- - -") %>%
+  select(Season, Name, Team, G, WAR) %>%
+  group_by(Team) %>%
+  mutate(team_hitter_war_non_pitchers = sum(WAR),
+         num_hitters_non_pitchers = n()) %>%
+  group_by(Name) %>%
+  mutate(hitter_war_perc = round(100 * (WAR / team_hitter_war_non_pitchers), 2),
+         name_plus_team = sprintf("%s (%s)", Name, Team)) %>%
+  arrange(desc(hitter_war_perc))
+
+team_value_plt <- ggplot(data=head(player_value_to_team, 50), aes(x=reorder(name_plus_team, hitter_war_perc), y=hitter_war_perc)) + geom_bar(stat="identity") + coord_flip() + ggtitle("Good Hitters on Bad Teams (Except for Manny Machado!)") + labs(y="% of Team's Non-Pitcher WAR", x="Player")
+
+team_value_plt
+
+#can maybe subset this graph for teams under and over .500
+#could do this across multiple years to find 'who toils in obscurity' the most.
+```
+
+```{r}
+players_per_non_pitcher_win <- player_value_to_team %>%
+  group_by(Team) %>%
+  summarize(hitters_per_win = n() / sum(WAR)) %>%
+  arrange(desc(hitters_per_win))
+```
