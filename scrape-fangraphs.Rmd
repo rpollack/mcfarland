@@ -12,7 +12,135 @@ library(ggplot2)
 library(magrittr)
 library(XML)
 library(plotly)
+library(RMySQL)
 library(readr)
+```
+
+
+
+
+```{r}
+
+fg_players <- fg_db %>%
+  tbl("player_info") %>%
+  collect(n=Inf)
+
+fg_bat <- fg_db %>%
+  tbl("stats_batting") %>%
+  collect(n=Inf)
+
+fg_pitch <- fg_db %>%
+  tbl("stats_pitching") %>%
+  collect(n=Inf)
+
+fg_merged <- inner_join(fg_players, fg_bat, by=c("PlayerId" = "playerid"))
+
+
+
+
+totals <- fg_merged %>%
+  filter(Type==-1)
+
+num_players <- nrow(totals)
+
+#TASKS:
+# re-compute p(e) (prob. that a player will make HOF)
+#for each player:
+#   --- find cumulative WAR through their current age --- 
+#   calculate probability that, given HOF, they accumulated that WAR through that age (this is p(e|b))
+#   calculate the probability that any player will accumulate that WAR though that age (this is p|b) 
+#       # of players who were within (num_seasons * 2) WAR at that age  / (done) number of players who played seasons >= that age
+
+#find, for each age, the number of players who played at that age and past it.
+num_players_at_each_age <- fg_merged %>%
+  filter(Type==0,
+         is.na(Age) == FALSE) %>%     #some folks don't have ages; ignore them
+  group_by(Age) %>%
+  summarize(num_players_at_age = n()) %>%
+  mutate(num_players_gte_age = lapply(Age, function(x){
+    return(sum(batting_fielding_war$Age >= x))
+  })) %>%
+  select(-num_players_at_age)
+
+batting_fielding_war <- fg_merged %>%
+  filter(Type==0) %>%
+  mutate(FullName = sprintf("%s %s", FirstName, LastName),
+         BattingFieldingWar = ValueW) %>%
+  select(PlayerId, FullName, Season, Age, BattingFieldingWar) %>%
+  group_by(PlayerId, FullName) %>%
+  arrange(Season) %>%
+  mutate(cumulative_war = cumsum(BattingFieldingWar)) %>%
+  filter(Age == max(Age)) %>%      #display only the player's most recent age
+  inner_join(num_players_at_each_age, by="Age")  #populate each age with the number of players who played at that age or past it
+
+#now, for each age/WAR combination, find the number of players within (# seasons * 2) WAR of it
+
+  
+  
+  
+num_players_at_each_age <- fg_merged %>%
+  filter(Type==0,
+         is.na(Age) == FALSE) %>%     #some folks don't have ages; ignore them
+  group_by(Age) %>%
+  summarize(num_players_at_age = n()) %>%
+
+
+
+  arrange(Age) %>%
+  mutate(total_players_through_this_age = cumsum(num_players_at_age))
+
+
+
+  mutate(num_players_at_age_or_greater = lapply(Age, function(x){
+              return(sum(Age >= x))
+            }))
+              
+              
+
+#num players with a season >= that age?
+
+
+  
+
+
+
+probs_hof <- lapply(batting_fielding_war, function(x){
+  #for each age, number of players who had a season >= that age
+  
+})
+
+
+
+
+sapply(types, function(x){
+      url <- sprintf("http://www.fangraphs.com/leaders.aspx?pos=np&stats=bat&lg=all&qual=0&type=%s&season=%s&month=0&season1=%s&ind=1&team=0&rost=0&age=0&filter=&players=0&page=1_%s", x, end_season, start_season, num_players)
+      out <- readHTMLTable(url, stringsAsFactors = FALSE)
+      out <- as.data.frame(out$LeaderBoard1_dg1_ctl00)
+      }
+      ),
+    by=c("Name", "Team", "Season")
+
+calculate_bayes <- function(){
+  #find number of players who reached that age   
+} 
+
+#if we're looking at a 30 y.o player should we include totals for 35 yos?
+
+
+
+  summarize(num_seasons = n(),
+            first_year = min(Season),
+            last_year = max(Season),
+            total_war = sum(BattingWar),
+            war_per_season = total_war / num_seasons)
+
+
+#get cumulative WAR per age
+
+#filter out pitchers -- how?
+#identify Hall of Famers -- perhaps merge with Lahman HOF table
+#for active players get cumulative WAR per age
+
 ```
 
 ### Create lookup table
@@ -156,15 +284,35 @@ wrc_changers <- fg_data %>%
 
 #robbie grossman is having a great under-the-radar season ... legit improved bb% abd k%
 #leads league in FA_perc_increase 
+```
 
+```{r}
+got_fooled <- fg_data %>%
+  filter(PA >= 300) %>%
+  mutate(o_zone = 1 - Zone_perc,
+         prob_fool = O_Swing_perc * o_zone, #probability of both a pitch outside AND a swing
+         prob_no_fool = Z_Swing_perc * Zone_perc, #probability of swinging at a pitch INSIDE the zone
+         disc = prob_no_fool - prob_fool) %>%  
+  select(Name, Team, PA, Season, ISO, prob_fool, prob_no_fool, disc) %>%
+  filter(Season == 2016) %>%
+  group_by(Team) %>%
+  summarize(mean_fool = mean(prob_fool),
+            mean_no_fool = mean(prob_no_fool),
+            mean_disc = round(mean(disc, na.rm = TRUE), 3),
+            mean_ISO = round(mean(ISO), 3))
 
+ggplot(got_fooled, aes(x=mean_fool, y=mean_no_fool)) + geom_point() + geom_text(aes(label=Team), hjust=0, vjust=0) + labs(x="Probability of Pitch Outside Zone + Swing", y="Probability of Pitch Inside Zone + Swing") + ggtitle("Team Plate Discipline, 2016 (Non-Traded Players Only)") 
+```
+
+```{r}
 discipline_changes <- fg_data %>%
-  mutate(z_minus_o_swing = Z_Swing_perc - O_Swing_perc) %>%
+  filter(PA >= 300) %>%
+  mutate(discipline_diff = Z_Swing_perc - O_Swing_perc) %>%
+  select(Name, Team, Season, PA, discipline_diff) %>%
   group_by(Name) %>%
   arrange(Season) %>%
-  filter(G > 100) %>%
-  select(Name, Season,PA, z_minus_o_swing, Z_Swing_perc, O_Swing_perc) %>%
-  mutate(change = z_minus_o_swing - lag(z_minus_o_swing))
+  mutate(change = discipline_diff - lag(discipline_diff)) %>%
+  filter(Season == 2016)
 
 contact_changes <- fg_data %>%
   group_by(Name) %>%
@@ -197,6 +345,8 @@ FA_changes <- fg_data %>%
 
 ```
 
+### Calculate position-players' percentage of their team's position-player WAR
+
 ```{r}
 player_value_to_team <- fg_data %>%
   filter(Season == 2016, Team != "- - -") %>%
@@ -215,11 +365,4 @@ team_value_plt
 
 #can maybe subset this graph for teams under and over .500
 #could do this across multiple years to find 'who toils in obscurity' the most.
-```
-
-```{r}
-players_per_non_pitcher_win <- player_value_to_team %>%
-  group_by(Team) %>%
-  summarize(hitters_per_win = n() / sum(WAR)) %>%
-  arrange(desc(hitters_per_win))
 ```
