@@ -1,0 +1,122 @@
+---
+title: "brewers-steals-2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(readr)
+library(ggplot2)
+
+```
+
+
+
+
+
+
+Three trends define baseball in 2016. Home runs are up [http://www.espn.com/mlb/story/_/id/17109063/the-mlb-home-run-explosion-2016-juiced-baseballs-blame]. Strikeouts are also up [http://www.fangraphs.com/leaders.aspx?pos=all&stats=bat&lg=all&qual=0&type=8&season=2016&month=0&season1=2010&ind=0&team=0,ss&rost=0&age=0&filter=&players=0&sort=9,d]. Stolen base attempts are down. [http://www.sportsonearth.com/article/169289786/stolen-bases-are-few-in-mlb] 
+
+
+
+
+###
+
+The Milwaulkee Brewers are about to make history. In a year where the average team attempts 0.72 steals per game, the lowest rate since 1971, they're running at nearly twice that rate:
+
+```{r}
+steals_2016 <- full_data %>%
+  filter(Season == 2016) %>%
+  arrange(desc(attempts_per_g_minus)) %>%
+  select(Team, attempts_per_g_minus) %>%
+  write_csv("2016_team_steals.csv")
+```
+
+This relative rate would be the highest in baseball since the 1992 version of the team, the one that featured Pat Listach running 72 times, Paul Molitor's 37 attempts, and Greg Vaughn's 30 attempts. It would also be the 9th-highest of any team in the past 66 years:
+
+```{r}
+#leaderboard, attempts-per-game minus since 1951
+leaderboard <- full_data %>%
+  select(Season, Team, attempts_per_g_minus) %>%
+  arrange(desc(attempts_per_g_minus)) %>%
+  top_n(20) %>%
+  write_csv("attempts-per-game-leaderboard.csv")
+```
+
+With 66 attempts and counting, Jonathan Villar is driving the team's aggression on the basepaths. He arrived with the Brewers last season after three forgettable years with the Astros. He switch-hits and teased some power there but struck out too much, and walked too infrequently, to be worth investing in. Plus, Carlos Correa was knocking on the door of the majors.
+
+When Correa made an immediate impact in the big leagues, Villar was trade bait. Luckily, his former assistant GM in Houston was now the GM in Milwaulkee. David Stearns snapped up Villar and sent his own shortstop, Jean Segura, to the Diamondbacks a few months later.
+
+Villar responded to the trade with seeming vigor. He cut down on his swing rate and laid off more pitches out of the strike zone than ever before. As a result, his walk rate shot up to 11.3%, bringing it on par with that of Kris Bryant and Anthony Rizzo.
+
+But more importantly, Villar's improved discipline puts him on base far more often than in Houston. His OBP jumped from .339 to .377, setting up one steal situation after another. And Villar's taken advantage, attempting more steals per game than any qualified hitter not named Billy Hamilton:
+
+```{r}
+players_2016 <- read_csv("~/Downloads/2016-batters.csv")
+colnames(players_2016)[1] <- "Name"
+
+players_2 <- players_2016 %>%
+  select(Name, Team, G, SB, CS) %>%
+  filter(G > 60) %>%
+  mutate(attempts = SB + CS,
+         attempts_per_g = round(attempts / G, 2),
+         attempts_per_g_minus = round(100 * (attempts_per_g / 0.7213662), 0),
+         lg_success_rate = mean(SB) / (mean(SB) + mean(CS)),
+         success_rate = SB / (SB + CS),
+         success_rate_minus = round(100 * success_rate / lg_success_rate, 0)) %>%
+  arrange(desc(attempts_per_g)) %>%
+  select(Name, attempts_per_g) %>%
+  top_n(20) %>%
+  write_csv("2016-players-attempts.csv")
+```
+
+Whereas Hamilton has Brandon Phillips (15 attempts) Jose Peraza (14 attempts) for teammates, Villar has Hernan Perez (30 attempts) and Keon Broxton (20 attempts) backing him up. Heck, even Ryan Braun has 17 attempts. That's how you run your team into the history books.
+
+Perez is another curiosity. A mid-2015 waiver claim from Detroit, his .302 OBP limits the damage he can do on the bases. But his 30 attempts this year are 23 more than he had in three and a half seasons in Detroit. Someone must've turned him loose. See Jeff's article [http://www.fangraphs.com/blogs/chalk-up-another-brewers-buy-low-success/] for some more good information about Perez. 
+
+That's why I wonder about the effect Carlos Subero's had on the team. Subero is the first-year first base and infield coach with the Brewers, having previously managed the Brewers' Double-A affiliate. I can't find any evidence of his involvement in a new philosophy of stealing bases. Perhaps Subero is better at noticing subtles in pitchers' motions, advising his baserunners on when to bolt, or both. What I do know is that on Stearns' first day on the job last offseason, he fired five coaches, including the first-base coach Mike Guerrero. That sounds like a shift in philosophy to me.
+
+Whatever this new philosophy is, it's working. Villar has only a 75.7% success rate but ranks fourth in baseball with +3.1 weighted stolen base runs [http://www.fangraphs.com/leaders.aspx?pos=all&stats=bat&lg=all&qual=y&type=1&season=2016&month=0&season1=2016&ind=0&team=0&rost=0&age=0&filter=&players=0&sort=16,d]. When combined with his larcenous teammates, the Brewers lead baseball with +9 stolen base runs [http://www.fangraphs.com/leaders.aspx?pos=all&stats=bat&lg=all&qual=0&type=1&season=2016&month=0&season1=2016&ind=0&team=0,ts&rost=0&age=0&filter=&players=0&sort=15,d].
+
+[[[conclusion]]]
+
+
+
+Carlos Subero!
+
+
+```{r}
+# Calculate league-average attempts/g
+team_data <- read_csv("~/Downloads/leagues_MLB_bat_teams_standard_batting_totals.csv") 
+#csv from baseball-reference: http://www.baseball-reference.com/leagues/MLB/bat.shtml "League Y-b-Y Batting: Totals"
+
+lg_sb_data <- team_data %>%
+  select(Season, G, SB, CS) %>%
+  mutate(attempts = SB + CS,
+         lg_attempts_per_g = attempts / G) %>%
+  filter(Season >= 1920)
+
+
+plt <- ggplot(data=lg_sb_data, aes(x=Season, y=lg_attempts_per_g)) + geom_line() + geom_point() + ggtitle("Teams' Attempted Steals per Game, 1920-2016") + labs(y="Attempted Steals per Game")
+plt_lg_attempts <- ggplotly(plt)
+
+
+#calculate per-team attempts/g since 1951
+team_sb <- read_csv("~/Downloads/team-base-stealing.csv") #fangraphs leaderboards
+colnames(team_sb)[1] <- "Season"
+team_games_played <- read_csv("~/Downloads/team-games-played.csv")  #'gs' column from Pitching leaderboards
+colnames(team_games_played)[1] <- "Season"
+
+full_data <- inner_join(team_games_played, team_sb, by=c("Season", "Team")) %>%
+  select(Season, Team, GS, SB, CS) %>%
+  mutate(attempts = SB + CS,
+         attempts_per_g = attempts/GS) %>%
+  inner_join(lg_sb_data, by="Season") %>%
+  mutate(attempts_per_g_minus = round(100 * attempts_per_g / lg_attempts_per_g, 0))
+
+
+
+
+
+```
