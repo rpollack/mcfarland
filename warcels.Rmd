@@ -10,38 +10,7 @@ library(rvest)
 
 ```
 
-#Define function to scrape BB-ref URL and return the years of control for each player
-
-```{r}
-get_years_of_control <- function(url){
-  
-  payroll <- url %>%
-  read_html() %>%
-  html_nodes(xpath = "//*[@id='payroll']") %>%
-  html_table(header=TRUE) %>%
-  as.data.frame()
-  
-  colnames(payroll) <- gsub("X", "", colnames(payroll))  #fix 'X' in column names
-  
-  years_of_control <- payroll %>%
-    mutate(Age = as.integer(Age)) %>%
-    filter(Age > 0)
-
-#found this on stack overflow somewhere
-  tmp <- which(years_of_control=="FA", arr.ind=TRUE)
-  cnt <- ave(tmp[,"row"], tmp[,"row"], FUN=seq_along)
-  maxnames <- paste0("fa_year",sequence(max(cnt)))
-  years_of_control[maxnames] <- NA
-  years_of_control[maxnames][cbind(tmp[,"row"],cnt)] <- names(years_of_control)[tmp[,"col"]]
-  
-  years_of_control %<>%
-    mutate(years_until_fa = ifelse(is.na(fa_year1) == FALSE, as.integer(fa_year1) - 2017, 5),
-           years_until_fa = ifelse(years_until_fa > 5, 5, years_until_fa)) %>%  #cap the value of this column at 5
-    select(Name, years_until_fa)
-  
-  return(years_of_control)
-}
-```
+# Get the current team each player is on
 
 ```{r}
 fg_bat_all_stints <- fg_db %>%
@@ -49,11 +18,6 @@ fg_bat_all_stints <- fg_db %>%
   inner_join(tbl(fg_db, "player_info"), by="playerid") %>%
   collect(n=Inf)
 
-```
-
-# Get the current team each player is on
-
-```{r}
 current_teams <- fg_bat_all_stints %>%
   group_by(playerid, Season) %>%
   filter(Type == max(Type),
@@ -66,7 +30,7 @@ current_teams <- fg_bat_all_stints %>%
 ```
 
 
-# Project five-year WAR for  players (source: http://tangotiger.com/index.php/site/article/war-marcels-...-warcels)
+# For each team, compute the avg. length they control their current roster and the amount of WAR under this control
 
 ```{r}
 
@@ -108,7 +72,7 @@ fg_batters_project <- fg_batters %>%
   group_by(FullName) %>%
   arrange(Season) %>%
   
-  #project war under team control using tango's method
+  #project war under team control using tango's method: http://tangotiger.com/index.php/site/article/war-marcels-...-warcels
   mutate(age_now = this_year - as.integer(birth_year),
          age_next_year = age_now + 1, 
          age_in_two_years = age_now + 2,
@@ -164,56 +128,8 @@ ggplot(data=team_war, aes(years_of_control, war_under_control, label=Team.y)) + 
 
 ```
 
-#Get years of control for all players on team
 
-```{r}
-
-#scrape from baseball-ref
-team_ids <- c("BAL", "TOR")
-
-next_year <- 2017
-
-derp <- plyr::join_all(sapply(team_ids, function(x){
-  url <- sprintf("http://www.baseball-reference.com/teams/%s/2016-payroll-salaries.shtml", x)
-  
-  payroll <- url %>%
-  read_html() %>%
-  html_nodes(xpath = "//*[@id='payroll']") %>%
-  html_table(header=TRUE) %>%
-  as.data.frame()
-  
-  colnames(payroll) <- gsub("X", "", colnames(payroll))  #fix 'X' in column names
-  
-  years_of_control <- payroll %>%
-    mutate(Age = as.integer(Age)) %>%
-    filter(Age > 0)
-
-  #found this on stack overflow somewhere. find the column where 'FA' is present.
-  tmp <- which(years_of_control=="FA", arr.ind=TRUE)
-  cnt <- ave(tmp[,"row"], tmp[,"row"], FUN=seq_along)
-  maxnames <- paste0("fa_year",sequence(max(cnt)))
-  years_of_control[maxnames] <- NA
-  years_of_control[maxnames][cbind(tmp[,"row"],cnt)] <- names(years_of_control)[tmp[,"col"]]
-  
-  #compute years of control remaining for each player
-  out <- years_of_control %<>%
-    mutate(years_until_fa = ifelse(is.na(fa_year1) == FALSE, as.integer(fa_year1) - next_year, 5),
-           years_until_fa = ifelse(years_until_fa > 5, 5, years_until_fa)) %>%  #cap the value of this column at 5
-    select(Name, years_until_fa)
- 
-  #fix warnings: Error: All inputs to rbind.fill must be data.frames
-
-    
-}
-),
-by="Name")
-
-
-
-```
-
-
-#for each team id, go to the following url: http://www.baseball-reference.com/teams/%s/2016-payroll-salaries.shtml
+# Pitcher projections
 
 ```{r}
 fg_pitchers_project <- fg_pitchers %>%
