@@ -32,6 +32,15 @@ current_teams <- fg_bat_all_stints %>%
 
 # For each team, compute the avg. length they control their current roster and the amount of WAR under this control
 
+notes: 
+* position players only.
+* players with < 3 years in the majors get 0 WAR computed for years they weren't in the league. affects guys like Kris Bryant.
+* free agents (and retirees like Teixeira, A-Rod, and Ortiz) are filtered out. so are the few who've signed with a new team. neil walker remains with the Mets though b/c he accepted a qualifying offer.
+* players are assigned to the team they ended 2016 with.
+* FA computations assume all options are picked up. e.g. starlin castro is given 4 years of control even though he has three years remaining before his $16 team option in 2020.
+* players who are under contract for longer than 5 years are, for the purposes of this exercise, give 5 years of team control. this is because i only projected WAR out for 5 years.
+
+
 ```{r}
 
 this_year <- 2016
@@ -100,15 +109,6 @@ fg_batters_project <- fg_batters %>%
   inner_join(current_teams, by=c("PlayerId" = "playerid")) %>%
   select(FullName, Team.y, years_of_control, war_under_control) %>%
   arrange(desc(war_under_control))
-
-
-#notes: 
-#position players only.
-#players with < 3 years in the majors get 0 WAR computed for years they weren't in the league. affects guys like Kris Bryant.
-#free agents (and retirees like Teixeira, A-Rod, and Ortiz) are filtered out. so are the few who've signed with a new team. neil walker remains with the Mets though b/c he accepted a qualifying offer.
-#players are assigned to the team they ended 2016 with.
-#FA computations assume all options are picked up. e.g. starlin castro is given 4 years of control even though he has three years remaining before his $16 team option in 2020.
-#players who are under contract for longer than 5 years are, for the purposes of this exercise, give 5 years of team control. this is because i only projected WAR out for 5 years.
 
 
 team_war <- fg_batters_project %>%
