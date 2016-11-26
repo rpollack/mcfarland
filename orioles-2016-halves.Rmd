@@ -1,0 +1,67 @@
+---
+title: "orioles-2016-halves"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# get data
+
+```{r}
+splits_table <- fg_db %>%
+  tbl("splits_batting") %>%
+  collect(n=Inf)
+
+
+teams_lookup <- fg_db %>%
+  tbl('season_team') %>%
+  filter(Season == 2016) %>%
+  select(TeamId, AbbName) %>%
+  collect(n=Inf)
+
+
+player_info <- fg_db %>%
+  tbl("player_info") %>%
+  collect(n=Inf)
+
+```
+
+#Compute offense drops for each player, then summarize by team
+
+```{r}
+offense_change_2016 <- splits_table %>%
+  inner_join(player_info, by="PlayerId") %>%      
+  filter(Position != "P",                    #don't care about pitchers' offense
+         BISPosition != "SP",
+         BISPosition != "RP") %>%
+  mutate(Name = sprintf("%s %s", FirstName, LastName)) %>%
+  filter(Season == 2016,
+         Split=="1st Half" | Split=="2nd Half",
+         PA >= 150) %>%                      #look at players with only 150 PA in each half
+  group_by(Name) %>%
+  arrange(Split) %>%
+  mutate(offense_change = round(`wRC+` - lag(`wRC+`), 0)) %>%
+  inner_join(teams_lookup, by="TeamId") %>%
+  ungroup() %>%
+  mutate(mlb_rank = round(percent_rank(offense_change), 2) * 100) %>%
+  select(Name, Team = AbbName, Split, wRC_plus = `wRC+`, offense_change, mlb_rank) %>%
+  arrange(offense_change)
+
+#create table of Orioles players only
+bal_offense_change <- offense_change_2016 %>%
+  filter(Team == "BAL",
+         Split == "2nd Half") %>%
+  select(-Split) %>%
+  arrange(offense_change)
+
+team_offense_change <- offense_change_2016 %>%
+  group_by(Team, Split) %>%
+  summarize(offense = round(mean(wRC_plus), 0)) %>%
+  mutate(offense_change = offense - lag(offense)) %>%
+  filter(is.na(offense_change) == FALSE) %>%
+  arrange(offense_change)
+```
+
+
