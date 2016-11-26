@@ -1,0 +1,242 @@
+---
+title: "warcels"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(rvest)
+
+```
+
+#Define function to scrape BB-ref URL and return the years of control for each player
+
+```{r}
+get_years_of_control <- function(url){
+  
+  payroll <- url %>%
+  read_html() %>%
+  html_nodes(xpath = "//*[@id='payroll']") %>%
+  html_table(header=TRUE) %>%
+  as.data.frame()
+  
+  colnames(payroll) <- gsub("X", "", colnames(payroll))  #fix 'X' in column names
+  
+  years_of_control <- payroll %>%
+    mutate(Age = as.integer(Age)) %>%
+    filter(Age > 0)
+
+#found this on stack overflow somewhere
+  tmp <- which(years_of_control=="FA", arr.ind=TRUE)
+  cnt <- ave(tmp[,"row"], tmp[,"row"], FUN=seq_along)
+  maxnames <- paste0("fa_year",sequence(max(cnt)))
+  years_of_control[maxnames] <- NA
+  years_of_control[maxnames][cbind(tmp[,"row"],cnt)] <- names(years_of_control)[tmp[,"col"]]
+  
+  years_of_control %<>%
+    mutate(years_until_fa = ifelse(is.na(fa_year1) == FALSE, as.integer(fa_year1) - 2017, 5),
+           years_until_fa = ifelse(years_until_fa > 5, 5, years_until_fa)) %>%  #cap the value of this column at 5
+    select(Name, years_until_fa)
+  
+  return(years_of_control)
+}
+```
+
+```{r}
+fg_bat_all_stints <- fg_db %>%
+  tbl("stats_batting") %>%
+  inner_join(tbl(fg_db, "player_info"), by="playerid") %>%
+  collect(n=Inf)
+
+```
+
+# Get the current team each player is on
+
+```{r}
+current_teams <- fg_bat_all_stints %>%
+  group_by(playerid, Season) %>%
+  filter(Type == max(Type),
+         Type >= 0,
+         Season == 2016,
+         Position != "P",             #don't get batting WAR for pitchers
+         BISPosition != "SP",
+         BISPosition != "RP") %>%
+  select(playerid, FirstName, LastName, Season, Team, Type)
+```
+
+
+# Project five-year WAR for  players (source: http://tangotiger.com/index.php/site/article/war-marcels-...-warcels)
+
+```{r}
+
+this_year <- 2016
+next_year <- this_year + 1
+payrolls <- read_csv("all_teams_payroll.csv")
+
+#need to get year that player is a free agent.
+#for many this is already spec'd out
+
+#if value is FA, take the Year. if Value is pre-arb3, take year + 4. Arb-1, take Year + 3. Arb-2, take year + 2. Arb-3, take Year + 1. 
+
+fg_batters_project <- fg_batters %>%
+  mutate(FullName = sprintf("%s %s", FirstName, LastName),
+         birth_date = as.Date(as.POSIXct(BirthDate)),
+         birth_year = format(birth_date, "%Y")) %>%
+  
+  #filter out free agents and retirees so their WAR isn't assigned to a team
+  filter(!FullName %in% c("Yoenis Cespedes", "Justin Turner", "Edwin Encarnacion", "Mark Trumbo",
+                          "Jose Bautista", "Matt Wieters", "Dexter Fowler", "Ian Desmond", "Wilson Ramos",
+                          "Josh Reddifg_dbck", "Carlos Gomez", "Jason Castro", "Michael Saunders", "Mike Napoli",
+                          "Kendrys Morales", "Luis Valbuena", "Carlos Beltran", "Sean Rodriguez", "Jon Jay",
+                          "Matt Holliday", "Steve Pearce", "Matt Joyce", "Nick Hundley", "Chase Utley",
+                          "Daniel Descalso", "Mitch Moreland", "Rajai Davis", "Pedro Alvarez", "Angel Pagan",
+                          "Adam Lind", "Colby Rasmus", "Kurt Suzuki", "David Ortiz", "Mark Teixeira", "Coco Crisp", 
+                          "Chris Heisey", "Aaron Hill", "Drew Stubbs", "Gevany Soto", "Dustin Ackley",
+                          "Oswaldo Arcia", "Alex Avila", "Erick Aybar", "Gordon Beckham", "Michael Bourn",
+                          "Billy Butler", "Marlon Byrd", "Logan Morrison", "Mark Reynolds", "Stephen Drew",
+                          "Kevin Frandsen", "Sean Rodriguez", "Tyler Pastornicky", "Adam Rosales", "Alex Rodriguez")) %>%
+
+  #compute years of control remaining, limited to 5 years
+  inner_join(payrolls, by=c("FullName" = "Name"), c("Team.y" = "Team")) %>%
+  mutate(years_of_control = ifelse(value == "Pre-Arb3", (Year + 4) - next_year,
+                                   ifelse(value == "Arb-1", (Year + 3) - next_year,
+                                          ifelse(value == "Arb-2", (Year + 2) - next_year,
+                                                 ifelse(value == "Arb-3", (Year + 1) - next_year,
+                                                        ifelse(value=="FA", Year - next_year, 5))))),
+         years_of_control = ifelse(years_of_control > 5, 5, years_of_control)) %>%   #limit to 5 for this exercise
+  group_by(FullName) %>%
+  arrange(Season) %>%
+  
+  #project war under team control using tango's method
+  mutate(age_now = this_year - as.integer(birth_year),
+         age_next_year = age_now + 1, 
+         age_in_two_years = age_now + 2,
+         age_in_three_years = age_now + 3,
+         age_in_four_years = age_now + 4,
+         currentWAR = ifelse(is.na(ValueW) == FALSE, ValueW, 0),  #players w/o appearances in a season get 0 WAR for that year
+         war_last_year = ifelse(is.na(lag(ValueW)) == FALSE, lag(ValueW), 0),
+         war_two_years_ago = ifelse(is.na(lag(ValueW, 2)) == FALSE, lag(ValueW, 2), 0),
+         step1 = (0.6 * currentWAR) + (0.3 * war_last_year) + (0.1* war_two_years_ago),
+         war_next = round((0.8 * step1) + ((30 - age_now) * 0.1), 1),
+         war_in_two_years = round(war_next - 0.4 + ((30-age_next_year) * .08), 1),
+         war_in_three_years = round(war_in_two_years - 0.4 + ((30-age_in_two_years) * .03), 1),
+         war_in_four_years = round(war_in_three_years - 0.4 + ((30-age_in_three_years) * .03), 1),
+         war_in_five_years = round(war_in_four_years - 0.4 + ((30-age_in_four_years) * .03), 1),
+         war_under_control = 
+           round(ifelse(years_of_control == 1, war_next,
+                  ifelse(years_of_control == 2, war_next + war_in_two_years,
+                         ifelse(years_of_control == 3, war_next + war_in_two_years + war_in_three_years,
+                                ifelse(years_of_control == 4, war_next + war_in_two_years + war_in_three_years + war_in_four_years,
+                                       war_next + war_in_two_years + war_in_three_years + war_in_four_years + war_in_five_years))))
+                 , 1))%>%
+  filter(Season == max(Season)) %>%    #get only the latest projections
+  
+  #put players on the team they ended 2016 with
+  inner_join(current_teams, by=c("PlayerId" = "playerid")) %>%
+  select(FullName, Team.y, years_of_control, war_under_control) %>%
+  arrange(desc(war_under_control))
+
+
+#notes: 
+#position players only.
+#players with < 3 years in the majors get 0 WAR computed for years they weren't in the league. affects guys like Kris Bryant.
+#free agents (and retirees like Teixeira, A-Rod, and Ortiz) are filtered out. so are the few who've signed with a new team. neil walker remains with the Mets though b/c he accepted a qualifying offer.
+#players are assigned to the team they ended 2016 with.
+#FA computations assume all options are picked up. e.g. starlin castro is given 4 years of control even though he has three years remaining before his $16 team option in 2020.
+#players who are under contract for longer than 5 years are, for the purposes of this exercise, give 5 years of team control. this is because i only projected WAR out for 5 years.
+
+
+team_war <- fg_batters_project %>%
+  group_by(Team.y) %>%
+  summarize(num_players= n(),
+            war_under_control = sum(war_under_control),
+            years_of_control = round(mean(years_of_control), 2)) %>%
+  mutate(war_under_control_per_year = round(war_under_control / years_of_control, 1),
+         war_per_player_per_year = round(war_under_control / num_players / years_of_control, 2))
+
+ggplot(data=team_war, aes(years_of_control, war_under_control, label=Team.y)) + geom_point() + geom_text(aes(label=Team.y),hjust=0, vjust=0) + labs(x="avg. years of control (position players only; 5 max)") + ggtitle("Avg. Length of Control vs. How Much WAR they Control, Position Players") + xlim(3,5)
+
+
+
+
+#format should be: team | season | war. in order to do this, should have player | team | season | war in fg_batters_project.
+
+```
+
+#Get years of control for all players on team
+
+```{r}
+
+#scrape from baseball-ref
+team_ids <- c("BAL", "TOR")
+
+next_year <- 2017
+
+derp <- plyr::join_all(sapply(team_ids, function(x){
+  url <- sprintf("http://www.baseball-reference.com/teams/%s/2016-payroll-salaries.shtml", x)
+  
+  payroll <- url %>%
+  read_html() %>%
+  html_nodes(xpath = "//*[@id='payroll']") %>%
+  html_table(header=TRUE) %>%
+  as.data.frame()
+  
+  colnames(payroll) <- gsub("X", "", colnames(payroll))  #fix 'X' in column names
+  
+  years_of_control <- payroll %>%
+    mutate(Age = as.integer(Age)) %>%
+    filter(Age > 0)
+
+  #found this on stack overflow somewhere. find the column where 'FA' is present.
+  tmp <- which(years_of_control=="FA", arr.ind=TRUE)
+  cnt <- ave(tmp[,"row"], tmp[,"row"], FUN=seq_along)
+  maxnames <- paste0("fa_year",sequence(max(cnt)))
+  years_of_control[maxnames] <- NA
+  years_of_control[maxnames][cbind(tmp[,"row"],cnt)] <- names(years_of_control)[tmp[,"col"]]
+  
+  #compute years of control remaining for each player
+  out <- years_of_control %<>%
+    mutate(years_until_fa = ifelse(is.na(fa_year1) == FALSE, as.integer(fa_year1) - next_year, 5),
+           years_until_fa = ifelse(years_until_fa > 5, 5, years_until_fa)) %>%  #cap the value of this column at 5
+    select(Name, years_until_fa)
+ 
+  #fix warnings: Error: All inputs to rbind.fill must be data.frames
+
+    
+}
+),
+by="Name")
+
+
+
+```
+
+
+#for each team id, go to the following url: http://www.baseball-reference.com/teams/%s/2016-payroll-salaries.shtml
+
+```{r}
+fg_pitchers_project <- fg_pitchers %>%
+  mutate(FullName = sprintf("%s %s", FirstName, LastName),
+         birth_date = as.Date(as.POSIXct(BirthDate)),
+         birth_year = format(birth_date, "%Y"),
+         age_now = this_year - as.integer(birth_year),
+         age_next_year = age_now + 1, 
+         age_in_two_years = age_now + 2,
+         age_in_three_years = age_now + 3,
+         age_in_four_years = age_now + 4) %>%
+  group_by(FullName) %>%
+  arrange(Season) %>%
+  mutate(step1 = (0.6 * ValueW) + (0.3 * lag(ValueW)) + (0.1* lag(ValueW, 2)),
+         step2 = 0.8 * step1,
+         war_next = round(step2 + ((26 - age_now) * 0.1), 1),
+         war_in_two_years = war_next - 0.4,
+         war_in_three_years = war_in_two_years - 0.4,
+         war_in_four_years = war_in_three_years - 0.4,
+         war_in_five_years = war_in_four_years - 0.4,
+         five_year_war = war_next + war_in_two_years + war_in_three_years + war_in_four_years + war_in_five_years) %>%
+  filter(Season == max(Season)) %>%
+  select(FullName, Team, five_year_war, age_now, war_next, war_in_two_years, war_in_three_years, war_in_four_years, war_in_five_years) %>%
+  arrange(desc(five_year_war))
+```
+
