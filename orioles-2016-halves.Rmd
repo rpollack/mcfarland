@@ -5,6 +5,10 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(ggplot2)
+library(RMySQL)
 ```
 
 # get data
@@ -45,16 +49,26 @@ offense_change_2016 <- splits_table %>%
   mutate(offense_change = round(`wRC+` - lag(`wRC+`), 0)) %>%
   inner_join(teams_lookup, by="TeamId") %>%
   ungroup() %>%
-  mutate(mlb_rank = round(percent_rank(offense_change), 2) * 100) %>%
-  select(Name, Team = AbbName, Split, wRC_plus = `wRC+`, offense_change, mlb_rank) %>%
-  arrange(offense_change)
+  #filter(is.na(offense_change) == FALSE) %>%
+  arrange(desc(offense_change)) %>%
+  mutate(mlb_rank = round(percent_rank(offense_change) * 100, 0)) %>%
+  select(Name, Team = AbbName, Split, wRC_plus = `wRC+`, offense_change, mlb_rank)
+
 
 #create table of Orioles players only
 bal_offense_change <- offense_change_2016 %>%
   filter(Team == "BAL",
-         !Name %in% "Michael Bourn") %>%
-  select(-Split) %>%
+         !Name %in% "Michael Bourn",
+         is.na(offense_change) == FALSE) %>%
+  select(Name, offense_change, mlb_rank) %>%
   arrange(offense_change)
+
+
+team_first_half <- offense_change_2016 %>%
+  filter(Split=="1st Half") %>%
+  group_by(Team) %>%
+  summarize(offense=round(mean(wRC_plus), 0)) %>%
+  arrange(desc(offense))
 
 team_offense_change <- offense_change_2016 %>%
   group_by(Team, Split) %>%
@@ -63,5 +77,35 @@ team_offense_change <- offense_change_2016 %>%
   filter(is.na(offense_change) == FALSE) %>%
   arrange(offense_change)
 ```
+
+
+Intro
+
+If you watched Orioles baseball in the first half of 2016, you were likely screaming at the TV in joy. Despite its pitching woes, the team's offense stomped opponents into the ground with a 112 wRC+, second-highest in baseball behind the Red Sox. The sky was the limit as the team finished the first half at 51-36.
+
+If you watched Orioles baseball in the second half of 2016, you were likely screaming at the TV in frustration. Despite some modest pitching success, the team's offense curled up in a ball and died, managing a measly 88 wRC+, 5th-worst in baseball. The bottom fell out quickly as the team finished 89-73.  
+
+Looking at regular players only, Baltimore's wRC+ dropped over 20% between halves, representing the third-largest drop in the sport:
+
+```{r}
+ggplot(data=team_offense_change, aes(x=reorder(Team, -offense_change), y=offense_change)) + geom_bar(stat="identity") + coord_flip() + labs(y="2nd Half wRC+ - 1st Half wRC+ (% of runs above average)", x="Team") + ggtitle("2016 Offense, 2nd Half vs. 1st Half (Regular Players Only)")
+
+```
+
+For those of us who watched plenty of Orioles baseball in the second half of the season, this chart represents how we felt watching the team struggle and scrape to score runs. Five Orioles regulars ranked in the 25% largest offensive drops, 574 regular players. That's not a list you want to rank highly on.
+
+[[table -- bal_offense_changes]]
+
+Jonthan Schoop led the team's decline (and nearly led all of MLB) with a 58-point drop, 8th-most in the sport and worse than 96% of major leaguers. His offense cratered from a sparkling 124 wRC+ in the first half to an abysmal 66 after the All Star Break. Looking back, we should have seen this coming. His BABIP in the first half was .348, against a career mark of .292. The fall was just waiting to happen, and as Elie Waitzer predicted [http://camdendepot.blogspot.com/2016/06/jonathan-schoop-is-breaking-obp.html] in June, it did: all the way down to .255.
+
+That's not all. Schoop's plate discipline skills, which aren't good to begin with, deteriorated as the season progressed. His walk rate dropped 1.1 percentage points while his strikeout rate rose by 2.1 points. His ISO dropped as well, from a robust .206 to a more-average .166. 2015 holds no clues; although Schoop declined between halves that year, he spent most of the first half on the DL, making those numbers suspect. Instead, look to 2014, where Schoop improved across the board from the first half to the second half. 
+
+Mark Trumbo followed behind Schoop with a 46-point drop in wRC+, worse than 90% of regular major leaguers. His BABIP dropped even more sharply, from a high-but-reasonable .327 to an unplayable .216. His ISO also dropped about 40 points, from an immortal .294 to a very-dangerous .256. But unlike Schoop, Trumbo's plate discipline got *better*; his walk rate rose 1.7 points while his strikeout rate dropped 2.1 points. He may simply have been unlucky.
+
+Manny Machado ranks next. Matt Kremnitzer covered him already [http://camdendepot.blogspot.com/2016/11/what-happened-to-manny-machado-in.html], so I'll turn to Hyun-Soo Kim. Kim's splits aren't very reliable; despite hitting well, he played only 95 games. But still, his offense dropped 37 points in the second half, worse than 83% of his peers.   
+
+*All data from FanGraphs*
+
+
 
 
