@@ -10,14 +10,26 @@ library(rvest)
 
 ```
 
-# Get the current team each player is on
+# Get data
 
 ```{r}
+
+fg_players <- fg_db %>%
+  tbl("player_info") %>%
+  collect(n=Inf)
+
+fg_bat <- fg_db %>%
+  tbl("stats_batting") %>%
+  filter(Type == 0) %>%     #get only full-season stats for each player
+  collect(n=Inf)
+
+fg_batters <- inner_join(fg_players, fg_bat, by=c("PlayerId" = "playerid"))
+
+#get current teams
 fg_bat_all_stints <- fg_db %>%
   tbl("stats_batting") %>%
   inner_join(tbl(fg_db, "player_info"), by="playerid") %>%
   collect(n=Inf)
-
 current_teams <- fg_bat_all_stints %>%
   group_by(playerid, Season) %>%
   filter(Type == max(Type),
@@ -47,10 +59,6 @@ this_year <- 2016
 next_year <- this_year + 1
 payrolls <- read_csv("all_teams_payroll.csv")
 
-#need to get year that player is a free agent.
-#for many this is already spec'd out
-
-#if value is FA, take the Year. if Value is pre-arb3, take year + 4. Arb-1, take Year + 3. Arb-2, take year + 2. Arb-3, take Year + 1. 
 
 fg_batters_project <- fg_batters %>%
   mutate(FullName = sprintf("%s %s", FirstName, LastName),

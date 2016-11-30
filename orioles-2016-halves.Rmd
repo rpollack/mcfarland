@@ -52,7 +52,7 @@ offense_change_2016 <- splits_table %>%
 #create table of Orioles players only
 bal_offense_change <- offense_change_2016 %>%
   filter(Team == "BAL",
-         Split == "2nd Half") %>%
+         !Name %in% "Michael Bourn") %>%
   select(-Split) %>%
   arrange(offense_change)
 
