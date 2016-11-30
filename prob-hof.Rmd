@@ -1,0 +1,198 @@
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+library(magrittr)
+library(XML)
+library(plotly)
+library(RMySQL)
+library(readr)
+library(Lahman)
+library(tidyr)
+```
+
+
+### Get HOF info from Lahman DB
+
+```{r}
+#select only HOF players from FG DB, using info from Lahman
+fg_ids <- fg_db %>%
+  tbl("playerid_lookup") %>%
+  collect(n=Inf)
+
+hof_inductees <- HallOfFame %>%
+  filter(inducted == "Y")
+
+hof_fg <- inner_join(fg_ids, hof_inductees, by= c("dbid" = "playerID"))
+
+```
+
+### Load data
+
+```{r}
+
+fg_players <- fg_db %>%
+  tbl("player_info") %>%
+  collect(n=Inf)
+
+fg_bat <- fg_db %>%
+  tbl("stats_batting") %>%
+  filter(Type == 0) %>%     #get only full-season stats for each player
+  collect(n=Inf)
+
+fg_pitch <- fg_db %>%
+  tbl("stats_pitching") %>%
+  filter(Type == 0) %>%   #get onyl full-season stats for each player
+  collect(n=Inf)
+
+
+
+#fg_all <- full_join(fg_merged, hof_fg, by=c("PlayerId" = "playerid")) %>%
+ # select(PlayerId, LastName, FirstName, Age, Season, ValueW, inducted)
+
+
+#batters
+fg_batters <- inner_join(fg_players, fg_bat, by=c("PlayerId" = "playerid"))
+
+#pitchers
+fg_pitchers <- inner_join(fg_players, fg_pitch, by=c("PlayerId"))
+
+```
+
+
+```{r}
+#for each age, find the number of players who had seasons at that age or later.
+num_players_at_each_age <- fg_all %>%
+  filter(is.na(Age) == FALSE) %>%     #some folks don't have ages; ignore them
+  group_by(Age) %>%
+  summarize(num_players_at_age = n()) %>%
+  mutate(num_players_gte_age = lapply(Age, function(x){
+    return(sum(fg_merged$Age >= x))
+  }))
+
+#bug: the above isn't working anymore. need to find, for each age, the number of players who had a season at or later than this age. I'll use this later to compute the probabilities of each player achieving X WAR by age Y.
+
+
+
+batting_fielding_war <- fg_all %>%
+  mutate(FullName = sprintf("%s %s", FirstName, LastName),
+         BattingFieldingWar = ValueW) %>%
+  select(PlayerId, FullName, Season, Age, BattingFieldingWar, inducted) %>%
+  group_by(PlayerId, FullName) %>%
+  arrange(Season) %>%
+  mutate(war_thru_age = cumsum(BattingFieldingWar)) %>%
+  arrange(FullName, Age)
+
+
+%>%
+  filter(Age == max(Age)) %>%      #display only the player's most recent age
+  inner_join(num_players_at_each_age, by="Age")  #populate each age with the number of players who played at that age or past it
+```
+
+
+totals <- fg_merged %>%
+  filter(Type==-1)
+
+num_players <- nrow(totals)
+
+#TASKS:
+# re-compute p(e) (prob. that a player will make HOF)
+#for each player:
+#   --- find cumulative WAR through their current age --- 
+#   calculate probability that, given HOF, they accumulated that WAR through that age (this is p(e|b))
+#   calculate the probability that any player will accumulate that WAR though that age (this is p|b) 
+#       # of players who were within (num_seasons * 2) WAR at that age  / (done) number of players who played seasons >= that age
+
+#find, for each age, the number of players who played at that age and past it.
+
+num_players_at_each_age <- fg_merged %>%
+  filter(Type==0,
+         is.na(Age) == FALSE) %>%     #some folks don't have ages; ignore them
+  group_by(Age) %>%
+  summarize(num_players_at_age = n()) %>%
+  mutate(num_players_gte_age = lapply(Age, function(x){
+    return(sum(batting_fielding_war$Age >= x))
+  })) %>%
+  select(-num_players_at_age)
+
+batting_fielding_war <- fg_merged %>%
+  filter(Type==0) %>%
+  mutate(FullName = sprintf("%s %s", FirstName, LastName),
+         BattingFieldingWar = ValueW) %>%
+  select(PlayerId, FullName, Season, Age, BattingFieldingWar) %>%
+  group_by(PlayerId, FullName) %>%
+  arrange(Season) %>%
+  mutate(cumulative_war = cumsum(BattingFieldingWar)) %>%
+  filter(Age == max(Age)) %>%      #display only the player's most recent age
+  inner_join(num_players_at_each_age, by="Age")  #populate each age with the number of players who played at that age or past it
+
+#now, for each age/WAR combination, find the number of players within (# seasons * 2) WAR of it
+
+  
+  
+  
+num_players_at_each_age <- fg_merged %>%
+  filter(Type==0,
+         is.na(Age) == FALSE) %>%     #some folks don't have ages; ignore them
+  group_by(Age) %>%
+  summarize(num_players_at_age = n()) %>%
+
+
+
+  arrange(Age) %>%
+  mutate(total_players_through_this_age = cumsum(num_players_at_age))
+
+
+
+  mutate(num_players_at_age_or_greater = lapply(Age, function(x){
+              return(sum(Age >= x))
+            }))
+              
+              
+
+#num players with a season >= that age?
+
+
+  
+
+
+
+probs_hof <- lapply(batting_fielding_war, function(x){
+  #for each age, number of players who had a season >= that age
+  
+})
+
+
+
+
+sapply(types, function(x){
+      url <- sprintf("http://www.fangraphs.com/leaders.aspx?pos=np&stats=bat&lg=all&qual=0&type=%s&season=%s&month=0&season1=%s&ind=1&team=0&rost=0&age=0&filter=&players=0&page=1_%s", x, end_season, start_season, num_players)
+      out <- readHTMLTable(url, stringsAsFactors = FALSE)
+      out <- as.data.frame(out$LeaderBoard1_dg1_ctl00)
+      }
+      ),
+    by=c("Name", "Team", "Season")
+
+calculate_bayes <- function(){
+  #find number of players who reached that age   
+} 
+
+#if we're looking at a 30 y.o player should we include totals for 35 yos?
+
+
+
+  summarize(num_seasons = n(),
+            first_year = min(Season),
+            last_year = max(Season),
+            total_war = sum(BattingWar),
+            war_per_season = total_war / num_seasons)
+
+
+#get cumulative WAR per age
+
+#filter out pitchers -- how?
+#identify Hall of Famers -- perhaps merge with Lahman HOF table
+#for active players get cumulative WAR per age
+
+```
