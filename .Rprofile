@@ -1,8 +1,0 @@
-library(ggplot2)
-library(dplyr)
-library(RMySQL)
-library(rvest)
-library(tidyverse)
-library(xml2)
-library(readr)
-library(stringr)
