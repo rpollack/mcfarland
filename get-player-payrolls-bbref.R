@@ -3,6 +3,7 @@
 require(rvest)
 require(tidyverse)
 require(xml2)
+require(readr)
 
 getTeamabbr <- function(year) {
   tms <- read_html(paste0("http://www.baseball-reference.com/leagues/MLB/", year, ".shtml"), stringsAsFactors=FALSE)
@@ -29,7 +30,9 @@ getPayrolls <- function(Tm) {
     tms$`2021` <- NA
   }
   tms <- tms %>%
-    filter(!Name %in% c("Name","","Arb Costs", "Arb Eligible", "Contract Options", "Dollars Committed", "Other Costs", "Option Values", "Other Players", "Payroll (no options)", "Payroll (options)", "Signed")) 
+    filter(!Name %in% c("Name","","Arb Costs", "Arb Eligible", "Contract Options", 
+                        "Dollars Committed", "Other Costs", "Option Values", "Other Players", 
+                        "Payroll (no options)", "Payroll (options)", "Signed")) 
   tms_melt <- gather(tms, key = Year, value, -Name, -Age, -Yrs, -Acquired, -SrvTm, -Agent, -`Contract Status`)
   tms_melt <- tms_melt %>%
     filter(value != "") %>%
@@ -43,6 +46,6 @@ getPayrolls <- function(Tm) {
 
 all_teams_payroll <- teamAbbr %>% 
   group_by(Tm) %>%
-  do(getPayrolls(.$Tm)) %>%
+  do(getPayrolls(.$Tm))
   
-  write_csv(all_teams_payroll, "all_teams_payroll.csv")
+  #write_csv(all_teams_payroll, "all_teams_payroll.csv")
