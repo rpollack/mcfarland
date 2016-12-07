@@ -23,22 +23,11 @@ fg_bat <- fg_db %>%
   filter(Type == 0) %>%     #get only full-season stats for each player
   collect(n=Inf)
 
-fg_batters <- inner_join(fg_players, fg_bat, by=c("PlayerId" = "playerid"))
-
-#get current teams
-fg_bat_all_stints <- fg_db %>%
-  tbl("stats_batting") %>%
-  inner_join(tbl(fg_db, "player_info"), by="playerid") %>%
-  collect(n=Inf)
-current_teams <- fg_bat_all_stints %>%
-  group_by(playerid, Season) %>%
-  filter(Type == max(Type),
-         Type >= 0,
-         Season == 2016,
-         Position != "P",             #don't get batting WAR for pitchers
+fg_batters <- inner_join(fg_players, fg_bat, by=c("PlayerId" = "playerid")) %>%
+  filter(Position != "P",             #don't get batting WAR for pitchers
          BISPosition != "SP",
-         BISPosition != "RP") %>%
-  select(playerid, FirstName, LastName, Season, Team, Type)
+         BISPosition != "RP")
+
 ```
 
 
@@ -47,8 +36,8 @@ current_teams <- fg_bat_all_stints %>%
 notes: 
 * position players only.
 * players with < 3 years in the majors get 0 WAR computed for years they weren't in the league. affects guys like Kris Bryant.
-* free agents (and retirees like Teixeira, A-Rod, and Ortiz) are filtered out. so are the few who've signed with a new team. neil walker remains with the Mets though b/c he accepted a qualifying offer.
-* players are assigned to the team they ended 2016 with.
+* free agents (and retirees like Teixeira, A-Rod, and Ortiz) are filtered out so their WAR isn't assigned to a team. e.g. Justin Turner isn't accounted for here
+* players are assigned to the current team they're on, including any recent trades/FA signings. e.g. moncada is on CWS
 * FA computations assume all options are picked up. e.g. starlin castro is given 4 years of control even though he has three years remaining before his $16 team option in 2020.
 * players who are under contract for longer than 5 years are, for the purposes of this exercise, give 5 years of team control. this is because i only projected WAR out for 5 years.
 
@@ -57,7 +46,6 @@ notes:
 
 this_year <- 2016
 next_year <- this_year + 1
-payrolls <- read_csv("all_teams_payroll.csv")
 
 
 fg_batters_project <- fg_batters %>%
@@ -65,22 +53,13 @@ fg_batters_project <- fg_batters %>%
          birth_date = as.Date(as.POSIXct(BirthDate)),
          birth_year = format(birth_date, "%Y")) %>%
   
-  #filter out free agents and retirees so their WAR isn't assigned to a team
-  filter(!FullName %in% c("Yoenis Cespedes", "Justin Turner", "Edwin Encarnacion", "Mark Trumbo",
-                          "Jose Bautista", "Matt Wieters", "Dexter Fowler", "Ian Desmond", "Wilson Ramos",
-                          "Josh Reddifg_dbck", "Carlos Gomez", "Jason Castro", "Michael Saunders", "Mike Napoli",
-                          "Kendrys Morales", "Luis Valbuena", "Carlos Beltran", "Sean Rodriguez", "Jon Jay",
-                          "Matt Holliday", "Steve Pearce", "Matt Joyce", "Nick Hundley", "Chase Utley",
-                          "Daniel Descalso", "Mitch Moreland", "Rajai Davis", "Pedro Alvarez", "Angel Pagan",
-                          "Adam Lind", "Colby Rasmus", "Kurt Suzuki", "David Ortiz", "Mark Teixeira", "Coco Crisp", 
-                          "Chris Heisey", "Aaron Hill", "Drew Stubbs", "Gevany Soto", "Dustin Ackley",
-                          "Oswaldo Arcia", "Alex Avila", "Erick Aybar", "Gordon Beckham", "Michael Bourn",
-                          "Billy Butler", "Marlon Byrd", "Logan Morrison", "Mark Reynolds", "Stephen Drew",
-                          "Kevin Frandsen", "Sean Rodriguez", "Tyler Pastornicky", "Adam Rosales", "Alex Rodriguez")) %>%
+  #filter out retirees so their WAR ,isn't assigned to a team
+  filter(!FullName %in% c("David Ortiz", "Alex Rodriguez", "Mark Teixeira")) %>%
 
   #compute years of control remaining, limited to 5 years
-  inner_join(payrolls, by=c("FullName" = "Name"), c("Team.y" = "Team")) %>%
-  mutate(years_of_control = ifelse(value == "Pre-Arb3", (Year + 4) - next_year,
+  inner_join(all_teams_payroll, by=c("FullName" = "Name")) %>%
+  mutate(Year = as.integer(Year),
+         years_of_control = ifelse(value == "Pre-Arb3", (Year + 4) - next_year,
                                    ifelse(value == "Arb-1", (Year + 3) - next_year,
                                           ifelse(value == "Arb-2", (Year + 2) - next_year,
                                                  ifelse(value == "Arb-3", (Year + 1) - next_year,
@@ -114,7 +93,7 @@ fg_batters_project <- fg_batters %>%
   filter(Season == max(Season)) %>%    #get only the latest projections
   
   #put players on the team they ended 2016 with
-  inner_join(current_teams, by=c("PlayerId" = "playerid")) %>%
+  #inner_join(current_teams, by=c("PlayerId" = "playerid")) %>%
   select(FullName, Team.y, years_of_control, war_under_control) %>%
   arrange(desc(war_under_control))
 
