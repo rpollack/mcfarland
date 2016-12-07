@@ -1,0 +1,5 @@
+library(ggplot2)
+library(dplyr)
+library(RMySQL)
+library(reader)
+library(rvest)
