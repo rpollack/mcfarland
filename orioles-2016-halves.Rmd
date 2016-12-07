@@ -9,7 +9,9 @@ knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(ggplot2)
 library(RMySQL)
+library(readr)
 ```
+
 
 # get data
 
@@ -76,6 +78,9 @@ team_offense_change <- offense_change_2016 %>%
   mutate(offense_change = offense - lag(offense)) %>%
   filter(is.na(offense_change) == FALSE) %>%
   arrange(offense_change)
+
+
+
 ```
 
 
@@ -88,7 +93,7 @@ If you watched Orioles baseball in the second half of 2016, you were likely scre
 Looking at regular players only, Baltimore's wRC+ dropped over 20% between halves, representing the third-largest drop in the sport:
 
 ```{r}
-ggplot(data=team_offense_change, aes(x=reorder(Team, -offense_change), y=offense_change)) + geom_bar(stat="identity") + coord_flip() + labs(y="2nd Half wRC+ - 1st Half wRC+ (% of runs above average)", x="Team") + ggtitle("2016 Offense, 2nd Half vs. 1st Half (Regular Players Only)")
+ggplot(data=team_offense_change, aes(x=reorder(Team, offense_change), y=offense_change)) + geom_bar(stat="identity") + coord_flip() + labs(y="wRC+ Change (% of runs above average)", x="Team") + ggtitle("2016 MLB Offense, 2nd Half vs. 1st Half (Regular Players Only)")
 
 ```
 
@@ -102,7 +107,20 @@ That's not all. Schoop's plate discipline skills, which aren't good to begin wit
 
 Mark Trumbo followed behind Schoop with a 46-point drop in wRC+, worse than 90% of regular major leaguers. His BABIP dropped even more sharply, from a high-but-reasonable .327 to an unplayable .216. His ISO also dropped about 40 points, from an immortal .294 to a very-dangerous .256. But unlike Schoop, Trumbo's plate discipline got *better*; his walk rate rose 1.7 points while his strikeout rate dropped 2.1 points. He may simply have been unlucky.
 
-Manny Machado ranks next. Matt Kremnitzer covered him already [http://camdendepot.blogspot.com/2016/11/what-happened-to-manny-machado-in.html], so I'll turn to Hyun-Soo Kim. Kim's splits aren't very reliable; despite hitting well, he played only 95 games. But still, his offense dropped 37 points in the second half, worse than 83% of his peers.   
+Manny Machado ranks next. Matt Kremnitzer covered him already [http://camdendepot.blogspot.com/2016/11/what-happened-to-manny-machado-in.html], so I'll turn to Hyun-Soo Kim. Kim's splits aren't very reliable; despite hitting well, he played only 95 games. He also suffered through a hamstring injury right before the first half ended. But still, his offense dropped 37 points in the second half, worse than 83% of his peers.   
+
+#bar chart of Orioles drops
+
+```{r}
+
+bal_splits <- offense_change_2016 %>%
+  filter(Team == "BAL",
+         !Name %in% c("Michael Bourn",
+                      "Steve Pearce", "Joey Rickard"))
+
+ggplot(data=bal_splits, aes(Name, wRC_plus, fill=Split)) +geom_bar(stat="identity", position="dodge") + theme(axis.text.x = element_text(angle = 30, hjust = 1)) + labs(y="wRC+") + ggtitle("2016 Orioles Regulars, wRC+ Splits") + scale_fill_manual(values=c("black", "orange"))
+
+```
 
 *All data from FanGraphs*
 
