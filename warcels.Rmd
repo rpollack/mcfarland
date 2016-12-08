@@ -38,7 +38,20 @@ notes:
 * players are assigned to the current team they're on, including any recent trades/FA signings. e.g. moncada is on CWS
 * FA computations assume all options are picked up. e.g. starlin castro is given 4 years of control even though he has three years remaining before his $16 team option in 2020.
 * players who are under contract for longer than 5 years are, for the purposes of this exercise, give 5 years of team control. this is because i only projected WAR out for 5 years.
+* salary under control is computed as AAV of contract * number of years of control
 
+# Compute AAV for each player
+```{r}
+
+all_teams_payroll <- all_teams_payroll %>%
+  mutate(total_contract = str_extract(`Contract Status`, "\\$.*M"),
+         total_contract = str_replace(total_contract, "\\$", ""),
+         total_contract = str_replace(total_contract, "M", ""),
+         total_contract = as.double(total_contract),
+         contract_length = as.double(str_extract(`Contract Status`, "[:digit:]+[:space:]")),
+         aav = round(total_contract / contract_length, 2))
+
+```
 
 ```{r}
 
@@ -87,12 +100,11 @@ fg_batters_project <- fg_batters %>%
                          ifelse(years_of_control == 3, war_next + war_in_two_years + war_in_three_years,
                                 ifelse(years_of_control == 4, war_next + war_in_two_years + war_in_three_years + war_in_four_years,
                                        war_next + war_in_two_years + war_in_three_years + war_in_four_years + war_in_five_years))))
-                 , 1))%>%
+                 , 1),
+         salary_under_control = round(ifelse(is.na(aav) == TRUE, .508 * years_of_control, aav * years_of_control), 2),
+         dollars_per_win_under_control = round(salary_under_control / war_under_control, 2)) %>%
   filter(Season == max(Season)) %>%    #get only the latest projections
-  
-  #put players on the team they ended 2016 with
-  #inner_join(current_teams, by=c("PlayerId" = "playerid")) %>%
-  select(FullName, Team.y, years_of_control, war_under_control) %>%
+  select(FullName, Team.y, years_of_control, war_under_control, salary_under_control, dollars_per_win_under_control) %>%
   arrange(desc(war_under_control))
 
 
