@@ -1,3 +1,4 @@
+
 #shared by bill petti in FG slack chat on 11.25.2016
 
 
@@ -10,7 +11,6 @@ getTeamabbr <- function(year) {
   tms <- select(tms, Tm)
   tms <- filter(tms, Tm!="LgAvg", Tm!="", Tm!="Tm")
   tms$year <- year
-  tms
 }
 
 teamAbbr <- getTeamabbr(2016)
@@ -44,7 +44,6 @@ getPayrolls <- function(Tm) {
     select(Team, Name, everything(), -rank)
   
   print(tms_melt)
-  tms_melt
 }
 
 all_teams_payroll <- teamAbbr %>% 
