@@ -33,10 +33,8 @@ fg_pitch <- fg_db %>%
   collect(n=Inf)
 
 fg_pitchers <- inner_join(fg_players, fg_pitch, by="PlayerId") %>%
-  filter(Position == "P" |
-         BISPosition %in% c("SP", "RP")) %>% #don't get pitching WAR for position players
-  select(FirstName, LastName, Season, BirthDate, ValueW, Position)
-
+  filter(BISPosition %in% c("SP", "RP")) %>% #don't get pitching WAR for position players
+  select(FirstName, LastName, Season, BirthDate, ValueW, Position = BISPosition)
 
 #combine dataframes
 all_players <- bind_rows(fg_batters, fg_pitchers)
@@ -105,15 +103,15 @@ warcels <- all_players %>%
          war_two_years_ago = ifelse(is.na(lag(ValueW, 2)) == FALSE, lag(ValueW, 2), 0),
          step1 = (0.6 * currentWAR) + (0.3 * war_last_year) + (0.1* war_two_years_ago),
          step2 = 0.8 * step1,
-         war_next = round(ifelse(Position == "P", step2 + ((26 - age_now) * 0.1),
+         war_next = round(ifelse(Position == "SP" | Position == "RP", step2 + ((26 - age_now) * 0.1),
                                  step2 + ((30 - age_now) * 0.1)), 1),
-         war_in_two_years = round(ifelse(Position == "P", war_next - 0.4,
+         war_in_two_years = round(ifelse(Position == "SP" | Position == "RP", war_next - 0.4,
                                          war_next - 0.4 + ((30-age_next_year) * .08)), 1),
-         war_in_three_years = round(ifelse(Position == "P", war_in_two_years - 0.4,
+         war_in_three_years = round(ifelse(Position == "SP" | Position == "RP", war_in_two_years - 0.4,
                                            war_in_two_years - 0.4 + ((30-age_in_two_years) * .03)), 1),
-         war_in_four_years = round(ifelse(Position == "P", war_in_three_years - 0.4, 
+         war_in_four_years = round(ifelse(Position == "SP" | Position == "RP", war_in_three_years - 0.4, 
                                           war_in_three_years - 0.4 + ((30-age_in_three_years) * .03)), 1),
-         war_in_five_years = round(ifelse(Position == "P", war_in_four_years - 0.4,
+         war_in_five_years = round(ifelse(Position == "SP" | Position == "RP", war_in_four_years - 0.4,
                                           war_in_four_years - 0.4 + ((30-age_in_four_years) * .03)), 1),
          war_under_control = 
            round(ifelse(years_of_control == 1, war_next,
@@ -123,7 +121,7 @@ warcels <- all_players %>%
                                        war_next + war_in_two_years + war_in_three_years + war_in_four_years + war_in_five_years))))
                  , 1),
          salary_under_control = round(ifelse(is.na(aav) == TRUE, .508 * years_of_control, aav * years_of_control), 2),
-         Position = ifelse(Position == "P", "Pitcher", "Position Player"),
+         Position = ifelse(Position != "SP" & Position != "RP", "foo", "bar"),
          
          #a low number is good, but below 0 is bad. maybe ... abs?
          dollars_per_win_under_control = ifelse(war_under_control == 0 , round(salary_under_control / .0001, 2),
