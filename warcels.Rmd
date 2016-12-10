@@ -24,7 +24,22 @@ fg_bat <- fg_db %>%
 fg_batters <- inner_join(fg_players, fg_bat, by=c("PlayerId" = "playerid")) %>%
   filter(Position != "P",             #don't get batting WAR for pitchers
          BISPosition != "SP",
-         BISPosition != "RP")
+         BISPosition != "RP") %>%
+  select(FirstName, LastName, Season, BirthDate, ValueW, Position)
+
+fg_pitch <- fg_db %>%
+  tbl("stats_pitching") %>%
+  filter(Type == 0) %>%
+  collect(n=Inf)
+
+fg_pitchers <- inner_join(fg_players, fg_pitch, by="PlayerId") %>%
+  filter(Position == "P" |
+         BISPosition %in% c("SP", "RP")) %>% #don't get pitching WAR for position players
+  select(FirstName, LastName, Season, BirthDate, ValueW, Position)
+
+
+#combine dataframes
+all_players <- bind_rows(fg_batters, fg_pitchers)
 
 ```
 
@@ -39,6 +54,7 @@ notes:
 * FA computations assume all options are picked up. e.g. starlin castro is given 4 years of control even though he has three years remaining before his $16 team option in 2020.
 * players who are under contract for longer than 5 years are, for the purposes of this exercise, give 5 years of team control. this is because i only projected WAR out for 5 years.
 * salary under control is computed as AAV of contract * number of years of control
+* for position players, only offensive & defensive WAR is counted. for pitchers, only pitching WAR is counted.
 
 # Compute AAV for each player
 ```{r}
@@ -49,7 +65,7 @@ all_teams_payroll <- all_teams_payroll %>%
          total_contract = str_replace(total_contract, "M", ""),
          total_contract = as.double(total_contract),
          contract_length = as.double(str_extract(`Contract Status`, "[:digit:]+[:space:]")),
-         aav = round(total_contract / contract_length, 2))
+         aav = ifelse(is.na(contract_length) == FALSE, round(total_contract / contract_length, 2), 0.5))
 
 ```
 
@@ -58,12 +74,11 @@ all_teams_payroll <- all_teams_payroll %>%
 this_year <- 2016
 next_year <- this_year + 1
 
-
-fg_batters_project <- fg_batters %>%
+warcels <- all_players %>%
   mutate(FullName = sprintf("%s %s", FirstName, LastName),
          birth_date = as.Date(as.POSIXct(BirthDate)),
          birth_year = format(birth_date, "%Y")) %>%
-  
+
   #filter out retirees so their WAR ,isn't assigned to a team
   filter(!FullName %in% c("David Ortiz", "Alex Rodriguez", "Mark Teixeira")) %>%
 
@@ -85,15 +100,21 @@ fg_batters_project <- fg_batters %>%
          age_in_two_years = age_now + 2,
          age_in_three_years = age_now + 3,
          age_in_four_years = age_now + 4,
-         currentWAR = ifelse(is.na(ValueW) == FALSE, ValueW, 0),  #players w/o appearances in a season get 0 WAR for that year
+         currentWAR = ifelse(is.na(ValueW) == FALSE, ValueW, 1.5),  #players w/o appearances in a season get 0 WAR for that year
          war_last_year = ifelse(is.na(lag(ValueW)) == FALSE, lag(ValueW), 0),
          war_two_years_ago = ifelse(is.na(lag(ValueW, 2)) == FALSE, lag(ValueW, 2), 0),
          step1 = (0.6 * currentWAR) + (0.3 * war_last_year) + (0.1* war_two_years_ago),
-         war_next = round((0.8 * step1) + ((30 - age_now) * 0.1), 1),
-         war_in_two_years = round(war_next - 0.4 + ((30-age_next_year) * .08), 1),
-         war_in_three_years = round(war_in_two_years - 0.4 + ((30-age_in_two_years) * .03), 1),
-         war_in_four_years = round(war_in_three_years - 0.4 + ((30-age_in_three_years) * .03), 1),
-         war_in_five_years = round(war_in_four_years - 0.4 + ((30-age_in_four_years) * .03), 1),
+         step2 = 0.8 * step1,
+         war_next = round(ifelse(Position == "P", step2 + ((26 - age_now) * 0.1),
+                                 step2 + ((30 - age_now) * 0.1)), 1),
+         war_in_two_years = round(ifelse(Position == "P", war_next - 0.4,
+                                         war_next - 0.4 + ((30-age_next_year) * .08)), 1),
+         war_in_three_years = round(ifelse(Position == "P", war_in_two_years - 0.4,
+                                           war_in_two_years - 0.4 + ((30-age_in_two_years) * .03)), 1),
+         war_in_four_years = round(ifelse(Position == "P", war_in_three_years - 0.4, 
+                                          war_in_three_years - 0.4 + ((30-age_in_three_years) * .03)), 1),
+         war_in_five_years = round(ifelse(Position == "P", war_in_four_years - 0.4,
+                                          war_in_four_years - 0.4 + ((30-age_in_four_years) * .03)), 1),
          war_under_control = 
            round(ifelse(years_of_control == 1, war_next,
                   ifelse(years_of_control == 2, war_next + war_in_two_years,
@@ -102,22 +123,27 @@ fg_batters_project <- fg_batters %>%
                                        war_next + war_in_two_years + war_in_three_years + war_in_four_years + war_in_five_years))))
                  , 1),
          salary_under_control = round(ifelse(is.na(aav) == TRUE, .508 * years_of_control, aav * years_of_control), 2),
-         dollars_per_win_under_control = round(salary_under_control / war_under_control, 2)) %>%
+         Position = ifelse(Position == "P", "Pitcher", "Position Player"),
+         
+         #a low number is good, but below 0 is bad. maybe ... abs?
+         dollars_per_win_under_control = ifelse(war_under_control == 0 , round(salary_under_control / .0001, 2),
+                                                round(salary_under_control / war_under_control, 2))) %>%
   filter(Season == max(Season)) %>%    #get only the latest projections
-  select(FullName, Team.y, years_of_control, war_under_control, salary_under_control, dollars_per_win_under_control) %>%
+  select(FullName, Position, Team, years_of_control, war_under_control, salary_under_control, dollars_per_win_under_control) %>%
   arrange(desc(war_under_control))
 
 
-team_war <- fg_batters_project %>%
-  group_by(Team.y) %>%
+team_war <- warcels %>%
+  group_by(Team, Position) %>%
   summarize(num_players= n(),
             war_under_control = sum(war_under_control),
             years_of_control = round(mean(years_of_control), 2)) %>%
   mutate(war_under_control_per_year = round(war_under_control / years_of_control, 1),
          war_per_player_per_year = round(war_under_control / num_players / years_of_control, 2))
 
-ggplot(data=team_war, aes(years_of_control, war_under_control, label=Team.y)) + geom_point() + geom_text(aes(label=Team.y),hjust=0, vjust=0) + labs(x="avg. years of control (position players only; 5 max)") + ggtitle("Avg. Length of Control vs. How Much WAR they Control, Position Players") + xlim(3,5)
+ggplot(data=team_war %>% filter(Position == "Position Player"), aes(years_of_control, war_under_control, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (position players only; 5 max)") + ggtitle("Avg. Length of Control vs. How Much WAR they Control, Position Players") + xlim(3,5)
 
+ggplot(data=team_war %>% filter(Position == "Pitcher"), aes(years_of_control, war_under_control, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (position players only; 5 max)") + ggtitle("Avg. Length of Control vs. How Much WAR they Control, Pitchers") + xlim(3,5)
 
 
 
