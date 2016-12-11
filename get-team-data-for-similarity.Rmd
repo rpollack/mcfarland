@@ -1,0 +1,20 @@
+---
+title: "Get-team-data"
+output: html_document
+---
+
+### Get data needed for baseball-teams-similarity.py
+
+```{r}
+team_similiary_data <- fg_db %>% 
+  tbl('season_team') %>%
+  select(yearID = Season, name = FullName,
+         H, D = `2B`, Trip = `3B`, BB, SO, HR,
+         BBA, SOA, HRA, HA, CG, SHO,
+         SB, R, RA) %>%
+  filter(yearId >= 1886) %>%
+  arrange(yearId) %>%
+  
+  #optionally write to CSV here
+  collect(n=Inf)
+```
