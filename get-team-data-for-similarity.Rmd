@@ -74,7 +74,7 @@ article_data <- team_similiarity_data %>%
 
 stats_raw <- read_csv("~/Downloads/cubs and rays comparison - raw (1).csv")
 
-ggplot(data=stats_raw, aes(x=Stat, y=Value, fill=Team)) + geom_bar(stat="identity", position="dodge") + theme(axis.text.x = element_text(angle = 30, hjust = 1)) + scale_fill_manual(values=c("#79BDEE", "#002F6C"))
+ggplot(data=stats_raw, aes(x=Stat, y=Value, fill=Team)) + geom_bar(stat="identity", position="dodge") + scale_fill_manual(values=c("#79BDEE", "#002F6C")) + coord_flip() + labs(x="") + ggtitle("2016 Cubs vs. 2012 Rays")
 
 ```
 
@@ -85,9 +85,8 @@ But differences also exist. The Rays scored 111 fewer runs, hit 43 fewer doubles
 
 ```{r}
 team_similarity_plus <- read_csv("~/Downloads/cubs and rays comparison - Sheet2.csv")
-team_similarity_plus
 
-ggplot(data=team_similarity_plus, aes(x=Stat, y=Value, fill=Team)) + geom_bar(stat="identity", position="dodge") + theme(axis.text.x = element_text(angle = 30, hjust = 1)) + scale_fill_manual(values=c("#79BDEE", "#002F6C"))
+ggplot(data=team_similarity_plus, aes(x=Stat, y=Value, fill=Team)) + geom_bar(stat="identity", position="dodge") + scale_fill_manual(values=c("#79BDEE", "#002F6C")) + coord_flip() + labs(x="", y = "Value (100 = League Average)") + ggtitle("2016 Cubs vs. 2012 Rays, Relative to League Average")
 
 ```
 
@@ -102,7 +101,7 @@ similar_teams <- similar_teams %>%
 similar_teams
 ```
 
-You'll note some real powerhouses and several World Series champions on this list. Teams that perform like the Cubs do, relative to their competition, typically win their divison (or league, as the case may be). The average winning percentage of this group is .589, or between 95-96 wins in today's game.
+You'll note some real powerhouses and several World Series champions on this list. Teams that perform like the Cubs do, relative to their competition, typically win their divison (or league, as the case may be). The average winning percentage of this group is .589, or between 95-96 wins in today's game. And in other news ... water is wet.
 
 CONCLUSION!!
 
