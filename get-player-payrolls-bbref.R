@@ -3,14 +3,17 @@
 
 
 getTeamabbr <- function(year) {
-  tms <- read_html(paste0("http://www.baseball-reference.com/leagues/MLB/", year, ".shtml"), stringsAsFactors=FALSE)
-  tms <- tms %>%
+  team_tbl <- read_html(paste0("http://www.baseball-reference.com/leagues/MLB/", year, ".shtml"), stringsAsFactors=FALSE)
+  tms <- team_tbl %>%
     html_nodes("table") %>%
     .[[2]] %>%
-    html_table()
-  tms <- select(tms, Tm)
-  tms <- filter(tms, Tm!="LgAvg", Tm!="", Tm!="Tm")
+    html_table() %>%
+    select(Tm) %>%
+    filter(Tm != "LgAvg", 
+           Tm != "", 
+           Tm != "Tm")
   tms$year <- year
+  return(tms)
 }
 
 teamAbbr <- getTeamabbr(2016)
@@ -33,6 +36,8 @@ getPayrolls <- function(Tm) {
                         "Dollars Committed", "Other Costs", "Option Values", "Other Players", 
                         "Payroll (no options)", "Payroll (options)", "Signed")) 
   
+  
+  #can get the '2017' column and extract any integers in there! maybe?
   
   tms_melt <- gather(tms, key = Year, value, -Name, -Age, -Yrs, -Acquired, -SrvTm, -Agent, -`Contract Status`)
   tms_melt <- tms_melt %>%
