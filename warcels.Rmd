@@ -5,7 +5,8 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-
+library(tidyverse)
+library(stringr)
 ```
 
 # Get data
@@ -121,7 +122,8 @@ warcels <- all_players %>%
                                        war_next + war_in_two_years + war_in_three_years + war_in_four_years + war_in_five_years))))
                  , 1),
          salary_under_control = round(ifelse(is.na(aav) == TRUE, .508 * years_of_control, aav * years_of_control), 2),
-         Position = ifelse(Position != "SP" & Position != "RP", "foo", "bar"),
+         Position = ifelse(Position == "SP", "Rotation",
+                           ifelse(Position == "RP", "Bullpen", "Position")),
          
          #a low number is good, but below 0 is bad. maybe ... abs?
          dollars_per_win_under_control = ifelse(war_under_control == 0 , round(salary_under_control / .0001, 2),
