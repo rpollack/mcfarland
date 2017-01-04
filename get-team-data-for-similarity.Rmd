@@ -76,17 +76,36 @@ stats_raw <- read_csv("~/Downloads/cubs and rays comparison - raw (1).csv")
 
 ggplot(data=stats_raw, aes(x=Stat, y=Value, fill=Team)) + geom_bar(stat="identity", position="dodge") + scale_fill_manual(values=c("#79BDEE", "#002F6C")) + coord_flip() + labs(x="") + ggtitle("2016 Cubs vs. 2012 Rays") + fgt
 
+ggsave("cubs-rays-raw.png", last_plot())
+
+
+tht_tbl <- spread(stats_raw, key = Team, value = Value)
+
+
+write_csv(tht_tbl, "cubs-rays-tbl.csv")
+
 ```
 
 
-The large x-axis scale makes it difficult to see, but similarities are there. The teams' offenses struck out a similar number of times and hit the same number of triples. Their pitching staffs allowed a similar number of runs. Plus, they both employed Ben Zobrist.
-
-But differences also exist. The Rays scored 111 fewer runs, hit 43 fewer doubles, hit 24 fewer home runs, and allowed over 100 more hits than the Cubs. To truly see the similarities, you need to compare each team by how they performed relative to that year's competition. The following graph shows this comparison:
+  The large x-axis scale makes it difficult to see, but similarities are there. The teams' offenses struck out a similar number of times and hit the same number of triples. Their pitching staffs allowed a similar number of runs. Plus, they both employed Ben Zobrist.
+  
+  But differences also exist. The Rays scored 111 fewer runs, hit 43 fewer doubles, hit 24 fewer home runs, and allowed over 100 more hits than the Cubs. To truly see the similarities, you need to compare each team by how they performed relative to that year's competition. The following graph shows this comparison:
 
 ```{r}
 team_similarity_plus <- read_csv("~/Downloads/cubs and rays comparison - Sheet2.csv")
 
 ggplot(data=team_similarity_plus, aes(x=Stat, y=Value, fill=Team)) + geom_bar(stat="identity", position="dodge") + scale_fill_manual(values=c("#79BDEE", "#002F6C")) + coord_flip() + labs(x="", y = "Value (100 = League Average)") + ggtitle("2016 Cubs vs. 2012 Rays, Relative to their Leagues") + fgt
+
+ggsave("cubs-rays-relative.png", last_plot())
+
+
+tht_tbl_relative <- spread(team_similarity_plus, key = Team, value = Value)
+
+write_csv(tht_tbl_relative, "cubs-rays-tbl-rel.csv")
+
+
+
+
 
 ```
 
