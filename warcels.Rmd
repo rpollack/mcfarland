@@ -46,32 +46,19 @@ all_players <- bind_rows(fg_batters, fg_pitchers)
 # For each team, compute the avg. length they control their current roster and the amount of WAR under this control
 
 notes: 
-* position players only.
+* WAR projections are done using FG WAR & Warcels (link).
 * players with < 3 years in the majors get 0 WAR computed for years they weren't in the league. affects guys like Kris Bryant.
 * players are assigned to the current team they're on. free agents are not assigned to any team.
 * FA computations assume all options are picked up. e.g. starlin castro is given 4 years of control even though he has three years remaining before his $16 team option in 2020.
-* players who are under contract for longer than 5 years are, for the purposes of this exercise, give 5 years of team control. this is because i only projected WAR out for 5 years.
-* for pre-arb players, minimum salary is used.
-* for arb players, MLBTR projections are used. arb-1s are increased by XX%, 
+* for pre-arb years, minimum salary is used: $535k.
+* for arb players, MLBTR projections are used for 2017. for future arb years, including Arb-1's, 25%/40%/60% of FA salary is used to project.
+* for Arb-4 players, 80% of salary is used to project
 * for players with non-arb contracts, salary under control is computed as AAV of contract * number of years of control
 * for position players, only offensive & defensive WAR is counted. for pitchers, only pitching WAR is counted.
+* players who are under contract for longer than 5 years are, for the purposes of this exercise, give 5 years of team control. this is because i only projected WAR out for 5 years. contracts that run more than 5 years contain only the first five years of the player's earnings.
+* players who haven't reached arbitration yet use the same calculations but with the minimum salary as their base. so Arb 1 would be assuming a raise from the min. salary, etc.
 
-
-# Compute AAV for each player
-```{r}
-
-all_teams_payroll <- all_teams_payroll %>%
-  mutate(total_contract = str_extract(`Contract Status`, "\\$.*M"),
-         total_contract = str_replace(total_contract, "\\$", ""),
-         total_contract = str_replace(total_contract, "M", ""),
-         total_contract = as.double(total_contract),
-         contract_length = as.double(str_extract(`Contract Status`, "[:digit:]+[:space:]")),
-         aav = ifelse(is.na(contract_length) == FALSE, round(total_contract / contract_length, 2), 0.5))
-
-```
-
-
-###e Get years, salary under team control
+### Get years, salary under team control
 
 ```{r}
 
@@ -143,9 +130,10 @@ warcels <- all_players %>%
          
          #a low number is good, but below 0 is bad. maybe ... abs?
          dollars_per_win_under_control = ifelse(war_under_control == 0 , round(salary_under_control / .0001, 2),
-                                                round(salary_under_control / war_under_control, 2))) %>%
+                                                round(salary_under_control / war_under_control, 2)),
+         war_per_year_of_control = war_under_control / years_of_control) %>%
   filter(Season == max(Season)) %>%    #get only the latest projections
-  select(FullName, Position, Team, years_of_control, war_under_control, salary_under_control, dollars_per_win_under_control) %>%
+  select(FullName, Position, Team, years_of_control, war_under_control, war_per_year_of_control, salary_under_control, dollars_per_win_under_control) %>%
   arrange(desc(war_under_control))
 
 
@@ -157,11 +145,11 @@ team_war <- warcels %>%
   mutate(war_under_control_per_year = round(war_under_control / years_of_control, 1),
          war_per_player_per_year = round(war_under_control / num_players / years_of_control, 2))
 
-ggplot(data=team_war %>% filter(Position == "Position Player"), aes(years_of_control, war_under_control, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (position players only; 5 max)") + ggtitle("Avg. Length of Control vs. How Much WAR they Control, Position Players") + xlim(3,5)
+ggplot(data=team_war %>% filter(Position == "Hitter"), aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (position players only; 5 max)") + ggtitle("Avg. Length of Control vs. How Much WAR they Control, Position Players") + xlim(2.5,5)
 
-ggplot(data=team_war %>% filter(Position == "Rotation"), aes(years_of_control, war_under_control, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (rotation only; 5 max)") + ggtitle("Avg. Length of Control vs. How Much WAR they Control, Rotation") + xlim(3,5)
+ggplot(data=team_war %>% filter(Position == "Rotation"), aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (rotation only; 5 max)") + ggtitle("Avg. Length of Control vs. How Much WAR they Control, Rotation") + xlim(2.5,5)
 
-ggplot(data=team_war %>% filter(Position == "Bullpen"), aes(years_of_control, war_under_control, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (bullpen only; 5 max)") + ggtitle("Avg. Length of Control vs. How Much WAR they Control, Bullpen") + xlim(3,5)
+ggplot(data=team_war %>% filter(Position == "Bullpen"), aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (bullpen only; 5 max)") + ggtitle("Avg. Length of Control vs. How Much WAR they Control, Bullpen") + xlim(2.5,5)
 
 #format should be: team | season | war. in order to do this, should have player | team | season | war in fg_batters_project.
 
