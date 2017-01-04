@@ -48,12 +48,14 @@ all_players <- bind_rows(fg_batters, fg_pitchers)
 notes: 
 * position players only.
 * players with < 3 years in the majors get 0 WAR computed for years they weren't in the league. affects guys like Kris Bryant.
-* free agents (and retirees like Teixeira, A-Rod, and Ortiz) are filtered out so their WAR isn't assigned to a team. e.g. Justin Turner isn't accounted for here
-* players are assigned to the current team they're on, including any recent trades/FA signings. e.g. moncada is on CWS
+* players are assigned to the current team they're on. free agents are not assigned to any team.
 * FA computations assume all options are picked up. e.g. starlin castro is given 4 years of control even though he has three years remaining before his $16 team option in 2020.
 * players who are under contract for longer than 5 years are, for the purposes of this exercise, give 5 years of team control. this is because i only projected WAR out for 5 years.
-* salary under control is computed as AAV of contract * number of years of control
+* for pre-arb players, minimum salary is used.
+* for arb players, MLBTR projections are used. arb-1s are increased by XX%, 
+* for players with non-arb contracts, salary under control is computed as AAV of contract * number of years of control
 * for position players, only offensive & defensive WAR is counted. for pitchers, only pitching WAR is counted.
+
 
 # Compute AAV for each player
 ```{r}
@@ -141,11 +143,11 @@ team_war <- warcels %>%
   mutate(war_under_control_per_year = round(war_under_control / years_of_control, 1),
          war_per_player_per_year = round(war_under_control / num_players / years_of_control, 2))
 
-ggplot(data=team_war %>% filter(Position == "Position Player"), aes(years_of_control, war_under_control, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (position players only; 5 max)") + ggtitle("Avg. Length of Control vs. How Much WAR they Control, Position Players") + xlim(3,5)
+ggplot(data=team_war %>% filter(Position == "Position"), aes(years_of_control, war_under_control, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (position players only; 5 max)") + ggtitle("Avg. Length of Control vs. How Much WAR they Control, Position Players") + xlim(3,5)
 
-ggplot(data=team_war %>% filter(Position == "Pitcher"), aes(years_of_control, war_under_control, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (position players only; 5 max)") + ggtitle("Avg. Length of Control vs. How Much WAR they Control, Pitchers") + xlim(3,5)
+ggplot(data=team_war %>% filter(Position == "Rotation"), aes(years_of_control, war_under_control, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (rotation only; 5 max)") + ggtitle("Avg. Length of Control vs. How Much WAR they Control, Rotation") + xlim(3,5)
 
-
+ggplot(data=team_war %>% filter(Position == "Bullpen"), aes(years_of_control, war_under_control, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (bullpen only; 5 max)") + ggtitle("Avg. Length of Control vs. How Much WAR they Control, Bullpen") + xlim(3,5)
 
 #format should be: team | season | war. in order to do this, should have player | team | season | war in fg_batters_project.
 
