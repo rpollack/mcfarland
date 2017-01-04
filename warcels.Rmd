@@ -63,6 +63,7 @@ notes:
 ```{r}
 
 #get the number of years of control a team has over a player, limited to 5, and then compute the player's total salary in that time period
+
 years_of_control <- all_teams_payroll %>%
   filter(value != "FA") %>%
   group_by(Name, Team) %>%
@@ -137,49 +138,40 @@ warcels <- all_players %>%
   arrange(desc(war_under_control))
 
 
-team_war <- warcels %>%
+team_war_by_position <- warcels %>%
   group_by(Team, Position) %>%
   summarize(num_players= n(),
             war_under_control = sum(war_under_control),
-            years_of_control = round(mean(years_of_control), 2)) %>%
+            years_of_control = round(mean(years_of_control), 2),
+            salary_under_control = sum(salary_under_control)) %>%
   mutate(war_under_control_per_year = round(war_under_control / years_of_control, 1),
-         war_per_player_per_year = round(war_under_control / num_players / years_of_control, 2))
+         war_per_player_per_year = round(war_under_control / num_players / years_of_control, 2),
+         mm_per_war_per_year = round(salary_under_control / war_under_control / years_of_control, 2))
 
-ggplot(data=team_war %>% filter(Position == "Hitter"), aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (position players only; 5 max)") + ggtitle("Avg. Length of Control vs. How Much WAR they Control, Position Players") + xlim(2.5,5)
 
-ggplot(data=team_war %>% filter(Position == "Rotation"), aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (rotation only; 5 max)") + ggtitle("Avg. Length of Control vs. How Much WAR they Control, Rotation") + xlim(2.5,5)
 
-ggplot(data=team_war %>% filter(Position == "Bullpen"), aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (bullpen only; 5 max)") + ggtitle("Avg. Length of Control vs. How Much WAR they Control, Bullpen") + xlim(2.5,5)
+
+team_war <- warcels %>%
+  group_by(Team) %>%
+  summarize(num_players= n(),
+            war_under_control = sum(war_under_control),
+            years_of_control = round(mean(years_of_control), 2),
+            salary_under_control = sum(salary_under_control)) %>%
+  mutate(war_under_control_per_year = round(war_under_control / years_of_control, 1),
+         war_per_player_per_year = round(war_under_control / num_players / years_of_control, 2),
+         mm_per_war_per_year = as.numeric(round(salary_under_control / war_under_control / years_of_control, 2)))
+
+
+ggplot(data=team_war_by_position %>% filter(Position == "Hitter"), aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (position players only; 5 max)") + ggtitle("Avg. Length of Control vs. WAR per year, Position Players") + xlim(2.5,5)
+
+ggplot(data=team_war_by_position %>% filter(Position == "Rotation"), aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (rotation only; 5 max)") + ggtitle("Avg. Length of Control vs. WAR per year, Rotation") + xlim(2.5,5)
+
+ggplot(data=team_war_by_position %>% filter(Position == "Bullpen"), aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (bullpen only; 5 max)") + ggtitle("Avg. Length of Control vs. WAR per Year, Bullpen") + xlim(2.5,5)
+
+ggplot(data=team_war, aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (entire team; 5 max)") + ggtitle("Avg. Length of Control vs. How Much WAR they Control, Entire Team") + xlim(2.5,5)
 
 #format should be: team | season | war. in order to do this, should have player | team | season | war in fg_batters_project.
 
 ```
 
-
-# Pitcher projections
-
-```{r}
-fg_pitchers_project <- fg_pitchers %>%
-  mutate(FullName = sprintf("%s %s", FirstName, LastName),
-         birth_date = as.Date(as.POSIXct(BirthDate)),
-         birth_year = format(birth_date, "%Y"),
-         age_now = this_year - as.integer(birth_year),
-         age_next_year = age_now + 1, 
-         age_in_two_years = age_now + 2,
-         age_in_three_years = age_now + 3,
-         age_in_four_years = age_now + 4) %>%
-  group_by(FullName) %>%
-  arrange(Season) %>%
-  mutate(step1 = (0.6 * ValueW) + (0.3 * lag(ValueW)) + (0.1* lag(ValueW, 2)),
-         step2 = 0.8 * step1,
-         war_next = round(step2 + ((26 - age_now) * 0.1), 1),
-         war_in_two_years = war_next - 0.4,
-         war_in_three_years = war_in_two_years - 0.4,
-         war_in_four_years = war_in_three_years - 0.4,
-         war_in_five_years = war_in_four_years - 0.4,
-         five_year_war = war_next + war_in_two_years + war_in_three_years + war_in_four_years + war_in_five_years) %>%
-  filter(Season == max(Season)) %>%
-  select(FullName, Team, five_year_war, age_now, war_next, war_in_two_years, war_in_three_years, war_in_four_years, war_in_five_years) %>%
-  arrange(desc(five_year_war))
-```
 
