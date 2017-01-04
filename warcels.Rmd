@@ -92,8 +92,8 @@ warcels <- all_players %>%
 
   #filter out retirees so their WAR ,isn't assigned to a team
   filter(!FullName %in% c("David Ortiz", "Alex Rodriguez", "Mark Teixeira")) %>%
-
-  #compute years of control remaining, limited to 5 years
+  
+  #bring in the years & salary of control for each player
   inner_join(years_of_control, by=c("FullName" = "Name")) %>%
   group_by(FullName) %>%
   arrange(Season) %>%
