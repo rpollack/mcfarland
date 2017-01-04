@@ -83,6 +83,7 @@ years_of_control <- all_teams_payroll %>%
 
 this_year <- 2016
 next_year <- this_year + 1
+millions_per_war = 8.5
 
 warcels <- all_players %>%
   mutate(FullName = sprintf("%s %s", FirstName, LastName),
@@ -128,15 +129,19 @@ warcels <- all_players %>%
          
          Position = ifelse(Position == "SP", "Rotation",
                            ifelse(Position == "RP", "Bullpen", "Hitter")),
-         
-         #a low number is good, but below 0 is bad. maybe ... abs?
          dollars_per_win_under_control = ifelse(war_under_control == 0 , round(salary_under_control / .0001, 2),
                                                 round(salary_under_control / war_under_control, 2)),
-         war_per_year_of_control = war_under_control / years_of_control) %>%
+         surplus_value_under_control = (millions_per_war * war_under_control) - salary_under_control,
+         war_per_year_of_control = round(war_under_control / years_of_control, 2)) %>%
   filter(Season == max(Season)) %>%    #get only the latest projections
-  select(FullName, Position, Team, years_of_control, war_under_control, war_per_year_of_control, salary_under_control, dollars_per_win_under_control) %>%
-  arrange(desc(war_under_control))
+  select(FullName, Position, Team, years_of_control, war_under_control, war_per_year_of_control, salary_under_control, dollars_per_win_under_control, surplus_value_under_control) %>%
+  arrange(desc(surplus_value_under_control))
 
+
+team_surplus_value <- warcels %>%
+  group_by(Team) %>%
+  summarize(total_surplus_value_under_control = sum(surplus_value_under_control)) %>%
+  arrange(desc(total_surplus_value_under_control))
 
 team_war_by_position <- warcels %>%
   group_by(Team, Position) %>%
@@ -147,8 +152,6 @@ team_war_by_position <- warcels %>%
   mutate(war_under_control_per_year = round(war_under_control / years_of_control, 1),
          war_per_player_per_year = round(war_under_control / num_players / years_of_control, 2),
          mm_per_war_per_year = round(salary_under_control / war_under_control / years_of_control, 2))
-
-
 
 
 team_war <- warcels %>%
