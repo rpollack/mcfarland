@@ -28,56 +28,37 @@ bal_payroll <- bal_payroll %>%
 
 #for each player, create a single row, one for each "Year", "value" is either their salary that year, their arbitration status, or their FA status, or blank if the player won't be on the payroll.
 
-get_salary <- function(txt){
-  
-  if(grepl("M", txt)){
-    salary <- str_extract(txt, "\\$.*M")
-    salary <- str_replace(salary, "\\$", "")
-    salary <- str_replace(salary, "M", "")
-    salary <- as.double(salary)
-  }
-  
-  if(grepl("k", txt)) {
-    salary <- str_extract(txt, "\\$.*k")
-    salary <- str_replace(salary, "\\$", "")
-    salary <- str_replace(salary, "k", "")
-    salary <- as.double(salary)
-    salary <- salary / 1000 #convert to millions
-  }
-  
-  #need to handle salaries of $650k
-
-  
-  return(salary)
-}
 
 bal_melt <- gather(bal_payroll, key = Year, value, -Name, -Age, -Yrs, -Acquired, -SrvTm, -Agent, -`Contract Status`)
 
 #remove rows where the player isn't under control
 bal_melt <- bal_melt %>%
   filter(value != "") %>%
+  select(-Agent, -`Contract Status`, -Yrs, -Acquired, -SrvTm) %>%
   
   #replace pre-arb years with the minimum salary for 2017 and non-arb salaries with their values
   mutate(value = ifelse(grepl("Pre-Arb", value), 0.535, value),
          value = ifelse(grepl("M", value), as.double(str_extract(value, "(?<=\\$)[:digit:]+\\.*[:digit:]*")), value),
          value = ifelse(grepl("k", value), as.double(str_extract(value, "(?<=\\$)[:digit:]+")) / 1000, value)) %>%
-  arrange(Name, Year)
+  arrange(Name, Year) %>%
+  mutate(value = ifelse(value == "Arb-1", 0.535, value),
+         value = ifelse(value == "Arb-2", (as.double(lag(value)) / .25) * .4, value),
+         value = ifelse(value == "Arb-3", (as.double(lag(value)) / .4) * .6, value),
+         value = ifelse(value == "Arb-4", (as.double(lag(value)) / .6) * .8, value))
 
 
 
-situations for player in 2017:
-  player has never had an arb projection made
-player has an arb-3 projection and will be an FA next year (Tillman)
-player has an arb-2 projection and will be arb-3 next year (britton).
-player has an arb-1 projection and will be arb-2, arb-3 next 2 yrs (schoop)
+
+# situations for player in 2017:
+
+# player has an arb-3 projection and will be an FA next year (Tillman). No arb raise projection necessary.
+# player has an arb-2 projection and will be arb-3 next year (britton). Arb-3 = (Arb2 / .4) * .6  
+# player has an arb-1 projection and will be arb-2, arb-3 next 2 yrs (schoop).
+  #Arb-2 = (Arb1 / .25) * .4
+  #Arb-3 = (Arb2 / .4) * .6  
+#   player has never had an arb projection made. Assume minimum. 
 
 
-
-player is arb-1 and that's their projection we have
-player is has had an arb1 projection made
-player has had an arb2 projection made
-player has had an arb3 projection made
-  
 
 
 
