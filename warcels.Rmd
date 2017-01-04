@@ -131,7 +131,7 @@ warcels <- all_players %>%
                            ifelse(Position == "RP", "Bullpen", "Hitter")),
          dollars_per_win_under_control = ifelse(war_under_control == 0 , round(salary_under_control / .0001, 2),
                                                 round(salary_under_control / war_under_control, 2)),
-         surplus_value_under_control = (millions_per_war * war_under_control) - salary_under_control,
+         surplus_value_under_control = round((millions_per_war * war_under_control) - salary_under_control, 1),
          war_per_year_of_control = round(war_under_control / years_of_control, 2)) %>%
   filter(Season == max(Season)) %>%    #get only the latest projections
   select(FullName, Position, Team, years_of_control, war_under_control, war_per_year_of_control, salary_under_control, dollars_per_win_under_control, surplus_value_under_control) %>%
