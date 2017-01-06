@@ -1,0 +1,91 @@
+
+Headlines:
+
+-Cubs Dominate MLB Surplus Value
+-
+
+
+... Intro ... what emotion do I want the reader to feel?
+
+(Awe)
+
+You're familiar with the concept of surplus value: a player's value to the team minus the salary they make. Value most often takes the form of WAR, but players can provide value in other ways -- attracting more fans to the stadium, selling jerseys, and so on.
+
+It turns out the recently crowned Chicago Cubs not only have a core of young, cost-controlled talent beyond any team in baseball. They're also paying very little for that talent.
+
+For this article I defined surplus value as (8.5 * projected WAR) - salary. I simulated inflation by increasing the cost of WAR by 5% for every year the player is under control.
+
+To project WAR I used a method Tom Tango proposed. The details are here: http://tangotiger.com/index.php/site/comments/war-marcels-...-warcels, read up if you're interested. The method isn't perfect, particularly when it comes to pitchers, but I trust Tango's methodology enough to go forward. For missing years I gave the player 0 WAR.     
+
+Projecting salary was easy in some cases, difficult in others. I used contract data from Baseball Reference and arbitration projections from MLB Trade Rumors. Where applicable I projected future arbitration salaries by applying the 25%/40%/60% research described by Kevin Creagh at The Point of Pittsburgh (http://www.thepointofpittsburgh.com/calculating-mlb-arbitration-percentages/). For Arb-4 years I used 80% of future salary as the projected value.
+
+One large caveat exists: if a player is pre-arbitration for 2017, they've never had an arbitration projection, so I used the league minimum ($535k in 2017) as the basis for their arbitration raises. This process drastically lowballs pre-arb players, many of whom play for the Cubs, and as such affects the analysis in this article.  
+ 
+
+
+
+
+
+
+Total Surplus Value
+
+```{r}
+cubs_tbl <- team_war %>%
+  select(-num_players, -war_under_control, -years_of_control, -salary_under_control, - war_under_control_per_year,
+         -war_per_player_per_year, -surplus_value_per_year, -mm_per_war_per_year) %>%
+  arrange(desc(surplus_value_under_control))
+
+cubs_tbl
+
+```
+
+But not all surplus value is created equally. Some teams control theirs for a few years; others, for a long time. The following chart shows how the Cubs' average surplus value per year, along with the length of time they control it, compares to other teams:
+
+```{r}
+
+team_surplus_value <- warcels %>%
+  group_by(Team) %>%
+  summarize(avg_surplus_value_per_year = sum(surplus_value_under_control) / sum(years_of_control),
+            avg_years_of_control = round(mean(years_of_control), 2))
+
+ggplot(team_surplus_value, aes(avg_years_of_control, avg_surplus_value_per_year, Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control", y="avg. surplus value per year (Millions USD)") + ggtitle("Average Annual Surplue Value Under Control, 2017 - 2021") + xlim(3,5)
+
+```
+
+
+Eight Cubs rank in the 90th percentile of 1,053-player. The most any other club has in this bracket is six -- shared by the Reds and Indians. The Red Sox, Astros, Dodgers, Twins, Phillies, Giants, and Blue Jays have five players each.
+
+```{r}
+
+teams_in_top_90 <- warcels %>%
+  filter(surplus_value_under_control_rank >= 90) %>%
+  group_by(Team) %>% 
+  summarize(num_players_in_top_10_perc = n()) %>%
+  arrange(desc(num_players_in_top_10_perc))
+
+teams_in_top_90
+
+```
+
+
+These eight Cubs are:
+
+```{r}
+
+cubs_surplus_value <- warcels %>%
+  filter(Team == "CHC") %>%
+  head(8) %>%
+  mutate(salary_under_control = round(salary_under_control, 1)) %>%
+  select(-Position, -Team, -war_per_year_of_control, -dollars_per_win_under_control)
+
+cubs_surplus_value
+```
+
+Kris Bryant leads not only the Cubs, but all of MLB in controlled surplus value. His infield mates Anthony Rizzo and Addison Russell also rank highly. Now -- this list wildly underestimates Bryant's arbitration salaries. I declined to meaningfully project first-year arbitration salaries, which means his arbitration years come in at a very low $5M total. He'll certainly earn more than that. But that doesn't change the fact that he's 25 and projected for nearly 6 WAR per year for the next five years.
+
+=== Cubs' Service Time Games with Bryant ... ? ===
+
+
+
+
+
