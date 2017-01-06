@@ -180,7 +180,7 @@ warcels <- all_players %>%
          age_in_two_years = age_now + 2,
          age_in_three_years = age_now + 3,
          age_in_four_years = age_now + 4,
-         currentWAR = ifelse(is.na(ValueW) == FALSE, ValueW, 1),  #players w/o appearances in a season get 1 WAR for that year
+         currentWAR = ifelse(is.na(ValueW) == FALSE, ValueW, 0),  #players w/o appearances in a season get 1 WAR for that year
          war_last_year = ifelse(is.na(lag(ValueW)) == FALSE, lag(ValueW), 0),
          war_two_years_ago = ifelse(is.na(lag(ValueW, 2)) == FALSE, lag(ValueW, 2), 0),
          step1 = (0.6 * currentWAR) + (0.3 * war_last_year) + (0.1* war_two_years_ago),
