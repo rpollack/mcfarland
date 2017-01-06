@@ -204,12 +204,12 @@ warcels <- all_players %>%
                                        war_next + war_in_two_years + war_in_three_years + war_in_four_years +
                                          war_in_five_years))))
                  , 1),
-         
          Position = ifelse(Position == "SP", "Rotation",
                            ifelse(Position == "RP", "Bullpen", "Hitter")),
          dollars_per_win_under_control = ifelse(war_under_control == 0 , round(salary_under_control / .0001, 2),
                                                 round(salary_under_control / war_under_control, 2)),
-         surplus_value_under_control = round((millions_per_war * war_under_control) - salary_under_control, 1),
+         surplus_value_under_control = round((millions_per_war * ((.05 * years_of_control) + 1)) * war_under_control -
+           salary_under_control, 1),
          war_per_year_of_control = round(war_under_control / years_of_control, 2)) %>%
   filter(Season == max(Season)) %>%    #get only the latest projections
   ungroup() %>%
