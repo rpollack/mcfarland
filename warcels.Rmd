@@ -212,23 +212,15 @@ warcels <- all_players %>%
          surplus_value_under_control = round((millions_per_war * war_under_control) - salary_under_control, 1),
          war_per_year_of_control = round(war_under_control / years_of_control, 2)) %>%
   filter(Season == max(Season)) %>%    #get only the latest projections
-  select(FullName, Position, Team, years_of_control, war_under_control, war_per_year_of_control, salary_under_control, dollars_per_win_under_control, surplus_value_under_control) %>%
+  ungroup() %>%
+  mutate(surplus_value_under_control_rank = round(percent_rank(surplus_value_under_control) * 100, 2)) %>%
+  select(FullName, Position, Team, years_of_control, war_under_control, war_per_year_of_control, salary_under_control, dollars_per_win_under_control, surplus_value_under_control, surplus_value_under_control_rank) %>%
   arrange(desc(surplus_value_under_control))
 ```
 
 ### Group results by team
 
-```{r}
-team_surplus_value <- warcels %>%
-  group_by(Team) %>%
-  summarize(avg_surplus_value_per_year = sum(surplus_value_under_control) / sum(years_of_control),
-            avg_years_of_control = round(mean(years_of_control), 2))
 
-ggplot(team_surplus_value, aes(avg_years_of_control, avg_surplus_value_per_year, Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control", y="avg. surplus value per year (Millions USD)") + ggtitle("Surplus Value Under Control, 2017 - 2021") + xlim(3,5)
-
-
-
-```
 
 
 ```{r}
