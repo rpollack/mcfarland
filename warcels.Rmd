@@ -86,11 +86,11 @@ getPayrolls <- function(Tm) {
     arrange(Name, Year) %>%
     
     #project future arb years based on 25-40-60% formula located here: http://www.thepointofpittsburgh.com/calculating-mlb-arbitration-percentages/
-    #And project Arb-4 salaries at 80% of FA value per my own whims
-    mutate(value = ifelse(value == "Arb-1", 0.535, value),
-           value = ifelse(value == "Arb-2" | value == "Arb", (as.double(lag(value)) / .25) * .4, value),
+    #And project Arb-4 salaries at 70% of FA value, kinda based on the above article
+    mutate(value = ifelse(value == "Arb-1" | value == "Arb", 2.2, value), #$2.2M is the avg Arb-1 salary in 2016, per MLBTR's tracker
+           value = ifelse(value == "Arb-2", (as.double(lag(value)) / .25) * .4, value),
            value = ifelse(value == "Arb-3", (as.double(lag(value)) / .4) * .6, value),
-           value = ifelse(value == "Arb-4", (as.double(lag(value)) / .6) * .8, value))
+           value = ifelse(value == "Arb-4", (as.double(lag(value)) / .6) * .7, value))
 }
 
 
@@ -103,7 +103,7 @@ teamAbbr <- getTeamabbr(2016)
 all_teams_payroll <- teamAbbr %>% 
   group_by(Tm) %>%
   do(getPayrolls(.$Tm)) %>%
-  select(Team, Name, Age, Year, value)
+  select(Team = Tm, Name, Age, Year, value)
 
 fg_players <- fg_db %>%
   tbl("player_info") %>%
