@@ -1,17 +1,11 @@
+---
+output:
+  pdf_document: default
+---
 
-Headlines:
-
--Cubs Dominate MLB Surplus Value
--
-
-
-... Intro ... what emotion do I want the reader to feel?
-
-(Awe)
-
-You're familiar with the concept of surplus value: a player's value to the team minus the salary they make. Value most often takes the form of WAR, but players can provide value in other ways -- attracting more fans to the stadium, selling jerseys, and so on.
-
-It turns out the recently crowned Chicago Cubs not only have a core of young, cost-controlled talent beyond any team in baseball. They're also paying very little for that talent.
+```{r, echo=FALSE}
+library(tidyverse)
+```
 
 METHODOLOGY 
 
@@ -31,27 +25,18 @@ Projecting salary was trickier:
 
 The toughest part was projecting arbitration salaries for players who will be pre-arb in 2017. No arbitration projection yet exists for these fellas. I used $2.2M, which is the average Arb-1 salary given out in 2016, according to MLBTR's tracker (http://www.mlbtraderumors.com/arbtracker2016). The 25/40/60/70 rubric kicked in for subsequent arbitration projections.
 
-Using averages in situations like these has its perils. For example, Kris Bryant will get far more than $2.2M in his first arbitration season. So in the following analysis, his surplus value is drastically overstated. But short of projecting Arb-1 for every player uniquely, this was the best I could do. I'm open to other methods if you'd like to share them in the comments.
+Using averages in situations like these has its perils. For example, we as people know that Kris Bryant will get far more than $2.2M in his first arbitration season. So in the following analysis, his surplus value is drastically overstated. But short of projecting Arb-1 for every player uniquely, this was the best I could do. I'm open to other methods if you'd like to share them in the comments. This area is the biggest shortcoming of this project.
 
-With years of control, WAR under control, and salary under control, I calculated a player's surplus value as (8.5 * WAR) - Salary. I inflated the value of WAR by 5% each year and inflated salary by 3% each year.
+With years of control, WAR under control, and salary under control, I calculated a player's surplus value as (8.5 * _WAR Under Control_) - _Salary_Under_Control_. I inflated the value of WAR by 5% each year of control.
 
-===SECTION HEADING===
+===RESULTS===
 
-OK, now we can get to the results, which are simply this: the Cubs dominate the entire sport of Major League Baseball in terms of talent they control and the surplus value they're getting from that talent. It's not even close.
+OK, now we can get to the results, which are simply this: the Cubs dominate the entire sport of Major League Baseball in terms of talent they control and the surplus value they're getting from that talent. Other teams control their players for longer on average, but no team comes close to the value per dollar Theo Epstein and his crew are getting.
 
-Without talking about salary at all, you can see Chicago controls the most amount of talent by far:
+The following table shows the surplus value under control for each team through 2021:
 
-```{r}
-ggplot(data=team_war, aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="Avg. years of control  per player (5 years max)", y="Avg. WAR under control per year") + ggtitle("MLB Team Control of Talent, 2017-2021") + xlim(2.5,5)
-```
+```{r, echo=FALSE}
 
-When it comes to talent under control, the Cubs lead the sport and no one else is close. The Mets come the closest to the Cubs in terms of overall talent under control, but they average half a year less of control per player. Their contention window is much smaller. Nationals fans should be happy; your team controls a similar amount of talent but for longer, on average, than your division rivals. Red Sox, Dodgers, Astros, and Giants fans also have reason to be excited. 
-
-But don't get it twisted. The Cubs dominate everyone else and they likely will for years to come.
-
-When we add salary into the equation we can calculate the surplus value each team has under control. Here again the Cubs lead the other teams by a large margin:
-
-```{r}
 cubs_tbl <- team_war %>%
   select(-num_players, -war_under_control, -years_of_control, -salary_under_control, - war_under_control_per_year,
          -war_per_player_per_year, -surplus_value_per_year, -mm_per_war_per_year) %>%
@@ -61,66 +46,41 @@ cubs_tbl
 
 ```
 
-[[explain how the $2.2M makes this gap look much larger than it probably really is]]
+The Cub's are paying the least for the most talent, even when you factor in that many of their pre-arb players get hurt by the $2.2M Arb-1 projection I mentioned. This projection hurts the Cubs more than any other team because the Cubs have so many pre-arb players to begin with.
 
+Controlled surplus value is nice, but teams have to balance that value with the amount of time they control it. Here again, the Cubs lead the pack. They don't have the longest control over their players, but for the next 3-4 years they have nearly double the surplus value of the next-highest team:
 
-This table inflates the value of many pre-arb players, particularly good ones like the Cubs have
-
-
-, because Here's where the Arb-1 projections of Kris Bryant and many of his teammates come into play. I used a value of $2.2M as I explained above but Bryant, Addison Russell , Kyle Hendricks, and others on their team will make much more than this in their first year of arbitration.
-
-have yet to hit arbitration. This makes them cheap regardless of how they perform on the field, but these players have sky-high WAR projections for the next five years.  
-
-
-```{r}
-cubs_position <- 
-```
-
-But not all surplus value is created equally. Some teams control theirs for a few years; others, for a long time. The following chart shows how the Cubs' average surplus value per year, along with the length of time they control it, compares to other teams:
-
-```{r}
+```{r, echo=FALSE}
 
 team_surplus_value <- warcels %>%
   group_by(Team) %>%
   summarize(avg_surplus_value_per_year = sum(surplus_value_under_control) / sum(years_of_control),
             avg_years_of_control = round(mean(years_of_control), 2))
 
-ggplot(team_surplus_value, aes(avg_years_of_control, avg_surplus_value_per_year, Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control", y="avg. surplus value per year (Millions USD)") + ggtitle("MLB Team Surplue Value Under Control, 2017 - 2021") + xlim(2.5,5)
+ggplot(team_surplus_value, aes(avg_years_of_control, avg_surplus_value_per_year, Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="Avg. no. of years team controls its current players", y="Avg surplus value each player provides (Millions USD)") + ggtitle("MLB Team Surplue Value Under Control, 2017 - 2021") + xlim(2.5,5) + fgt
 
 ```
 
+The Cubs roster averages over $5M in surplus value each year for the next 3-4 years. That's what having a core of pre-arbitration talent does. The next-best team doesn't even average $1M in surplus value per year. The remaining 28 teams, featuring older and/or worse players, don't get any surplus value at all.
 
-Eight Cubs rank in the 90th percentile of 1,053-player. The most any other club has in this bracket is six -- shared by the Reds and Indians. The Red Sox, Astros, Dodgers, Twins, Phillies, Giants, and Blue Jays have five players each.
-
-```{r}
-
-teams_in_top_90 <- warcels %>%
-  filter(surplus_value_under_control_rank >= 90) %>%
-  group_by(Team) %>% 
-  summarize(num_players_in_top_10_perc = n()) %>%
-  arrange(desc(num_players_in_top_10_perc))
-
-teams_in_top_90
-
-```
-
-
-These eight Cubs are:
-
-```{r}
-
+```{r, echo=FALSE}
 cubs_surplus_value <- warcels %>%
-  filter(Team == "CHC", 
-         surplus_value_under_control_rank >= 90.0) %>%
+  filter(Team == "CHC") %>%
   mutate(salary_under_control = round(salary_under_control, 1)) %>%
   select(-Position, -Team, -war_per_year_of_control, -dollars_per_win_under_control)
 
 cubs_surplus_value
 ```
 
-Kris Bryant leads not only the Cubs, but all of MLB in controlled surplus value. His infield mates Anthony Rizzo and Addison Russell also rank highly. Now -- this list wildly underestimates Bryant's arbitration salaries. I declined to meaningfully project first-year arbitration salaries, which means his arbitration years come in at a very low $5M total. He'll certainly earn more than that. But that doesn't change the fact that he's 25 and projected for nearly 6 WAR per year for the next five years.
+My $2.2M Arb-1 projection makes many of the guys atop this list appear to be better bargains than they are -- Bryant, Russell, and Hendricks especially. These guys will make far more than that in their Arb-1 years. But so will many other players on other teams to whom I applied this projection.
 
-=== Cubs' Service Time Games with Bryant ... ? ===
+Still, the Cubs are far ahead of everyone else. Seven of their players rank in the top 90% of surplus value and an eighth, Kyle Schwarber, just misses the cut. Two teams have six players at this ranking; seven teams have five players here.
+
+Surplus value isn't everything. Teams need to put talent on the field. Here again, the Cubs shine. The following graph shows simply the average amount of WAR they control each year, across their entire current roster, and the average time they control each player for:
+
+```{r, echo=FALSE}
+ggplot(data=team_war, aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="Avg. no. of years team controls its current players", y="Avg. total WAR per year") + ggtitle("MLB Team Control of Talent, 2017-2021") + xlim(2.5,5) + fgt
+```
 
 
 
