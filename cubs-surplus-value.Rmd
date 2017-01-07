@@ -13,18 +13,31 @@ You're familiar with the concept of surplus value: a player's value to the team 
 
 It turns out the recently crowned Chicago Cubs not only have a core of young, cost-controlled talent beyond any team in baseball. They're also paying very little for that talent.
 
-For this article I defined surplus value as (8.5 * projected WAR) - salary. I simulated inflation by increasing the cost of WAR by 5% for every year the player is under control.
+METHODOLOGY 
 
-To project WAR I used a method Tom Tango proposed. The details are here: http://tangotiger.com/index.php/site/comments/war-marcels-...-warcels, read up if you're interested. The method isn't perfect, particularly when it comes to pitchers, but I trust Tango's methodology enough to go forward. For missing years I gave the player 0 WAR.     
+Surplus value under control has three parts: the number of years a player is under control, their WAR during that time period, and their salary during that time period. Below I describe the process I used to calculate each and any assumptions I made.
 
-Projecting salary was easy in some cases, difficult in others. I used contract data from Baseball Reference and arbitration projections from MLB Trade Rumors. Where applicable I projected future arbitration salaries by applying the 25%/40%/60% research described by Kevin Creagh at The Point of Pittsburgh (http://www.thepointofpittsburgh.com/calculating-mlb-arbitration-percentages/). For Arb-4 years I used 80% of future salary as the projected value.
+To determine the number of years a player is under control, I used team payroll information from Baseball Reference. To simplify my task, I assumed all contract options are exercised and no opt-outs are. I limited the time horizon to five years because I have WAR projections only for the next five years. For example, although Miguel Cabrera is under control for at least seven more years, my analysis only shows him as under control for the next five.
 
-One large caveat exists: if a player is pre-arbitration for 2017, they've never had an arbitration projection, so I used the league minimum ($535k in 2017) as the basis for their arbitration raises. This process drastically lowballs pre-arb players, many of whom play for the Cubs, and as such affects the analysis in this article.  
- 
+To project WAR I used a method Tom Tango proposed that weights past performance and applies an aging curve. The details are here: http://tangotiger.com/index.php/site/comments/war-marcels-...-warcels; read up if you're interested. The method isn't perfect, particularly when it comes to pitchers, but I trust Tango's methodology enough to go forward. For missing years I gave the player 0 WAR.
 
+Projecting salary was trickier:
 
+- For free-agent contract years, I information when available from Baseball Reference. I noticed they don't defer salary; for example, Chris Davis will make $17M next year, but $23M is listed on the Orioles' payroll page. I used the latter number.
+- For 2017 arbitration salaries, I used projections from MLB Trade Rumors.
+- For arbitrations years beyond 2017, I applied the 25%/40%/60% research described by Kevin Creagh at The Point of Pittsburgh (http://www.thepointofpittsburgh.com/calculating-mlb-arbitration-percentages/). For example, Jonathan Schoop is projected to earn $3.4M in 2017, his Arb-1 year. To project his Arb-2 salary, I calculated his free-agent AAV as (3.4 / .25), then multiplied by .4 to get a projection of $5.44M. I then used $5.44M to project his Arb-3 salary at $8.16M. 
+- For Arb-4 years, I used 70% of free-agent salary. For simplicity's sake, I did not identify Arb-4 players and then apply the 20%/33%/50%/70% progression that Creagh found. The progression in my analysis goes 25%/40%/60%/70%.
+- For pre-arb salaries, I used the 2017 league minimum of $535k. I did not step up each year as the CBA dictates.
 
+The toughest part was projecting arbitration salaries for players who will be pre-arb in 2017. No arbitration projection yet exists for these fellas. I used $2.2M, which is the average Arb-1 salary given out in 2016, according to MLBTR's tracker (http://www.mlbtraderumors.com/arbtracker2016). The 25/40/60/70 rubric kicked in for subsequent arbitration projections.
 
+Using averages in situations like these has its perils. For example, Kris Bryant will get far more than $2.2M in his first arbitration season. So in the following analysis, his surplus value is drastically overstated. But short of projecting Arb-1 for every player uniquely, this was the best I could do. I'm open to other methods if you'd like to share them in the comments.
+
+With years of control, WAR under control, and salary under control, I calculated a player's surplus value as (8.5 * WAR) - Salary. I inflated the value of WAR by 5% each year and inflated salary by 3% each year.
+
+===SECTION HEADING===
+
+OK, now we can get to the results, which are simply this: the Cubs dominate the entire sport of Major League Baseball in terms of talent they control and the surplus value they're getting from that talent. It's not even close.
 
 
 Total Surplus Value
@@ -37,6 +50,11 @@ cubs_tbl <- team_war %>%
 
 cubs_tbl
 
+```
+
+
+```{r}
+cubs_position <- 
 ```
 
 But not all surplus value is created equally. Some teams control theirs for a few years; others, for a long time. The following chart shows how the Cubs' average surplus value per year, along with the length of time they control it, compares to other teams:
@@ -73,8 +91,8 @@ These eight Cubs are:
 ```{r}
 
 cubs_surplus_value <- warcels %>%
-  filter(Team == "CHC") %>%
-  head(8) %>%
+  filter(Team == "CHC", 
+         surplus_value_under_control_rank >= 90.0) %>%
   mutate(salary_under_control = round(salary_under_control, 1)) %>%
   select(-Position, -Team, -war_per_year_of_control, -dollars_per_win_under_control)
 
