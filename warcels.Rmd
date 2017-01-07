@@ -1,16 +1,13 @@
----
-title: "warcels"
-output: html_document
----
-notes: 
+
+notes:
 * WAR projections are done using FG WAR & Warcels (link).
-* missing seasons are filled in with 1 WAR. this includes seasons prior to a player's debut as well as those missed due to injury/ineffectiveness/whatever.
+* missing seasons are filled in with 1 WAR. this includes seasons prior to a player's debut as well as those #missed due to injury/ineffectiveness/whatever.
 * players are assigned to the current team they're on. free agents are not assigned to any team.
-* FA computations assume all options are picked up. e.g. starlin castro is given 4 years of control even though he has three years remaining before his $16 team option in 2020.
+* FA computations assume all options are picked up. e.g. starlin castro is given 4 years of control even #though he has three years remaining before his $16 team option in 2020.
 * for pre-arb years, minimum salary is used: $535k.
 * for arb players, MLBTR projections are used for 2017. for future arb years, including Arb-1's, 25%/40%/60% of FA salary is used to project.
 * for Arb-4 players, 80% of salary is used to project
-* for players with non-arb contracts, salary under control is computed as AAV of contract * number of years of control
+* for players with non-arb contracts, salary under control is computed as AAV of contract * number of years #of control
 * for position players, only offensive & defensive WAR is counted. for pitchers, only pitching WAR is counted.
 * players who are under contract for longer than 5 years are, for the purposes of this exercise, give 5 years of team control. this is because i only projected WAR out for 5 years. contracts that run more than 5 years contain only the first five years of the player's earnings.
 * players who haven't reached arbitration yet use the same calculations but with the minimum salary as their base. so Arb 1 would be assuming a raise from the min. salary, etc.
@@ -19,13 +16,28 @@ notes:
 Questions:
 
 - Win Now-iest team in Baseball
-- Worst contract in baseball (least surplus over next 5 years) 
+- Worst contract in baseball (least surplus over next 5 years)
 - Most efficiently-spending teams over next 5 years
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, echo=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(stringr)
+
+
+fgt = theme(
+  panel.background = element_rect(color = "lightgrey", fill = "white"),
+  axis.title = element_text(family = "Lato"),
+  axis.text = element_text(family = "Lato"),
+  legend.title = element_text(family = "Lato"),
+  legend.text = element_text(family = "Lato"),
+  legend.background = element_rect(fill = "white"),
+  legend.key = element_rect(fill = "white"),
+  plot.title = element_text(family = "Lato"),
+  panel.grid.major = element_line(size = .1, color = "lightgrey"),
+  panel.grid.minor = element_line(size = 0)
+  )
+
 ```
 
 #Define functions to read payroll data from bb-ref.
@@ -72,9 +84,6 @@ getPayrolls <- function(Tm) {
   #for each player, create multiple rows, one for each "Year", where "value" is either their salary that year, their arbitration status, or their FA status, or blank if the player won't be on the payroll.
   #the 2017, 2018, 2019, etc. columns are the ones collapsed into the 'value' column. because those are left when the others are unselected (with a minus sign)).
   tms_melt <- gather(tms, key = Year, value, -Name, -Age, -Yrs, -Acquired, -SrvTm, -Agent, -`Contract Status`)
-  
-  
-  
   tms_melt <- tms_melt %>%
     filter(value != "") %>% #remove years where players aren't on a payroll
     mutate(Team = Tm) %>%
@@ -137,7 +146,6 @@ all_players <- bind_rows(fg_batters, fg_pitchers)
 ### For each player find years, salary under team control
 
 ```{r}
-
 #get the number of years of control a team has over a player, limited to 5, and then compute the player's total salary in that time period
 
 years_of_control <- all_teams_payroll %>%
@@ -149,8 +157,6 @@ years_of_control <- all_teams_payroll %>%
   filter(row_number() <= years_of_control) %>%
   summarize(years_of_control = n(),
             salary_under_control = sum(as.numeric(value), na.rm = TRUE))
-
-
 ```
 
 ## For each player, project WAR and salary under team control
@@ -214,7 +220,7 @@ warcels <- all_players %>%
   filter(Season == max(Season)) %>%    #get only the latest projections
   ungroup() %>%
   mutate(surplus_value_under_control_rank = round(percent_rank(surplus_value_under_control) * 100, 2)) %>%
-  select(FullName, Position, Team, years_of_control, war_under_control, war_per_year_of_control, salary_under_control, dollars_per_win_under_control, surplus_value_under_control, surplus_value_under_control_rank) %>%
+  select(FullName, Position, Age = age_now, Team, years_of_control, war_under_control, war_per_year_of_control, salary_under_control, dollars_per_win_under_control, surplus_value_under_control, surplus_value_under_control_rank) %>%
   arrange(desc(surplus_value_under_control))
 ```
 
