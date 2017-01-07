@@ -218,23 +218,9 @@ warcels <- all_players %>%
   arrange(desc(surplus_value_under_control))
 ```
 
-### Group results by team
-
-
-
+### Group by Team
 
 ```{r}
-team_war_by_position <- warcels %>%
-  group_by(Team, Position) %>%
-  summarize(num_players= n(),
-            war_under_control = sum(war_under_control),
-            years_of_control = round(mean(years_of_control), 2),
-            salary_under_control = sum(salary_under_control)) %>%
-  mutate(war_under_control_per_year = round(war_under_control / years_of_control, 1),
-         war_per_player_per_year = round(war_under_control / num_players / years_of_control, 2),
-         mm_per_war_per_year = round(salary_under_control / war_under_control / years_of_control, 2))
-
-
 team_war <- warcels %>%
   group_by(Team) %>%
   summarize(num_players= n(),
@@ -246,6 +232,20 @@ team_war <- warcels %>%
          war_per_player_per_year = round(war_under_control / num_players / years_of_control, 2),
          mm_per_war_per_year = as.numeric(round(salary_under_control / war_under_control / years_of_control, 2)),
          surplus_value_per_year = round(surplus_value_under_control / years_of_control))
+
+```
+
+### Group results by team & high-level position
+
+```{r}
+team_war_by_position <- warcels %>%
+  group_by(Team, Position) %>%
+  summarize(war_under_control = sum(war_under_control),
+            years_of_control = round(mean(years_of_control), 2),
+            salary_under_control = sum(salary_under_control),
+            surplus_value_under_control = sum(surplus_value_under_control))
+
+ggplot(data=team_war_by_position, aes(Team, surplus_value_under_control, fill=Position)) + geom_bar(stat="identity") + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + coord_flip()
 
 ```
 
