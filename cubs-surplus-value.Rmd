@@ -39,8 +39,17 @@ With years of control, WAR under control, and salary under control, I calculated
 
 OK, now we can get to the results, which are simply this: the Cubs dominate the entire sport of Major League Baseball in terms of talent they control and the surplus value they're getting from that talent. It's not even close.
 
+Without talking about salary at all, you can see Chicago controls the most amount of talent by far:
 
-Total Surplus Value
+```{r}
+ggplot(data=team_war, aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="Avg. years of control  per player (5 years max)", y="Avg. WAR under control per year") + ggtitle("MLB Team Control of Talent, 2017-2021") + xlim(2.5,5)
+```
+
+When it comes to talent under control, the Cubs lead the sport and no one else is close. The Mets come the closest to the Cubs in terms of overall talent under control, but they average half a year less of control per player. Their contention window is much smaller. Nationals fans should be happy; your team controls a similar amount of talent but for longer, on average, than your division rivals. Red Sox, Dodgers, Astros, and Giants fans also have reason to be excited. 
+
+But don't get it twisted. The Cubs dominate everyone else and they likely will for years to come.
+
+When we add salary into the equation we can calculate the surplus value each team has under control. Here again the Cubs lead the other teams by a large margin:
 
 ```{r}
 cubs_tbl <- team_war %>%
@@ -51,6 +60,16 @@ cubs_tbl <- team_war %>%
 cubs_tbl
 
 ```
+
+[[explain how the $2.2M makes this gap look much larger than it probably really is]]
+
+
+This table inflates the value of many pre-arb players, particularly good ones like the Cubs have
+
+
+, because Here's where the Arb-1 projections of Kris Bryant and many of his teammates come into play. I used a value of $2.2M as I explained above but Bryant, Addison Russell , Kyle Hendricks, and others on their team will make much more than this in their first year of arbitration.
+
+have yet to hit arbitration. This makes them cheap regardless of how they perform on the field, but these players have sky-high WAR projections for the next five years.  
 
 
 ```{r}
@@ -66,7 +85,7 @@ team_surplus_value <- warcels %>%
   summarize(avg_surplus_value_per_year = sum(surplus_value_under_control) / sum(years_of_control),
             avg_years_of_control = round(mean(years_of_control), 2))
 
-ggplot(team_surplus_value, aes(avg_years_of_control, avg_surplus_value_per_year, Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control", y="avg. surplus value per year (Millions USD)") + ggtitle("Average Annual Surplue Value Under Control, 2017 - 2021") + xlim(3,5)
+ggplot(team_surplus_value, aes(avg_years_of_control, avg_surplus_value_per_year, Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control", y="avg. surplus value per year (Millions USD)") + ggtitle("MLB Team Surplue Value Under Control, 2017 - 2021") + xlim(2.5,5)
 
 ```
 
