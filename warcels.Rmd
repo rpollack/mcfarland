@@ -72,7 +72,6 @@ getPayrolls <- function(Tm) {
   
   if (!"2021" %in% names(tms)) {
     tms$`2021` <- NA
-    
   }
   
   tms <- tms %>%
@@ -86,7 +85,8 @@ getPayrolls <- function(Tm) {
   #the 2017, 2018, 2019, etc. columns are the ones collapsed into the 'value' column. because those are left when the others are unselected (with a minus sign)).
   tms_melt <- gather(tms, key = Year, value, -Name, -Age, -Yrs, -Acquired, -SrvTm, -Agent, -`Contract Status`)
   tms_melt <- tms_melt %>%
-    filter(value != "") %>% #remove years where players aren't on a payroll
+    mutate(value = ifelse(grepl("FA-\\*", value) == TRUE, "", value)) %>% #assume options won't happen
+    filter(value != "") %>%                                   #remove years where players aren't on a payroll
     mutate(Team = Tm) %>%
     
     #give player minimum salary if they are pre-arb. else extract the actual or projected salary using a regex.
