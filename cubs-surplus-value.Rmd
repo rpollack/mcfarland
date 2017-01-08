@@ -40,7 +40,8 @@ The following table shows the surplus value under control for each team through 
 cubs_tbl <- team_war %>%
   select(-num_players, -war_under_control, -years_of_control, -salary_under_control, - war_under_control_per_year,
          -war_per_player_per_year, -surplus_value_per_year, -mm_per_war_per_year) %>%
-  arrange(desc(surplus_value_under_control))
+  arrange(desc(surplus_value_under_control)) %>%
+  write_csv("mlb-surplus-value-thru-2021.csv")
 
 cubs_tbl
 
@@ -57,17 +58,26 @@ team_surplus_value <- warcels %>%
   summarize(avg_surplus_value_per_year = sum(surplus_value_under_control) / sum(years_of_control),
             avg_years_of_control = round(mean(years_of_control), 2))
 
-ggplot(team_surplus_value, aes(avg_years_of_control, avg_surplus_value_per_year, Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="Avg. no. of years team controls its current players", y="Avg surplus value each player provides (Millions USD)") + ggtitle("MLB Team Surplue Value Under Control, 2017 - 2021") + xlim(2.5,5) + fgt
+ggplot(team_surplus_value, aes(avg_years_of_control, avg_surplus_value_per_year, Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="Avg. no. of years team controls its current players", y="Avg surplus value of roster per year (Millions USD)") + ggtitle("MLB Team Surplue Value Under Control, 2017 - 2021") + xlim(2.5,5) + fgt
+
+for_fg <- team_surplus_value %>%
+  select(avg_years_of_control, avg_surplus_value_per_year) %>%
+  write_csv("mlb-team-surplus-value.csv")
+
 
 ```
 
-The Cubs roster averages over $5M in surplus value each year for the next 3-4 years. That's what having a core of pre-arbitration talent does. The next-best team doesn't even average $1M in surplus value per year. The remaining 28 teams, featuring older and/or worse players, don't get any surplus value at all.
+The Cubs' roster averages over $5M in surplus value each year for the next 3-4 years. That's what having a core of pre-arbitration talent does. The next-best team doesn't even average $1M in surplus value per year. The remaining 28 teams, featuring older and/or worse players, don't get any surplus value at all.
 
 ```{r, echo=FALSE}
 cubs_surplus_value <- warcels %>%
   filter(Team == "CHC") %>%
   mutate(salary_under_control = round(salary_under_control, 1)) %>%
-  select(-Position, -Team, -war_per_year_of_control, -dollars_per_win_under_control)
+  select(Name = FullName, `Years of Control` = years_of_control, `WAR Under Control` = war_under_control,
+         `Salary Under Control*` = salary_under_control, `Surplus Value Under Control*` =
+           surplus_value_under_control, `Surplus Value MLB Rank (%)` = surplus_value_under_control_rank) %>%
+  arrange(desc(`Surplus Value MLB Rank (%)`)) %>%
+  write_csv("cubs-surplus-value-players.csv")
 
 cubs_surplus_value
 ```
@@ -75,6 +85,8 @@ cubs_surplus_value
 My $2.2M Arb-1 projection makes many of the guys atop this list appear to be better bargains than they are -- Bryant, Russell, and Hendricks especially. These guys will make far more than that in their Arb-1 years. But so will many other players on other teams to whom I applied this projection.
 
 Still, the Cubs are far ahead of everyone else. Seven of their players rank in the top 90% of surplus value and an eighth, Kyle Schwarber, just misses the cut. Two teams have six players at this ranking; seven teams have five players here.
+
+===RAW TALENT===
 
 Surplus value isn't everything. Teams need to put talent on the field. Here again, the Cubs shine. The following graph shows simply the average amount of WAR they control each year, across their entire current roster, and the average time they control each player for:
 
