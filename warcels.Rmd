@@ -153,8 +153,7 @@ all_players <- bind_rows(fg_batters, fg_pitchers)
 
 find_cumulative_war_through_year <- function(name, year){
   #search both batter & pitcher data frames for the player and return their cumulative
-  #fWAR through the given year.
-  
+  #fWAR through the given year. this tactic works because each player appears in only one data frame.
   
   fname <- str_split(name, " ", simplify = TRUE, n=2)[1]
   lname <- str_split(name, " ", simplify = TRUE, n=2)[2]
@@ -162,51 +161,54 @@ find_cumulative_war_through_year <- function(name, year){
   batter_search <- fg_batters %>%
     filter(FirstName == fname,
            LastName == lname,
-           Season <= year)
+           Season < year)
   
   pitcher_search <- fg_pitchers %>%
     filter(FirstName == fname,
            LastName == lname,
-           Season <= year)
+           Season < year)
   
   search_space <- bind_rows(batter_search, pitcher_search)
   
   return(sum(search_space$ValueW))
 }
+find_cumulative_war_through_year <- Vectorize(find_cumulative_war_through_year)
+
+# would you believe there are TWO josh donaldsons in here?
+# is there a way to get only one?
 
 #arbitration data from MLBTR datafiles
 arb_2016 <- read_tsv("arbitration-2016.txt")
 arb_2016 <- arb_2016 %>%
-  select(Name, Team, SettledAmt) %>%
+  select(Name, Team, SrvTm, SettledAmt) %>%
   filter(SettledAmt != "Extension") %>%
   mutate(Year = 2016)
 
 arb_2015 <- read_tsv("arbitration-2015.txt")
 arb_2015 <- arb_2015 %>%
-  select(Name, Team, SettledAmt) %>%
+  select(Name, Team, SrvTm, SettledAmt) %>%
   filter(SettledAmt != "Extension") %>%
   mutate(Year = 2015)
 
 arb_2014 <- read_tsv("arbitration-2014.txt")
 arb_2014 <- arb_2014 %>%
-  select(Name, Team, SettledAmt) %>%
+  select(Name, Team, SrvTm, SettledAmt) %>%
   filter(SettledAmt != "Extension") %>%
   mutate(Year = 2014)
 
-all_arb <- bind_rows(arb_2015, arb_2016, arb_2014)
+all_arb <- bind_rows(arb_2015, arb_2016, arb_2014) %>%
+  filter(SrvTm >= 2,
+         SrvTm <= 3.9,              #make sure to catch first-year arbs only
+         Name != "Eric Young") %>%  #EY messes this up b/c his father is in there
+  select(-SrvTm)
 
 all_arb$SettledAmt <- gsub("\\$", "", all_arb$SettledAmt)
 all_arb$SettledAmt <- gsub("MM", "", all_arb$SettledAmt)
 all_arb$SettledAmt <- as.double(all_arb$SettledAmt)
 
-# now need to find fWAR prior to current year (so for 2015 players, WAR for all years prior to 2015)
 all_arb <- all_arb %>%
-  mutate(war_at_signing = lapply())
+  mutate(war_at_signing = find_cumulative_war_through_year(Name, Year))
 
-  
-  
-
-  #mutate(war_at_signing = find_cumulative_war_through_year(Name, Year))
 
 ```
 
