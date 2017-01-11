@@ -109,12 +109,15 @@ getPayrolls <- function(Tm) {
 ### Get data 
 
 ```{r}
+
+#payroll data
 teamAbbr <- getTeamabbr(2016)
 all_teams_payroll <- teamAbbr %>% 
   group_by(Tm) %>%
   do(getPayrolls(.$Tm)) %>%
   select(Team = Tm, Name, Age, Year, value)
 
+#player data from FG
 fg_players <- fg_db %>%
   tbl("player_info") %>%
   collect(n=Inf)
@@ -141,6 +144,69 @@ fg_pitchers <- inner_join(fg_players, fg_pitch, by="PlayerId") %>%
 
 #combine dataframes
 all_players <- bind_rows(fg_batters, fg_pitchers)
+
+```
+
+#Figure out a rough relationship between WAR and Arb-1 salaries, for the purposes of estimating Arb-1 salaries for other players.
+
+```{r}
+
+find_cumulative_war_through_year <- function(name, year){
+  #search both batter & pitcher data frames for the player and return their cumulative
+  #fWAR through the given year.
+  
+  
+  fname <- str_split(name, " ", simplify = TRUE, n=2)[1]
+  lname <- str_split(name, " ", simplify = TRUE, n=2)[2]
+
+  batter_search <- fg_batters %>%
+    filter(FirstName == fname,
+           LastName == lname,
+           Season <= year)
+  
+  pitcher_search <- fg_pitchers %>%
+    filter(FirstName == fname,
+           LastName == lname,
+           Season <= year)
+  
+  search_space <- bind_rows(batter_search, pitcher_search)
+  
+  return(sum(search_space$ValueW))
+}
+
+#arbitration data from MLBTR datafiles
+arb_2016 <- read_tsv("arbitration-2016.txt")
+arb_2016 <- arb_2016 %>%
+  select(Name, Team, SettledAmt) %>%
+  filter(SettledAmt != "Extension") %>%
+  mutate(Year = 2016)
+
+arb_2015 <- read_tsv("arbitration-2015.txt")
+arb_2015 <- arb_2015 %>%
+  select(Name, Team, SettledAmt) %>%
+  filter(SettledAmt != "Extension") %>%
+  mutate(Year = 2015)
+
+arb_2014 <- read_tsv("arbitration-2014.txt")
+arb_2014 <- arb_2014 %>%
+  select(Name, Team, SettledAmt) %>%
+  filter(SettledAmt != "Extension") %>%
+  mutate(Year = 2014)
+
+all_arb <- bind_rows(arb_2015, arb_2016, arb_2014)
+
+all_arb$SettledAmt <- gsub("\\$", "", all_arb$SettledAmt)
+all_arb$SettledAmt <- gsub("MM", "", all_arb$SettledAmt)
+all_arb$SettledAmt <- as.double(all_arb$SettledAmt)
+
+# now need to find fWAR prior to current year (so for 2015 players, WAR for all years prior to 2015)
+all_arb <- all_arb %>%
+  mutate(war_at_signing = lapply())
+
+  
+  
+
+  #mutate(war_at_signing = find_cumulative_war_through_year(Name, Year))
 
 ```
 
