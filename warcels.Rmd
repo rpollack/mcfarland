@@ -218,7 +218,9 @@ warcels <- all_players %>%
          surplus_value_under_control = round((millions_per_war * ((.05 * years_of_control) + 1)) * war_under_control -
            salary_under_control, 1),
          war_per_year_of_control = round(war_under_control / years_of_control, 2)) %>%
-  filter(Season == max(Season)) %>%    #get only the latest projections
+  filter(Season == max(Season),         # get only the latest projections
+         war_under_control > 1) %>%     # don't count all the scrubs that bb-ref lists on the page 
+  
   ungroup() %>%
   mutate(surplus_value_under_control_rank = round(percent_rank(surplus_value_under_control) * 100, 2)) %>%
   select(FullName, Position, Age = age_now, Team, years_of_control, war_under_control, war_per_year_of_control, salary_under_control, dollars_per_win_under_control, surplus_value_under_control, surplus_value_under_control_rank) %>%
