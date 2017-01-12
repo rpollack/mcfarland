@@ -74,6 +74,7 @@ getPayrolls <- function(Tm) {
     tms$`2021` <- NA
   }
   
+  next_year <- 2017
   tms <- tms %>%
     
     #remove unused cells in the 'Name' column
@@ -90,17 +91,17 @@ getPayrolls <- function(Tm) {
     mutate(Team = Tm) %>%
     
     #give player minimum salary if they are pre-arb. else extract the actual or projected salary using a regex.
-    mutate(value = ifelse(grepl("Pre-Arb", value), 0.535, value),
-           value = ifelse(grepl("M", value), as.double(str_extract(value, "(?<=\\$)[:digit:]+\\.*[:digit:]*")), value),
+    mutate(value = ifelse(grepl("M", value), as.double(str_extract(value, "(?<=\\$)[:digit:]+\\.*[:digit:]*")), value),
            value = ifelse(grepl("k", value), as.double(str_extract(value, "(?<=\\$)[:digit:]+")) / 1000, value)) %>%
     arrange(Name, Year) %>%
     
     #project future arb years based on 25-40-60% formula located here: http://www.thepointofpittsburgh.com/calculating-mlb-arbitration-percentages/
     #And project Arb-4 salaries at 70% of FA value, kinda based on the above article
-    mutate(value = ifelse(value == "Arb-1" | value == "Arb", 2.2, value), #$2.2M is the avg Arb-1 salary in 2016, per MLBTR's tracker
-           value = ifelse(value == "Arb-2", (as.double(lag(value)) / .25) * .4, value),
+    mutate(value = ifelse(value == "Arb-2", (as.double(lag(value)) / .25) * .4, value),
            value = ifelse(value == "Arb-3", (as.double(lag(value)) / .4) * .6, value),
-           value = ifelse(value == "Arb-4", (as.double(lag(value)) / .6) * .7, value))
+           value = ifelse(value == "Arb-4", (as.double(lag(value)) / .6) * .7, value),
+           years_before_arb_eligible = ifelse(value == "Arb-1", as.integer(Year) - next_year, 0),
+           value = ifelse(grepl("Pre-Arb", value), 0.535, value))
 }
 
 
@@ -115,7 +116,19 @@ teamAbbr <- getTeamabbr(2016)
 all_teams_payroll <- teamAbbr %>% 
   group_by(Tm) %>%
   do(getPayrolls(.$Tm)) %>%
-  select(Team = Tm, Name, Age, Year, value)
+  select(Team = Tm, Name, Age, Year, value, years_before_arb_eligible)
+
+#compute years of control (limited to 5), years before arb eligibility, and salary under control
+years_of_control <- all_teams_payroll %>%
+  filter(value != "FA") %>%
+  group_by(Name, Team) %>%
+  mutate(years_of_control = n(),
+         years_of_control = ifelse(value=="FA", as.integer(Year) - next_year, 5)) %>%
+  arrange(Year) %>%
+  filter(row_number() <= years_of_control) %>%
+  summarize(years_of_control = n(),
+            salary_under_control = sum(as.numeric(value), na.rm = TRUE),
+            years_before_arb_eligible = max(years_before_arb_eligible, na.rm = TRUE))
 
 #player data from FG
 fg_players <- fg_db %>%
@@ -149,7 +162,7 @@ all_players <- bind_rows(fg_batters, fg_pitchers)
 
 #Figure out a rough relationship between WAR and Arb-1 salaries, for the purposes of estimating Arb-1 salaries for other players.
 
-```{r}
+```{r, echo=FALSE}
 
 find_cumulative_war_through_year <- function(name, year){
   #search both batter & pitcher data frames for the player and return their cumulative
@@ -161,11 +174,13 @@ find_cumulative_war_through_year <- function(name, year){
   batter_search <- fg_batters %>%
     filter(FirstName == fname,
            LastName == lname,
+           Season >= (year -4),   #restrict year floor to ensure we're getting the player we want
            Season < year)
   
   pitcher_search <- fg_pitchers %>%
     filter(FirstName == fname,
            LastName == lname,
+           Season >= (year -4),
            Season < year)
   
   search_space <- bind_rows(batter_search, pitcher_search)
@@ -173,9 +188,6 @@ find_cumulative_war_through_year <- function(name, year){
   return(sum(search_space$ValueW))
 }
 find_cumulative_war_through_year <- Vectorize(find_cumulative_war_through_year)
-
-# would you believe there are TWO josh donaldsons in here?
-# is there a way to get only one?
 
 #arbitration data from MLBTR datafiles
 arb_2016 <- read_tsv("arbitration-2016.txt")
@@ -198,8 +210,7 @@ arb_2014 <- arb_2014 %>%
 
 all_arb <- bind_rows(arb_2015, arb_2016, arb_2014) %>%
   filter(SrvTm >= 2,
-         SrvTm <= 3.9,              #make sure to catch first-year arbs only
-         Name != "Eric Young") %>%  #EY messes this up b/c his father is in there
+         SrvTm <= 3.9) %>%  #make sure I catch first-year arbs only
   select(-SrvTm)
 
 all_arb$SettledAmt <- gsub("\\$", "", all_arb$SettledAmt)
@@ -207,25 +218,10 @@ all_arb$SettledAmt <- gsub("MM", "", all_arb$SettledAmt)
 all_arb$SettledAmt <- as.double(all_arb$SettledAmt)
 
 all_arb <- all_arb %>%
-  mutate(war_at_signing = find_cumulative_war_through_year(Name, Year))
+  mutate(war_at_signing = find_cumulative_war_through_year(Name, Year),
+         predicted_arb = 1.36881 + (.26896 * war_at_signing))  #based on linear model of Arb-1 ~ WAR
 
 
-```
-
-### For each player find years, salary under team control
-
-```{r}
-#get the number of years of control a team has over a player, limited to 5, and then compute the player's total salary in that time period
-
-years_of_control <- all_teams_payroll %>%
-  filter(value != "FA") %>%
-  group_by(Name, Team) %>%
-  mutate(years_of_control = n(),
-         years_of_control = ifelse(value=="FA", as.integer(Year) - next_year, 5)) %>%
-  arrange(Year) %>%
-  filter(row_number() <= years_of_control) %>%
-  summarize(years_of_control = n(),
-            salary_under_control = sum(as.numeric(value), na.rm = TRUE))
 ```
 
 ## For each player, project WAR and salary under team control
