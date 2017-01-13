@@ -35,15 +35,49 @@ OK, now we can get to the results, which are simply this: the Cubs dominate the 
 
 The following table shows the surplus value under control for each team through 2021:
 
+
 ```{r, echo=FALSE}
 
-cubs_tbl <- warcels %>%
+war_tbl <- warcels %>%
   group_by(Team) %>%
-  summarize(`Controlled Surplus Value Through 2021*` = sum(surplus_value_under_control)) %>%
-  arrange(desc(`Controlled Surplus Value Through 2021*`)) %>%
+  summarize(`Controlled WAR Through 2021` = sum(war_under_control)) %>%
+  arrange(desc(`Controlled WAR Through 2021`)) %>%
+  write_csv("mlb-war-thru-2021.csv")
+
+cubs_war_tbl
+
+```
+
+
+
+
+
+```{r, echo=FALSE}
+
+salary_tbl <- warcels %>%
+  group_by(Team) %>%
+  summarize(`Controlled Salary Through 2021` = sum(salary_under_control)) %>%
+  arrange(desc(`Controlled Salary Through 2021`)) %>%
+  write_csv("mlb-salary-thru-2021.csv")
+
+salary_tbl
+
+
+
+```
+
+
+
+
+```{r, echo=FALSE}
+
+surplus_tbl <- warcels %>%
+  group_by(Team) %>%
+  summarize(`Controlled Surplus Value Through 2021` = sum(controlled_surplus_value)) %>%
+  arrange(desc(`Controlled Surplus Value Through 2021`)) %>%
   write_csv("mlb-surplus-value-thru-2021.csv")
 
-cubs_tbl
+surplus_tbl
 
 ```
 
@@ -55,13 +89,13 @@ Controlled surplus value is nice, but teams have to balance that value with the 
 
 team_surplus_value <- warcels %>%
   group_by(Team) %>%
-  summarize(avg_surplus_value_per_year = sum(surplus_value_under_control) / sum(years_of_control),
-            avg_years_of_control = round(mean(years_of_control), 2))
+  summarize(`Avg. Years of Control of Roster` = round(mean(years_of_control), 2),
+            `Avg. Surplus Value per Year (Millions USD)` = sum(controlled_surplus_value) / sum(years_of_control))
 
-ggplot(team_surplus_value, aes(avg_years_of_control, avg_surplus_value_per_year, Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="Avg. no. of years team controls its current players", y="Avg surplus value of roster per year (Millions USD)") + ggtitle("MLB Team Surplue Value Under Control, 2017 - 2021") + xlim(2.5,5) + fgt
+ggplot(team_surplus_value, aes(`Avg. Years of Control of Roster`, `Avg. Surplus Value per Year (Millions USD)`, Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + ggtitle("MLB Controlled Surplus Value, 2017 - 2021") + fgt
 
 for_fg <- team_surplus_value %>%
-  select(avg_years_of_control, avg_surplus_value_per_year) %>%
+  select(-Team) %>%
   write_csv("mlb-team-surplus-value.csv")
 
 
@@ -86,12 +120,46 @@ My $2.2M Arb-1 projection makes many of the guys atop this list appear to be bet
 
 Still, the Cubs are far ahead of everyone else. Seven of their players rank in the top 90% of surplus value and an eighth, Kyle Schwarber, just misses the cut. Two teams have six players at this ranking; seven teams have five players here.
 
+
+```{r}
+rank_90th_percentile <- warcels %>%
+  filter(surplus_value_under_control_rank >= 90.0) %>%
+  group_by(Team) %>%
+  summarize(`No. Players Above 90th Percentile for Controlled Surplus Value` = n()) %>%
+  arrange(desc(`No. Players Above 90th Percentile for Controlled Surplus Value`)) %>%
+  write_csv("rank-90th.csv")
+
+
+rank_90th_percentile
+
+```
+
+
+```{r}
+rank_75th_percentile <- warcels %>%
+  filter(surplus_value_under_control_rank >= 75.0) %>%
+  group_by(Team) %>%
+  summarize(`No. Players Above 75th Percentile for Controlled Surplus Value` = n()) %>%
+  arrange(desc(`No. Players Above 75th Percentile for Controlled Surplus Value`)) %>%
+  write_csv("rank-75th.csv")
+
+
+rank_75th_percentile
+```
+
 ===RAW TALENT===
 
 Surplus value isn't everything. Teams need to put talent on the field. Here again, the Cubs shine. The following graph shows simply the average amount of WAR they control each year, across their entire current roster, and the average time they control each player for:
 
 ```{r, echo=FALSE}
-ggplot(data=team_war, aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="Avg. no. of years team controls its current players", y="Avg. total WAR per year") + ggtitle("MLB Team Control of Talent, 2017-2021") + xlim(2.5,5) + fgt
+ggplot(data=team_war, aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="Avg. no. of years team controls its current players", y="Avg. total WAR per year") + ggtitle("MLB Team Control of Talent, 2017-2021") + fgt
+
+for_fg <- team_war %>%
+  select(`Avg. Control of Current Players (Years)` = years_of_control,
+         `Avg. Total WAR per Year` = war_under_control_per_year) %>%
+  write_csv("team_war.csv")
+
+
 ```
 
 
