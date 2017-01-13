@@ -25,7 +25,6 @@ library(tidyverse)
 library(rvest)
 library(stringr)
 
-
 fgt = theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
   axis.title = element_text(family = "Lato"),
@@ -87,48 +86,15 @@ getPayrolls <- function(Tm) {
   tms_melt <- gather(tms, key = Year, value, -Name, -Age, -Yrs, -Acquired, -SrvTm, -Agent, -`Contract Status`)
   tms_melt <- tms_melt %>%
     mutate(value = ifelse(grepl("FA-\\*", value) == TRUE, "", value)) %>% #assume options won't happen
-    filter(value != "") %>%                                   #remove years where players aren't on a payroll
-    mutate(Team = Tm) %>%
-    
-    #give player minimum salary if they are pre-arb. else extract the actual or projected salary using a regex.
-    mutate(value = ifelse(grepl("M", value), as.double(str_extract(value, "(?<=\\$)[:digit:]+\\.*[:digit:]*")), value),
-           value = ifelse(grepl("k", value), as.double(str_extract(value, "(?<=\\$)[:digit:]+")) / 1000, value)) %>%
-    arrange(Name, Year) %>%
-    
-    #project future arb years based on 25-40-60% formula located here: http://www.thepointofpittsburgh.com/calculating-mlb-arbitration-percentages/
-    #And project Arb-4 salaries at 70% of FA value, kinda based on the above article
-    mutate(value = ifelse(value == "Arb-2", (as.double(lag(value)) / .25) * .4, value),
-           value = ifelse(value == "Arb-3", (as.double(lag(value)) / .4) * .6, value),
-           value = ifelse(value == "Arb-4", (as.double(lag(value)) / .6) * .7, value),
-           years_before_arb_eligible = ifelse(value == "Arb-1", as.integer(Year) - next_year, 0),
-           value = ifelse(grepl("Pre-Arb", value), 0.535, value))
+    filter(value != "",           #remove years where players aren't on a payroll
+           value != "FA") %>%                                   
+    mutate(Team = Tm)
 }
-
-
 ```
 
-### Get data 
+### Get data from FG DB
 
 ```{r}
-
-#payroll data
-teamAbbr <- getTeamabbr(2016)
-all_teams_payroll <- teamAbbr %>% 
-  group_by(Tm) %>%
-  do(getPayrolls(.$Tm)) %>%
-  select(Team = Tm, Name, Age, Year, value, years_before_arb_eligible)
-
-#compute years of control (limited to 5), years before arb eligibility, and salary under control
-years_of_control <- all_teams_payroll %>%
-  filter(value != "FA") %>%
-  group_by(Name, Team) %>%
-  mutate(years_of_control = n(),
-         years_of_control = ifelse(value=="FA", as.integer(Year) - next_year, 5)) %>%
-  arrange(Year) %>%
-  filter(row_number() <= years_of_control) %>%
-  summarize(years_of_control = n(),
-            salary_under_control = sum(as.numeric(value), na.rm = TRUE),
-            years_before_arb_eligible = max(years_before_arb_eligible, na.rm = TRUE))
 
 #player data from FG
 fg_players <- fg_db %>%
@@ -224,7 +190,7 @@ all_arb <- all_arb %>%
 
 ```
 
-## For each player, project WAR and salary under team control
+## LOOKA HERE!!!!!    For each player, project WAR
 
 ```{r}
 
@@ -232,7 +198,7 @@ this_year <- 2016
 next_year <- this_year + 1
 millions_per_war = 8.5
 
-warcels <- all_players %>%
+projected_war <- all_players %>%
   mutate(FullName = sprintf("%s %s", FirstName, LastName),
          birth_date = as.Date(as.POSIXct(BirthDate)),
          birth_year = format(birth_date, "%Y")) %>%
@@ -241,7 +207,6 @@ warcels <- all_players %>%
   filter(!FullName %in% c("David Ortiz", "Alex Rodriguez", "Mark Teixeira")) %>%
   
   #bring in the years & salary of control for each player
-  inner_join(years_of_control, by=c("FullName" = "Name")) %>%
   group_by(FullName) %>%
   arrange(Season) %>%
   
@@ -265,30 +230,108 @@ warcels <- all_players %>%
          war_in_four_years = round(ifelse(Position == "SP" | Position == "RP", war_in_three_years - 0.4, 
                                           war_in_three_years - 0.4 + ((30-age_in_three_years) * .03)), 1),
          war_in_five_years = round(ifelse(Position == "SP" | Position == "RP", war_in_four_years - 0.4,
-                                          war_in_four_years - 0.4 + ((30-age_in_four_years) * .03)), 1),
-         war_under_control = 
-           round(ifelse(years_of_control == 1, war_next,
+                                          war_in_four_years - 0.4 + ((30-age_in_four_years) * .03)), 1))
+```
+  
+# now get payroll information
+
+```{r}
+teamAbbr <- getTeamabbr(2016)
+all_teams_payroll <- teamAbbr %>% 
+  group_by(Tm) %>%
+  do(getPayrolls(.$Tm)) %>%
+  select(Team = Tm, Name, Age, Year, value)
+
+#compute years of control (limited to 5) and years before arbitration eligibility
+next_year <- 2017
+control_information <- all_teams_payroll %>%
+  group_by(Name, Team) %>%
+  mutate(years_before_arb_eligible = ifelse(value == "Arb-1", as.integer(Year) - next_year, 0)) %>%
+  summarize(years_of_control = ifelse(n() > 5, 5, n()),
+            years_before_arb_eligible = max(years_before_arb_eligible, na.rm = TRUE)) %>%
+  #clean up incorrect bb-ref information about some players
+  mutate(years_of_control = ifelse(Name == "Hyun Soo Kim", 1, years_of_control),
+         years_of_control = ifelse(Name == "Logan Ondrusek", 1, years_of_control),
+         years_of_control = ifelse(Name == "Yulieski Gurriel", 4, years_of_control),
+         years_of_control = ifelse(Name == "Jung Ho Kang", 2, years_of_control))
+
+#join control information with payroll information
+master <- inner_join(all_teams_payroll, control_information, by=c("Name", "Team")) %>%
+  inner_join(projected_war, by=c("Name" = "FullName")) %>%
+  mutate(war_under_control = round(ifelse(years_of_control == 1, war_next,
                   ifelse(years_of_control == 2, war_next + war_in_two_years,
                          ifelse(years_of_control == 3, war_next + war_in_two_years + war_in_three_years,
-                                ifelse(years_of_control == 4, war_next + war_in_two_years + war_in_three_years +
-                                         war_in_four_years,
+                                ifelse(years_of_control == 4, war_next + war_in_two_years + 
+                                         war_in_three_years + war_in_four_years,
                                        war_next + war_in_two_years + war_in_three_years + war_in_four_years +
-                                         war_in_five_years))))
-                 , 1),
-         Position = ifelse(Position == "SP", "Rotation",
-                           ifelse(Position == "RP", "Bullpen", "Hitter")),
-         dollars_per_win_under_control = ifelse(war_under_control == 0 , round(salary_under_control / .0001, 2),
-                                                round(salary_under_control / war_under_control, 2)),
-         surplus_value_under_control = round((millions_per_war * ((.05 * years_of_control) + 1)) * war_under_control -
-           salary_under_control, 1),
-         war_per_year_of_control = round(war_under_control / years_of_control, 2)) %>%
-  filter(Season == max(Season),         # get only the latest projections
-         war_under_control > 1) %>%     # don't count all the scrubs that bb-ref lists on the page 
-  
+                                         war_in_five_years)))), 1)) %>%
+  filter(Season == max(Season))
+
+payroll_info <- master %>%
+  group_by(Name, Team) %>%
+  arrange(Season) %>%
+  filter(row_number() <= years_of_control) %>%
   ungroup() %>%
-  mutate(surplus_value_under_control_rank = round(percent_rank(surplus_value_under_control) * 100, 2)) %>%
-  select(FullName, Position, Age = age_now, Team, years_of_control, war_under_control, war_per_year_of_control, salary_under_control, dollars_per_win_under_control, surplus_value_under_control, surplus_value_under_control_rank) %>%
-  arrange(desc(surplus_value_under_control))
+  
+  #data cleanup for players i've determined will be worth > 1 WAR. most info take from Spotrac
+  mutate(value = ifelse(Name == "A.J. Pollock" & Year == 2018, "Arb-3", value),
+         value = ifelse(Name == "Josh Donaldson" & Year == 2018, "Arb-4", value),
+         value = ifelse(Name == "Aledmys Diaz" & Year == 2019, "Arb-1", value),
+         value = ifelse(Name == "Aledmys Diaz" & Year == 2020, "Arb-2", value),
+         value = ifelse(Name == "Aledmys Diaz" & Year == 2021, "Arb-3", value),
+         value = ifelse(Name == "Jose Abreu" & Year == 2018, "Arb-2", value),
+         value = ifelse(Name == "Jose Abreu" & Year == 2019, "Arb-3", value),
+         value = ifelse(Name == "Avisail Garcia" & Year == 2018, "Arb-3", value),
+         value = ifelse(Name == "Avisail Garcia" & Year == 2019, "Arb-4", value),
+         value = ifelse(Name == "Raisel Iglesias" & Year == 2021, "Arb-3", value),
+         value = ifelse(Name == "DJ LeMahieu" & Year == 2018, "Arb-3", value),
+         value = ifelse(Name == "Evan Gattis" & Year == 2018, "Arb-3", value),
+         value = ifelse(Name == "Scott Van Slyke" & Year == 2018, "Arb-3", value),
+         value = ifelse(Name == "Scott Van Slyke" & Year == 2019, "Arb-4", value),
+         value = ifelse(Name == "Yasiel Puig" & Year == 2019, "Arb-1", value),
+         value = ifelse(Name == "Scooter Gennett" & Year == 2018, "Arb-2", value),
+         value = ifelse(Name == "Scooter Gennett" & Year == 2019, "Arb-3", value),
+         value = ifelse(Name == "Tommy Milone" & Year == 2018, "Arb-3", value),
+         value = ifelse(Name == "Eduardo Escobar" & Year == 2018, "Arb-3", value),
+         value = ifelse(Name == "Zack Wheeler" & Year == 2018, "Arb-2", value),
+         value = ifelse(Name == "Zack Wheeler" & Year == 2019, "Arb-3", value),
+         value = ifelse(Name == "Ruben Tejada" & Year == 2017, 1.35, value),
+         value = ifelse(Name == "Felix Doubront" & Year == 2017, 2, value)) %>%
+
+  #get any FA and pre-arb salaries
+  mutate(value = ifelse(grepl("M", value), as.double(str_extract(value, "(?<=\\$)[:digit:]+\\.*[:digit:]*")), value),
+         value = ifelse(grepl("k", value), as.double(str_extract(value, "(?<=\\$)[:digit:]+")) / 1000, value),
+         value = ifelse(grepl("Pre-Arb", value), 0.535, value)) %>%
+  
+  #project arb-1 salaries, then use that to project future arb years
+  mutate(value = ifelse(value == "Arb-1" & (years_before_arb_eligible == 1 | years_before_arb_eligible == 0), 1.36881 + (.26896 * (currentWAR + war_next)), 
+                        ifelse(value == "Arb-1" & years_before_arb_eligible == 2, 1.36881 + (.26896 * (currentWAR + war_next + war_in_two_years)),
+                               ifelse(value == "Arb-1" & years_before_arb_eligible == 3, 
+                                      1.36881 + (.26896 * (currentWAR + war_next + war_in_two_years + war_in_three_years)), value)))) %>%
+  arrange(Name, Team, Year) %>%
+  mutate(value = ifelse(value == "Arb-2", (as.double(lag(value)) / .25) * .4, value),
+         value = ifelse(value == "Arb-3", (as.double(lag(value)) / .4) * .6, value),
+         value = ifelse(value == "Arb-4", (as.double(lag(value)) / .6) * .7, value),
+         value = as.numeric(value)) %>%
+  group_by(Name, Team) %>%
+  summarize(salary_under_control = round(sum(value), 2))
+
+millions_per_war <- 8.5
+warcels <- master %>%
+  mutate(Position = ifelse(Position == "SP", "Rotation",
+                           ifelse(Position == "RP", "Bullpen", "Hitter"))) %>%
+  select(Name, Team, Position, Year, years_of_control, war_under_control) %>%
+  inner_join(payroll_info, by = c("Name", "Team")) %>%
+  group_by(Name, Team) %>%
+  filter(Year == max(Year),
+         war_under_control > 1) %>%
+  mutate(controlled_surplus_value = round((millions_per_war * ((.05 * years_of_control) + 1)) * war_under_control -
+           salary_under_control, 1)) %>%
+  ungroup() %>%
+  mutate(surplus_value_rank = round(percent_rank(controlled_surplus_value) * 100, 2)) %>%
+  select(-Year) %>%
+  arrange(desc(controlled_surplus_value))
+
 ```
 
 ### Group by Team
@@ -300,7 +343,7 @@ team_war <- warcels %>%
             war_under_control = sum(war_under_control),
             years_of_control = round(mean(years_of_control), 2),
             salary_under_control = sum(salary_under_control),
-            surplus_value_under_control = sum(surplus_value_under_control)) %>%
+            surplus_value_under_control = sum(controlled_surplus_value)) %>%
   mutate(war_under_control_per_year = round(war_under_control / years_of_control, 1),
          war_per_player_per_year = round(war_under_control / num_players / years_of_control, 2),
          mm_per_war_per_year = as.numeric(round(salary_under_control / war_under_control / years_of_control, 2)),
@@ -313,10 +356,10 @@ team_war <- warcels %>%
 ```{r}
 team_war_by_position <- warcels %>%
   group_by(Team, Position) %>%
-  summarize(war_under_control = sum(war_under_control),
+  summarize(war_under_control_per_year = sum(war_under_control) / sum(years_of_control),
             years_of_control = round(mean(years_of_control), 2),
             salary_under_control = sum(salary_under_control),
-            surplus_value_under_control = sum(surplus_value_under_control))
+            surplus_value_under_control = sum(controlled_surplus_value))
 
 ggplot(data=team_war_by_position, aes(Team, surplus_value_under_control, fill=Position)) + geom_bar(stat="identity") + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + coord_flip()
 
