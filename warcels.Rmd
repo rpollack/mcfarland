@@ -296,7 +296,12 @@ payroll_info <- master %>%
          value = ifelse(Name == "Zack Wheeler" & Year == 2018, "Arb-2", value),
          value = ifelse(Name == "Zack Wheeler" & Year == 2019, "Arb-3", value),
          value = ifelse(Name == "Ruben Tejada" & Year == 2017, 1.35, value),
-         value = ifelse(Name == "Felix Doubront" & Year == 2017, 2, value)) %>%
+         value = ifelse(Name == "Felix Doubront" & Year == 2017, 2, value),
+         value = ifelse(Name == "Trevor Bauer" & Year == 2018, "Arb-2", value),
+         value = ifelse(Name == "Trevor Bauer" & Year == 2019, "Arb-3", value),
+         value = ifelse(Name == "Trevor Bauer" & Year == 2020, "Arb-4", value),
+         value = ifelse(Name == "Freddy Galvis" & Year == "2018", "Arb-3", value),
+         value = ifelse(Name == "Matt Adams" & Year == 2018, "Arb-3", value)) %>%
 
   #get any FA and pre-arb salaries
   mutate(value = ifelse(grepl("M", value), as.double(str_extract(value, "(?<=\\$)[:digit:]+\\.*[:digit:]*")), value),
