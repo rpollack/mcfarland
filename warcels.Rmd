@@ -101,6 +101,11 @@ fg_players <- fg_db %>%
   tbl("player_info") %>%
   collect(n=Inf)
 
+teams_lookup <- fg_db %>%
+  tbl("season_team") %>%
+  filter(!is.na(AbbName)) %>%
+  select(TeamId, AbbName)
+
 fg_bat <- fg_db %>%
   tbl("stats_batting") %>%
   filter(Type == 0) %>%     #get only full-season stats for each player
@@ -110,7 +115,9 @@ fg_batters <- inner_join(fg_players, fg_bat, by=c("PlayerId" = "playerid")) %>%
   filter(Position != "P",             #don't get batting WAR for pitchers
          BISPosition != "SP",
          BISPosition != "RP") %>%
-  select(FirstName, LastName, Season, BirthDate, ValueW, Position)
+  
+  
+  select(FirstName, LastName, Season, BirthDate, ValueW, Position, TeamId)
 
 fg_pitch <- fg_db %>%
   tbl("stats_pitching") %>%
@@ -364,18 +371,18 @@ team_war_by_position <- warcels %>%
             salary_under_control = sum(salary_under_control),
             surplus_value_under_control = sum(controlled_surplus_value))
 
-ggplot(data=team_war_by_position, aes(Team, surplus_value_under_control, fill=Position)) + geom_bar(stat="identity") + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + coord_flip()
+ggplot(data=team_war_by_position, aes(Team, war_under_control_per_year, fill=Position)) + geom_bar(stat="identity") + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + coord_flip()
 
 ```
 
 ### Plot teams' length of control vs. war per year they control
 
 ```{r}
-ggplot(data=team_war_by_position %>% filter(Position == "Hitter"), aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (position players only; 5 max)") + ggtitle("Avg. Length of Control vs. WAR per year, Position Players") + xlim(2.5,5)
+ggplot(data=team_war_by_position %>% filter(Position == "Hitter"), aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (position players only; 5 max)") + ggtitle("Avg. Length of Control vs. WAR per year, Position Players")
 
-ggplot(data=team_war_by_position %>% filter(Position == "Rotation"), aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (rotation only; 5 max)") + ggtitle("Avg. Length of Control vs. WAR per year, Rotation") + xlim(2.5,5)
+ggplot(data=team_war_by_position %>% filter(Position == "Rotation"), aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (rotation only; 5 max)") + ggtitle("Avg. Length of Control vs. WAR per year, Rotation")
 
-ggplot(data=team_war_by_position %>% filter(Position == "Bullpen"), aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (bullpen only; 5 max)") + ggtitle("Avg. Length of Control vs. WAR per Year, Bullpen") + xlim(2.5,5)
+ggplot(data=team_war_by_position %>% filter(Position == "Bullpen"), aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (bullpen only; 5 max)") + ggtitle("Avg. Length of Control vs. WAR per Year, Bullpen")
 
 ```
 
