@@ -339,20 +339,18 @@ warcels <- master %>%
 
 ```
 
-### Group by Team
+### Group WAR per Year by Team
 
 ```{r}
 team_war <- warcels %>%
   group_by(Team) %>%
-  summarize(num_players= n(),
-            war_under_control = sum(war_under_control),
-            years_of_control = round(mean(years_of_control), 2),
-            salary_under_control = sum(salary_under_control),
-            surplus_value_under_control = sum(controlled_surplus_value)) %>%
-  mutate(war_under_control_per_year = round(war_under_control / years_of_control, 1),
-         war_per_player_per_year = round(war_under_control / num_players / years_of_control, 2),
-         mm_per_war_per_year = as.numeric(round(salary_under_control / war_under_control / years_of_control, 2)),
-         surplus_value_per_year = round(surplus_value_under_control / years_of_control))
+  summarize(total_war_under_control = sum(war_under_control),
+            total_years_of_control = sum(years_of_control),
+            avg_years_of_control = mean(years_of_control),
+            avg_war_under_control_pear_year = total_war_under_control / total_years_of_control)
+
+ggplot(data=team_war, aes(avg_years_of_control, avg_war_under_control_pear_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (entire team; 5 max)") + ggtitle("Avg. Length of Control vs. How Much WAR they Control, Entire Team") + xlim(2.5,5)
+
 
 ```
 
@@ -378,10 +376,6 @@ ggplot(data=team_war_by_position %>% filter(Position == "Hitter"), aes(years_of_
 ggplot(data=team_war_by_position %>% filter(Position == "Rotation"), aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (rotation only; 5 max)") + ggtitle("Avg. Length of Control vs. WAR per year, Rotation") + xlim(2.5,5)
 
 ggplot(data=team_war_by_position %>% filter(Position == "Bullpen"), aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (bullpen only; 5 max)") + ggtitle("Avg. Length of Control vs. WAR per Year, Bullpen") + xlim(2.5,5)
-
-ggplot(data=team_war, aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (entire team; 5 max)") + ggtitle("Avg. Length of Control vs. How Much WAR they Control, Entire Team") + xlim(2.5,5)
-
-
 
 ```
 
