@@ -86,8 +86,7 @@ getPayrolls <- function(Tm) {
   tms_melt <- gather(tms, key = Year, value, -Name, -Age, -Yrs, -Acquired, -SrvTm, -Agent, -`Contract Status`)
   tms_melt <- tms_melt %>%
     mutate(value = ifelse(grepl("FA-\\*", value) == TRUE, "", value)) %>% #assume options won't happen
-    filter(value != "",           #remove years where players aren't on a payroll
-           value != "FA") %>%                                   
+    filter(value != "") %>%           #remove years where players aren't on a payroll                                   
     mutate(Team = Tm)
 }
 ```
@@ -258,6 +257,7 @@ all_teams_payroll <- teamAbbr %>%
 #compute years of control (limited to 5) and years before arbitration eligibility
 next_year <- 2017
 control_information <- all_teams_payroll %>%
+  filter(value != "FA") %>%
   group_by(Name, Team) %>%
   mutate(years_before_arb_eligible = ifelse(value == "Arb-1", as.integer(Year) - next_year, 0)) %>%
   summarize(years_of_control = ifelse(n() > 5, 5, n()),
@@ -269,6 +269,23 @@ control_information <- all_teams_payroll %>%
          years_of_control = ifelse(Name == "Jung Ho Kang", 2, years_of_control))
 
 #join control information with payroll information
+
+#bb-ref sometimes puts 'Arb' (w/o the year). figure out which arb it is based on proximity to FA year.
+#a rare minority of players sign away arbitration.
+all_teams_payroll <- all_teams_payroll %>%
+  group_by(Name, Team) %>%
+  arrange(Name, Year) %>%
+  mutate(value = ifelse(value == "Arb", 
+                        ifelse(lead(value) == "FA", "Arb-3", value),
+                        value),
+         value = ifelse(value == "Arb", 
+                        ifelse(lead(value, 2) == "FA", "Arb-2", value),
+                        value),
+         value = ifelse(value == "Arb",
+                        ifelse(lead(value, 3) == "FA", "Arb-1", value),
+                        value)) %>%
+  filter(value != "FA")
+
 master <- inner_join(all_teams_payroll, control_information, by=c("Name", "Team")) %>%
   inner_join(projected_war, by=c("Name" = "FullName", "Team")) %>%
   mutate(war_under_control = round(ifelse(years_of_control == 1, war_next,
@@ -287,34 +304,34 @@ payroll_info <- master %>%
   ungroup() %>%
   
   #data cleanup for players i've determined will be worth > 1 WAR. most info take from Spotrac
-  mutate(value = ifelse(Name == "A.J. Pollock" & Year == 2018, "Arb-3", value),
-         value = ifelse(Name == "Josh Donaldson" & Year == 2018, "Arb-4", value),
-         value = ifelse(Name == "Aledmys Diaz" & Year == 2019, "Arb-1", value),
-         value = ifelse(Name == "Aledmys Diaz" & Year == 2020, "Arb-2", value),
-         value = ifelse(Name == "Aledmys Diaz" & Year == 2021, "Arb-3", value),
-         value = ifelse(Name == "Jose Abreu" & Year == 2018, "Arb-2", value),
-         value = ifelse(Name == "Jose Abreu" & Year == 2019, "Arb-3", value),
-         value = ifelse(Name == "Avisail Garcia" & Year == 2018, "Arb-3", value),
-         value = ifelse(Name == "Avisail Garcia" & Year == 2019, "Arb-4", value),
-         value = ifelse(Name == "Raisel Iglesias" & Year == 2021, "Arb-3", value),
-         value = ifelse(Name == "DJ LeMahieu" & Year == 2018, "Arb-3", value),
-         value = ifelse(Name == "Evan Gattis" & Year == 2018, "Arb-3", value),
-         value = ifelse(Name == "Scott Van Slyke" & Year == 2018, "Arb-3", value),
-         value = ifelse(Name == "Scott Van Slyke" & Year == 2019, "Arb-4", value),
-         value = ifelse(Name == "Yasiel Puig" & Year == 2019, "Arb-1", value),
-         value = ifelse(Name == "Scooter Gennett" & Year == 2018, "Arb-2", value),
-         value = ifelse(Name == "Scooter Gennett" & Year == 2019, "Arb-3", value),
-         value = ifelse(Name == "Tommy Milone" & Year == 2018, "Arb-3", value),
-         value = ifelse(Name == "Eduardo Escobar" & Year == 2018, "Arb-3", value),
-         value = ifelse(Name == "Zack Wheeler" & Year == 2018, "Arb-2", value),
-         value = ifelse(Name == "Zack Wheeler" & Year == 2019, "Arb-3", value),
-         value = ifelse(Name == "Ruben Tejada" & Year == 2017, 1.35, value),
-         value = ifelse(Name == "Felix Doubront" & Year == 2017, 2, value),
-         value = ifelse(Name == "Trevor Bauer" & Year == 2018, "Arb-2", value),
-         value = ifelse(Name == "Trevor Bauer" & Year == 2019, "Arb-3", value),
-         value = ifelse(Name == "Trevor Bauer" & Year == 2020, "Arb-4", value),
-         value = ifelse(Name == "Freddy Galvis" & Year == "2018", "Arb-3", value),
-         value = ifelse(Name == "Matt Adams" & Year == 2018, "Arb-3", value)) %>%
+  # mutate(value = ifelse(Name == "A.J. Pollock" & Year == 2018, "Arb-3", value),
+  #        value = ifelse(Name == "Josh Donaldson" & Year == 2018, "Arb-4", value),
+  #        value = ifelse(Name == "Aledmys Diaz" & Year == 2019, "Arb-1", value),
+  #        value = ifelse(Name == "Aledmys Diaz" & Year == 2020, "Arb-2", value),
+  #        value = ifelse(Name == "Aledmys Diaz" & Year == 2021, "Arb-3", value),
+  #        value = ifelse(Name == "Jose Abreu" & Year == 2018, "Arb-2", value),
+  #        value = ifelse(Name == "Jose Abreu" & Year == 2019, "Arb-3", value),
+  #        value = ifelse(Name == "Avisail Garcia" & Year == 2018, "Arb-3", value),
+  #        value = ifelse(Name == "Avisail Garcia" & Year == 2019, "Arb-4", value),
+  #        value = ifelse(Name == "Raisel Iglesias" & Year == 2021, "Arb-3", value),
+  #        value = ifelse(Name == "DJ LeMahieu" & Year == 2018, "Arb-3", value),
+  #        value = ifelse(Name == "Evan Gattis" & Year == 2018, "Arb-3", value),
+  #        value = ifelse(Name == "Scott Van Slyke" & Year == 2018, "Arb-3", value),
+  #        value = ifelse(Name == "Scott Van Slyke" & Year == 2019, "Arb-4", value),
+  #        value = ifelse(Name == "Yasiel Puig" & Year == 2019, "Arb-1", value),
+  #        value = ifelse(Name == "Scooter Gennett" & Year == 2018, "Arb-2", value),
+  #        value = ifelse(Name == "Scooter Gennett" & Year == 2019, "Arb-3", value),
+  #        value = ifelse(Name == "Tommy Milone" & Year == 2018, "Arb-3", value),
+  #        value = ifelse(Name == "Eduardo Escobar" & Year == 2018, "Arb-3", value),
+  #        value = ifelse(Name == "Zack Wheeler" & Year == 2018, "Arb-2", value),
+  #        value = ifelse(Name == "Zack Wheeler" & Year == 2019, "Arb-3", value),
+  #        value = ifelse(Name == "Ruben Tejada" & Year == 2017, 1.35, value),
+  #        value = ifelse(Name == "Felix Doubront" & Year == 2017, 2, value),
+  #        value = ifelse(Name == "Trevor Bauer" & Year == 2018, "Arb-2", value),
+  #        value = ifelse(Name == "Trevor Bauer" & Year == 2019, "Arb-3", value),
+  #        value = ifelse(Name == "Trevor Bauer" & Year == 2020, "Arb-4", value),
+  #        value = ifelse(Name == "Freddy Galvis" & Year == "2018", "Arb-3", value),
+  #        value = ifelse(Name == "Matt Adams" & Year == 2018, "Arb-3", value)) %>%
 
   #get any FA and pre-arb salaries
   mutate(value = ifelse(grepl("M", value), as.double(str_extract(value, "(?<=\\$)[:digit:]+\\.*[:digit:]*")), value),
