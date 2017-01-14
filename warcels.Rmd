@@ -322,6 +322,7 @@ payroll_info <- master %>%
   summarize(salary_under_control = round(sum(value), 2))
 
 millions_per_war <- 8.5
+
 warcels <- master %>%
   mutate(Position = ifelse(Position == "SP", "Rotation",
                            ifelse(Position == "RP", "Bullpen", "Hitter"))) %>%
@@ -329,7 +330,9 @@ warcels <- master %>%
   inner_join(payroll_info, by = c("Name", "Team")) %>%
   group_by(Name, Team) %>%
   filter(Year == max(Year),
-         war_under_control > 1) %>%
+         
+         #attempt to filter out scrubs who won't play much while still penalizing Pujols, Wright, Choo, etc.
+         (salary_under_control > 10.0)) %>%
   mutate(controlled_surplus_value = round((millions_per_war * ((.05 * years_of_control) + 1)) * war_under_control -
            salary_under_control, 1)) %>%
   ungroup() %>%
@@ -349,7 +352,7 @@ team_war <- warcels %>%
             avg_years_of_control = mean(years_of_control),
             avg_war_under_control_pear_year = total_war_under_control / total_years_of_control)
 
-ggplot(data=team_war, aes(avg_years_of_control, avg_war_under_control_pear_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (entire team; 5 max)") + ggtitle("Avg. Length of Control vs. How Much WAR they Control, Entire Team") + xlim(2.5,5)
+ggplot(data=team_war, aes(avg_years_of_control, avg_war_under_control_pear_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (entire team; 5 max)") + ggtitle("Avg. Length of Control vs. How Much WAR they Control, Entire Team")
 
 
 ```
