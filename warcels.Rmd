@@ -352,7 +352,7 @@ team_war <- warcels %>%
             avg_years_of_control = mean(years_of_control),
             avg_war_under_control_pear_year = total_war_under_control / total_years_of_control)
 
-ggplot(data=team_war, aes(avg_years_of_control, avg_war_under_control_pear_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (entire team; 5 max)") + ggtitle("Avg. Length of Control vs. How Much WAR they Control, Entire Team")
+ggplot(data=team_war, aes(avg_years_of_control, avg_war_under_control_pear_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (entire team; 5 max)") + ggtitle("MLB Team Control of WAR, 2017 - 2021")
 
 
 ```
