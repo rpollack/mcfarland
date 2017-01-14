@@ -101,10 +101,13 @@ fg_players <- fg_db %>%
   tbl("player_info") %>%
   collect(n=Inf)
 
+this_year <= 2016
 teams_lookup <- fg_db %>%
   tbl("season_team") %>%
-  filter(!is.na(AbbName)) %>%
-  select(TeamId, AbbName)
+  filter(!is.na(AbbName),
+         Season == this_year) %>%
+  select(TeamId, Team = AbbName) %>%
+  collect(n=Inf)
 
 fg_bat <- fg_db %>%
   tbl("stats_batting") %>%
@@ -115,8 +118,6 @@ fg_batters <- inner_join(fg_players, fg_bat, by=c("PlayerId" = "playerid")) %>%
   filter(Position != "P",             #don't get batting WAR for pitchers
          BISPosition != "SP",
          BISPosition != "RP") %>%
-  
-  
   select(FirstName, LastName, Season, BirthDate, ValueW, Position, TeamId)
 
 fg_pitch <- fg_db %>%
@@ -126,10 +127,15 @@ fg_pitch <- fg_db %>%
 
 fg_pitchers <- inner_join(fg_players, fg_pitch, by="PlayerId") %>%
   filter(BISPosition %in% c("SP", "RP")) %>% #don't get pitching WAR for position players
-  select(FirstName, LastName, Season, BirthDate, ValueW, Position = BISPosition)
+  select(FirstName, LastName, Season, BirthDate, ValueW, Position = BISPosition, TeamId = TeamId.x)
 
 #combine dataframes
-all_players <- bind_rows(fg_batters, fg_pitchers)
+all_players <- bind_rows(fg_batters, fg_pitchers)  %>%
+  inner_join(teams_lookup, by="TeamId") %>%
+  select(-TeamId) %>%
+  group_by(FirstName, LastName, BirthDate) %>%
+  arrange(desc(Season)) %>%
+  filter(row_number() <= 3)   # only need the most recent 3 years of each player
 
 ```
 
@@ -264,7 +270,7 @@ control_information <- all_teams_payroll %>%
 
 #join control information with payroll information
 master <- inner_join(all_teams_payroll, control_information, by=c("Name", "Team")) %>%
-  inner_join(projected_war, by=c("Name" = "FullName")) %>%
+  inner_join(projected_war, by=c("Name" = "FullName", "Team")) %>%
   mutate(war_under_control = round(ifelse(years_of_control == 1, war_next,
                   ifelse(years_of_control == 2, war_next + war_in_two_years,
                          ifelse(years_of_control == 3, war_next + war_in_two_years + war_in_three_years,
