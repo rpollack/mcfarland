@@ -70,11 +70,11 @@ gausman_bauer <- gausman_comps %>%
 
 === Introduction ===
 
-Have you ever been denied a raise? Have you ever had your employer list all the reasons why you don't deserve one? This is the frustrating situation Kevin Gausman is in. He asked the Orioles for $3.55M, but the Orioles countered with $3.15M. The two sides couldn't agree on an amount by last Friday's deadline and so the Orioles, operating under the file-and-trial policy, will literally see Gausman in court.
+Have you ever been denied a raise? Have you ever had your employer list all the reasons why you don't deserve one? This is the frustrating situation Kevin Gausman is in. He asked the Orioles for $3.55M, but the Orioles countered with $3.15M. The two sides couldn't agree on an amount by last Friday's deadline so the Orioles, apparently operating under the file-and-trial [https://www.mlbtraderumors.com/2017/01/mets-orioles-adopt-file-and-trial-arbitration-approach.html] policy, will take Gausman in court.
 
-$400k may seem like a trivial amount here given the millions of dollars involved, but it's real money to Gausman -- about an extra year of salary at the MLB minimum of $535k. Not to mention that Gausman has pushed very hard through college, the minors, and the majors just to have a chance to sit at this table. He's earned the right to ask for whatever amount he wants.
+$400k isn't a lot, not when Dellin Betances and the Yankees are $2M apart. But to Gausman, it's real money, about an extra year of salary at the MLB minimum of $535k. How many of us can go out and get a 12.6% raise?
 
-Consider also that Gausman is stuck in this process. Unlike you and me, he can't negotiate his talent with any employer that will have him. As a Super-Two player, Gausman has three more years of salary arbitration before he becomes an unrestricted free agent.
+From the Orioles' point of view, $400k may seem trivial, but as shown by the Yovani Gallardo trade, they're seeking savings wherever they can get it. After all, the team is taking Caleb Joseph to court over $300k.
 
 With this in mind I decided to examine Gausman's arbitration case. Will he receive $3.55M or will he have to settle for $3.15M?
 
@@ -82,9 +82,9 @@ With this in mind I decided to examine Gausman's arbitration case. Will he recei
 
 Gausman's task (really, his agent's) is to argue that Gausman is worth $3.55M. The arbitration panel must pick either the Orioles' offer or Gausman's. They can't split the difference.
 
-I'll use only IP, ERA, wins, and W-L% to examine Gausman's case. While you and I may look at information like fastball velocity, K-BB%, and xFIP to seek an in-depth understanding of a pitcher's worth, teams and agents present no such data to arbitrators. According to Ben Nicholson-Smith at MLBTR [http://www.mlbtraderumors.com/2011/02/what-matters-in-arbitration.html]:
+I'll use only IP, ERA, wins, and W-L% to examine Gausman's case. While you and I may look at information like fastball velocity, K-BB%, and xFIP to better understand a pitcher's true talents, teams and agents present mostly so-called "traditional" stats to arbitrators. According to Ben Nicholson-Smith at MLBTR [http://www.mlbtraderumors.com/2011/02/what-matters-in-arbitration.html]:
 
-"Sabermetricians have developed stats for just about everything, but teams and agents don't want to risk alienating arbitrators with wOBA, xFIP or UZR, so they stick to the basics. Wins don't necessarily indicate how effective a pitcher has been, but they will impact how much he gets paid. Innings pitched, ERA, RBI, runs, homers and doubles figure in, along with other back-of-the-baseball-card stats like batting average, on-base percentage and slugging percentage.""
+"Teams and agents don't want to risk alienating arbitrators with wOBA, xFIP or UZR, so they stick to the basics. Wins don't necessarily indicate how effective a pitcher has been, but they will impact how much he gets paid. Innings pitched, ERA, RBI, runs, homers and doubles figure in, along with other back-of-the-baseball-card stats like batting average, on-base percentage and slugging percentage.""
 
 Both sides will compare Gausman to other players. Several such players exist; this offseason alone, five first-year Super-Two starting pitchers have avoided arbitration. They are:
 
@@ -111,9 +111,8 @@ Unfortunately for Gausman, Salazar earned $3.4M, quite close to $3.55M. If Gausm
 
 === Conclusion ===
 
-I expect the arbitrator to rule in favor of the Orioles and pay Gausman $3.15M. Gausman has a very weak case for earning the $3.55M he filed for. He hasn't performed well enough in the traditional baseball card stats that arbitrators typically use to decide cases.
+I expect the arbitrator to rule in favor of the Orioles and pay Gausman $3.15M. Gausman's a better pitcher than Trevor Bauer, but Bauer's outperformed Gausman in the metrics arbitrators typically see. Hopefully Gausman will excel in 2017 and have a more productive second trip through arbitration.
 
- 
 
 
 
