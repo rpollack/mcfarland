@@ -7,6 +7,19 @@ output:
 library(tidyverse)
 ```
 
+
+NEW OUTLINE:
+
+-- MLB controlled WAR (big list, then scatterplot)
+--- Talk about the results
+-- MLB controlled salary (big list, then scatterplot)
+--- Talk about the results
+-- MLB controlled surplus value (big list, then scatterplot)
+--- Talk about the results / dive into the Cubs' dominance here
+
+
+
+
 METHODOLOGY 
 
 Surplus value under control has three parts: the number of years a player is under control, their WAR during that time period, and their salary during that time period. Below I describe the process I used to calculate each and any assumptions I made.
@@ -46,6 +59,9 @@ war_tbl <- warcels %>%
 
 war_tbl
 
+ggplot(war_tbl, aes(reorder(Team, `Controlled WAR Through 2021`), `Controlled WAR Through 2021`)) + geom_bar(stat="identity") + fgt + coord_flip() + labs(y="Controlled WAR", x="Team") + ggtitle("MLB Controlled WAR, 2017-2021")
+
+
 ```
 
 
@@ -58,6 +74,9 @@ salary_tbl <- warcels %>%
   write_csv("mlb-salary-thru-2021.csv")
 
 salary_tbl
+
+ggplot(salary_tbl, aes(reorder(Team, -`Controlled Salary Through 2021`), `Controlled Salary Through 2021`)) + geom_bar(stat="identity") + fgt + coord_flip() + labs(y="Controlled Salary (Millions USD)", x="Team") + ggtitle("MLB Controlled Salary, 2017-2021")
+
 
 ```
 
@@ -73,6 +92,8 @@ surplus_tbl <- warcels %>%
   write_csv("mlb-surplus-value-thru-2021.csv")
 
 surplus_tbl
+
+ggplot(surplus_tbl, aes(reorder(Team, `Controlled Surplus Value Through 2021`), `Controlled Surplus Value Through 2021`)) + geom_bar(stat="identity") + fgt + coord_flip() + labs(y="Controlled Surplus Value (Millions USD)", x="Team") + ggtitle("MLB Controlled Salary, 2017-2021")
 
 ```
 
