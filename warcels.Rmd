@@ -328,11 +328,12 @@ warcels <- master %>%
                            ifelse(Position == "RP", "Bullpen", "Hitter"))) %>%
   select(Name, Team, Position, Year, years_of_control, war_under_control) %>%
   inner_join(payroll_info, by = c("Name", "Team")) %>%
+  mutate(aav = round(salary_under_control / years_of_control, 1)) %>%
   group_by(Name, Team) %>%
   filter(Year == max(Year),
          
-         #attempt to filter out scrubs who won't play much while still penalizing Pujols, Wright, Choo, etc.
-         (salary_under_control > 10.0)) %>%
+         #attempt to filter out scrubs who may get benched / sent down
+         (war_under_control > 1 | aav > 2)) %>%
   mutate(controlled_surplus_value = round((millions_per_war * ((.05 * years_of_control) + 1)) * war_under_control -
            salary_under_control, 1)) %>%
   ungroup() %>%
