@@ -44,12 +44,9 @@ war_tbl <- warcels %>%
   arrange(desc(`Controlled WAR Through 2021`)) %>%
   write_csv("mlb-war-thru-2021.csv")
 
-cubs_war_tbl
+war_tbl
 
 ```
-
-
-
 
 
 ```{r, echo=FALSE}
@@ -57,12 +54,10 @@ cubs_war_tbl
 salary_tbl <- warcels %>%
   group_by(Team) %>%
   summarize(`Controlled Salary Through 2021` = sum(salary_under_control)) %>%
-  arrange(desc(`Controlled Salary Through 2021`)) %>%
+  arrange(`Controlled Salary Through 2021`) %>%
   write_csv("mlb-salary-thru-2021.csv")
 
 salary_tbl
-
-
 
 ```
 
@@ -107,9 +102,9 @@ The Cubs' roster averages nearly $5M in surplus value each year for the next 3-4
 cubs_surplus_value <- warcels %>%
   filter(Team == "CHC") %>%
   mutate(salary_under_control = round(salary_under_control, 1)) %>%
-  select(Name = FullName, `Years of Control` = years_of_control, `WAR Under Control` = war_under_control,
+  select(Name, `Years of Control` = years_of_control, `WAR Under Control` = war_under_control,
          `Salary Under Control*` = salary_under_control, `Surplus Value Under Control*` =
-           surplus_value_under_control, `Surplus Value MLB Rank (%)` = surplus_value_under_control_rank) %>%
+           controlled_surplus_value, `Surplus Value MLB Rank (%)` = surplus_value_rank) %>%
   arrange(desc(`Surplus Value MLB Rank (%)`)) %>%
   write_csv("cubs-surplus-value-players.csv")
 
@@ -123,10 +118,10 @@ Still, the Cubs are far ahead of everyone else. Seven of their players rank in t
 
 ```{r}
 rank_90th_percentile <- warcels %>%
-  filter(surplus_value_under_control_rank >= 90.0) %>%
+  filter(controlled_surplus_value >= 75.0) %>%
   group_by(Team) %>%
-  summarize(`No. Players Above 90th Percentile for Controlled Surplus Value` = n()) %>%
-  arrange(desc(`No. Players Above 90th Percentile for Controlled Surplus Value`)) %>%
+  summarize(`No. Players Above 75th Percentile for Controlled Surplus Value` = n()) %>%
+  arrange(desc(`No. Players Above 75th Percentile for Controlled Surplus Value`)) %>%
   write_csv("rank-90th.csv")
 
 
@@ -134,18 +129,6 @@ rank_90th_percentile
 
 ```
 
-
-```{r}
-rank_75th_percentile <- warcels %>%
-  filter(surplus_value_under_control_rank >= 75.0) %>%
-  group_by(Team) %>%
-  summarize(`No. Players Above 75th Percentile for Controlled Surplus Value` = n()) %>%
-  arrange(desc(`No. Players Above 75th Percentile for Controlled Surplus Value`)) %>%
-  write_csv("rank-75th.csv")
-
-
-rank_75th_percentile
-```
 
 ===RAW TALENT===
 
