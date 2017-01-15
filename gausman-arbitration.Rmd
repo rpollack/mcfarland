@@ -1,0 +1,145 @@
+
+
+will not reach mlbtr projection of $3.9m
+orioles filed @ 3.15m
+gausman filed @ 3.55m
+
+
+super-two (four years of arbitration)
+
+important stats for SP: IP, W, ERA
+
+file & trial policy
+
+### Find Comps for Gausman
+
+```{r}
+
+# find similar players
+
+fg_players <- fg_db %>%
+  tbl("player_info") %>%
+  collect(n=Inf)
+
+fg_pitch <- fg_db %>%
+  tbl("stats_pitching") %>%
+  filter(Type == 0) %>%
+  collect(n=Inf)
+
+
+```
+
+```{r}
+fg_pitchers <- inner_join(fg_players, fg_pitch, by="PlayerId") %>%
+  filter(BISPosition =="SP" ) %>%
+  mutate(ERA = round(9 * ER / IP, 2),
+         Name = sprintf("%s %s", FirstName, LastName)) %>%
+  group_by(PlayerId) %>%
+  arrange(Season) %>%
+  mutate(W_total = sum(W),
+         L_total = sum(L),
+         W_L_perc = round(W_total / (W_total + L_total), 3),
+         IP_total = sum(IP),
+         ERA_total = round(9 * sum(ER) / sum(IP), 2)) %>%
+  filter(Season == max(Season)) %>%
+  ungroup() %>%
+  select(Name, Age, Season, IP_total,  ERA_total, W_total, L_total, W_L_perc)
+
+gausman_comps <- fg_pitchers %>%
+  filter(Name %in% c("Kevin Gausman", "Trevor Bauer", "Jacob deGrom", "James Paxton", "Danny Salazar", "Matt Shoemaker")) %>%
+  mutate(arb_amount = ifelse(Name == "Trevor Bauer", 3.55,
+                                    ifelse(Name == "Jacob deGrom", 4.05,
+                                           ifelse(Name == "James Paxton", 2.35,
+                                                  ifelse(Name == "Danny Salazar", 3.4,
+                                                         ifelse(Name == "Matt Shoemaker", 3.25, 0)))))) %>%
+  select(-Season)
+
+
+gausman_bauer <- gausman_comps %>%
+  filter(Name %in% c("Kevin Gausman", "Trevor Bauer")) %>%
+  select(-arb_amount)
+
+#display tables
+
+#ggplot(gausman_comps, aes(Name, IP_total)) + geom_bar(stat="identity")
+
+
+```
+
+[[table of comparables, first-year super two SPs this year]]
+
+=== Introduction ===
+
+Have you ever been denied a raise? Have you ever had your employer list all the reasons why you don't deserve one? This is the frustrating situation Kevin Gausman is in. He asked the Orioles for $3.55M, but the Orioles countered with $3.15M. The two sides couldn't agree on an amount by last Friday's deadline and so the Orioles, operating under the file-and-trial policy, will literally see Gausman in court.
+
+$400k may seem like a trivial amount here given the millions of dollars involved, but it's real money to Gausman -- about an extra year of salary at the MLB minimum of $535k. Not to mention that Gausman has pushed very hard through college, the minors, and the majors just to have a chance to sit at this table. He's earned the right to ask for whatever amount he wants.
+
+Consider also that Gausman is stuck in this process. Unlike you and me, he can't negotiate his talent with any employer that will have him. As a Super-Two player, Gausman has three more years of salary arbitration before he becomes an unrestricted free agent.
+
+With this in mind I decided to examine Gausman's arbitration case. Will he receive $3.55M or will he have to settle for $3.15M?
+
+=== Arbitration Process ===
+
+Gausman's task (really, his agent's) is to argue that Gausman is worth $3.55M. The arbitration panel must pick either the Orioles' offer or Gausman's. They can't split the difference.
+
+I'll use only IP, ERA, wins, and W-L% to examine Gausman's case. While you and I may look at information like fastball velocity, K-BB%, and xFIP to seek an in-depth understanding of a pitcher's worth, teams and agents present no such data to arbitrators. According to Ben Nicholson-Smith at MLBTR [http://www.mlbtraderumors.com/2011/02/what-matters-in-arbitration.html]:
+
+"Sabermetricians have developed stats for just about everything, but teams and agents don't want to risk alienating arbitrators with wOBA, xFIP or UZR, so they stick to the basics. Wins don't necessarily indicate how effective a pitcher has been, but they will impact how much he gets paid. Innings pitched, ERA, RBI, runs, homers and doubles figure in, along with other back-of-the-baseball-card stats like batting average, on-base percentage and slugging percentage.""
+
+Both sides will compare Gausman to other players. Several such players exist; this offseason alone, five first-year Super-Two starting pitchers have avoided arbitration. They are:
+
+[[table]]
+
+=== Comparison to Trevor Bauer ===
+
+Coincidentally or not, Bauer's Arb-1 salary of $3.55M is exactly what Gausman filed for. Can Gausman claim he's Bauer's equal?
+
+I don't think so. Bauer's pitched 100 more innings than Gausman. While Bauer's ERA is noticeably higher, he's won eight more games and his W-L% is higher.
+
+This comparison alone may sink Gausman's chances. His agent must argue that Gausman's ERA advantage makes up for the difference in IP, W, and W-L%. That's a valid argument to make; I think all available data shows Gausman is the superior pitcher. But MLB arbitrators don't consider all data, and 100 IP is a huge hill to climb. I don't think Gausman's agent can do it.
+
+=== Exploring Further ===
+
+We can remove two more more pitchers from the comparison:
+
+* Jacob deGrom has an NL Rookie of the Year award and a seventh-place Cy Young finish to his name, not to mention a sub-3 ERA and and a .557 W-L%. Gausman has no such bonafides.
+* James Paxton has a similar number of wins as Gausman but over 150 fewer innings pitched. Paxton has hit the DL in each of the past three seasons and has had mixed results when on the mound. At any rate, if Gausman's agent uses Paxton -- who earned $2.35M in arbitration -- as a point of comparison, Gausman should switch agencies.
+
+We're left with Danny Salazar and Matt Shoemaker. Each have better ERA's than Gausman. They each have about 10 more wins and a much higher W-L% than he does. Salazar's pitched about 30 more innings than Gausman; Shoemaker, about 15 fewer.
+
+Unfortunately for Gausman, Salazar earned $3.4M, quite close to $3.55M. If Gausman can't claim he's equal to Salazar, the arbitrator has no incentive to award Gausman more money than Salazar. The story with Shoemaker, who earned $3.25M, is similar. Gausman has only a 15 IP advantage on Shoemaker but is inferior in every other way. The arbitrator has no incentive to pick the amount that's above Shoemaker's salary.
+
+=== Conclusion ===
+
+I expect the arbitrator to rule in favor of the Orioles and pay Gausman $3.15M. Gausman has a very weak case for earning the $3.55M he filed for. He hasn't performed well enough in the traditional baseball card stats that arbitrators typically use to decide cases.
+
+ 
+
+
+
+
+
+
+
+===
+
+Let's get Jacob deGrom out of the way first. deGrom's ERA is nearly a full run lower than his closest competitor, Danny Salazar. (I'm not deGrom to Paxton because the latter has so few innings.) 
+
+innings pitched:
+
+Gausman doesn't fare well here. He has the third-lowest innings total of his peers. Really it's the second-lowest; Paxton has been nagged by injuries in 2014, 2015, and 2016.
+
+ERA:
+
+Gausman doesn't fare well here, either. His 3.99 ERA trails only Bauer. Gausman is building a reputation as a FIP-underperformer; his career FIP is 3.92. 
+
+  
+#need to find ERAs, W, L for Super-Two pitchers in the last several years
+# Trevor Bauer, 2017 - 3.55M
+# Jacob deGrom, 2017 - 4.05M
+# James Paxton, 2017 - 2.35M
+# Danny Salazar, 2017 - 3.4M
+# Matt Shoemaker, 2017 - 3.325M
+
+
+```
