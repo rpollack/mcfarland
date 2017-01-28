@@ -1,0 +1,258 @@
+
+
+-barring any surprises, shawn kelley will be the nationals' closer in 2017.
+-
+-
+
+Headline options:
+- Shawn kelley can be a good closer
+- Shawn Kelley gets his chance in DC
+- 
+
+Look -- I know what you're thinking. ANY good reliever can be a good closer. But Shawn Kelley is a good reliever who's never been a closer. So I want Nationals fans to ...
+
+Fastball/Slider pitcher
+
+why hasn't he been used as a closer before?
+
+Doesn't throw very hard. Averages about 93 MPH on the heater. 
+
+Been behind better / more established closers the past few years:
+Yr  Team  Closer
+
+2013 NYY - Mariano Rivera
+2014 NYY - David Robertson (Who'd always been the heir apparent to Rivera). Kelley saved 4 games with this team tho.
+2015 SDP - Craig Kimbrel. 
+2016 WSN - Jonathan Papelbon, Mark Melancon. Kelley did save 7 games though
+
+
+```{r}
+fg_players <- fg_db %>%
+  tbl("player_info") %>%
+  collect(n=Inf)
+
+fg_pitch <- fg_db %>%
+  tbl("stats_pitching_master_pfx") %>%
+  filter(Type == 0) %>%
+  collect(n=Inf)
+```
+
+```{r}
+fg_pitchers <- inner_join(fg_players, fg_pitch, by="PlayerId") %>%
+  filter(BISPosition %in% c("SP", "RP")) %>% #don't get pitching WAR for position players
+  mutate(Name = sprintf("%s %s", FirstName, LastName),
+         ozone = 1 - `pfxZone%`,
+         k = 100 * `K%`,
+         bb = 100 * `BB%`,
+         `K-BB%` = k-bb,
+         GB_BF = GB / TBF,
+         FB_BF = FB / TBF,
+         IFFB_BF = IFFB / TBF) %>%
+  group_by(Season) %>%
+  mutate(lg_FB_BF = mean(FB_BF)) %>%
+  ungroup() %>%
+  mutate(FB_BF_Plus = 100 * FB_BF / lg_FB_BF) %>%
+  select(PlayerId, Name, Season, TBF, ValueW, BISPosition, oswing = `pfxO-Swing%`, ozone,
+         zswing=`pfxZ-Swing%`, FB, GB, LD, `K-BB%`, GB_BF, FB_BF, IFFB_BF, FB_BF_Plus, k, bb)
+
+kelley_k_bb_plus_compared_to_relievers <- fg_pitchers %>%
+  filter(BISPosition == "RP") %>%
+  group_by(Season) %>%
+  mutate(lg_K = mean(k),
+         lg_BB = mean(bb),
+         lg_k_bb = mean(`K-BB%`)) %>%
+  ungroup() %>%
+  mutate(k_plus = as.integer(100 * (k / lg_K)),
+         bb_plus = as.integer(100 * (bb / lg_BB)),
+         k_bb_plus = as.integer(100 * (`K-BB%` / lg_k_bb))) %>%
+  filter(PlayerId == "7773") %>%
+  select(Season, k_plus, bb_plus, k_bb_plus) %>%
+  arrange(Season)
+  
+ggplot(kelley_k_bb_plus_compared_to_relievers, aes(Season, k_bb_plus)) + geom_point() + geom_line()
+#compared to all relief pitchers
+```
+
+Why hasn't he been used as a closer before?
+
+-- Okay fastball -- ~93 MPH.
+-- For a reliever, he had trouble fooling hitters. never really had swing-and-miss stuff. He struck 
+-- More importantly though, he's been recent teammates with some elite closers. 
+
+2013 NYY - Mariano Rivera
+2014 NYY - David Robertson (Who'd always been the heir apparent to Rivera). Kelley saved 4 games with this team tho.
+2015 SDP - Craig Kimbrel. 
+2016 WSN - Jonathan Papelbon, Mark Melancon. Kelley did save 7 games though
+
+-- Two Tommy John surgeries. 
+
+Incredible jump in K-BB% last year:
+
+```{r}
+shawn_kelley <- fg_pitchers %>%
+  filter(PlayerId == 7773) %>%
+  arrange(Season)
+
+ggplot(shawn_kelley, aes(Season, `K-BB%`)) + geom_point() + geom_line() + fgt
+
+```
+
+How'd he do it? He cut his walk rate by working in the zone at his highest rate since 2011:
+
+http://www.fangraphs.com/graphs.aspx?playerid=7773&legend=1&statArr=210&split=base&time=season&ymin=&ymax=
+
+And inducing more swings than ever:
+
+http://www.fangraphs.com/graphs.aspx?playerid=7773&legend=1&statArr=206&split=base&time=season&ymin=&ymax=
+
+Yet despite swinging more often, batters missed more often:
+
+http://www.fangraphs.com/graphs.aspx?playerid=7773&legend=1&statArr=113&split=base&time=season&ymin=&ymax=
+
+=== ELEVATED FASTBALL ===
+
+When batters did make contact, the ball often went in the air. Kelley's average launch angle of 18.9 degrees ranked 8th-highest among 375 pitchers with at least 100 ABs. Last year, his average launch angle of 10.9 degrees ranked him 160th out of a similar number of pitchers.
+
+To show how this changed This marks a change from last year. You can see the jump in his league-adjusted flyball rate
+
+
+
+Kelley has always been a flyball pitcher. 
+
+
+
+
+
+Perhaps this weak contact is because Kelley induced the highest O-Swing% of his career:
+
+
+
+
+
+He was particularly good at getting hitters to chase pitches out of the zone. Among relievers who faced at least 200 batters last year, Kelley ranked 11th out of 161 relievers. The top 15 according to league-adjusted O-Swing%, where 100 is average:
+
+```{r}
+fool <- fg_pitchers %>%
+  group_by(Season) %>%
+  mutate(lg_oswing = mean(oswing),
+         lg_ozone = mean(ozone)) %>%
+  ungroup() %>%
+  mutate(oswing_plus = round(100 * (oswing / lg_oswing),0),
+         ozone_plus = round(100 * (ozone / lg_ozone),0),
+         fool = round(100 * (oswing_plus / ozone_plus), 0),
+         prob_both = oswing * ozone) %>%
+  filter(Season == 2016) %>%
+  select(Name, Season, BISPosition, TBF, oswing_plus, ozone_plus, fool)
+
+oswing_tbl <- fool %>%
+  filter(Season == 2016,
+         BISPosition == "RP",
+         TBF >= 200) %>%
+  mutate(oswing_rank = 100 * percent_rank(oswing_plus)) %>%
+  select(-BISPosition, -Season, -TBF, -ozone_plus, -fool) %>%
+  arrange(desc(oswing_rank)) %>%
+  head(15)
+
+oswing_tbl
+
+ggplot(oswing_tbl, aes(reorder(Name, oswing_plus), oswing_plus)) + geom_bar(stat="identity") + fgt + coord_flip()
+
+```
+
+You see some good pitchers here. But O-Swing% isn't enough to judge a pitcher on. Pitchers work out of the zone at different rates. When you divide O-Swing% by O-Zone% (which I computed as 1 - Zone%), and adjust the result for the league, Kelley shoots to second place among the 161 pitchers listed. Again, the top 15:
+
+```{r}
+
+fool_rp <- fool %>%
+  filter(Season == 2016,
+         BISPosition == "RP",
+         TBF >= 200) %>%
+  select(-BISPosition, -Season) %>%
+  arrange(desc(fool)) %>%
+  head(15)
+
+ggplot(fool_rp, aes(reorder(Name, fool), fool)) + geom_bar(stat="identity") + fgt + coord_flip()
+
+
+handedness <- fg_db %>%
+  tbl("player_info") %>%
+  select(PlayerId, FirstName, LastName, Bats, Throws, Retired) %>%
+  collect(n=Inf) %>%
+  mutate(Name = sprintf("%s %s", FirstName, LastName)) %>%
+  select(PlayerId, Name, Bats, Throws) %>%
+  filter(Name != "")
+
+fg_bat <- fg_db %>%
+  tbl("stats_batting") %>%
+  filter(Type == 0) %>%     #get only full-season stats for each player
+  collect(n=Inf)
+
+handedness <- inner_join(fg_players, fg_bat, by=c("PlayerId" = "playerid")) %>%
+  filter(Position != "P",             #don't get batting WAR for pitchers
+         BISPosition != "SP",
+         BISPosition != "RP") %>%
+  filter(Season == 2015 | Season == 2016) %>%
+  group_by(PlayerId) %>%
+  filter(Season == max(Season)) %>%
+  ungroup() %>%
+  select(FirstName, LastName, Season, Bats, Throws) %>%
+  write_csv("handedness.csv")
+
+
+
+```
+
+So that's one way in which Kelley is better than some of the biggest names in the game -- including Kenley Jansen, Andrew Miller, Aroldis Chapman, and Cody Anderson.
+
+This is all just to say -- Kelley's developed some swing-and-miss stuff. As a fastball/slider righty, 
+
+
+FA swstr jumped 2.4pp
+SL swstr jumped 1.8pp
+
+
+
+
+
+
+
+
+fool_rp <- fool %>%
+  filter(Season == 2016,
+         BISPosition == "RP",
+         TBF >= 200) %>%
+  select(-BISPosition, -Season) %>%
+  arrange(desc(oswing_plus))
+```
+
+
+
+And when he went outside the zone, hitters chased:
+
+http://www.fangraphs.com/graphs.aspx?playerid=7773&legend=1&statArr=204&split=base&time=season&ymin=&ymax=
+
+
+
+
+
+
+How'd he cut his walk rate in half? Simple. He threwdramatically improved his O-Swing%:
+
+
+
+
+The answer seems to be his slider. Hitters swung at both his pitches a lot more: 
+
+http://www.brooksbaseball.net/outcome.php?player=518875&b_hand=-1&gFilt=&pFilt=FA|SI|FC|CU|SL|CS|KN|CH|FS|SB&pFilt=FA|SI|FC|CU|SL|CS|KN|CH|FS|SB&time=year&minmax=ci&var=swing&s_type=2&endDate=01/26/2017&startDate=01/01/2014
+
+But they missed his slider far more often than in the past:
+http://www.brooksbaseball.net/outcome.php?player=518875&b_hand=-1&gFilt=&pFilt=FA|SI|FC|CU|SL|CS|KN|CH|FS|SB&time=year&minmax=ci&var=whiffswing&s_type=2&startDate=01/01/2014&endDate=01/26/2017
+
+
+
+
+
+Shows up at 13th on the O-Swing leaderboards. But when you Look at O-Swing+ and normalize for O-Zone ... Kelley jumps to 2nd on the list.
+
+
+
