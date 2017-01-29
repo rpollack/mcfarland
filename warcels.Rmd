@@ -35,7 +35,9 @@ fgt = theme(
   legend.key = element_rect(fill = "white"),
   plot.title = element_text(family = "Lato"),
   panel.grid.major = element_line(size = .1, color = "lightgrey"),
-  panel.grid.minor = element_line(size = 0)
+  panel.grid.minor = element_line(size = 0),
+  strip.background = element_rect(fill = "#50ae26"),
+  strip.text = element_text(color="white", family="Lato")
   )
 
 ```
@@ -100,7 +102,7 @@ fg_players <- fg_db %>%
   tbl("player_info") %>%
   collect(n=Inf)
 
-this_year <= 2016
+this_year <- 2016
 teams_lookup <- fg_db %>%
   tbl("season_team") %>%
   filter(!is.na(AbbName),
