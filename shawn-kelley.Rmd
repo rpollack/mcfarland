@@ -39,7 +39,7 @@ fg_pitch <- fg_db %>%
 
 ```{r}
 fg_pitchers <- inner_join(fg_players, fg_pitch, by="PlayerId") %>%
-  filter(BISPosition %in% c("SP", "RP")) %>% #don't get pitching WAR for position players
+  #filter(BISPosition %in% c("SP", "RP")) %>% #don't get pitching WAR for position players
   mutate(Name = sprintf("%s %s", FirstName, LastName),
          ozone = 1 - `pfxZone%`,
          k = 100 * `K%`,
@@ -51,25 +51,10 @@ fg_pitchers <- inner_join(fg_players, fg_pitch, by="PlayerId") %>%
   group_by(Season) %>%
   mutate(lg_FB_BF = mean(FB_BF)) %>%
   ungroup() %>%
-  mutate(FB_BF_Plus = 100 * FB_BF / lg_FB_BF) %>%
-  select(PlayerId, Name, Season, TBF, ValueW, BISPosition, oswing = `pfxO-Swing%`, ozone,
-         zswing=`pfxZ-Swing%`, FB, GB, LD, `K-BB%`, GB_BF, FB_BF, IFFB_BF, FB_BF_Plus, k, bb)
+  mutate(FB_BF_Plus = 100 * FB_BF / lg_FB_BF)
 
-kelley_k_bb_plus_compared_to_relievers <- fg_pitchers %>%
-  filter(BISPosition == "RP") %>%
-  group_by(Season) %>%
-  mutate(lg_K = mean(k),
-         lg_BB = mean(bb),
-         lg_k_bb = mean(`K-BB%`)) %>%
-  ungroup() %>%
-  mutate(k_plus = as.integer(100 * (k / lg_K)),
-         bb_plus = as.integer(100 * (bb / lg_BB)),
-         k_bb_plus = as.integer(100 * (`K-BB%` / lg_k_bb))) %>%
-  filter(PlayerId == "7773") %>%
-  select(Season, k_plus, bb_plus, k_bb_plus) %>%
-  arrange(Season)
+
   
-ggplot(kelley_k_bb_plus_compared_to_relievers, aes(Season, k_bb_plus)) + geom_point() + geom_line()
 #compared to all relief pitchers
 ```
 
@@ -86,32 +71,198 @@ Why hasn't he been used as a closer before?
 
 -- Two Tommy John surgeries. 
 
-Incredible jump in K-BB% last year:
+Incredible jump in K-BB+ last year (where + is normalized to the average relief pitcher that year):
 
 ```{r}
-shawn_kelley <- fg_pitchers %>%
-  filter(PlayerId == 7773) %>%
-  arrange(Season)
+kelley_k_bb_plus_compared_to_relievers <- fg_pitchers %>%
+  filter(BISPosition == "RP") %>%
+  group_by(Season) %>%
+  mutate(lg_K = mean(k),
+         lg_BB = mean(bb),
+         lg_k_bb = mean(`K-BB%`)) %>%
+  ungroup() %>%
+  mutate(k_plus = as.integer(100 * (k / lg_K)),
+         bb_plus = as.integer(100 * (bb / lg_BB)),
+         k_bb_plus = as.integer(100 * (`K-BB%` / lg_k_bb))) %>%
+  filter(PlayerId == "7773") %>%
+  select(Season, `K%+` = k_plus, `BB%+` = bb_plus, `K-BB%+` = k_bb_plus) %>%
+  arrange(Season) %>%
+  gather(key = stat, value, -Season) %>% 
+  mutate(stat_f = factor(stat, levels=c("K%+", "BB%+", "K-BB%+")))
 
-ggplot(shawn_kelley, aes(Season, `K-BB%`)) + geom_point() + geom_line() + fgt
+  
+  #temp$size_f = factor(temp$size, levels=c('50%','100%','150%','200%'))
+
+  
+```
+
+=== SHAWN KELLEY, OVERLOOKED NO LONGER
+
+Have you ever been overshadowed by a colleague whom everyone adores? Maybe you're great at your job, but maybe this person is in a similar role and is amazing at theirs. Maybe this super-you exceeds expectations on every project, perpetually radiates serenity, and never accidentally burns popcorn in the office microwave. In actual talent level you're not far behind this person, but in management's eyes you simply don't measure up. You're gainfully employed but constantly feeling overlooked.
+
+Shawn Kelley knows how you feel. For years he's been overlooked by his own managers when they pick up the bullpen phone; specifically, when a game needs saving. At age 32, Kelley is a bit older, and after two Tommy John surgeries (the latest of which was in 2010) he's got some mileage on his arm. Plus his fastball hovers in the 93 MPH range, and these days a reliever who doesn't throw 95+ better have a funky delivery like Brad Ziegler or a crazy splitter like Koji Uehara.
+
+Kelley's also had the recent misfortune of being teammates with well-established closers. In 2013, Kelley landed with the Yankees. A certain Mariano Rivera was not only their closer, but also their legend riding off into the sunset. In 2014 it was David Robertson's turn (although Kelley did get four saves). In December 2014, the Yankees traded Kelley to the Padres. Is it closing time? Not so fast. One day before the season started, Craig Kimbrel arrived. When Kelley signed with the Nationals prior to 2016, Jonathan Papelbon was the closer. When he wore out his welcome, the team acquired Mark Melancon to fill the role.
+
+Wait a second. Who cares who the closer is? Sabermetric orthodoxy says any good reliever can close a game. Kelley is on a free agent deal; he doesn't need to save games to convince an arbitrator to pay him.
+
+But within the game, many managers see closers as an important position, as a distinct skill. Most casual fans do as well. I imagine getting summoned to the mound in the ninth inning, night after night, has to get your blood pumping and your ego gushing. Who doesn't want to be the guy your manager calls on in the ninth inning, in front of a crowd of screaming fans?
+
+Now in 2017, Kelley may finally get his chance in the limelight. After Melancon joined the Giants, the Nationals are without an established closer. I'm here to tell Nationals fans that Kelley has what it takes to succeed. 
+
+Kelly improved his command of the strike zone considerably. His K-BB% last year was 3x that of the average relief pitcher. Looking back to 2013, his first year with the Yankees, he's walked fewer and fewer batters each year. This trend offset the slight decline in his strikeout rate.
+
+But in 2016, he figured out how to fool batters even more. His walk rate dropped precipitously even as he pushed his strikeout rate to the highest of his career.
+
+The following graphs show these trends:
+
+```{r}
+
+ggplot(kelley_k_bb_plus_compared_to_relievers, aes(x=Season, y=value)) + geom_point(color="#336699") + geom_line(color="#336699") + fgt +
+  facet_grid(. ~ stat_f) + ggtitle("Shawn Kelley's Improved Strike Zone Control, 2009 - 2016") + labs(y="Value (100 = Average Reliever)")
 
 ```
 
-How'd he do it? He cut his walk rate by working in the zone at his highest rate since 2011:
+How'd he do it? Kelley cut his walk rate by working in the strike zone more frequently:
 
 http://www.fangraphs.com/graphs.aspx?playerid=7773&legend=1&statArr=210&split=base&time=season&ymin=&ymax=
 
-And inducing more swings than ever:
+Batters predictably swung at more of his pitches than ever:
 
 http://www.fangraphs.com/graphs.aspx?playerid=7773&legend=1&statArr=206&split=base&time=season&ymin=&ymax=
 
-Yet despite swinging more often, batters missed more often:
+But despite swinging more often, batters missed more often. In 2016 Kelley induced the highest swinging strike rate of his career:
 
 http://www.fangraphs.com/graphs.aspx?playerid=7773&legend=1&statArr=113&split=base&time=season&ymin=&ymax=
 
+So: Kelley fooled batters more often than ever: If they took a pitch in 2016, odds are it was going to be in the zone and thus a strike. If they swung, they were more likely than ever to miss. Batters were doomed, or to twist it slightly, damned if they did (swing) and damned if they didn't (swing).
+
+Although Kelley's slider is his swing-and-miss pitch, his fastball was responsible for the sudden, large increase in strikeouts. Look at the increase in whiffs per swing:
+
+http://www.brooksbaseball.net/outcome.php?player=518875&b_hand=-1&gFilt=&pFilt=FA|SL&time=year&minmax=ci&var=whiffswing&s_type=2&startDate=03/30/2007&endDate=01/28/2017
+
+What changed with Kelley's fastball? He located it up in the zone far more oftehn than in 2015:
+
+2015: http://www.fangraphs.com/zonegrid.aspx?playerid=7773&position=P&ss=&se=&type=0&hand=all&count=all&blur=1&grid=10&view=pit&pitch=FA&season=2015
+
+2016: http://www.fangraphs.com/zonegrid.aspx?playerid=7773&position=P&ss=2016-01-01&se=2016-12-01&type=0&hand=all&count=all&blur=1&grid=10&view=pit&pitch=FA&season=2016
+
+Whatever scouting report batters had on Kelley, they failed to adjust in the box. The following heatmap shows they often failed to connect with Kelley's high heat:
+
+http://www.fangraphs.com/zonegrid.aspx?playerid=7773&position=P&ss=2016-01-01&se=2016-12-01&type=3&hand=all&count=all&blur=1&grid=10&view=pit&pitch=FA&season=2016
+
+When they did connect, they mostly flew out. In 2016 Kelley's rate of fly balls per batter faced approached 30%, the highest it's been since 2012: 
+
+```{r}
+kelley_if_bf <- fg_pitchers %>%
+  filter(PlayerId == 7773) %>%
+  select(Season, `Fly Balls per Batter Faced` = FB_BF) %>%
+  filter(Season >= 2012)
+
+ggplot(kelley_if_bf, aes(Season, `Fly Balls per Batter Faced`)) + geom_point() + geom_line(color="#336699") + fgt
+
+```
+
+If you don't believe the Inside Edge classifications, believe Statcast. Kelley's average launch angle jumped from 10.9 degrees in 2015 to 18.9 degrees in 2016. This focus on high heat and fly balls drove his BABIP down to .258. Kelley became the Jered Weaver of relievers, if Weaver threw 10 MPH harder and induced twice as many swinging strikes.
+
+Can Kelley dominate hitters in 2017? I think so. 2016 showed he can fool hitters frequently. Even if they adjust to his high fastball in 2017, his K-BB% has always been very good, showing me he has a strong command of the strike zone.
+
+Thus might end the era of Shawn Kelley, Perpetually Overlooked Reliever. The Nationals have a strong team and are again the favorites for the NL East title. Right now, he's their guy. Kelley should get plenty of time in the spotlight, locking down the ninth inning night after night.
+
+===
+
+
+
+
+
+
+
+The high fastball also contributed to an increased flyball rate and a career-low BABIP, buttressing Kelley's run prevention, even though more of those flyballs left the park.
+
+
+
+
+
+
+
+
+
+The answer, I think, lies in the high fastball. In 2016 Kelley began throwing his fastball up in the zone more often:
+
+
+
+
+
+Also threw his slider in the zone much more often!
+
+... analysis ...
+
+The high fastball did something else besides improve 
+
+
+
+
+
+
+
+```{r}
+kelley_swstr_plus <- fg_pitchers %>%
+  filter(BISPosition == "RP") %>%
+  group_by(Season) %>%
+  mutate(lg_swstr = mean(`SwStr%`)) %>%
+  ungroup() %>%
+  mutate(swstr_plus = as.integer(100 * (`SwStr%` / lg_swstr))) %>%
+  filter(PlayerId == 7773) %>%
+  select(Season, swstr_plus)
+
+ggplot(kelley_swing, aes(x=Season, y=value)) + geom_point() + geom_line() + fgt +
+  facet_grid(. ~ stat) + ggtitle("Shawn Kelley Inducing Swings Outside the Zone, 2009 - 2016") + labs(y="")
+```
+
+
+
+
+
+
+But even when Kelley pitched outside the zone, batters chased more often than they ever have. The increase in Kelley's O-Swing% outweighed the increase in his Z-Swing%:
+
+```{r}
+kelley_swing <- fg_pitchers %>%
+  filter(PlayerId == 7773) %>%
+  select(Season, `Z-Swing%` = `pfxZ-Swing%`, `O-Swing%` = `pfxO-Swing%`) %>%
+  gather(key = stat, value, -Season)
+
+ggplot(kelley_swing, aes(x=Season, y=value)) + geom_point() + geom_line() + fgt +
+  facet_grid(. ~ stat) + ggtitle("Shawn Kelley Inducing Swings Outside the Zone, 2009 - 2016") + labs(y="")
+```
+
+Hitters 
+
+
+
+
+Yet they missed more often than ever:
+
+
+Swings and misses are proximate causes. How did Kelley induce not only more swings but also more whiffs?
+
+Examining where his improvements came from provides a clue. Kelley induced more whiffs inside the strike zone than outside of it:
+
+```{r}
+
+kelley_disc <- fg_pitchers %>%
+  filter(PlayerId == 7773) %>%
+  select(Season, `Z-Contact%` = `pfxZ-Contact%`, `O-Contact%` = `pfxO-Contact%`) %>%
+  gather(key = stat, value, -Season)
+
+ggplot(kelley_disc, aes(x=Season, y=value)) + geom_point() + geom_line() + fgt +
+  facet_grid(. ~ stat) + ggtitle("Shawn Kelley's Falling Z-Contact%, 2009 - 2016") + labs(y="")
+
+```
+
+
 === ELEVATED FASTBALL ===
 
-When batters did make contact, the ball often went in the air. Kelley's average launch angle of 18.9 degrees ranked 8th-highest among 375 pitchers with at least 100 ABs. Last year, his average launch angle of 10.9 degrees ranked him 160th out of a similar number of pitchers.
 
 To show how this changed This marks a change from last year. You can see the jump in his league-adjusted flyball rate
 
