@@ -96,7 +96,7 @@ kelley_k_bb_plus_compared_to_relievers <- fg_pitchers %>%
   
 ```
 
-=== SHAWN KELLEY, OVERLOOKED NO LONGER
+=== SHAWN KELLEY CAN BE A GOOD CLOSER FOR THE NATIONALS
 
 Have you ever been overshadowed by a colleague whom everyone adores? Maybe you're great at your job, but maybe this person is in a similar role and is amazing at theirs. Maybe this super-you exceeds expectations on every project, perpetually radiates serenity, and never accidentally burns popcorn in the office microwave. In actual talent level you're not far behind this person, but in management's eyes you simply don't measure up. You're gainfully employed but constantly feeling overlooked.
 
@@ -119,7 +119,7 @@ The following graphs show these trends:
 ```{r}
 
 ggplot(kelley_k_bb_plus_compared_to_relievers, aes(x=Season, y=value)) + geom_point(color="#336699") + geom_line(color="#336699") + fgt +
-  facet_grid(. ~ stat_f) + ggtitle("Shawn Kelley's Improved Strike Zone Control, 2009 - 2016") + labs(y="Value (100 = Average Reliever)")
+  facet_grid(. ~ stat_f) + ggtitle("Shawn Kelley's Strike Zone Control, 2009 - 2016") + labs(y="Value (100 = Average Reliever)")
 
 ```
 
@@ -157,7 +157,8 @@ When they did connect, they mostly flew out. In 2016 Kelley's rate of fly balls 
 kelley_if_bf <- fg_pitchers %>%
   filter(PlayerId == 7773) %>%
   select(Season, `Fly Balls per Batter Faced` = FB_BF) %>%
-  filter(Season >= 2012)
+  filter(Season >= 2012) %>%
+  write_csv("kelley-fly-balls.csv")
 
 ggplot(kelley_if_bf, aes(Season, `Fly Balls per Batter Faced`)) + geom_point() + geom_line(color="#336699") + fgt
 
