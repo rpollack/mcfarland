@@ -102,6 +102,33 @@ fg_players <- fg_db %>%
   tbl("player_info") %>%
   collect(n=Inf)
 
+fg_projected_teams_batters <- fg_db %>% 
+  tbl('proj_batting') %>% 
+  filter(Type == "Steamer",
+         Season == 2017) %>%
+  select(PlayerId, Team) %>%
+  collect(n=Inf)
+
+fg_projected_teams_pitchers <- fg_db %>% 
+  tbl('proj_pitching') %>% 
+  filter(Type == "Steamer",
+         Season == 2017) %>%
+  select(PlayerId, Team) %>%
+  collect(n=Inf)
+
+#fix projected team abbreviations to match those of baseball reference
+fg_projected_teams_all <- bind_rows(fg_projected_teams_batters, fg_projected_teams_pitchers) %>%
+  mutate(Team = ifelse(Team == "LAN", "LAD", Team),
+         Team = ifelse(Team == "SFN", "SFG", Team),
+         Team = ifelse(Team == "CHA", "CHW", Team),
+         Team = ifelse(Team == "NYA", "NYY", Team),
+         Team = ifelse(Team == "NYN", "NYM", Team),
+         Team = ifelse(Team == "SDN", "SDP", Team),
+         Team = ifelse(Team == "KCA", "KCR", Team),
+         Team = ifelse(Team == "CHN", "CHC", Team),
+         Team = ifelse(Team == "SLN", "STL", Team),
+         Team = ifelse(Team == "WAS", "WSN", Team))
+
 this_year <- 2016
 teams_lookup <- fg_db %>%
   tbl("season_team") %>%
@@ -119,7 +146,7 @@ fg_batters <- inner_join(fg_players, fg_bat, by=c("PlayerId" = "playerid")) %>%
   filter(Position != "P",             #don't get batting WAR for pitchers
          BISPosition != "SP",
          BISPosition != "RP") %>%
-  select(FirstName, LastName, Season, BirthDate, ValueW, Position, TeamId)
+  select(PlayerId, FirstName, LastName, Season, BirthDate, ValueW, Position, TeamId)
 
 fg_pitch <- fg_db %>%
   tbl("stats_pitching") %>%
@@ -128,11 +155,11 @@ fg_pitch <- fg_db %>%
 
 fg_pitchers <- inner_join(fg_players, fg_pitch, by="PlayerId") %>%
   filter(BISPosition %in% c("SP", "RP")) %>% #don't get pitching WAR for position players
-  select(FirstName, LastName, Season, BirthDate, ValueW, Position = BISPosition, TeamId = TeamId.x)
+  select(PlayerId, FirstName, LastName, Season, BirthDate, ValueW, Position = BISPosition, TeamId = TeamId.x)
 
 #combine dataframes
 all_players <- bind_rows(fg_batters, fg_pitchers)  %>%
-  inner_join(teams_lookup, by="TeamId") %>%
+  inner_join(fg_projected_teams_all, by="PlayerId") %>%
   select(-TeamId) %>%
   group_by(FirstName, LastName, BirthDate) %>%
   arrange(desc(Season)) %>%
@@ -335,7 +362,7 @@ warcels <- master %>%
   filter(Year == max(Year),
          
          #attempt to filter out scrubs who may get benched / sent down
-         (war_under_control > 1 | aav > 2)) %>%
+         (war_under_control > 1 | aav > 5)) %>%
   mutate(controlled_surplus_value = round((millions_per_war * ((.05 * years_of_control) + 1)) * war_under_control -
            salary_under_control, 1)) %>%
   ungroup() %>%
