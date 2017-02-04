@@ -57,8 +57,6 @@ war_tbl <- warcels %>%
   arrange(desc(`Controlled WAR Through 2021`)) %>%
   write_csv("mlb-war-thru-2021.csv")
 
-war_tbl
-
 ggplot(war_tbl, aes(reorder(Team, `Controlled WAR Through 2021`), `Controlled WAR Through 2021`)) + geom_bar(stat="identity") + fgt + coord_flip() + labs(y="Controlled WAR", x="Team") + ggtitle("MLB Controlled WAR, 2017-2021")
 
 
@@ -73,9 +71,7 @@ salary_tbl <- warcels %>%
   arrange(`Controlled Salary Through 2021`) %>%
   write_csv("mlb-salary-thru-2021.csv")
 
-salary_tbl
-
-ggplot(salary_tbl, aes(reorder(Team, -`Controlled Salary Through 2021`), `Controlled Salary Through 2021`)) + geom_bar(stat="identity") + fgt + coord_flip() + labs(y="Controlled Salary (Millions USD)", x="Team") + ggtitle("MLB Controlled Salary, 2017-2021")
+ggplot(salary_tbl, aes(reorder(Team, `Controlled Salary Through 2021`), `Controlled Salary Through 2021`)) + geom_bar(stat="identity") + fgt + coord_flip() + labs(y="Controlled Salary (Millions USD)", x="Team") + ggtitle("MLB Controlled Salary, 2017-2021")
 
 
 ```
@@ -91,9 +87,7 @@ surplus_tbl <- warcels %>%
   arrange(desc(`Controlled Surplus Value Through 2021`)) %>%
   write_csv("mlb-surplus-value-thru-2021.csv")
 
-surplus_tbl
-
-ggplot(surplus_tbl, aes(reorder(Team, `Controlled Surplus Value Through 2021`), `Controlled Surplus Value Through 2021`)) + geom_bar(stat="identity") + fgt + coord_flip() + labs(y="Controlled Surplus Value (Millions USD)", x="Team") + ggtitle("MLB Controlled Salary, 2017-2021")
+ggplot(surplus_tbl, aes(reorder(Team, `Controlled Surplus Value Through 2021`), `Controlled Surplus Value Through 2021`)) + geom_bar(stat="identity") + fgt + coord_flip() + labs(y="Controlled Surplus Value (Millions USD)", x="Team") + ggtitle("MLB Controlled Surplus Value, 2017-2021")
 
 ```
 
@@ -106,9 +100,9 @@ Controlled surplus value is nice, but teams have to balance that value with the 
 team_surplus_value <- warcels %>%
   group_by(Team) %>%
   summarize(`Avg. Years of Control of Roster` = round(mean(years_of_control), 2),
-            `Avg. Surplus Value per Year (Millions USD)` = sum(controlled_surplus_value) / sum(years_of_control))
+            `Avg. Surplus Value per Player Per Year (Millions USD)` = sum(controlled_surplus_value) / sum(years_of_control))
 
-ggplot(team_surplus_value, aes(`Avg. Years of Control of Roster`, `Avg. Surplus Value per Year (Millions USD)`, Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + ggtitle("MLB Controlled Surplus Value, 2017 - 2021") + fgt
+ggplot(team_surplus_value, aes(`Avg. Years of Control of Roster`, `Avg. Surplus Value per Player Per Year (Millions USD)`, Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + ggtitle("MLB Controlled Surplus Value, 2017 - 2021") + fgt
 
 for_fg <- team_surplus_value %>%
   select(-Team) %>%
