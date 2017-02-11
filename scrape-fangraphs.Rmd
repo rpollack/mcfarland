@@ -24,7 +24,7 @@ Clean up a number of inconsistencies associated with leaderboards data elements 
 ```{r}    
 clean_data <- function(df){
   df <- df[, !duplicated(colnames(df))] #Remove duplicate columns, like 'PA' which is returned from multiple dashboards
-  df %<>%
+  df <- df %>%
     select(-matches("#")) #remove the 'Rank' column from the data
 
   #Handle percentage columns, which reports rates as strings
@@ -46,7 +46,7 @@ clean_data <- function(df){
   
   #Convert every column except Name and Team to numeric. Otherwise they are characters & don't sort properly
   cols_to_convert <- c(1, 4:ncol(df))
-  df[,cols_to_convert] %<>%
+  df[,cols_to_convert] <- df[,cols_to_convert] %>%
     lapply(function(x) as.numeric(x))
   
   #Make a few column names R-friendly
@@ -176,6 +176,38 @@ discipline_changes <- fg_data %>%
   mutate(change = discipline_diff - lag(discipline_diff)) %>%
   filter(Season == 2016)
 
+fg_players <- fg_db %>%
+  tbl("player_info") %>%
+  collect(n=Inf)
+
+fg_bat <- fg_db %>%
+  tbl("stats_batting_master_pfx") %>%
+  filter(Type == 0) %>%     #get only full-season stats for each player
+  collect(n=Inf)
+
+fg_batters <- inner_join(fg_players, fg_bat, by=c("PlayerId" = "playerid")) %>%
+  filter(Position != "P",             #don't get batting WAR for pitchers
+         BISPosition != "SP",
+         BISPosition != "RP") %>%
+  mutate(Name = sprintf("%s %s", FirstName, LastName)) %>%
+  select(PlayerId, Name, Season, PA, -BirthDate, ValueW, oswing = `pfxO-Swing%`, zswing = `pfxZ-Swing%`, `wRC+`) %>%
+  filter(PA >= 200) %>%
+  mutate(zo = zswing - oswing) %>%  #this goes across non-consecutive seasons; affects folks like Corey Patterson
+  filter(is.na(zo) == FALSE) %>%  
+  group_by(PlayerId) %>%
+  arrange(Season) %>%
+  mutate(consec = as.integer(Season) - as.integer(lag(Season))) %>%
+  mutate(change = zo - lag(zo),
+         wRC_change_next_year = lead(`wRC+`) - `wRC+`) %>%
+  filter(!is.na(change),
+         consec == 1) %>% #throw out non-consecutive seasons
+  ungroup() %>%
+  mutate(perc_rank = round(percent_rank(change) * 100, 2))
+  
+  #since we're throwing out sub-300 PA seasons, throw out non-consec. seasons also
+```
+
+
 contact_changes <- fg_data %>%
   group_by(Name) %>%
   arrange(Season) %>%
@@ -189,11 +221,11 @@ contact_changes <- fg_data %>%
 zone_changes <- fg_data %>%
   group_by(Name) %>%
   arrange(Season) %>%
-  filter(G > 100) %>%
+  filter(PA > 350) %>%
   select(Season, Name, PA, Zone_perc) %>%
   mutate(change = (Zone_perc - lag(Zone_perc))) %>%
   filter(Season == 2016, PA > 300) %>%
-  arrange(desc(PA), desc(change))
+  arrange(desc(change))
   
 FA_changes <- fg_data %>%
   group_by(Name) %>%
@@ -221,7 +253,7 @@ player_value_to_team <- fg_data %>%
          name_plus_team = sprintf("%s (%s)", Name, Team)) %>%
   arrange(desc(hitter_war_perc))
 
-team_value_plt <- ggplot(data=head(player_value_to_team, 50), aes(x=reorder(name_plus_team, hitter_war_perc), y=hitter_war_perc)) + geom_bar(stat="identity") + coord_flip() + ggtitle("Good Hitters on Bad Teams (Except for Manny Machado!)") + labs(y="% of Team's Non-Pitcher WAR", x="Player")
+team_value_plt <- ggplot(data=head(player_value_to_team, 20), aes(x=reorder(name_plus_team, hitter_war_perc), y=hitter_war_perc)) + geom_bar(stat="identity") + coord_flip() + ggtitle("Good Hitters on Bad Teams (Except for Manny Machado!)") + labs(y="% of Team's Non-Pitcher WAR", x="Player")
 
 team_value_plt
 
