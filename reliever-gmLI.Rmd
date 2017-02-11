@@ -1,0 +1,65 @@
+
+# get gmLI data for relievers since 2014
+```{r}
+li <- fg_db %>% tbl('wpa_daily_pitching') %>%
+  filter(GameDate >= "2014-01-01") %>%
+  select(PlayerId, GameDate, gmLI) %>%
+  collect(n=Inf)
+
+fg_players <- fg_db %>%
+  tbl("player_info") %>%
+  filter(BISPosition == "RP") %>%
+  collect(n=Inf)
+
+pitching_stats <- fg_db %>%
+  tbl("stats_pitching") %>%
+  filter(Season >= 2014,
+         Type == 0) %>%
+  select(PlayerId, Season, TBF, SV) %>%
+  collect(n=Inf)
+
+```
+
+#identify relievers whose mean_gmLI increased 2014-2016
+
+```{r}
+
+full_data <- li %>%
+  mutate(Season = as.integer(format(strptime(GameDate, format="%Y-%d-%m"), "%Y"))) %>%
+  inner_join(fg_players, by="PlayerId") %>%
+  inner_join(pitching_stats, by=c("PlayerId", "Season")) %>%
+  mutate(Name = sprintf("%s %s", FirstName, LastName)) %>%
+  select(PlayerId, Name, Season, TBF, SV, gmLI)
+
+plt_tbl <- full_data %>%
+  filter(TBF >= 100,
+         SV <= 5,
+         Name != "Javier Lopez") %>% # remove partial seasons & retirees
+  group_by(PlayerId, Name, Season) %>%
+  summarize(mean_gmLI = mean(gmLI, na.rm = TRUE),
+            sd_gmLI = sd(gmLI, na.rm = TRUE)) %>%
+  arrange(PlayerId, Season) %>%
+  mutate(change_mean_gmLI = mean_gmLI - lag(mean_gmLI, 2),
+         change_sd_gmLI = sd_gmLI - lag(sd_gmLI, 2)) %>%
+  arrange(desc(change_mean_gmLI))
+
+#show relivers whose gmLI has increased the most the past 4 years
+ggplot(plt_tbl %>% head(25), aes(reorder(Name, change_mean_gmLI), change_mean_gmLI)) + geom_bar(stat="identity") + coord_flip()
+
+
+ggplot(plt_tbl, aes(change_mean_gmLI)) + geom_histogram(binwidth = .01)
+
+```
+
+
+```{r}
+
+%>%
+  arrange(desc(sd_gmLI))
+
+ggplot(trustworthy_pitchers, aes(sd_gmLI)) + geom_histogram(binwidth = .05)
+
+ggplot(trustworthy_pitchers, aes(mean_gmLI)) + geom_histogram(binwidth = .05)
+
+
+```
