@@ -101,6 +101,7 @@ next_year <- this_year + 1
 #player ID / Name data from FG. allows distinguishing b/w players with identical names
 fg_players <- fg_db %>%
   tbl("player_info") %>%
+  select(PlayerId, FirstName, LastName, TeamId, BirthDate, BISPosition, Position) %>%
   collect(n=Inf)
 
 #projected team for this/next year. allows merging between FG and baseball-reference datasets
@@ -135,6 +136,7 @@ fg_projected_teams_all <- bind_rows(fg_projected_teams_batters, fg_projected_tea
 fg_bat <- fg_db %>%
   tbl("stats_batting") %>%
   filter(Type == 0) %>%     #get only full-season stats for each player
+  select(playerid, Season, ValueW) %>%
   collect(n=Inf)
 
 fg_batters <- inner_join(fg_players, fg_bat, by=c("PlayerId" = "playerid")) %>%
@@ -147,11 +149,13 @@ fg_batters <- inner_join(fg_players, fg_bat, by=c("PlayerId" = "playerid")) %>%
 fg_pitch <- fg_db %>%
   tbl("stats_pitching") %>%
   filter(Type == 0) %>%
+  select(PlayerId, Season, TeamId, ValueW) %>%
   collect(n=Inf)
 
 fg_pitchers <- inner_join(fg_players, fg_pitch, by="PlayerId") %>%
   filter(BISPosition %in% c("SP", "RP")) %>% #don't get pitching WAR for position players
-  select(PlayerId, FirstName, LastName, Season, BirthDate, ValueW, Position = BISPosition, TeamId = TeamId.x)
+  select(PlayerId, FirstName, LastName, Season, BirthDate, ValueW, Position = BISPosition, 
+         TeamId = TeamId.x)
 ```
 
 ### Combine gathered data into one frame and re-format some data
@@ -367,9 +371,38 @@ warcels <- master %>%
   mutate(controlled_surplus_value = round((millions_per_war * ((.05 * years_of_control) + 1)) * war_under_control -
            salary_under_control, 1)) %>%
   ungroup() %>%
-  mutate(surplus_value_rank = round(percent_rank(controlled_surplus_value) * 100, 2)) %>%
+  mutate(absolute_surplus_value = abs(controlled_surplus_value),
+         surplus_value_rank = round(percent_rank(controlled_surplus_value) * 100, 2)) %>%
   select(-Year) %>%
   arrange(desc(controlled_surplus_value))
+```
+
+
+### Look at surplus value per team for 2016-2017 FAs
+
+```{r}
+fa_warcels <- warcels %>%
+  filter(Name %in% c("Edwin Encarnacion", "Jose Bautista", "Kenley Jansen", "Justin Turner", "Yoenis Cespedes",
+                     "Aroldis Chapman", "Dexter Fowler", "Rich Hill", "Neil Walker", "Mark Melancon", 
+                     "Jeremy Hellickson", "Ivan Nova", "Ian Desmond", "Carlos Gomez", "Josh Reddick", 
+                     "Matt Holliday", "Mark Trumbo", "Edinson Volquez", "Carlos Beltran", "Matt Wieters",
+                     "Brett Cecil", "Michael Saunders", "Mike Napoli", "Jason Hammel", "Andrew Cashner", 
+                     "Wilson Ramos", "Greg Holland", "Luis Valbuena", "Kendrys Morales", "Brad Ziegler",
+                     "Sergio Romo", "Kohi Uehara", "Derek Holland", "Bartolo Colon", "Rajai Davis", "Joe Blanton",
+                     "Matt Joyce", "Colby Rasmus", "Brandon Moss", "Santiago Casilla", "Angel Pagan",
+                     "Chase Utley", "Doug Fister", "R.A. Dickey", "Steve Pearce", "Colby Lewis", "Jon Jay",
+                     "Pedro Alvarez", "Jonathan Papelbon", "Erick Aybar")) %>%
+  mutate(millions_per_win = salary_under_control / war_under_control)
+
+
+#ggplot(fa_warcels, aes(millions_per_win)) + geom_histogram(binwidth = 10)
+
+team_dollars_per_win <- fa_warcels %>%
+  group_by(Team) %>%
+  summarize(mean_millions_per_win = mean(millions_per_win))
+
+ggplot(team_dollars_per_win, aes(reorder(Team, mean_millions_per_win), mean_millions_per_win)) + geom_bar(stat="identity") + coord_flip() + labs(x="Team", y="Cost per Controlled Free-Agent Win, 2016-2017 offseason")
+
 ```
 
 ### Group WAR per Year by Team
