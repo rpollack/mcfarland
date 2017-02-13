@@ -15,7 +15,7 @@ oswing_plt <- fg_pitchers %>%
   mutate(oswing = 100 * oswing) %>%
   arrange(desc(oswing))
 
-ggplot(oswing_plt, aes(oswing, ValueW)) + geom_point() + geom_smooth(method = "loess") + fgt + 
+ggplot(oswing_plt, aes(oswing, ValueW)) + geom_point() + geom_smooth(method = "lm") + fgt + 
   labs(x="O-Swing %", y="WAR") + ggtitle("O-Swing% vs. WAR, Starting Pitchers Who Faced at least 100 Batters, 2014-2016")
 ```
 
@@ -32,17 +32,38 @@ ggplot(iso_by_location, aes(x=Year, y=`Avg. ISO on Swing`, color=`Pitch Location
 }) + fgt + ggtitle("Chasing Pitches is Bad for Hitters")
 ```
 
-Manaea induced hitters to swing at 36.6% of his pitches out of the zone. That rate ranks 5th amont starters who faced at least 100 batters last year:
+Manaea induced hitters to offer at 36.6% of his pitches out of the zone. This rate ranks 5th amont starters who faced at least 100 batters last year:
 
 ```{r}
 oswing_plt_chart <- oswing_plt %>%
   filter(Season == 2016) %>%
-  select(-TBF, -ValueW) %>%
-  head(10)
+  select(-TBF, -ValueW, -Season) %>%
+  head(15)
 
-ggplot(oswing_plt_chart, aes(reorder(Name, oswing), oswing)) + geom_bar(stat="identity") + coord_flip()
+oswing_plt_chart
 
 ```
+
+
+.... where to go from here .... ?
+
+Manaea's change-up gets the most out-of-zone swings:
+
+http://www.fangraphs.com/leaders.aspx?pos=all&stats=pit&lg=all&qual=140&type=5&season=2016&month=0&season1=2016&ind=0&team=0&rost=0&age=0&filter=&players=0&sort=11,a
+
+The following graph shows how this new grip, which Manaea introduced in May to combat an awful April, improved hitters' willinginess to chase his change-up out of the zone:
+
+```{r}
+manaea_ozone_change <- read_csv("manaea-changeup-oswing.csv")
+
+manaea_ozone_change$Date <- as.Date(manaea_ozone_change$Date, format="%m-%d-%y")
+
+ggplot(manaea_ozone_change, aes(x=Date, y=pitch_percent)) + geom_point() + geom_line() + fgt + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+Back in August, Eno wrote (http://www.fangraphs.com/blogs/sean-manaea-checking-them-off/) how Manaea, a 6'5" lefty, altered how he gripped the change-up. Manaea made the shift in May  
+
 
 
 
