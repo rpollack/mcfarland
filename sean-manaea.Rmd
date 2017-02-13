@@ -1,0 +1,125 @@
+
+Sean Manaea: Reasons for optimism.
+
+a's rotation situation:
+
+FG depth charts project Manaea for A's 3rd best SP, behind Gray and Cotton. Sonny gray gave A's fans a scare last year; a diminished K-BB% coupled with a sky-high HR/FB rate pushed his ERA- to 141 and his FIP- to 112. Cotton impressed in his five starts, notching a 17% K-BB%. Of course we'll have to see more from him to form a strong opinion. 
+
+Manaea's high O-Swing% drew me to write about him. Getting hitters to chase pitches out of the zone correlates with success, as the following graph shows:
+
+```{r}
+oswing_plt <- fg_pitchers %>%
+  filter(BISPosition == "SP",
+         TBF >= 100) %>%
+  select(Name, TBF, Season, oswing = `pfxO-Swing%`, ValueW) %>%
+  mutate(oswing = 100 * oswing) %>%
+  arrange(desc(oswing))
+
+ggplot(oswing_plt, aes(oswing, ValueW)) + geom_point() + geom_smooth(method = "loess") + fgt + 
+  labs(x="O-Swing %", y="WAR") + ggtitle("O-Swing% vs. WAR, Starting Pitchers Who Faced at least 100 Batters, 2014-2016")
+```
+
+Intuitively we know batters hit for less power when chasing pitches. But why rely in intution when we have data? Baseball Savant proves that swinging at pitches out of the zone results in a much lower ISO than swinging at piches in the zone:
+
+```{r}
+iso_by_location <- read_csv("iso on batted ball location - Sheet1.csv", 
+                            col_types = list(col_character(), col_character(), col_double()))
+
+#iso_by_location$Year = as.character(iso_by_location$Year)
+
+ggplot(iso_by_location, aes(x=Year, y=`Avg. ISO on Swing`, color=`Pitch Location`)) + geom_line(aes(group=`Pitch Location`)) + geom_point() + scale_y_continuous(labels= function(x){
+  sprintf("%.3f", x)
+}) + fgt + ggtitle("Chasing Pitches is Bad for Hitters")
+```
+
+Manaea induced hitters to swing at 36.6% of his pitches out of the zone. That rate ranks 5th amont starters who faced at least 100 batters last year:
+
+```{r}
+oswing_plt_chart <- oswing_plt %>%
+  filter(Season == 2016) %>%
+  select(-TBF, -ValueW) %>%
+  head(10)
+
+ggplot(oswing_plt_chart, aes(reorder(Name, oswing), oswing)) + geom_bar(stat="identity") + coord_flip()
+
+```
+
+
+
+
+
+came to a's in the trade for ben zobrist at the 2015 deadline.
+
+- avg k%
+
+- good bb%
+
+- great o-swing% - 36.6%, 5th among SPs with at least 140 IP [http://www.fangraphs.com/leaders.aspx?pos=all&stats=pit&lg=all&qual=140&type=15&season=2016&month=0&season1=2016&ind=0&team=0&rost=0&age=0&filter=&players=0&sort=4,d]
+
+- 
+
+It's not just getting swings outside the zone. 
+
+
+
+```{r}
+fg_players <- fg_db %>%
+  tbl("player_info") %>%
+  collect(n=Inf)
+
+fg_pitch <- fg_db %>%
+  tbl("stats_pitching_master_pfx") %>%
+  filter(Type == 0,
+         Season >= 2014) %>%     #get only full-season stats for each player
+  collect(n=Inf)
+
+fg_pitchers <- inner_join(fg_players, fg_pitch, by="PlayerId") %>%
+  mutate(Name = sprintf("%s %s", FirstName, LastName))
+
+```
+
+```{r}
+disc <- fg_pitchers %>%
+  filter(BISPosition == "SP") %>%
+  select(PlayerId, Name, Season, TBF, Season, oswing = `pfxO-Swing%`, zswing = `pfxZ-Swing%`, zone = `pfxZone%`,
+         ocontact = `pfxO-Contact%`, ValueW, xFIP, zcontact = `pfxZ-Contact%`) %>%
+  group_by(Season) %>%
+  mutate(oswing_plus = 100 * (oswing / mean(oswing))) %>%
+  ungroup() %>%
+  filter(TBF >= 200) %>%
+  mutate(ozone = 1 - zone,
+         prob_ozone_and_swing = round(100 * (ozone * oswing), 1),
+         prob_rank = percent_rank(prob_ozone_and_swing) * 100) %>%
+  select(Name, ozone, oswing, prob_ozone_and_swing, prob_rank, ValueW) %>%
+  arrange(desc(prob_rank))
+         
+#ggplot(disc, aes(reorder(Name, prob), prob)) + geom_bar(stat="identity") + coord_flip()
+
+
+
+
+```
+
+```{r}
+ggplot(disc, aes(oswing, xFIP)) + geom_point()
+ggplot(disc, aes(oswstr, xFIP)) + geom_point()
+
+oswing_model <- lm(disc$xFIP ~ disc$oswing) #r2 0.2534 
+oswstr_model <- lm(disc$xFIP ~ disc$oswstr) #r2 0.3771
+
+
+```
+%>%
+  filter(PA >= 200) %>%
+  mutate(zo = zswing - oswing) %>%  #this goes across non-consecutive seasons; affects folks like Corey Patterson
+  filter(is.na(zo) == FALSE) %>%  
+  group_by(PlayerId) %>%
+  arrange(Season) %>%
+  mutate(consec = as.integer(Season) - as.integer(lag(Season))) %>%
+  mutate(change = zo - lag(zo),
+         wRC_change_next_year = lead(`wRC+`) - `wRC+`) %>%
+  filter(!is.na(change),
+         consec == 1) %>% #throw out non-consecutive seasons
+  ungroup() %>%
+  mutate(perc_rank = round(percent_rank(change) * 100, 2))
+```
