@@ -1,23 +1,94 @@
 
-Sean Manaea: Reasons for optimism.
+Four Reasons to be Optimistic about Sean Manaea
 
 a's rotation situation:
 
 FG depth charts project Manaea for A's 3rd best SP, behind Gray and Cotton. Sonny gray gave A's fans a scare last year; a diminished K-BB% coupled with a sky-high HR/FB rate pushed his ERA- to 141 and his FIP- to 112. Cotton impressed in his five starts, notching a 17% K-BB%. Of course we'll have to see more from him to form a strong opinion. 
 
-Manaea's high O-Swing% drew me to write about him. Getting hitters to chase pitches out of the zone correlates with success, as the following graph shows:
+
+
+
+1. Good SwStr%
+
+Manaea's swinging-strike rate isn't as good as his O-Swing rate, but he still ranks very high at the 91st percentile. 
 
 ```{r}
-oswing_plt <- fg_pitchers %>%
-  filter(BISPosition == "SP",
-         TBF >= 100) %>%
-  select(Name, TBF, Season, oswing = `pfxO-Swing%`, ValueW) %>%
-  mutate(oswing = 100 * oswing) %>%
-  arrange(desc(oswing))
+swstr <- fg_pitchers %>%
+  filter(Season == 2016) %>%
+  select(Name, swstr = `SwStr%`) %>%
+  arrange(desc(swstr)) %>%
+  mutate(swstr = round(swstr * 100, 1),
+         swstr_rank = round(percent_rank(swstr) * 100, 1)) %>%
+  select(Name, swstr, swstr_rank) %>%
+  arrange(desc(swstr_rank)) %>%
+  head(25)
 
-ggplot(oswing_plt, aes(oswing, ValueW)) + geom_point() + geom_smooth(method = "lm") + fgt + 
-  labs(x="O-Swing %", y="WAR") + ggtitle("O-Swing% vs. WAR, Starting Pitchers Who Faced at least 100 Batters, 2014-2016")
+swstr
 ```
+
+Manaea's peers are Justin Verlander, David Price, and James Paxton: good pitchers, all. 
+
+2. Below-Average Walk Rate 
+
+Manaea's walk rate isn't amazing, but at the 6.2% (75th percentile), it's very good.
+
+```{r}
+walk_rate <- fg_pitchers %>%
+  filter(Season == 2016) %>%
+  select(Name, bb = `BB%`) %>%
+  mutate(bb = round(100 * bb, 1),
+         bb_rank = round(100 * percent_rank(desc(bb)), 1)) %>%
+  filter(bb_rank >= 70,
+         bb_rank <= 76) %>%
+  arrange(desc(bb_rank))
+
+walk_rate
+  
+```
+
+Kevin Gausman is a very good comp, as are Matt Harvey and Max Scherzer.
+
+3. His HR/FB was 13.7%.
+
+Wait, how is Manaea's high HR/FB rate a good thing? Because regression to the mean tells us this rate probably won't be so high next year. This is a basic tenet of the HR/FB stat, but just in case you need reassurance, the following graph shows year Y and year Y+1 HR/FB rates for Athletics starters since 2000:    
+
+```{r}
+athletics_hr_fb <- fg_pitchers %>%
+  filter(TeamId.x == 10) %>%
+  select(PlayerId, Name, TeamId = TeamId.x, Season, hrfb = `HR/FB`) %>%
+  group_by(PlayerId) %>%
+  arrange(PlayerId, Season) %>%
+  mutate(hrfb = 100 * hrfb,
+    next_hrfb = lead(hrfb)) %>%
+  filter(!is.na(hrfb),
+         !is.na(next_hrfb))
+
+ggplot(athletics_hr_fb, aes(hrfb, next_hrfb)) + geom_point() + geom_smooth(method = "lm") + fgt
+
+```
+
+This plot is random; if you squint you can make out a slight negative correlation. Either takeaway would be good news for Manaea in 2017. Incidentally, Sonny Gray better also hope regression to the mean acts on his incredibly high 2016 HR/FB rate.
+
+4. Very good O-Swing%.
+
+The above reasons are very good ones to be optimistic about Manaea. But the best reason to expect good things from him is this: Manaea induced hitters to offer at 36.5% of his pitches out of the zone. This rate ranks in the 98th percentile among starters who faced at least 100 batters last year:
+
+```{r}
+oswing_plt_chart <- fg_pitchers %>%
+  filter(Season == 2016) %>%
+  select(Name, oswing = `pfxO-Swing%`) %>%
+  mutate(oswing = round(100 * oswing, 1),
+         oswing_rank = round(percent_rank(oswing) * 100, 1)) %>%
+  arrange(desc(oswing_rank)) %>%
+  head(15)
+
+oswing_plt_chart
+
+```
+
+Manaea ranks just about equal with Thor here and only slightly ahead of Matt Andriese. 
+
+(Yes, that's Manaea teammate Dillon Overton at the 94th percentile alongside Justin Verlander.)
 
 Intuitively we know batters hit for less power when chasing pitches. But why rely in intution when we have data? Baseball Savant proves that swinging at pitches out of the zone results in a much lower ISO than swinging at piches in the zone:
 
@@ -32,17 +103,90 @@ ggplot(iso_by_location, aes(x=Year, y=`Avg. ISO on Swing`, color=`Pitch Location
 }) + fgt + ggtitle("Chasing Pitches is Bad for Hitters")
 ```
 
-Manaea induced hitters to offer at 36.6% of his pitches out of the zone. This rate ranks 5th amont starters who faced at least 100 batters last year:
+Manaea's high O-Swing% bodes well for suppressing power. This is another reason to suspect his HR/FB rate will drop next year. O-Swing% carries over well year-to-year. The relationship between a pitcher's year Y and his year Y+1 is strong:
 
 ```{r}
-oswing_plt_chart <- oswing_plt %>%
-  filter(Season == 2016) %>%
-  select(-TBF, -ValueW, -Season) %>%
-  head(15)
+oswing_corr <- fg_pitchers %>%
+  select(PlayerId, Name, Season, oswing = `pfxO-Swing%`) %>%
+  group_by(PlayerId) %>%
+  arrange(PlayerId, Season) %>%
+  mutate(oswing = 100 * oswing,
+    next_oswing = lead(oswing)) %>%
+  filter(!is.na(oswing),
+         !is.na(next_oswing)) %>%
+  ungroup() %>%
+  select(oswing, next_oswing)
 
-oswing_plt_chart
+ggplot(oswing_corr, aes(oswing, next_oswing)) + geom_point() + geom_smooth(method = "lm") + fgt
+```
+
+Manaea should continue to induce swings out of the zone, leading to suppressed power from hitters he faces.
+
+
+
+
+```{r}
+
+# p(b|e) = p(b) * p (e|b) / p(e)
+# probability (hr/fb over 11% | o-swing rate over 35%)
+
+# b = hr/fb over 11%
+# e = o-swing rate over 35%
+
+sample <- fg_pitchers %>%
+  filter(!is.na(`O-Swing%`),
+         !is.na(`HR/FB`)) %>%
+  select(PlayerId, Name, Season, `O-Swing%`, `HR/FB`)
+
+#p(b)
+p_b <- sample %>%
+  filter(`HR/FB` >= .11)
+#821 / 1769
+#0.464104
+
+#p(e|b) - given a player has a hr/fb over .11, what is the probability they had an oswing % over .35?
+p_b_e <- p_b %>%
+  filter(`O-Swing%` >= .350)
+#24 / 821
+#0.02923264
+
+#p(e)
+p_e <- sample %>%
+  filter(`O-Swing%` >= .350)
+#55 / 1769
+#0.03109101
 
 ```
+
+
+
+
+
+
+
+
+
+
+===
+
+
+Getting hitters to chase pitches out of the zone correlates with success, as the following graph shows:
+
+```{r}
+oswing_plt <- fg_pitchers %>%
+  filter(BISPosition == "SP",
+         TBF >= 100) %>%
+  select(Name, TBF, Season, oswing = `pfxO-Swing%`, ValueW) %>%
+  mutate(oswing = 100 * oswing) %>%
+  arrange(desc(oswing))
+
+ggplot(oswing_plt, aes(oswing, ValueW)) + geom_point() + geom_smooth(method = "lm") + fgt + 
+  labs(x="O-Swing %", y="WAR") + ggtitle("O-Swing% vs. WAR, Starting Pitchers Who Faced at least 100 Batters, 2014-2016")
+```
+
+
+
+
 
 
 .... where to go from here .... ?
@@ -91,11 +235,13 @@ fg_players <- fg_db %>%
 fg_pitch <- fg_db %>%
   tbl("stats_pitching_master_pfx") %>%
   filter(Type == 0,
-         Season >= 2014) %>%     #get only full-season stats for each player
+         Season >= 2000) %>%     #get only full-season stats for each player
   collect(n=Inf)
 
 fg_pitchers <- inner_join(fg_players, fg_pitch, by="PlayerId") %>%
-  mutate(Name = sprintf("%s %s", FirstName, LastName))
+  mutate(Name = sprintf("%s %s", FirstName, LastName)) %>%
+  filter(BISPosition == "SP",
+         TBF >= 100)
 
 ```
 
@@ -103,15 +249,14 @@ fg_pitchers <- inner_join(fg_players, fg_pitch, by="PlayerId") %>%
 disc <- fg_pitchers %>%
   filter(BISPosition == "SP") %>%
   select(PlayerId, Name, Season, TBF, Season, oswing = `pfxO-Swing%`, zswing = `pfxZ-Swing%`, zone = `pfxZone%`,
-         ocontact = `pfxO-Contact%`, ValueW, xFIP, zcontact = `pfxZ-Contact%`) %>%
+         ocontact = `pfxO-Contact%`, ValueW, xFIP, zcontact = `pfxZ-Contact%`, swstr = `SwStr%`) %>%
   group_by(Season) %>%
   mutate(oswing_plus = 100 * (oswing / mean(oswing))) %>%
   ungroup() %>%
-  filter(TBF >= 200) %>%
+  filter(TBF >= 100) %>%
   mutate(ozone = 1 - zone,
          prob_ozone_and_swing = round(100 * (ozone * oswing), 1),
          prob_rank = percent_rank(prob_ozone_and_swing) * 100) %>%
-  select(Name, ozone, oswing, prob_ozone_and_swing, prob_rank, ValueW) %>%
   arrange(desc(prob_rank))
          
 #ggplot(disc, aes(reorder(Name, prob), prob)) + geom_bar(stat="identity") + coord_flip()
