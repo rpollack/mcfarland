@@ -1,16 +1,19 @@
 
 Four Reasons to be Optimistic about Sean Manaea
 
-a's rotation situation:
+Oakland A's fans are casting wary eyes at the 2017 season. The games haven't been played, but our Depth Chart projections has the team finishing [http://www.fangraphs.com/depthcharts.aspx?position=Standings] at 77-85, last place in the AL West. The team isn't bad, but the AL West became competitive seemingly overnight. The Astros have been a strong team for years now. The Angels suddenly look mildly dangerous, the Mariners supplemented their star-powered core with quality pieces, and the Rangers haven't gone away. 
 
-FG depth charts project Manaea for A's 3rd best SP, behind Gray and Cotton. Sonny gray gave A's fans a scare last year; a diminished K-BB% coupled with a sky-high HR/FB rate pushed his ERA- to 141 and his FIP- to 112. Cotton impressed in his five starts, notching a 17% K-BB%. Of course we'll have to see more from him to form a strong opinion. 
+If the A's do have a poor season, fans will need to focus on the bright spots. Most teams have some; as Grant Brisbee wrote at SBNation [http://www.sbnation.com/2017/2/13/14598688/atlanta-braves-brandon-phillips-trade-2017-season], even the Braves have a lot of watchable players. Hot prospects, ace pitchers, sluggers hitting dingers -- these all become reasons for fans to tune in as their team's window closes for the year.
 
+Sean Manaea provides one such reason to watch A's games. Acquired from Kansas City in 2015 in exchange for Ben Zobrist, Manaea is a 6'5", 245-pound lefty who made his big-league debut last April and remained in the rotation the entire season. He gave up quite a few home runs, but his 14.7 K-BB% indicates he can fool batters. Give him a league-average HR/FB rate, adjust for his park and league, and his 93 xFIP- ranked alongside that of Rookie of the Year Michael Fulmer.
 
+Manaea's not the team's ace -- that title still belongs to Sonny Gray and his projected 2.7 WAR. He isn't even their #2; Jharel Cotton's 2.4 WAR can claim that spot. But Manaea projects to earn 2.2 WAR in 162 innings, performing reliably in the middle of the rotation.
 
+Here are four reasons why A's fans should be optimistic about Sean Manaea in 2017.
 
 1. Good SwStr%
 
-Manaea's swinging-strike rate isn't as good as his O-Swing rate, but he still ranks very high at the 91st percentile. 
+When batters swung at a pitch from Manaea, they missed 11.8% of the time. This rate ranks Manaea at the 91st percentile among pitchers who faced at least 100 batters last year: 
 
 ```{r}
 swstr <- fg_pitchers %>%
@@ -20,17 +23,40 @@ swstr <- fg_pitchers %>%
   mutate(swstr = round(swstr * 100, 1),
          swstr_rank = round(percent_rank(swstr) * 100, 1)) %>%
   select(Name, swstr, swstr_rank) %>%
+  filter(swstr >= 11.0,
+         swstr <= 13.0) %>%
   arrange(desc(swstr_rank)) %>%
   head(25)
 
 swstr
 ```
 
-Manaea's peers are Justin Verlander, David Price, and James Paxton: good pitchers, all. 
+Manaea's peers are Justin Verlander, David Price, and James Paxton: good pitchers, all. Manaea got swings and misses more frequently than Madison Bumgarner and Chris Sale, among others.
+
+What about 2017? Swinging-strike rate correlates very well year-to-year (r = 0.69), as the following graph shows:
+
+```{r}
+swstr_corr <- fg_pitchers %>%
+  select(PlayerId, Name, Season, swstr = `SwStr%`) %>%
+  group_by(PlayerId) %>%
+  arrange(PlayerId, Season) %>%
+  mutate(swstr = 100 * swstr,
+    next_swstr = lead(swstr)) %>%
+  filter(!is.na(swstr),
+         !is.na(next_swstr)) %>%
+  ungroup() %>%
+  select(swstr, next_swstr)
+
+ggplot(swstr_corr, aes(swstr, next_swstr)) + geom_point() + geom_smooth(method = "lm") + fgt
+
+swstr_model <- lm(swstr_corr$next_swstr ~ swstr_corr$swstr)
+
+#remember this is 2014-2016 starters who faced at least 100 batters in a season
+```
 
 2. Below-Average Walk Rate 
 
-Manaea's walk rate isn't amazing, but at the 6.2% (75th percentile), it's very good.
+Manaea's walk rate isn't amazing, but at 6.2% (75th percentile), it's very good.
 
 ```{r}
 walk_rate <- fg_pitchers %>%
@@ -38,19 +64,19 @@ walk_rate <- fg_pitchers %>%
   select(Name, bb = `BB%`) %>%
   mutate(bb = round(100 * bb, 1),
          bb_rank = round(100 * percent_rank(desc(bb)), 1)) %>%
-  filter(bb_rank >= 70,
-         bb_rank <= 76) %>%
+  filter(bb >= 6.1,
+         bb <= 6.3) %>%
   arrange(desc(bb_rank))
 
 walk_rate
   
 ```
 
-Kevin Gausman is a very good comp, as are Matt Harvey and Max Scherzer.
+Kevin Gausman is a good comp, as are Matt Harvey and Max Scherzer.
 
 3. His HR/FB was 13.7%.
 
-Wait, how is Manaea's high HR/FB rate a good thing? Because regression to the mean tells us this rate probably won't be so high next year. This is a basic tenet of the HR/FB stat, but just in case you need reassurance, the following graph shows year Y and year Y+1 HR/FB rates for Athletics starters since 2000:    
+Wait, how is Manaea's high HR/FB rate a good thing? Because regression to the mean tells us this rate probably won't be so high next year. Regression to the mean is a basic tenet of the HR/FB stat, but just in case you need reassurance, the following graph shows year Y and year Y+1 HR/FB rates for Athletics starters since 2000 who've faced at least 100 batters in a season:    
 
 ```{r}
 athletics_hr_fb <- fg_pitchers %>%
@@ -71,7 +97,7 @@ This plot is random; if you squint you can make out a slight negative correlatio
 
 4. Very good O-Swing%.
 
-The above reasons are very good ones to be optimistic about Manaea. But the best reason to expect good things from him is this: Manaea induced hitters to offer at 36.5% of his pitches out of the zone. This rate ranks in the 98th percentile among starters who faced at least 100 batters last year:
+The best reason to be optimistic about Sean Manaea is this: last year he induced hitters to offer at 36.5% of his pitches out of the zone. This rate ranks in the 98th percentile among starters who faced at least 100 batters last year:
 
 ```{r}
 oswing_plt_chart <- fg_pitchers %>%
@@ -103,7 +129,7 @@ ggplot(iso_by_location, aes(x=Year, y=`Avg. ISO on Swing`, color=`Pitch Location
 }) + fgt + ggtitle("Chasing Pitches is Bad for Hitters")
 ```
 
-Manaea's high O-Swing% bodes well for suppressing power. This is another reason to suspect his HR/FB rate will drop next year. O-Swing% carries over well year-to-year. The relationship between a pitcher's year Y and his year Y+1 is strong:
+Manaea's high O-Swing% bodes well for suppressing power, especially in Oakland. This is another reason to suspect his HR/FB rate will drop next year. O-Swing% carries over well year-to-year. The relationship between a pitcher's year Y and his year Y+1 is strong:
 
 ```{r}
 oswing_corr <- fg_pitchers %>%
@@ -120,7 +146,10 @@ oswing_corr <- fg_pitchers %>%
 ggplot(oswing_corr, aes(oswing, next_oswing)) + geom_point() + geom_smooth(method = "lm") + fgt
 ```
 
-Manaea should continue to induce swings out of the zone, leading to suppressed power from hitters he faces.
+Manaea should continue to induce swings out of the zone, suppressing power from hitters he faces.
+
+CONCLUSION
+
 
 
 
