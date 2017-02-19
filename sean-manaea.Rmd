@@ -1,11 +1,34 @@
 
-Four Reasons A's Fans Should be Optimistic about Sean Manaea
+```{r, include=FALSE}
+library(tidyverse)
 
-Oakland A's fans are casting wary eyes at the 2017 season. The games haven't been played, but our Depth Chart projections have the team finishing [http://www.fangraphs.com/depthcharts.aspx?position=Standings] at 77-85, last place in the AL West. The team isn't bad, but the AL West became competitive seemingly overnight. The Astros have been a strong team since 2015, the Angels suddenly look mildly dangerous, the Mariners supplemented their star-powered core with quality pieces, and the Rangers haven't gone away. 
 
-If the A's do have a poor season, fans will need to focus on the bright spots. Most teams have some; as Grant Brisbee wrote at SB Nation [http://www.sbnation.com/2017/2/13/14598688/atlanta-braves-brandon-phillips-trade-2017-season], even the Braves have many watchable players. Hot prospects, ace pitchers, sluggers hitting dingers -- these all become reasons for fans to tune in as their team's window closes for the year.
 
-===
+fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"), 
+                            host = Sys.getenv("FG_HOST"), 
+                            user = Sys.getenv("FG_USER"),
+                            password = Sys.getenv("FG_PW"))
+
+fg_players <- fg_db %>%
+  tbl("player_info") %>%
+  collect(n=Inf)
+
+fg_pitch <- fg_db %>%
+  tbl("stats_pitching_master_pfx") %>%
+  filter(Type == 0,
+         Season >= 2000) %>%     #get only full-season stats for each player
+  collect(n=Inf)
+
+fg_pitchers <- inner_join(fg_players, fg_pitch, by="PlayerId") %>%
+  mutate(Name = sprintf("%s %s", FirstName, LastName)) %>%
+  filter(BISPosition == "SP",
+         TBF >= 100)
+
+fgt = theme(panel.background=element_rect(color="lightgrey",fill="white"), axis.title = element_text(family="Lato"), axis.text = element_text(family="Lato"), legend.title = element_text(family="Lato"), legend.text = element_text(family="Lato"), legend.background = element_rect(fill="white"), legend.key = element_rect(fill="white"), plot.title = element_text(family="Lato"), panel.grid.major=element_line(size=.1,color="lightgrey"), panel.grid.minor=element_line(size=0))
+
+```
+
+# Four Reasons A's Fans Should be Optimistic about Sean Manaea
 
 Oakland A's fans didn't have many reasons to be optimistic in 2016. The team's playoff odds peaked at 20% ... on April 3rd. As the season wore on, Sonny Gray's ERA spiked almost as high as the home runs against him flew. The 69-93 final record was the icing on the cake.  
 
@@ -13,32 +36,32 @@ Sean Manaea provided one bright spot. Acquired from Kansas City in 2015 in excha
 
 2017 doesn't look any rosier for the Athletics as a whole. Our Depth Charts projections have them bringing up the rear in the AL West again. But at least the team's fans can be optimistic Manaea will perform well in 2017, for four very good reasons:
 
-1. Excellent Swinging-Strike Rate
+## 1. Excellent Swinging-Strike Rate
 
 When batters swung at a pitch from Manaea, they missed 11.8% of the time. This rate ranks Manaea at the 91st percentile among starters who faced at least 100 batters last year: 
 
-```{r}
+```{r, echo=FALSE}
 swstr <- fg_pitchers %>%
   filter(Season == 2016) %>%
   select(Name, swstr = `SwStr%`) %>%
   arrange(desc(swstr)) %>%
-  mutate(swstr = round(swstr * 100, 1),
-         swstr_rank = round(percent_rank(swstr) * 100, 1)) %>%
-  select(Name, swstr, swstr_rank) %>%
-  filter(swstr >= 11.0,
-         swstr <= 13.0) %>%
-  arrange(desc(swstr_rank)) %>%
-  head(25) %>%
+  mutate(`SwStr%` = round(swstr * 100, 1),
+         `MLB Rank` = round(percent_rank(`SwStr%`) * 100, 1)) %>%
+  select(Name, `SwStr%`, `MLB Rank`) %>%
+  filter(`SwStr%` >= 11.0,
+         `SwStr%` <= 13.0) %>%
+  arrange(desc(`MLB Rank`)) %>%
+  head(20) %>%
   write_csv("manaea-swstr-table.csv")
 
-swstr
+knitr::kable(swstr)
 ```
 
 Manaea's peers here are Justin Verlander, David Price, and James Paxton: good pitchers, all. Manaea got swings and misses more frequently than Madison Bumgarner and Chris Sale, among others.
 
 What about 2017? Swinging-strike rate correlates very well year-to-year (r = 0.69), as the following graph shows:
 
-```{r}
+```{r, echo = FALSE}
 swstr_corr <- fg_pitchers %>%
   select(PlayerId, Name, Season, swstr = `SwStr%`) %>%
   group_by(PlayerId) %>%
@@ -60,11 +83,11 @@ ggplot(swstr_corr, aes(`SwStr% Year N`, `SwStr% Year N+1`)) + geom_point() + geo
 
 This graph shows fans can expect Manaea to induce a similar swinging-strike rate in 2017.
 
-2. Very Good Walk Rate 
+## 2. Very Good Walk Rate 
 
 Manaea's walk rate isn't as excellent as his swinging-strike rate, but at 6.2% (75th percentile), his walk rate holds up well.
 
-```{r}
+```{r, echo = FALSE}
 walk_rate <- fg_pitchers %>%
   filter(Season == 2016) %>%
   select(Name, bb = `BB%`) %>%
@@ -76,7 +99,7 @@ walk_rate <- fg_pitchers %>%
   arrange(desc(`MLB Rank`)) %>%
   write_csv("manaea-walk-rate-table.csv")
 
-walk_rate
+knitr::kable(walk_rate)
   
 ```
 
@@ -84,7 +107,7 @@ Kevin Gausman is a good comp, as are Matt Harvey and Max Scherzer.
 
 What's in store for next year? Walk rate correlates moderately well (r = 0.56) year-to-year:
 
-```{r}
+```{r, echo = FALSE}
 bb_corr <- fg_pitchers %>%
   select(PlayerId, Name, Season, `BB% Year N` = `BB%`) %>%
   group_by(PlayerId) %>%
@@ -102,11 +125,11 @@ ggplot(bb_corr, aes(`BB% Year N`, `BB% Year N+1`)) + geom_point() + geom_smooth(
 
 Perhaps this moderate correlation is why Steamer forecasts a sharp 1.7 point rise in walk rate for Manaea next year. Still, starting from a 6.2% walk rate is a good position.
 
-3. High HR/FB Rate
+## 3. High HR/FB Rate
 
 Wait, why is Manaea's 13.7 HR/FB rate a good thing? Because regression to the mean tells us this rate probably won't be so high next year. The following graph shows year N and year N+1 HR/FB rates for Athletics starters since 2000 who've faced at least 100 batters in a season:    
 
-```{r}
+```{r, echo = FALSE}
 athletics_hr_fb <- fg_pitchers %>%
   filter(TeamId.x == 10) %>%
   select(PlayerId, Name, TeamId = TeamId.x, Season, `HR/FB Year N` = `HR/FB`) %>%
@@ -128,11 +151,11 @@ ggplot(athletics_hr_fb, aes(`HR/FB Year N`, `HR/FB Year N+1`)) + geom_point() + 
 
 I looked at only A's starters here to somewhat adjust for park, which influences home run rate. Regardless, no correlation is present (r = 0.12). Don't expect Manaea to repeat his dinger-friendly ways in 2017.
 
-4. Top-Five O-Swing%
+## 4. Top-Five O-Swing%
 
 The best reason to be optimistic about Sean Manaea is this: last year he induced hitters to offer at 36.5% of his pitches out of the zone. This rate ranks in the 98th percentile among starters who faced at least 100 batters last year:
 
-```{r}
+```{r, echo = FALSE}
 oswing_plt_chart <- fg_pitchers %>%
   filter(Season == 2016) %>%
   select(Name, `O-Swing%` = `pfxO-Swing%`) %>%
@@ -142,7 +165,7 @@ oswing_plt_chart <- fg_pitchers %>%
   head(15) %>%
   write_csv("manaea-oswing-table.csv")
 
-oswing_plt_chart
+knitr::kable(oswing_plt_chart)
 
 ```
 
@@ -150,7 +173,7 @@ Manaea ranks just about equal with Thor here and ahead of Corey Kluber, Carlos C
 
 Why is O-Swing% important? Data from Baseball Savant shows that swinging at pitches out of the zone results in a much lower ISO than swinging at piches in the zone:
 
-```{r}
+```{r, echo = FALSE}
 iso_by_location <- read_csv("iso on batted ball location - Sheet1.csv", 
                             col_types = list(col_character(), col_character(), col_double()))
 
@@ -165,7 +188,7 @@ Manaea's high O-Swing% bodes well for suppressing power, especially in Oakland. 
 
 Manaea should continue to induce swings out of the zone next year. The data show a moderate correlation (r = 0.57) between O-Swing rates year-to-year:
 
-```{r}
+```{r, echo = FALSE}
 oswing_corr <- fg_pitchers %>%
   select(PlayerId, Name, Season, `O-Swing% Year N` = `pfxO-Swing%`) %>%
   group_by(PlayerId) %>%
@@ -184,179 +207,13 @@ ggplot(oswing_corr, aes(`O-Swing% Year N`, `O-Swing% Year N+1`)) + geom_point() 
 
 ```
 
-CONCLUSION
+## Conclusion
 
 If 2016 is any indication, fans can expect Sean Manea to induce a lot of swings like this in 2017:
 
-<div style="width: 100%; height: 0px; position: relative; padding-bottom: 56.250%;"><iframe src="//streamable.com/e/79xos" frameborder="0" allowfullscreen webkitallowfullscreen mozallowfullscreen scrolling="no" style="width: 100%; height: 100%; position: absolute;"></iframe><script async  src="//v.streamablemedia.com/v1/embed.js"></script></div>
 
 He won't anchor the rotation, but Manaea should ...
 
 
 
-
-
-```{r}
-
-# p(b|e) = p(b) * p (e|b) / p(e)
-# probability (hr/fb over 11% | o-swing rate over 35%)
-
-# b = hr/fb over 11%
-# e = o-swing rate over 35%
-
-sample <- fg_pitchers %>%
-  filter(!is.na(`O-Swing%`),
-         !is.na(`HR/FB`)) %>%
-  select(PlayerId, Name, Season, `O-Swing%`, `HR/FB`)
-
-#p(b)
-p_b <- sample %>%
-  filter(`HR/FB` >= .11)
-#821 / 1769
-#0.464104
-
-#p(e|b) - given a player has a hr/fb over .11, what is the probability they had an oswing % over .35?
-p_b_e <- p_b %>%
-  filter(`O-Swing%` >= .350)
-#24 / 821
-#0.02923264
-
-#p(e)
-p_e <- sample %>%
-  filter(`O-Swing%` >= .350)
-#55 / 1769
-#0.03109101
-
-```
-
-
-
-
-
-
-
-
-
-
-===
-
-
-Getting hitters to chase pitches out of the zone correlates with success, as the following graph shows:
-
-```{r}
-oswing_plt <- fg_pitchers %>%
-  filter(BISPosition == "SP",
-         TBF >= 100) %>%
-  select(Name, TBF, Season, oswing = `pfxO-Swing%`, ValueW) %>%
-  mutate(oswing = 100 * oswing) %>%
-  arrange(desc(oswing))
-
-ggplot(oswing_plt, aes(oswing, ValueW)) + geom_point() + geom_smooth(method = "lm") + fgt + 
-  labs(x="O-Swing %", y="WAR") + ggtitle("O-Swing% vs. WAR, Starting Pitchers Who Faced at least 100 Batters, 2014-2016")
-```
-
-
-
-
-
-
-.... where to go from here .... ?
-
-Manaea's change-up gets the most out-of-zone swings:
-
-http://www.fangraphs.com/leaders.aspx?pos=all&stats=pit&lg=all&qual=140&type=5&season=2016&month=0&season1=2016&ind=0&team=0&rost=0&age=0&filter=&players=0&sort=11,a
-
-The following graph shows how this new grip, which Manaea introduced in May to combat an awful April, improved hitters' willinginess to chase his change-up out of the zone:
-
-```{r}
-manaea_ozone_change <- read_csv("manaea-changeup-oswing.csv")
-
-manaea_ozone_change$Date <- as.Date(manaea_ozone_change$Date, format="%m-%d-%y")
-
-ggplot(manaea_ozone_change, aes(x=Date, y=pitch_percent)) + geom_point() + geom_line() + fgt + theme(axis.text.x = element_text(angle = 45, hjust = 1))
-```
-
-
-Back in August, Eno wrote (http://www.fangraphs.com/blogs/sean-manaea-checking-them-off/) how Manaea, a 6'5" lefty, altered how he gripped the change-up. Manaea made the shift in May  
-
-
-
-
-
-
-came to a's in the trade for ben zobrist at the 2015 deadline.
-
-- avg k%
-
-- good bb%
-
-- great o-swing% - 36.6%, 5th among SPs with at least 140 IP [http://www.fangraphs.com/leaders.aspx?pos=all&stats=pit&lg=all&qual=140&type=15&season=2016&month=0&season1=2016&ind=0&team=0&rost=0&age=0&filter=&players=0&sort=4,d]
-
-- 
-
-It's not just getting swings outside the zone. 
-
-
-
-```{r}
-fg_players <- fg_db %>%
-  tbl("player_info") %>%
-  collect(n=Inf)
-
-fg_pitch <- fg_db %>%
-  tbl("stats_pitching_master_pfx") %>%
-  filter(Type == 0,
-         Season >= 2000) %>%     #get only full-season stats for each player
-  collect(n=Inf)
-
-fg_pitchers <- inner_join(fg_players, fg_pitch, by="PlayerId") %>%
-  mutate(Name = sprintf("%s %s", FirstName, LastName)) %>%
-  filter(BISPosition == "SP",
-         TBF >= 100)
-
-```
-
-```{r}
-disc <- fg_pitchers %>%
-  filter(BISPosition == "SP") %>%
-  select(PlayerId, Name, Season, TBF, Season, oswing = `pfxO-Swing%`, zswing = `pfxZ-Swing%`, zone = `pfxZone%`,
-         ocontact = `pfxO-Contact%`, ValueW, xFIP, zcontact = `pfxZ-Contact%`, swstr = `SwStr%`) %>%
-  group_by(Season) %>%
-  mutate(oswing_plus = 100 * (oswing / mean(oswing))) %>%
-  ungroup() %>%
-  filter(TBF >= 100) %>%
-  mutate(ozone = 1 - zone,
-         prob_ozone_and_swing = round(100 * (ozone * oswing), 1),
-         prob_rank = percent_rank(prob_ozone_and_swing) * 100) %>%
-  arrange(desc(prob_rank))
-         
-#ggplot(disc, aes(reorder(Name, prob), prob)) + geom_bar(stat="identity") + coord_flip()
-
-
-
-
-```
-
-```{r}
-ggplot(disc, aes(oswing, xFIP)) + geom_point()
-ggplot(disc, aes(oswstr, xFIP)) + geom_point()
-
-oswing_model <- lm(disc$xFIP ~ disc$oswing) #r2 0.2534 
-oswstr_model <- lm(disc$xFIP ~ disc$oswstr) #r2 0.3771
-
-
-```
-%>%
-  filter(PA >= 200) %>%
-  mutate(zo = zswing - oswing) %>%  #this goes across non-consecutive seasons; affects folks like Corey Patterson
-  filter(is.na(zo) == FALSE) %>%  
-  group_by(PlayerId) %>%
-  arrange(Season) %>%
-  mutate(consec = as.integer(Season) - as.integer(lag(Season))) %>%
-  mutate(change = zo - lag(zo),
-         wRC_change_next_year = lead(`wRC+`) - `wRC+`) %>%
-  filter(!is.na(change),
-         consec == 1) %>% #throw out non-consecutive seasons
-  ungroup() %>%
-  mutate(perc_rank = round(percent_rank(change) * 100, 2))
 ```
