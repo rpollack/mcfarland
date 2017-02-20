@@ -28,7 +28,7 @@ fgt = theme(panel.background=element_rect(color="lightgrey",fill="white"), axis.
 
 ```
 
-# Four Reasons A's Fans Should be Optimistic about Sean Manaea
+# Why A's Fans Should be Optimistic about Sean Manaea
 
 Oakland A's fans didn't have many reasons to be optimistic in 2016. The team's playoff odds peaked at 20% ... on April 3rd. As the season wore on, Sonny Gray's ERA spiked almost as high as the home runs against him flew. The 69-93 final record was the icing on the cake.  
 
@@ -145,11 +145,13 @@ athletics_hr_fb <- fg_pitchers %>%
 
 ggplot(athletics_hr_fb, aes(`HR/FB Year N`, `HR/FB Year N+1`)) + geom_point() + geom_smooth(method = "lm") + fgt
 
+hr_fb_model <- lm(athletics_hr_fb$`HR/FB Year N+1` ~ athletics_hr_fb$`HR/FB Year N`)
+
 #since 2002
 
 ```
 
-I looked at only A's starters here to somewhat adjust for park, which influences home run rate. Regardless, no correlation is present (r = 0.12). Don't expect Manaea to repeat his dinger-friendly ways in 2017.
+I looked at only A's starters here to somewhat adjust for park, which influences home run rate. Regardless, very little correlation is (r = 0.12). Don't expect Manaea to repeat his dinger-friendly ways in 2017.
 
 ## 4. Top-Five O-Swing%
 
@@ -181,7 +183,7 @@ iso_by_location <- read_csv("iso on batted ball location - Sheet1.csv",
 
 ggplot(iso_by_location, aes(x=Year, y=`Avg. ISO on Swing`, color=`Pitch Location`)) + geom_line(aes(group=`Pitch Location`)) + geom_point() + scale_y_continuous(labels= function(x){
   sprintf("%.3f", x)
-}) + fgt + ggtitle("Hitters Shouldn't Chase Pitches Out of the Zone.")
+}) + fgt + ggtitle("Hitters Shouldn't Chase Pitches Out of the Zone") + scale_color_manual(values=c("#336699", "#50ae26"))
 ```
 
 Manaea's high O-Swing% bodes well for suppressing power, especially in Oakland. This is another reason to suspect his HR/FB rate will drop next year.
@@ -209,10 +211,14 @@ ggplot(oswing_corr, aes(`O-Swing% Year N`, `O-Swing% Year N+1`)) + geom_point() 
 
 ## Conclusion
 
-If 2016 is any indication, fans can expect Sean Manea to induce a lot of swings like this in 2017:
+Don't get me wrong: Manaea isn't a world-beter. He isn't even the best pitcher on the A's staff. That honor still belongs to Sonny Gray. Manaea isn't even a #2; our Depth Chart projections [http://www.fangraphs.com/depthcharts.aspx?position=ALL&teamid=10#SP] put Jharel Cotton in that spot.
+
+But Manaea's projection of 2.2 WAR is solid. If 2016 is any indication, fans can expect him to induce a lot of swings like this in 2017:
+
+<div style="width: 100%; height: 0px; position: relative; padding-bottom: 56.250%;"><iframe src="//streamable.com/e/79xos" frameborder="0" allowfullscreen webkitallowfullscreen mozallowfullscreen scrolling="no" style="width: 100%; height: 100%; position: absolute;"></iframe><script async  src="//v.streamablemedia.com/v1/embed.js"></script></div>
 
 
-He won't anchor the rotation, but Manaea should ...
+Scenes like these will provide A's fans for hope for the future.
 
 
 
