@@ -29,7 +29,7 @@ fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"),
 
 ### Get data for starting pitchers
 
-Starting pitchers are defined as those who started at least 25% of their games that year.
+Starting pitchers are defined as those who started at least 25% of games they appeared in that year.
 
 ```{r}
 player_lookups <- fg_db %>%
@@ -50,7 +50,7 @@ pitcher_data <- fg_db %>%
          Type < 900,
          Season >= 2008,
          G / GS >= .25) %>%
-  select(PlayerId, TeamId, Season, ValueW, `ERA-`, `FIP-`, `xFIP-`, contains("pfxvF")) %>%
+  select(PlayerId, TeamId, Season, ValueW, `RA9-Wins`, contains("pfxvF")) %>%
   collect(n=Inf)
 ```  
 
@@ -61,38 +61,73 @@ pitcher_tbl <- pitcher_data %>%
   inner_join(player_lookups, by="PlayerId") %>%
   mutate(Name = sprintf("%s %s", FirstName, LastName)) %>%
   inner_join(team_lookups, by=c("TeamId", "Season")) %>%
-  select(Name, Season, Team = AbbName, ValueW, `ERA-`, `FIP-`, `xFIP-`, contains("pfxvF"))
+  select(Name, Season, Team = AbbName, ValueW, `RA9-Wins`, contains("pfxvF"))
 
 team_tbl <- pitcher_tbl %>%
   group_by(Team, Season) %>%
   summarize(sd_fb_vel = sd(pfxvFA, na.rm = TRUE),
-            total_war = sum(ValueW))
+            mad_fb_vel = mad(pfxvFA, na.rm = TRUE),
+            iqr_fb_vel = IQR(pfxvFA, na.rm = TRUE),
+            mean_war = mean(ValueW),
+            mean_ra9 = mean(`RA9-Wins`))
 
-bos_2010 <- pitcher_tbl %>%
-  filter(Team == "BOS",
-         Season == "2010")
+## maybe examine relationship between sd_fb_vel and k%, bb%, hr.9, hr/fb ... 
 
-phi_2014 <- pitcher_tbl %>%
-  filter(Team == "PHI",
-         Season == "2014")
-
+## definitely do bayesian stuff instead of just linear relationship.
 ```
 
 ### Plot relationship between a rotation's fastball velocity variance and its total WAR
 
 ```{r}
-ggplot(team_tbl, aes(sd_fb_vel, total_war)) + geom_point() + geom_smooth(method="lm")
+ggplot(team_tbl, aes(mad_fb_vel, mean_war)) + geom_point() + geom_smooth(method="lm")
 
-cor(team_tbl$sd_fb_vel, team_tbl$total_war)
+cor(team_tbl$mad_fb_vel, team_tbl$mean_war)
 
+#r = -.0009 indicating no relationship between similarity and WAR
+
+
+ggplot(team_tbl, aes(mad_fb_vel, mean_ra9)) + geom_point() + geom_smooth(method="lm")
+cor(team_tbl$mad_fb_vel, team_tbl$mean_ra9)
+
+#r = -.04.037, another awful one.
 ```
 
 
-the relationship is non-existent: r = .083
+rosenthal's implied hypothesis is that similarity in a rotation is bad. As rotation fastball velocity similarity increases, WAR decreases. put another way, as rotation similarity decreases (becomes more spread out), WAR increases. 
+
+the data show the opposite is true: similarity in a rotation is, if anything, good. Rotations with lower values of MAD (higher similarity) have higher WARs than rotations with higher values of MAD (lower similarity). This relationship holds true for both FIP-base and RA9-based WAR.
+
+more importantly, the data also show that the relationship between a rotation's fastball velocities and its performance is close to non-existent. if you're going to criticize a rotation for doing poorly, looking at how similar its pitchers' fastball velocities are isn't going to get you anywhere.
+
+### Compute and display outlier datasets
+
+```{r}
+
+boxplot_tbl <- pitcher_tbl %>%
+  filter(Team %in% c("LAD", "PHI"),
+         Season == 2011) %>%
+  mutate(group = sprintf("%s %s", Team, Season))
+
+ggplot(boxplot_tbl, aes(group, pfxvFA)) + geom_boxplot() + coord_flip() + geom_jitter() + fgt +
+  labs(x="", y="Pitcher's Avg. Four-Seam Fastball Velocity (MPH)") + ggtitle("Most and Least Similar Rotations by Four-Seam Fastball Velocity")
+
+lad_2011 <- pitcher_tbl %>%
+  filter(Team == "LAD",
+         Season == "2011") %>%
+  select(Name, pfxvFA) %>%
+  arrange(desc(pfxvFA))
+
+lad_2011
+
+phi_2011 <- pitcher_tbl %>%
+  filter(Team == "PHI",
+         Season == "2011") %>%
+  select(Name, pfxvFA) %>%
+  arrange(desc(pfxvFA))
+
+phi_2011
 
 
 
 ```
 
-
-```
