@@ -39,6 +39,11 @@ fgt = theme(
   strip.background = element_rect(fill = "#50ae26"),
   strip.text = element_text(color="white", family="Lato")
   )
+
+fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"), 
+                            host = Sys.getenv("FG_HOST"), 
+                            user = Sys.getenv("FG_USER"),
+                            password = Sys.getenv("FG_PW"))
 ```
 
 #Define functions to read payroll data from bb-ref.
