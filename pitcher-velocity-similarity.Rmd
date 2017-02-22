@@ -76,7 +76,7 @@ team_tbl <- pitcher_tbl %>%
 ## definitely do bayesian stuff instead of just linear relationship.
 ```
 
-### Plot relationship between a rotation's fastball velocity variance and its total WAR
+### Plot relationship between a rotation's fastball velocity variance and its average WAR
 
 ```{r}
 ggplot(team_tbl, aes(mad_fb_vel, mean_war)) + geom_point() + geom_smooth(method="lm")
