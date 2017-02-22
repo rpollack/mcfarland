@@ -1,0 +1,98 @@
+
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(rvest)
+library(stringr)
+
+fgt = theme(
+  panel.background = element_rect(color = "lightgrey", fill = "white"),
+  axis.title = element_text(family = "Lato"),
+  axis.text = element_text(family = "Lato"),
+  legend.title = element_text(family = "Lato"),
+  legend.text = element_text(family = "Lato"),
+  legend.background = element_rect(fill = "white"),
+  legend.key = element_rect(fill = "white"),
+  plot.title = element_text(family = "Lato"),
+  panel.grid.major = element_line(size = .1, color = "lightgrey"),
+  panel.grid.minor = element_line(size = 0),
+  strip.background = element_rect(fill = "#50ae26"),
+  strip.text = element_text(color="white", family="Lato")
+  )
+
+fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"), 
+                            host = Sys.getenv("FG_HOST"), 
+                            user = Sys.getenv("FG_USER"),
+                            password = Sys.getenv("FG_PW"))
+```
+
+### Get data for starting pitchers
+
+Starting pitchers are defined as those who started at least 25% of their games that year.
+
+```{r}
+player_lookups <- fg_db %>%
+  tbl("player_info") %>%
+  select(PlayerId, FirstName, LastName) %>%
+  collect(n=Inf)
+  
+team_lookups <- fg_db %>%
+  tbl("season_team") %>%
+  filter(Season >= 2008) %>%
+  select(TeamId, AbbName, Season) %>%
+  collect(n=Inf)
+
+
+pitcher_data <- fg_db %>%
+  tbl("stats_pitching_master_pfx") %>%
+  filter(Type >= 0,
+         Type < 900,
+         Season >= 2008,
+         G / GS >= .25) %>%
+  select(PlayerId, TeamId, Season, ValueW, `ERA-`, `FIP-`, `xFIP-`, contains("pfxvF")) %>%
+  collect(n=Inf)
+```  
+
+### Combine datasets and compute team-season info
+
+```{r}
+pitcher_tbl <- pitcher_data %>%
+  inner_join(player_lookups, by="PlayerId") %>%
+  mutate(Name = sprintf("%s %s", FirstName, LastName)) %>%
+  inner_join(team_lookups, by=c("TeamId", "Season")) %>%
+  select(Name, Season, Team = AbbName, ValueW, `ERA-`, `FIP-`, `xFIP-`, contains("pfxvF"))
+
+team_tbl <- pitcher_tbl %>%
+  group_by(Team, Season) %>%
+  summarize(sd_fb_vel = sd(pfxvFA, na.rm = TRUE),
+            total_war = sum(ValueW))
+
+bos_2010 <- pitcher_tbl %>%
+  filter(Team == "BOS",
+         Season == "2010")
+
+phi_2014 <- pitcher_tbl %>%
+  filter(Team == "PHI",
+         Season == "2014")
+
+```
+
+### Plot relationship between a rotation's fastball velocity variance and its total WAR
+
+```{r}
+ggplot(team_tbl, aes(sd_fb_vel, total_war)) + geom_point() + geom_smooth(method="lm")
+
+cor(team_tbl$sd_fb_vel, team_tbl$total_war)
+
+```
+
+
+the relationship is non-existent: r = .083
+
+
+
+```
+
+
+```
