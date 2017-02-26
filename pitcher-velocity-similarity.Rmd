@@ -93,9 +93,15 @@ cor(team_tbl$mad_fb_vel, team_tbl$mean_ra9)
 ```
 
 
-rosenthal's implied hypothesis is that similarity in a rotation is bad. As rotation fastball velocity similarity increases, WAR decreases. put another way, as rotation similarity decreases (becomes more spread out), WAR increases. 
+rosenthal's implied hypothesis is that similarity in a rotation is bad. that having pitchers with similar fastball velocities leads to everyone in the rotation performing more poorly than if the team had a more diverse set of arms. I can understand the logic; hitting is timing, and if in a three-game series you see three pitchers who average 93.5 MPH, hitters should be able to time these fastballs more effectively, square up the baseball better, and smack the pitcher around more. Contrast with a series when hitters are facing an 88 MPH thrower, a 93 MPH thrower, and a 97 MPH thrower. Hitters in this series should have difficulty adjusting day-to-day and should perform more poorly.
 
-the data show the opposite is true: similarity in a rotation is, if anything, good. Rotations with lower values of MAD (higher similarity) have higher WARs than rotations with higher values of MAD (lower similarity). This relationship holds true for both FIP-base and RA9-based WAR.
+It sounds true. It feels true. But is it? I decided to investigate.
+
+METHODOLOGY
+
+As rotation fastball velocity similarity increases, the rotation's overall WAR decreases. put another way, as rotation similarity decreases (becomes more spread out), WAR increases. 
+
+the data show the hypothesis is false: similarity in a rotation is, if anything, good. Rotations with lower values of MAD (higher similarity) have higher WARs than rotations with higher values of MAD (lower similarity). This relationship holds true for both FIP-base and RA9-based WAR.
 
 more importantly, the data also show that the relationship between a rotation's fastball velocities and its performance is close to non-existent. if you're going to criticize a rotation for doing poorly, looking at how similar its pitchers' fastball velocities are isn't going to get you anywhere.
 
@@ -228,7 +234,9 @@ bayes_results <- frame_data(
 ggplot(bayes_results, aes(`MAD Fastball Velocity Range of Rotation`, `Probability Avg. Starter in Rotation Exceeds 1.13 RA9-WAR`)) + geom_bar(stat="identity") + fgt + ggtitle("A Diversity of Fastball Velocities Doesn't Help Rotations")
 ```
 
+FWIW, I used average RA9-WAR of a rotation instead of sum, because teams use different amounts of pitchers.
 
+Regardless Rosenthal's hypothesis seems to be false. 
 
 ### Compute and display outlier datasets, for giggles
 
