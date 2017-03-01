@@ -61,7 +61,9 @@ pitcher_tbl <- pitcher_data %>%
   inner_join(player_lookups, by="PlayerId") %>%
   mutate(Name = sprintf("%s %s", FirstName, LastName)) %>%
   inner_join(team_lookups, by=c("TeamId", "Season")) %>%
-  select(Name, Season, Team = AbbName, ValueW, `RA9-Wins`, contains("pfxvF"))
+  select(Name, Season, Team = AbbName, ValueW, `RA9-Wins`, contains("pfxvF")) %>%
+  mutate(Name = ifelse(Name == "Lance McCullers" & Season == 2016, "REMOVEME", Name)) %>%
+  filter(Name != "REMOVEME") #rosenthal was complaining b/c mccullers wasn't in the rotation yet (he was injured) 
 
 team_tbl <- pitcher_tbl %>%
   group_by(Team, Season) %>%
@@ -69,7 +71,9 @@ team_tbl <- pitcher_tbl %>%
             mad_fb_vel = mad(pfxvFA, na.rm = TRUE),
             iqr_fb_vel = IQR(pfxvFA, na.rm = TRUE),
             mean_war = mean(ValueW),
-            mean_ra9 = mean(`RA9-Wins`))
+            mean_ra9 = mean(`RA9-Wins`)) %>%
+  ungroup() %>%
+  mutate(mad_rank = percent_rank(desc(mad_fb_vel)) * 100)
 
 ## maybe examine relationship between sd_fb_vel and k%, bb%, hr.9, hr/fb ... 
 
@@ -78,6 +82,87 @@ team_tbl <- pitcher_tbl %>%
 
 ### Plot relationship between a rotation's fastball velocity variance and its average WAR
 
+
+
+
+
+-- Astros' Woes Don't Include Similar Pitchers
+-- No Variety in Fastaball Velocity? No problem.
+-- 
+
+... some kind of intro/tone-setting.
+
+Last May, after the Astros had completed a miserable 7-17 April, Ken Rosenthal noted the miserable state of the team's starting rotation [http://www.foxsports.com/mlb/story/facts-and-fiction-from-the-first-month-of-the-mlb-season-050216]. He also hypothesized a cause.  I'll let him speak:
+
+"The Astros’ starters ended April ranked last in the AL with a 5.10 ERA — and last in the majors in average fastball velocity at 89.3 mph, according to Fangraphs.
+
+Velocity isn’t everything — the Astros’ starters were 25th last season, yet finished second in the AL in ERA. And the Rangers’ current starters are 29th in average fastball velocity but first in the AL in ERA.
+
+Still, the Astros badly miss hard-throwing right-hander Lance McCullers, who is working his way back from a sore right shoulder.
+
+Too many of their starters are similar.
+
+One of them might turn it around, sure. But both? Seems doubtful."
+
+The second-to-last line caught my eye: "Too many of their starters are similar."
+
+Taken by itself, this is a vague statement. But note the context: Rosenthal spends the first three paragraphs talking about fastball velocity. Therefore I took his implication to be "Too many of their starters throw fastballs at a similar velocity."
+
+I saw this and I wondered: if a rotation has guys who throw similar heat, will that rotation perform worse than a rotation with a more diverse set of arms? The logic certainly _feels_ right. I suspect the thought process is: hitting is timing. If, in a three-game series, batters see three starters who each average 93.5 MPH, hitters should be able to time fastballs from these guys more easily than they could if they were facing an 88 MPH thrower, a 93 MPH thrower, and a 97 MPH thrower. Hitters facing this more-diverse set of pitchers should have difficulty adjusting day-to-day and should perform more poorly.
+
+It sounds true. It feels true. But is it? I decided to investigate.
+
+METHODOLOGY
+
+I ended up testing the following, more precise, hypothesis: within a starting rotation, as its diversity of fastball velocities decreases, the rotation's average WAR will also decrease. Specifically:
+
+-- In the PITCH F/X era, I searched for pitchers who started at least 25% of their games in a season.
+-- For these pitchers I obtained their average four-seam fastball velocity as well as their FIP- and RA9-based WARs. A few pitchers were excluded because they didn't record a four-seam fastball velocity in that season.
+-- I computed the median average distance of each team-season's fastball velocities.
+-- I studied how these MADs related to the WAR of the average pitcher in that rotation. I didn't use total WAR because each rotation has a different number of pitchers.
+
+Examining the outliers gives you an idea of what kind of data I'm working with. By this method the 2011 Phillies had the most similar rotation in the dataset (MAD of 0.297 MPH); the 2011 Dodgers, the least similar (MAD of 4.862 MPH). Houston's 2016 rotation, not including Lance McCullers (whose absence Rosenthal was bemoaning), ranked very low on the similarity scale. Its MAD of 2.48 MPH, while maybe appearing similar, was very diverse. It ranked at only the 26th percentile of the 270 starting rotations in this dataset.
+
+The following boxplots show these rotations:
+
+```{r}
+
+boxplot_tbl <- pitcher_tbl %>%
+  filter((Team == "HOU" & Season == 2016) | (Team == "LAD" & Season == "2011") | (Team == "PHI" & Season == 2011),
+         Name != "Lance McCullers") %>%
+  mutate(group = sprintf("%s %s", Team, Season))
+
+ggplot(boxplot_tbl, aes(group, pfxvFA)) + geom_boxplot() + coord_flip() + geom_jitter() + fgt +
+  labs(x="", y="Pitcher's Avg. Four-Seam Fastball Velocity (MPH)") + ggtitle("Most and Least Similar Rotations by Four-Seam Fastball Velocity")
+
+lad_2011 <- pitcher_tbl %>%
+  filter(Team == "LAD",
+         Season == "2011") %>%
+  select(Name, pfxvFA) %>%
+  arrange(desc(pfxvFA))
+
+lad_2011
+
+phi_2011 <- pitcher_tbl %>%
+  filter(Team == "PHI",
+         Season == "2011") %>%
+  select(Name, pfxvFA) %>%
+  arrange(desc(pfxvFA))
+
+phi_2011
+
+
+
+```
+
+The Phillies that year ranged from Joe Blanton's 89.3 MPH heater to Kyle Kendrick's 93 MPH fastball. Not a huge difference there. The Dodgers, on the other hand, featured Ted Lilly, Jon Ely, Dana Eveland, and Jon Garland all throwing 88 MPH or slower -- while also rostering Rubby de la Rosa and Nathan Eovaldi who threw 94 - 95 MPH. Without McCullers, Houston in 2016 ranged from Doug Fister, tossing at 87 MPH, to Christopher Devenski and his reasonably fast 92.3 MPH heater. 
+
+Now that you have an idea of what the data contains, we can move on to the results.
+
+ARE ROTATIONS WITH SIMILAR FASTBALLS WORSE THAN ROTATIONS WITH DISSIMILAR FASTBALLS?
+
+The following graph is a linear regression of a rotation's fastball diversity and its FIP-based WAR:
+
 ```{r}
 ggplot(team_tbl, aes(mad_fb_vel, mean_war)) + geom_point() + geom_smooth(method="lm")
 
@@ -85,19 +170,59 @@ cor(team_tbl$mad_fb_vel, team_tbl$mean_war)
 
 #r = -.0009 indicating no relationship between similarity and WAR
 
+```
 
+Both the scatterplot and linear regression tell us no relationship is present. That's about a straight a horizontal line as you can get; the correlation of -.001 provides more evidence. Wait a second. That's a negative sign! So Rosenthal is wrong twice. Remember I interpreted his hypothesis as "within a starting rotation, as its diversity of fastball velocities decreases, the rotation's average WAR will also decrease." First, the scatterplot and its close-to-zero correlation coefficient shows only the faintest traces of a relationship between fastball velocity diversity and the performance of other starters in the rotation. Second, this tiny relationship is the inverse of Rosenthal's hypothesis. The data show that as diversity of fastball velocities decreases (moves towards the left side of the x-axis above), WAR _increases_. If Rosenthal's hypothesis were true, the correlation coefficient would be positive.
+
+The same (lack of) relationship holds true for RA9-based WAR:
+
+```{r}
 ggplot(team_tbl, aes(mad_fb_vel, mean_ra9)) + geom_point() + geom_smooth(method="lm")
 cor(team_tbl$mad_fb_vel, team_tbl$mean_ra9)
 
 #r = -.04, another awful one.
 ```
 
+Here the line is a bit less horizontal, but a correlation coefficient of -.04 isn't going to get front offices excited.
 
-rosenthal's implied hypothesis is that similarity in a rotation is bad. that having pitchers with similar fastball velocities leads to everyone in the rotation performing more poorly than if the team had a more diverse set of arms. I can understand the logic; hitting is timing, and if in a three-game series you see three pitchers who average 93.5 MPH, hitters should be able to time these fastballs more effectively, square up the baseball better, and smack the pitcher around more. Contrast with a series when hitters are facing an 88 MPH thrower, a 93 MPH thrower, and a 97 MPH thrower. Hitters in this series should have difficulty adjusting day-to-day and should perform more poorly.
+Finally, just in case linear regression was playing tricks on me, I turned Bayesian inference and asked: given a rotation with very similar fastball velocities (MAD less than 1 MPH), what's the probability the average starter in that rotation exceeds 1.13 (the median) RA9-WAR?
 
-It sounds true. It feels true. But is it? I decided to investigate.
+I calculated this probability for all similarity buckets in the dataset:
 
-METHODOLOGY
+```{r}
+
+#| MAD FB Vel. Range | Probability of RA9-WAR >= 1.15 
+
+
+bayes_results <- frame_data(
+  ~`MAD Fastball Velocity Range of Rotation`, ~`Probability Avg. Starter in Rotation Exceeds 1.13 RA9-WAR`,
+  "1 MPH or less", .75,
+  "Between 1.1 and 2 MPH", .475,
+  "Between 2.1 and 3 MPH", .460,
+  "Between 3.1 and 4 MPH", .541,
+  "Above 4 MPH", 1
+)
+
+bayes_results$`MAD Fastball Velocity Range of Rotation` <- factor(bayes_results$`MAD Fastball Velocity Range of Rotation`, levels = c("1 MPH or less", "Between 1.1 and 2 MPH", "Between 2.1 and 3 MPH", "Between 3.1 and 4 MPH", "Above 4 MPH"))
+
+  
+
+
+ggplot(bayes_results, aes(`MAD Fastball Velocity Range of Rotation`, `Probability Avg. Starter in Rotation Exceeds 1.13 RA9-WAR`)) + geom_bar(stat="identity") + fgt + ggtitle("A Diversity of Fastball Velocities Doesn't Help Rotations") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+The critique of Rosenthal's hypothesis stands: the strongest bucket in the set is the "less than 1 MPH bucket", meaning a rotation whose members have similar fastball velocities. While it's true the "Above 4 MPH" bucket features a 100% chance of having a good starter, keep in mind there's only one data point in the set. That's not a good sample from which to draw conclusions.
+
+CONCLUSION
+
+
+
+
+
+
+rotations whose starters have less-diverse average fastball velocities will have a lower average WAR than a rotation whose starters have more diverse 
+
+Defining average four-seam fastball velocity is easy. Not all pitchers have four
 
 As rotation fastball velocity similarity increases, the rotation's overall WAR decreases. put another way, as rotation similarity decreases (becomes more spread out), WAR increases. 
 
@@ -214,25 +339,28 @@ prob_above_avg_ra9_given_mad_fb_vel_bw_three_four
 #.533
 ```
 
+```{r}
+p_e_b_5 <- p_b %>%
+  filter(mad_fb_vel > 4)
+
+# 1 / 133 = .007
+
+p_e_5 <- team_tbl %>%
+  filter(mad_fb_vel > 4)
+
+#1 / 270 = .003
+
+prob_above_avg_ra9_given_mad_fb_vel_bw_three_five <- (.5 * .007) / .003
+prob_above_avg_ra9_given_mad_fb_vel_bw_three_five
+
+```
+
+
 ### Create tibble of probabilites
 
 Bayesian analysis confirms what linear regression shows us: in general, rotations featuring pitchers with with similar fastball velocities do better than more diverse rotations. If a rotation's MAD fastball velocity is less than 1 MPH, the probability this rotation will average 1.13 or more RA9-WAR is 75%. As the rotation's MAD fastball velocity increases, the probability of exceeding this threshold generally decreases, hovering between 45 - 50% for the remaining buckets. The following graph shows this relationship:
 
-```{r}
 
-#| MAD FB Vel. Range | Probability of RA9-WAR >= 1.15 
-
-
-bayes_results <- frame_data(
-  ~`MAD Fastball Velocity Range of Rotation`, ~`Probability Avg. Starter in Rotation Exceeds 1.13 RA9-WAR`,
-  "<= 1", .75,
-  "1 > x >= 2 ", .475,
-  "2 > x >= 3", .460,
-  "3 > x >= 4", .541
-)
-
-ggplot(bayes_results, aes(`MAD Fastball Velocity Range of Rotation`, `Probability Avg. Starter in Rotation Exceeds 1.13 RA9-WAR`)) + geom_bar(stat="identity") + fgt + ggtitle("A Diversity of Fastball Velocities Doesn't Help Rotations")
-```
 
 FWIW, I used average RA9-WAR of a rotation instead of sum, because teams use different amounts of pitchers.
 
@@ -240,33 +368,5 @@ Regardless Rosenthal's hypothesis seems to be false.
 
 ### Compute and display outlier datasets, for giggles
 
-```{r}
 
-boxplot_tbl <- pitcher_tbl %>%
-  filter(Team %in% c("LAD", "PHI"),
-         Season == 2011) %>%
-  mutate(group = sprintf("%s %s", Team, Season))
-
-ggplot(boxplot_tbl, aes(group, pfxvFA)) + geom_boxplot() + coord_flip() + geom_jitter() + fgt +
-  labs(x="", y="Pitcher's Avg. Four-Seam Fastball Velocity (MPH)") + ggtitle("Most and Least Similar Rotations by Four-Seam Fastball Velocity")
-
-lad_2011 <- pitcher_tbl %>%
-  filter(Team == "LAD",
-         Season == "2011") %>%
-  select(Name, pfxvFA) %>%
-  arrange(desc(pfxvFA))
-
-lad_2011
-
-phi_2011 <- pitcher_tbl %>%
-  filter(Team == "PHI",
-         Season == "2011") %>%
-  select(Name, pfxvFA) %>%
-  arrange(desc(pfxvFA))
-
-phi_2011
-
-
-
-```
 
