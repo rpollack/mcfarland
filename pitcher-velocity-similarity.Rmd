@@ -118,7 +118,7 @@ I ended up testing the following, more precise, hypothesis: within a starting ro
 
 -- In the PITCH F/X era, I searched for pitchers who started at least 25% of their games in a season.
 -- For these pitchers I obtained their average four-seam fastball velocity as well as their FIP- and RA9-based WARs. A few pitchers were excluded because they didn't record a four-seam fastball velocity in that season.
--- I computed the median average distance of each team-season's fastball velocities.
+-- I computed the median absolute deviation (MAD) of each team-season's fastball velocities.
 -- I studied how these MADs related to the WAR of the average pitcher in that rotation. I didn't use total WAR because each rotation has a different number of pitchers.
 
 Examining the outliers gives you an idea of what kind of data I'm working with. By this method the 2011 Phillies had the most similar rotation in the dataset (MAD of 0.297 MPH); the 2011 Dodgers, the least similar (MAD of 4.862 MPH). Houston's 2016 rotation, not including Lance McCullers (whose absence Rosenthal was bemoaning), ranked very low on the similarity scale. Its MAD of 2.48 MPH, while maybe appearing similar, was very diverse. It ranked at only the 26th percentile of the 270 starting rotations in this dataset.
