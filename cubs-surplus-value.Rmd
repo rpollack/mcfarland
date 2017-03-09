@@ -20,6 +20,9 @@ NEW OUTLINE:
 
 
 
+
+
+
 METHODOLOGY 
 
 Surplus value under control has three parts: the number of years a player is under control, their WAR during that time period, and their salary during that time period. Below I describe the process I used to calculate each and any assumptions I made.
@@ -49,6 +52,11 @@ OK, now we can get to the results, which are simply this: the Cubs dominate the 
 The following table shows the surplus value under control for each team through 2021:
 
 
+
+^^ INTRO AND METHODOLOGY GO ABOVE HERE ^^
+
+With this in mind, the following graph the WAR each team controls through the next five years:
+
 ```{r, echo=FALSE}
 
 war_tbl <- warcels %>%
@@ -57,11 +65,48 @@ war_tbl <- warcels %>%
   arrange(desc(`Controlled WAR Through 2021`)) %>%
   write_csv("mlb-war-thru-2021.csv")
 
-ggplot(war_tbl, aes(reorder(Team, `Controlled WAR Through 2021`), `Controlled WAR Through 2021`)) + geom_bar(stat="identity") + fgt + coord_flip() + labs(y="Controlled WAR", x="Team") + ggtitle("MLB Controlled WAR, 2017-2021")
+ggplot(war_tbl, aes(reorder(Team, `Controlled WAR Through 2021`), `Controlled WAR Through 2021`)) + geom_bar(stat="identity") + fgt + coord_flip() + labs(y="Controlled WAR", x="Team") + ggtitle("MLB Controlled WAR, 2017 — 2021")
 
 
 ```
 
+It's the Cubs, and it's not particularly close. They control 127 WAR, nearly 20 more than the Dodgers who control 109. Theo Epstein is probably fine with this situation, since the two teams play in different divisions. The closest NL Central rival to the Cubs is the Cardinals, who control 80 WAR through this same time period. John Mozeliak has his work cut out for him. Here's a list showing just the NL Central teams:
+
+```{r}
+nl_central_war <- war_tbl %>%
+  filter(Team %in% c("CHC", "STL", "PIT", "CIN", "MIL"))
+
+ggplot(nl_central_war, aes(reorder(Team, `Controlled WAR Through 2021`), `Controlled WAR Through 2021`)) + geom_bar(stat="identity") + fgt + coord_flip() + labs(y="Controlled WAR", x="Team") + ggtitle("NL Central Controlled WAR, 2017 — 2021")
+
+```
+
+The rosters of the Cardinals, Reds, Pirates, and Brewers will of course change as the teams trade and expand payroll. But the Cubs' roster will change too. Can the Brewers improve by 18 wins per year for the next five years? That's what they'll have to do to overtake the Cubs.
+
+=== CONTENTION WINDOWS ===
+
+Speaking of five years: the Cubs control 127 WAR, but for how long? Is that two seasons of 63 WAR each? Or is that one 80-WAR season and a dismal 47-WAR one?
+
+This gets into contention windows. How long can we expect the Cubs to contend for? The answer may shape how we think about their current roster. The following graph spreads out a team's controlled WAR over the average length of time it controls its current players: 
+
+```{r}
+war_timeline <- warcels %>%
+  group_by(Team) %>%
+  mutate(num_players = n()) %>%
+  summarize(total_war_under_control = sum(war_under_control),
+            total_years_of_control = sum(years_of_control),
+            avg_years_of_control = mean(years_of_control),
+            avg_war_under_control_pear_year = total_war_under_control / avg_years_of_control)
+
+ggplot(data=war_timeline, aes(avg_years_of_control, avg_war_under_control_pear_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="Avg. Length of Control of Roster (Years)", y="Avg. Roster WAR per Year") + ggtitle("MLB Team WAR Over Time, 2017 — 2021")
+```
+
+The results again paint Theo Epstein's group in a favorable light. For the next three years or so, the Cubs project to average about 40 WAR per year as a team. That's a projected average of 93 wins through 2019, given today's roster. And remember, this analysis doesn't have the team picking up Anthony Rizzo's options (which they surely will). Nor does it have them extending Kris Bryant or any other young stars, which they'll surely attempt to do.
+
+The rest of the sport is just fighting it out for second place.
+
+== SALARY ==
+
+This analysis also has a salary component. The following chart shows each team's projected controlled salary through 2021: 
 
 ```{r, echo=FALSE}
 
@@ -76,8 +121,11 @@ ggplot(salary_tbl, aes(reorder(Team, `Controlled Salary Through 2021`), `Control
 
 ```
 
+The Cubs' post-2015 spending binge shows up here. The team will spend a projected $512 million in salary over the next five years, sixth-most in the sport. The teams above them are all also trying to contend in this timeframe. 
 
+=== SURPLUS VALUE ===
 
+Now we get to the good stuff. I've shown how the Cubs project to have the most team WAR over the next five years, and while they're spending a lot compared to some teams, they're getting more value for that money than any other team. The following chart shows each team's projected surplus value for the next five years:  
 
 ```{r, echo=FALSE}
 
@@ -90,6 +138,24 @@ surplus_tbl <- warcels %>%
 ggplot(surplus_tbl, aes(reorder(Team, `Controlled Surplus Value Through 2021`), `Controlled Surplus Value Through 2021`)) + geom_bar(stat="identity") + fgt + coord_flip() + labs(y="Controlled Surplus Value (Millions USD)", x="Team") + ggtitle("MLB Controlled Surplus Value, 2017-2021")
 
 ```
+
+While most teams are spending their money wisely, the Cubs are running a high-value payroll. Their roster is very talented but also very young, which is equivalent to saying they're very cheap. Kris Bryant himself projects to nearly $270M in surplus value over the next five years. Addison Russell, Anthony Rizzo, Kyle Hendricks, Javier Baez, and Wilson Contreras round out the six Cubs players who rank at or above the 90th percentile for surplus value. The Indians are next with four players; the Dodgers, Giants, Blue Jays, and Nationals have three each.
+
+Surplus value isn't literal profit, but it's close. Tom Ricketts can't buy a yacht with the $800 million Theo Epstein has saved, but he could justify spending a lot of it to improve the team in some fashion.        
+
+=== CONCLUSION ===
+
+The rebuild was a success. The next five years are blindingly bright for the Chicago Cubs. During this time they project to:
+
+1. Lead the entire sport in WAR.
+3. Surpass their closest division rival by 17 WAR per year for the next three years.
+4. Get $800 million of on-field production for free.
+
+Oh, and they just won the the 2016 World Series.
+
+
+
+* * *
 
 The Cub's are paying the least for the most talent, even when you factor in that many of their pre-arb players get hurt by the $2.2M Arb-1 projection I mentioned. This projection hurts the Cubs more than any other team because the Cubs have so many pre-arb players to begin with.
 
