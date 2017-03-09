@@ -66,7 +66,6 @@ getTeamabbr <- function(year) {
   return(tms)
 }
 
-
 getPayrolls <- function(Tm, team_name) {
   url <- paste0("http://www.baseball-reference.com/teams/", Tm, "/", team_name, "-salaries-and-contracts.shtml")
   tms <- url %>%
@@ -363,10 +362,22 @@ payroll_info <- master %>%
   filter(row_number() <= years_of_control) %>%
   ungroup() %>%
 
-  #get any FA and pre-arb salaries
+  #some players show up in baseball-ref with missing salary info. fill this in.
+  mutate(value = ifelse(Name == "Kevin Gausman" & value == "signed", "$3.45M", value),
+         value = ifelse(Name == "Cesar Hernandez" & value == "signed", "$2.55M", value),
+         value = ifelse(Name == "Collin McHugh" & value == "signed", "$3.85M", value),
+         value = ifelse(Name == "David Phelps" & value == "Arb-2", "$4.6M", value),
+         value = ifelse(Name == "Marcus Stroman" & value == "signed", "$3.4M", value),
+         value = ifelse(Name == "Marwin Gonzalez" & value == "signed", "$3.725M", value),
+         value = ifelse(Name == "Michael Wacha" & value == "signed", "$2.775M", value),
+         value = ifelse(Name == "Taijuan Walker" & value == "signed", "$2.25M", value),
+         value = ifelse(Name == "Wilmer Flores" & value == "signed", "$2.2M", value)) %>%
+  
+  #get any explicit salaries, as well as pre-arb ones
   mutate(value = ifelse(grepl("M", value), as.double(str_extract(value, "(?<=\\$)[:digit:]+\\.*[:digit:]*")), value),
          value = ifelse(grepl("k", value), as.double(str_extract(value, "(?<=\\$)[:digit:]+")) / 1000, value),
          value = ifelse(grepl("Pre-Arb", value), 0.535, value)) %>%
+  
   
   #project arb-1 salaries, then use that to project future arb years
   mutate(value = ifelse(value == "Arb-1" & (years_before_arb_eligible == 1 | years_before_arb_eligible == 0), 1.36881 + (.26896 * (currentWAR + war_next)), 
@@ -423,9 +434,6 @@ fa_warcels <- warcels %>%
                      "Chase Utley", "Doug Fister", "R.A. Dickey", "Steve Pearce", "Colby Lewis", "Jon Jay",
                      "Pedro Alvarez", "Jonathan Papelbon", "Erick Aybar")) %>%
   mutate(millions_per_win = salary_under_control / war_under_control)
-
-
-#ggplot(fa_warcels, aes(millions_per_win)) + geom_histogram(binwidth = 10)
 
 team_dollars_per_win <- fa_warcels %>%
   group_by(Team) %>%
