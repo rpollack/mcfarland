@@ -56,7 +56,7 @@ getTeamabbr <- function(year) {
   team_tbl <- read_html(paste0("http://www.baseball-reference.com/leagues/MLB/", year, ".shtml"), stringsAsFactors=FALSE)
   tms <- team_tbl %>%
     html_nodes("table") %>%
-    .[[2]] %>%
+    .[[1]] %>%
     html_table() %>%
     select(Tm) %>%
     filter(Tm != "LgAvg", 
@@ -66,8 +66,9 @@ getTeamabbr <- function(year) {
   return(tms)
 }
 
-getPayrolls <- function(Tm) {
-  url <- paste0("http://www.baseball-reference.com/teams/", Tm, "/2016-payroll-salaries.shtml")
+
+getPayrolls <- function(Tm, team_name) {
+  url <- paste0("http://www.baseball-reference.com/teams/", Tm, "/", team_name, "-salaries-and-contracts.shtml")
   tms <- url %>%
     read_html() %>%
     html_nodes("table") %>%
@@ -275,10 +276,34 @@ projected_war <- all_players %>%
 
 ```{r}
 teamAbbr <- getTeamabbr(2016)
+
+teamAbbr <- teamAbbr %>%
+  arrange(Tm) %>%
+  
+  #some mutations to construct valid URLs for baseball-reference
+  mutate(Tm = ifelse(Tm == "LAA", "ANA",
+                     ifelse(Tm =="MIA", "FLA",
+                            ifelse(Tm == "TBR", "TBD", Tm))),
+         team_name = c("arizona-diamondbacks", "atlanta-braves", "baltimore-orioles", "boston-red-sox",
+                       "chicago-cubs", "chicago-white-sox", "cincinnati-reds", "cleveland-indians",
+                       "colorado-rockies", "detroit-tigers", "houston-astros", "kansas-city-royals",
+                       "los-angeles-angels-of-anaheim", "los-angeles-dodgers", "miami-marlins",
+                       "milwaukee-brewers", "minnesota-twins", "new-york-mets", "new-york-yankees",
+                       "oakland-athletics", "philadelphia-phillies", "pittsburgh-pirates",
+                       "san-diego-padres", "seattle-mariners", "san-francisco-giants", 
+                       "st-louis-cardinals", "tampa-bay-rays", "texas-rangers", "toronto-blue-jays",
+                       "washington-nationals"))
+
 all_teams_payroll <- teamAbbr %>% 
   group_by(Tm) %>%
-  do(getPayrolls(.$Tm)) %>%
-  select(Team = Tm, Name, Age, Year, value)
+  do(getPayrolls(.$Tm, .$team_name)) %>%
+  select(Team = Tm, Name, Age, Year, value) %>%
+  ungroup() %>%
+  
+  #put common abbreviations back in place
+  mutate(Team = ifelse(Team == "ANA", "LAA",
+                     ifelse(Team =="FLA", "MIA",
+                            ifelse(Team == "TBD", "TBR", Team))))
 ```
 
 ### Compute how long each player is under control for 
