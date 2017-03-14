@@ -55,7 +55,19 @@ The following table shows the surplus value under control for each team through 
 
 ^^ INTRO AND METHODOLOGY GO ABOVE HERE ^^
 
-With this in mind, the following graph the WAR each team controls through the next five years:
+=== WAR UNDER CONTROL ===
+
+To project WAR, I used a method Tom Tango proposed that weights the past three years' WAR and applies an aging curve. The details are here [http://tangotiger.com/index.php/site/comments/war-marcels-...-warcels]; read up if you're interested. The method isn't perfect, particularly when it comes to pitchers, but I trust Tango's methodology enough to go forward. For missing years I gave the player 0 WAR.
+
+To compute how long players are under team control for, I used the payroll pages at Baseball-Reference. (Here's an example for the Orioles [http://www.baseball-reference.com/teams/BAL/baltimore-orioles-salaries-and-contracts.shtml].) For simplicity's sake I assumed no options will vest or get picked up. I capped the number of years of control to five, because that's as far out as Tango's WAR projections go.
+
+I also removed players who either:
+- Project for a controlled total of less than 1 WAR, or
+- Project for a controlled average annual salary of less than $5M. (I explain my salary calculations below.)
+
+This logic filters out most scrubs who aren't guaranteed a job anyway, while letting major dead weight contracts like Albert Pujols factor into the analysis.
+
+With this in mind, the following graph shows the WAR each team controls through the next five years:
 
 ```{r, echo=FALSE}
 
@@ -70,7 +82,9 @@ ggplot(war_tbl, aes(reorder(Team, `Controlled WAR Through 2021`), `Controlled WA
 
 ```
 
-It's the Cubs, and it's not particularly close. They control 127 WAR, nearly 20 more than the Dodgers who control 109. Theo Epstein is probably fine with this situation, since the two teams play in different divisions. The closest NL Central rival to the Cubs is the Cardinals, who control 80 WAR through this same time period. John Mozeliak has his work cut out for him. Here's a list showing just the NL Central teams:
+Cubs win! They control 127 WAR, nearly 20 more than the Dodgers who control 109. That's just an average four wins per year, but because the teams play in different divisions, Theo Epstein is probably fine with this situation.
+
+The closest NL Central rival to the Cubs is the Cardinals, who control 80 WAR through this same time period. John Mozeliak has his work cut out for him, as do all the other NL Central GMs. Here's a graph showing just the NL Central teams:
 
 ```{r}
 nl_central_war <- war_tbl %>%
@@ -84,9 +98,7 @@ The rosters of the Cardinals, Reds, Pirates, and Brewers will of course change a
 
 === CONTENTION WINDOWS ===
 
-Speaking of five years: the Cubs control 127 WAR, but for how long? Is that two seasons of 63 WAR each? Or is that one 80-WAR season and a dismal 47-WAR one?
-
-This gets into contention windows. How long can we expect the Cubs to contend for? The answer may shape how we think about their current roster. The following graph spreads out a team's controlled WAR over the average length of time it controls its current players: 
+Not all WAR is controlled equally. Contending teams tend to control a lot of WAR for short amounts of time; rebuilding ones, a small amount for longer. The data I gathered can reveal each team's contention window. How long can we expect the Cubs to contend for? The following graph allocates teams WAR values by the number of years it controls its average player:
 
 ```{r}
 war_timeline <- warcels %>%
@@ -97,16 +109,29 @@ war_timeline <- warcels %>%
             avg_years_of_control = mean(years_of_control),
             avg_war_under_control_pear_year = total_war_under_control / avg_years_of_control)
 
-ggplot(data=war_timeline, aes(avg_years_of_control, avg_war_under_control_pear_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="Avg. Length of Control of Roster (Years)", y="Avg. Roster WAR per Year") + ggtitle("MLB Team WAR Over Time, 2017 — 2021")
+ggplot(data=war_timeline, aes(avg_years_of_control, avg_war_under_control_pear_year, label=Team)) + geom_point(color="#336699") + geom_text(aes(label=Team), hjust=-0.01, vjust=0) + labs(x="Avg. Length of Control of Roster (Years)", y="Avg. Roster WAR per Year") + ggtitle("MLB Team WAR Over Time, 2017 — 2021") + fgt
 ```
 
 The results again paint Theo Epstein's group in a favorable light. For the next three years or so, the Cubs project to average about 40 WAR per year as a team. That's a projected average of 93 wins through 2019, given today's roster. And remember, this analysis doesn't have the team picking up Anthony Rizzo's options (which they surely will). Nor does it have them extending Kris Bryant or any other young stars, which they'll surely attempt to do.
 
-The rest of the sport is just fighting it out for second place.
+The rest of the sport is just fighting it out for second place. While the Dodgers will try to upend the Cubs, the Indians and Red Sox should battle it out for the AL crown. The Orioles have the narrowest contention window in baseball. The Diamondbacks look more like the rebuilding efforts in Cincinnati and Milwaukee than NL West contenders.  
 
-== SALARY ==
+== SALARY UNDER CONTROL ==
 
-This analysis also has a salary component. The following chart shows each team's projected controlled salary through 2021: 
+For most teams it's not enough to build a contending team; you have to do it on a budget. WAR has a salary component as well. I used the same payroll data from Baseball-Reference to project each team's payroll for the next five years. Here's what I did:
+
+- When available, I used free-agent and arbitration salaries directly. I used non-deferred salaries because that's what the pages list. This affects players like Chris Davis, who'll make $17M this year but for the purposes of this study makes $23M.
+- I assumed $535k for all pre-arbitration salaries unless otherwise listed. I did not step up the salary each year as the latest CBA dictates. Some late entries, like the Cubs rewarding its young stars [https://www.mlbtraderumors.com/2017/03/cubs-kris-bryant-agree-to-record-pre-arb-deal.html], aren't reflected in the dataset.
+- To project first-year arbitration salaries, I used MLB Trade Rumors' Arbitration Trackers to build a simple linear model based on first-year arbitration salaries from 2014-2016 as a function of WAR accrued prior to being awarded a first-year salary. The model is 1.36881 * (.26896 * Total_WAR_when_entering_arbitration). This approach is simplistic but gives results the pass the sniff test.
+- For future arbitration years, I applied the 25%/40%/60% research described by Kevin Creagh at The Point of Pittsburgh [http://www.thepointofpittsburgh.com/calculating-mlb-arbitration-percentages/]. For example, Jonathan Schoop will earn $3.48M in 2017, his Arb-1 year. To project his Arb-2 salary, I calculated his free-agent AAV as (3.48 / .25), then multiplied by .4 to get a projection of $5.57M. I used this Arb-2 salary to project his Arb-3 salary at $8.25M.
+- For Arb-4 years, I used 70% of free-agent salary as described by Creagh. For simplicity's sake, I didn't identify Arb-4 players and then apply the 20%/33%/50%/70% progression that Creagh found. The progression in my analysis goes 25%/40%/60%/70%.
+
+
+
+
+
+
+The following chart shows each team's projected controlled salary through 2021: 
 
 ```{r, echo=FALSE}
 
