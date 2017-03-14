@@ -135,7 +135,8 @@ fg_projected_teams_all <- bind_rows(fg_projected_teams_batters, fg_projected_tea
          Team = ifelse(Team == "KCA", "KCR", Team),
          Team = ifelse(Team == "CHN", "CHC", Team),
          Team = ifelse(Team == "SLN", "STL", Team),
-         Team = ifelse(Team == "WAS", "WSN", Team))
+         Team = ifelse(Team == "WAS", "WSN", Team),
+         Team = ifelse(Team == "TBA", "TAM", Team))
 
 #get batting/fielding stats for position players
 fg_bat <- fg_db %>%
@@ -171,7 +172,8 @@ all_players <- bind_rows(fg_batters, fg_pitchers)  %>%
   select(-TeamId) %>%
   mutate(FullName = sprintf("%s %s", FirstName, LastName),
          birth_date = as.Date(as.POSIXct(BirthDate)),
-         birth_year = format(birth_date, "%Y")) %>%
+         birth_year = format(birth_date, "%Y"),
+         Team = ifelse(Team == "TAM", "TBR", Team)) %>%
   select(PlayerId, Name = FullName, Season, Team, ValueW, birth_year, Position) %>%
   group_by(PlayerId) %>%
   arrange(desc(Season)) %>%
@@ -349,7 +351,10 @@ master <- inner_join(all_teams_payroll, control_information, by=c("Name", "Team"
                                 ifelse(years_of_control == 4, war_next + war_in_two_years + 
                                          war_in_three_years + war_in_four_years,
                                        war_next + war_in_two_years + war_in_three_years + war_in_four_years +
-                                         war_in_five_years)))), 1)) %>%
+                                         war_in_five_years)))), 1),
+         
+         #Prince is getting a salary but will produce 0 WAR for the Rangers
+         war_under_control = ifelse(Name == "Prince Fielder", 0, war_under_control)) %>%
   filter(Season == max(Season))
 ```
 
@@ -371,7 +376,11 @@ payroll_info <- master %>%
          value = ifelse(Name == "Marwin Gonzalez" & value == "signed", "$3.725M", value),
          value = ifelse(Name == "Michael Wacha" & value == "signed", "$2.775M", value),
          value = ifelse(Name == "Taijuan Walker" & value == "signed", "$2.25M", value),
-         value = ifelse(Name == "Wilmer Flores" & value == "signed", "$2.2M", value)) %>%
+         value = ifelse(Name == "Wilmer Flores" & value == "signed", "$2.2M", value),
+         value = ifelse(Name == "Jake Odorizzi" & value == "signed", "$4.1M", value),
+         
+         #Texas is paying only $9M annually for Prince
+         value = ifelse(Name == "Prince Fielder", "$9M", value)) %>%
   
   #get any explicit salaries, as well as pre-arb ones
   mutate(value = ifelse(grepl("M", value), as.double(str_extract(value, "(?<=\\$)[:digit:]+\\.*[:digit:]*")), value),
@@ -449,9 +458,9 @@ ggplot(team_dollars_per_win, aes(reorder(Team, mean_millions_per_win), mean_mill
 team_war <- warcels %>%
   group_by(Team) %>%
   summarize(total_war_under_control = sum(war_under_control),
+            avg_war_under_control_pear_year = total_war_under_control / total_years_of_control)
             total_years_of_control = sum(years_of_control),
             avg_years_of_control = mean(years_of_control),
-            avg_war_under_control_pear_year = total_war_under_control / total_years_of_control)
 
 ggplot(data=team_war, aes(avg_years_of_control, avg_war_under_control_pear_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (entire team; 5 max)") + ggtitle("MLB Team Control of WAR, 2017 - 2021")
 ```
