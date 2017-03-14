@@ -65,9 +65,9 @@ I also removed players who either:
 - Project for a controlled total of less than 1 WAR, or
 - Project for a controlled average annual salary of less than $5M. (I explain my salary calculations below.)
 
-This logic filters out most scrubs who aren't guaranteed a job anyway, while letting major dead weight contracts like Albert Pujols factor into the analysis.
+This logic filters out most scrubs, who aren't guaranteed a job anyway, while letting major dead weight contracts like Albert Pujols factor into the analysis.
 
-With this in mind, the following graph shows the WAR each team controls through the next five years:
+With this in mind, the following chart shows the WAR each team controls through the next five years:
 
 ```{r, echo=FALSE}
 
@@ -84,7 +84,7 @@ ggplot(war_tbl, aes(reorder(Team, `Controlled WAR Through 2021`), `Controlled WA
 
 Cubs win! They control 127 WAR, nearly 20 more than the Dodgers who control 109. That's just an average four wins per year, but because the teams play in different divisions, Theo Epstein is probably fine with this situation.
 
-The closest NL Central rival to the Cubs is the Cardinals, who control 80 WAR through this same time period. John Mozeliak has his work cut out for him, as do all the other NL Central GMs. Here's a graph showing just the NL Central teams:
+The closest NL Central rival to the Cubs is the Cardinals, who control 80 WAR through this same time period. John Mozeliak has his work cut out for him, as do all the other NL Central GMs. Here's a chart showing just the NL Central teams:
 
 ```{r}
 nl_central_war <- war_tbl %>%
@@ -98,7 +98,7 @@ The rosters of the Cardinals, Reds, Pirates, and Brewers will of course change a
 
 === CONTENTION WINDOWS ===
 
-Not all WAR is controlled equally. Contending teams tend to control a lot of WAR for short amounts of time; rebuilding ones, a small amount for longer. The data I gathered can reveal each team's contention window. How long can we expect the Cubs to contend for? The following graph allocates teams WAR values by the number of years it controls its average player:
+Not all WAR is controlled equally. Contending teams tend to control a lot of WAR for short amounts of time; rebuilding ones, a small amount for longer. The data I gathered can reveal each team's contention window. How long can we expect the Cubs to contend for? The following graph shows project rosters' WAR values spread across by the number of years it controls the average player:
 
 ```{r}
 war_timeline <- warcels %>%
@@ -118,18 +118,15 @@ The rest of the sport is just fighting it out for second place. While the Dodger
 
 == SALARY UNDER CONTROL ==
 
-For most teams it's not enough to build a contending team; you have to do it on a budget. WAR has a salary component as well. I used the same payroll data from Baseball-Reference to project each team's payroll for the next five years. Here's what I did:
+For most teams it's not enough to build a winner; their GMs have to do it on a budget. So WAR has a salary component as well. I used the same payroll data from Baseball-Reference to project each team's payroll for the next five years. Here's what I did:
 
 - When available, I used free-agent and arbitration salaries directly. I used non-deferred salaries because that's what the pages list. This affects players like Chris Davis, who'll make $17M this year but for the purposes of this study makes $23M.
 - I assumed $535k for all pre-arbitration salaries unless otherwise listed. I did not step up the salary each year as the latest CBA dictates. Some late entries, like the Cubs rewarding its young stars [https://www.mlbtraderumors.com/2017/03/cubs-kris-bryant-agree-to-record-pre-arb-deal.html], aren't reflected in the dataset.
 - To project first-year arbitration salaries, I used MLB Trade Rumors' Arbitration Trackers to build a simple linear model based on first-year arbitration salaries from 2014-2016 as a function of WAR accrued prior to being awarded a first-year salary. The model is 1.36881 * (.26896 * Total_WAR_when_entering_arbitration). This approach is simplistic but gives results the pass the sniff test.
 - For future arbitration years, I applied the 25%/40%/60% research described by Kevin Creagh at The Point of Pittsburgh [http://www.thepointofpittsburgh.com/calculating-mlb-arbitration-percentages/]. For example, Jonathan Schoop will earn $3.48M in 2017, his Arb-1 year. To project his Arb-2 salary, I calculated his free-agent AAV as (3.48 / .25), then multiplied by .4 to get a projection of $5.57M. I used this Arb-2 salary to project his Arb-3 salary at $8.25M.
 - For Arb-4 years, I used 70% of free-agent salary as described by Creagh. For simplicity's sake, I didn't identify Arb-4 players and then apply the 20%/33%/50%/70% progression that Creagh found. The progression in my analysis goes 25%/40%/60%/70%.
-
-
-
-
-
+- Finally as I described above, I used average annual salary as one criterion for filtering players out of this analysis.
+- I accounted for a few unique situations, like Texas paying only $9M annually (for 0 WAR) to Prince Fielder because the Tigers and insurance are paying the rest.
 
 The following chart shows each team's projected controlled salary through 2021: 
 
@@ -141,16 +138,16 @@ salary_tbl <- warcels %>%
   arrange(`Controlled Salary Through 2021`) %>%
   write_csv("mlb-salary-thru-2021.csv")
 
-ggplot(salary_tbl, aes(reorder(Team, `Controlled Salary Through 2021`), `Controlled Salary Through 2021`)) + geom_bar(stat="identity") + fgt + coord_flip() + labs(y="Controlled Salary (Millions USD)", x="Team") + ggtitle("MLB Controlled Salary, 2017-2021")
+ggplot(salary_tbl, aes(reorder(Team, `Controlled Salary Through 2021`), `Controlled Salary Through 2021`)) + geom_bar(stat="identity") + fgt + coord_flip() + labs(y="Controlled Salary (Millions USD)", x="Team") + ggtitle("MLB Controlled Salary, 2017 — 2021")
 
 
 ```
 
-The Cubs' post-2015 spending binge shows up here. The team will spend a projected $512 million in salary over the next five years, sixth-most in the sport. The teams above them are all also trying to contend in this timeframe. 
+The Cubs' post-2015 spending binge shows up here. The team will spend a projected $512 million in salary over the next five years, sixth-most in the sport. The teams above them are all also trying to contend in this timeframe, as are many of the teams below them. I'd say you have to go all the way down to the Reds in 21st place before you find a team who isn't trying to contend this year or next. Even then, you have the Pirates in 26th place who will shoot for the Wild Card during the next few years.
 
 === SURPLUS VALUE ===
 
-Now we get to the good stuff. I've shown how the Cubs project to have the most team WAR over the next five years, and while they're spending a lot compared to some teams, they're getting more value for that money than any other team. The following chart shows each team's projected surplus value for the next five years:  
+Now we get to the true art of the Cubs' rebuild: surplus value. I've shown how the Cubs project to have the most team WAR in baseball over the next five years. While the salary analysis appears to show them spending a lot, the reality is they've spent wisely. The following chart shows each team's projected surplus value for the next five years:  
 
 ```{r, echo=FALSE}
 
@@ -160,13 +157,20 @@ surplus_tbl <- warcels %>%
   arrange(desc(`Controlled Surplus Value Through 2021`)) %>%
   write_csv("mlb-surplus-value-thru-2021.csv")
 
-ggplot(surplus_tbl, aes(reorder(Team, `Controlled Surplus Value Through 2021`), `Controlled Surplus Value Through 2021`)) + geom_bar(stat="identity") + fgt + coord_flip() + labs(y="Controlled Surplus Value (Millions USD)", x="Team") + ggtitle("MLB Controlled Surplus Value, 2017-2021")
+ggplot(surplus_tbl, aes(reorder(Team, `Controlled Surplus Value Through 2021`), `Controlled Surplus Value Through 2021`)) + geom_bar(stat="identity") + fgt + coord_flip() + labs(y="Controlled Surplus Value (Millions USD)", x="Team") + ggtitle("MLB Controlled Surplus Value, 2017 — 2021")
 
 ```
 
-While most teams are spending their money wisely, the Cubs are running a high-value payroll. Their roster is very talented but also very young, which is equivalent to saying they're very cheap. Kris Bryant himself projects to nearly $270M in surplus value over the next five years. Addison Russell, Anthony Rizzo, Kyle Hendricks, Javier Baez, and Wilson Contreras round out the six Cubs players who rank at or above the 90th percentile for surplus value. The Indians are next with four players; the Dodgers, Giants, Blue Jays, and Nationals have three each.
+The Cubs are running the highest-value roster in the sport, with just over $800M in surplus value over the next five years. Surplus value isn't literal profit, but it's close. Tom Ricketts can't buy a yacht with the money Theo Epstein has saved, but he could justify spending a lot of it to improve the team in some fashion.
 
-Surplus value isn't literal profit, but it's close. Tom Ricketts can't buy a yacht with the $800 million Theo Epstein has saved, but he could justify spending a lot of it to improve the team in some fashion.        
+But the Cubs are no small-market Cindarellas. They operate in 
+
+Presented in this light, the raises given to Bryant and others seem paltry. An extra $500,000? That's a pittance. Bryant projects, without this raise, to nearly $270M in surplue value all by himself. Addison Russell? $146.6M in surplus value. Anthony Rizzo? $101.1M. You get the idea. 
+
+Kyle Hendricks, Javier Baez, and Wilson Contreras round out the six Cubs players who rank at or above the 90th percentile for surplus value. The Indians are next with four players; the Dodgers, Giants, Blue Jays, and Nationals have three each.
+
+
+
 
 === CONCLUSION ===
 
@@ -235,10 +239,10 @@ Still, the Cubs are far ahead of everyone else. Seven of their players rank in t
 
 ```{r}
 rank_90th_percentile <- warcels %>%
-  filter(controlled_surplus_value >= 75.0) %>%
+  filter(surplus_value_rank >= 90.0) %>%
   group_by(Team) %>%
-  summarize(`No. Players Above 75th Percentile for Controlled Surplus Value` = n()) %>%
-  arrange(desc(`No. Players Above 75th Percentile for Controlled Surplus Value`)) %>%
+  summarize(num_players_at_or_above_90th_perc = n()) %>%
+  arrange(desc(num_players_at_or_above_90th_perc)) %>%
   write_csv("rank-90th.csv")
 
 
