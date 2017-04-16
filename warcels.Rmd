@@ -362,10 +362,13 @@ control_information <- all_teams_payroll %>%
 
          #Use league minimum or explicit salaries where available
          value = ifelse(value == "Pre-Arb", 0.535, value),
-         value = ifelse(str_detect(as.character(value), "M"), 
-                        as.numeric(str_extract(value, "(?<=\\$)[:digit:]+\\.*[:digit:]*")), 
-                        as.character(value)
-         ))
+         value = ifelse(str_detect(value, "M"), 
+                        str_extract(value, "(?<=\\$)[:digit:]+\\.*[:digit:]*"), 
+                        value),
+         value = ifelse(str_detect(value, "k"),
+                        str_extract(value, "(?<=\\$)[:digit:]+") / 1000, 
+                        value)
+         )
 
 control_information
 ```
