@@ -335,9 +335,10 @@ control_information <- all_teams_payroll %>%
            "George Springer", "Danny Salazar", "Matt Shoemaker", "Sam Dyson", "Marcus Stroman", "David Peralta", "Rougned Odor", 
            "Kevin Kiermaier", "Brett Oberholtzer", "Ehire Adrianza",
            #baseball-reference lists several players as arb-eligible 4 times despite no official word on their status. I'll trust BB-ref here.
-           "Addison Russell", "Cam Bedrosian", "Carlos Rodon", "Corey Knebel", "Felipe Rivero", "Hunter Strickland", "Kris Bryant", "Maikel Franco",
-           "Michael Lorenzen", "Mike Foltynewicz", "Odrisamer Despaigne", "Austin Hedges", "Carlos Estevez", "Dario Alvarez", "Elias Diaz",
-           "Jose Ramirez", "Justin Nicolino", "Mac Williamson", "Matt Boyd", "Michael Fulmer", "Nick Goody", "Tim Adleman", "Tyler Naquin" 
+           "Addison Russell", "Cam Bedrosian", "Carlos Rodon", "Corey Knebel", "Felipe Rivero", "Hunter Strickland", "Kris Bryant", 
+           "Maikel Franco", "Michael Lorenzen", "Mike Foltynewicz", "Odrisamer Despaigne", "Austin Hedges", "Carlos Estevez", "Dario Alvarez",
+           "Elias Diaz", "Jose Ramirez", "Justin Nicolino", "Mac Williamson", "Matt Boyd", "Michael Fulmer", "Nick Goody", "Tim Adleman", 
+           "Tyler Naquin" 
            ), 
            TRUE, FALSE)) %>%
   
@@ -358,13 +359,47 @@ control_information <- all_teams_payroll %>%
                                       ifelse(lead(value, 3) == "FA", "Arb-1", value))),
                         value),
          years_before_first_arb = ifelse(value == "Arb-1", as.integer(Year) - next_year, 0),
-         value = ifelse(Name == "Prince Fielder", "$9M", value)) %>%
-  filter(value != "FA") %>%
+
+         #Use league minimum or explicit salaries where available
+         value = ifelse(value == "Pre-Arb", 0.535, value),
+         value = ifelse(str_detect(as.character(value), "M"), 
+                        as.numeric(str_extract(value, "(?<=\\$)[:digit:]+\\.*[:digit:]*")), 
+                        as.character(value)
+         ))
+
+control_information
+```
+         
+         
+         ,
+         value = as.numeric(ifelse(!is.na(str_match_all(value, "M")), 
+                                   str_extract(value, "(?<=\\$)[:digit:]+\\.*[:digit:]*"), as.character(value)))
+         
+         ,
+         value = as.numeric(ifelse(!is.na(str_match_all(value, "k")),
+                                   as.numeric(str_extract(value, "(?<=\\$)[:digit:]+")) / 1000, value)))
+
+# as.double(str_extract(value, "(?<=\\$)[:digit:]+")) / 1000
+
+control_information
+```
+,
+         value = ifelse(!is.na(str_match(as.character(value), "M")), as.numeric(5), as.character(value)))
+
+control_information
+```
+,
+         value = ifelse(!is.na(str_match(value, "M")), as.numeric(9.0), value))
+
+```
+```,
+         value = ifelse(!is.na(str_match(value, "M")), 5, value)) %>%
   
   #After removing the "FA" row for each player, the number of rows left is how many years of control they're under. Cap at 5.
+  filter(value != "FA") %>%
   summarize(years_of_control = ifelse(n() > 5, 5, n()),
             
-            #For each player, the maximum value of the years_before_first_arb column is how long until they hit Arb-1.
+            #For each player, the maximum value of the years_before_first_arb column is how long until they hit Arb-1 (b/c every other row = 0).
             years_before_first_arb = max(years_before_first_arb, na.rm = TRUE)) %>%
   
   #clean up incorrect bb-ref information about some players
@@ -510,31 +545,6 @@ win_tbl <- war_timeline %>%
 
 
 ggplotly(war_time_plt)
-```
-
-
-### Look at surplus value per team for 2016-2017 FAs
-
-```{r}
-fa_warcels <- warcels %>%
-  filter(Name %in% c("Edwin Encarnacion", "Jose Bautista", "Kenley Jansen", "Justin Turner", "Yoenis Cespedes",
-                     "Aroldis Chapman", "Dexter Fowler", "Rich Hill", "Neil Walker", "Mark Melancon", 
-                     "Jeremy Hellickson", "Ivan Nova", "Ian Desmond", "Carlos Gomez", "Josh Reddick", 
-                     "Matt Holliday", "Mark Trumbo", "Edinson Volquez", "Carlos Beltran", "Matt Wieters",
-                     "Brett Cecil", "Michael Saunders", "Mike Napoli", "Jason Hammel", "Andrew Cashner", 
-                     "Wilson Ramos", "Greg Holland", "Luis Valbuena", "Kendrys Morales", "Brad Ziegler",
-                     "Sergio Romo", "Kohi Uehara", "Derek Holland", "Bartolo Colon", "Rajai Davis", "Joe Blanton",
-                     "Matt Joyce", "Colby Rasmus", "Brandon Moss", "Santiago Casilla", "Angel Pagan",
-                     "Chase Utley", "Doug Fister", "R.A. Dickey", "Steve Pearce", "Colby Lewis", "Jon Jay",
-                     "Pedro Alvarez", "Jonathan Papelbon", "Erick Aybar")) %>%
-  mutate(millions_per_win = salary_under_control / war_under_control)
-
-team_dollars_per_win <- fa_warcels %>%
-  group_by(Team) %>%
-  summarize(mean_millions_per_win = mean(millions_per_win))
-
-ggplot(team_dollars_per_win, aes(reorder(Team, mean_millions_per_win), mean_millions_per_win)) + geom_bar(stat="identity") + coord_flip() + labs(x="Team", y="Cost per Controlled Free-Agent Win, 2016-2017 offseason")
-
 ```
 
 ### Group WAR per Year by Team
