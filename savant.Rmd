@@ -1,10 +1,12 @@
 ```{r setup, include=FALSE, echo=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+
+
 library(tidyverse)
 library(rvest)
 library(stringr)
 library(plotly)
 library(lubridate)
+library(RMySQL)
 
 fgt = theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
@@ -46,7 +48,7 @@ gd_info <- fg_db %>%
 
 fg_info <- fg_db %>%
   tbl("player_info") %>%
-  select(PlayerId, FirstName, LastName) %>%
+  select(PlayerId, FirstName, LastName, BISPosition) %>%
   collect(n=Inf)
 
 k_and_bb <- fg_db %>%
@@ -58,17 +60,141 @@ k_and_bb <- fg_db %>%
 
 savant_data <- fg_db %>%
   tbl("gd_savant") %>%
-  filter(game_year == 2017) %>%
-  select(batter, player_name, game_date, game_year, pitch_type, events, description, des, tfs_zulu, 
-         hc_x, hc_y, hit_speed, hit_angle, hit_distance_sc) %>%
+  #filter(game_year == 2017) %>%
+  select(batter, player_name, game_date, game_year, pitch_type, start_speed, events, description, des, tfs_zulu, px, pz, 
+         hc_x, hc_y, hit_speed, hit_angle, hit_distance_sc, home_team, away_team, inning_top_bottom) %>%
   inner_join(gd_info, by=c("batter" = "mlbamid")) %>%
-  collect(n=Inf)
+  collect(n=Inf) %>%
+  mutate(batting_team = ifelse(inning_top_bottom == "bot", home_team, away_team),
+         fielding_team = ifelse(batting_team == away_team, home_team, away_team),
+         
+         #convert numbers to numeric, leaving 'null' values as NA
+         hit_speed = as.numeric(hit_speed),
+         hit_distance_sc = as.numeric(hit_distance_sc),
+         hit_angle = as.numeric(hit_angle))
 ```
+
+### compute horizontal and vertical plate coverage for hitters
+```{r}
+plate_coverage <- savant_data %>%
+  filter(str_detect(description, "In play")) %>%
+  arrange(game_date, tfs_zulu) %>%
+  inner_join(fg_info, by=c("playerid" = "PlayerId")) %>%
+  filter(!BISPosition %in% c("", "SP", "RP")) %>%   #filter out pitchers
+  mutate(Name = sprintf("%s %s", FirstName, LastName),
+         spray_angle = round(tan((hc_x - 125.42)/ (198.27-hc_y)) * 180/pi*.75, 1)) %>%
+  select(Name, player_name, everything()) %>%
+  group_by(Name, game_year) %>%
+  summarize(num_balls_contacted = n(),
+            horiz_coverage = mad(px),
+            vertical_coverage = mad(pz)) %>%
+  mutate(total_coverage = horiz_coverage * vertical_coverage) %>%
+  filter(num_balls_contacted >= 50)
+
+plate_coverage_change <- plate_coverage %>%
+  group_by(Name) %>%
+  arrange(game_year) %>%
+  mutate(horiz_diff = horiz_coverage - lag(horiz_coverage),
+         vertical_diff = vertical_coverage - lag(vertical_coverage),
+         total_diff = horiz_diff + vertical_diff) %>%
+  filter(game_year == 2017)
+
+coverage_change_plot <- ggplot(plate_coverage_change, aes(horiz_diff, vertical_diff, label=Name)) + geom_point()
+ggplotly(coverage_change_plot)
+
+```
+
+
+
+### Get fielders' names for plays
+
+
+```{r}
+str1 <- "Kennys Vargas grounds out, third baseman Mike Moustakas to first baseman Eric Hosmer."
+
+#need to get this to where either a "to" or a period can follow.
+str_extract(str1, "(?<=third baseman).*(?=to)|(?=\\.)")
+#not sure why this works on "to" but not when a period follows (as in str2 below.)
+
+str2 <- "C. J. Cron flies out to center fielder Delino DeShields."
+
+#not sure why this works above for str1 but doesn't work here.
+str_extract(str2, "(?<=center fielder).*(?=to)|(?=\\.+)")
+
+
+str3 <- "Christian Yelich grounds out, second baseman Andres Blanco to first baseman Erik Kratz."
+str_extract(str3, "(?<=second baseman | shortstop).*(?=to)|(?=\\.)")
+
+
+str4 <- "Miguel Rojas pops out to shortstop Freddy Galvis."
+
+
+
+str5 <- "Mitch Moreland lines out sharply to center fielder Mike Trout. Shin-Soo Choo to 3rd."
+str6 <- "Stephen Piscotty lines out to right fielder Nick Markakis."
+
+#[position][name][to or a period]
+
+```
+
+### who turns hard-hit balls into outs the most often?
+# which team turns the highest % of barrels into outs?
+
+```{r}
+hard_hit_outs <- savant_data %>%
+  filter(description == "In play, out(s)",
+         game_year >= 2016) %>%
+  group_by(game_year, fielding_team) %>%
+  summarize(mean_hit_speed_of_outs = mean(hit_speed, na.rm = TRUE),
+            max_hit_speed_of_outs = max(hit_speed, na.rm = TRUE),
+            min_hit_speed_of_outs = min(hit_speed, na.rm = TRUE),
+            median_hit_speed_of_outs = median(hit_speed, na.rm = TRUE),
+            median_abs_deviation_of_outs = mad(hit_speed, na.rm = TRUE))
+
+```
+
+### Compute YoY change in mean hit speed of outs.
+
+```{r}
+
+#compute YoY change in median hit speed of HHO
+year_diff_mean_hit_speed <- hard_hit_outs %>%
+  group_by(fielding_team) %>%
+  arrange(game_year) %>%
+  mutate(diff_mean_hit_speed_of_outs = mean_hit_speed_of_outs - lag(mean_hit_speed_of_outs)) %>%
+  filter(!is.na(diff_mean_hit_speed_of_outs)) %>%
+  select(fielding_team, diff_mean_hit_speed_of_outs)
+
+ggplot(year_diff_mean_hit_speed, aes(reorder(fielding_team, diff_mean_hit_speed_of_outs), diff_mean_hit_speed_of_outs)) + geom_bar(stat ="identity") + coord_flip()
+
+
+```
+
+
+### YoY Change in MAD hit speed of outs.
+
+A drop (CLE, CIN) means teams are getting to a narrower range of batted ball speeds than last year.
+An increase (NYM, SEA) means teams are getting to a wider range of batted ball speeds than last year. 
+
+(use a boxplot to show the differences)
+```{r}
+year_diff_mad_hit_speed <- hard_hit_outs %>%
+  group_by(fielding_team) %>%
+  arrange(game_year) %>%
+  mutate(diff_mad_hit_speed_of_outs = median_abs_deviation_of_outs - lag(median_abs_deviation_of_outs)) %>%
+  filter(!is.na(diff_mad_hit_speed_of_outs)) %>%
+  select(fielding_team, diff_mad_hit_speed_of_outs)
+
+ggplot(year_diff_mad_hit_speed, aes(reorder(fielding_team, diff_mad_hit_speed_of_outs), diff_mad_hit_speed_of_outs)) +
+  geom_bar(stat="identity") + coord_flip()
+
+
+```
+
 
 
 ```{r}
 
-#need to replace 'null' string with NAs
 
 savant_data_plt <- savant_data %>%
   arrange(game_date, tfs_zulu) %>%
@@ -89,13 +215,15 @@ pitch_sequences <- savant_data_plt %>%
   summarize(pitch_seq = paste0(pitch_type, collapse = " "),
             pa_start = min(tfs_zulu),
             num_pitches = n(),
-            hit_speed = min(hit_speed),
-            launch_angle = min(hit_angle),
-            spray_angle = min(spray_angle))
+            hit_speed = min(hit_speed, na.rm = TRUE),
+            launch_angle = min(hit_angle, na.rm = TRUE),
+            spray_angle = min(spray_angle, na.rm = TRUE)) %>%
   arrange(game_date, pa_start)
 ```
 
 #For all PAs with at least 3 pitches; what are the most common 3-pitch sequences in them?
+
+next up: split by batter/pitcher handedness (RR, RL, LR, LL), runners on base, etc.
 
 ```{r}
 num_pitches_in_sequence <- 3
@@ -111,21 +239,6 @@ common_pitch_sequences <- get.phrasetable(ng_sequence) %>%
 View(common_pitch_sequences)
 ```
 
-%>% 
-  mutate(pitch_number = row_number()) %>%
-  select(Batter = Name, game_date, Pitcher = player_name, pitch_seq, pa_result = des, events, pitch_number, description, batter_K_perc, batter_BB_perc, everything())
-
-pitch_sequences
-
-# still not there -- multiple games are happening at once which throws off timing. is there a game_id I can group by? 
-
-```
-%>%
-  
-  select(Name, game_date, pitch_type, events, description, pa_result = des, hit_speed, hit_angle, 
-         hc_x, hc_y, hit_distance_sc)
-  
-```
 
 ```{r}
 
