@@ -64,30 +64,43 @@ savant_data <- fg_db %>%
   select(batter, player_name, game_date, game_year, pitch_type, start_speed, events, description, des, tfs_zulu, px, pz, 
          hc_x, hc_y, hit_speed, hit_angle, hit_distance_sc, home_team, away_team, inning_top_bottom) %>%
   inner_join(gd_info, by=c("batter" = "mlbamid")) %>%
-  collect(n=Inf) %>%
+  collect(n=Inf)
+```
+
+### Clean Data
+
+```{r}
+
+savant_data <- savant_data %>%
   mutate(batting_team = ifelse(inning_top_bottom == "bot", home_team, away_team),
          fielding_team = ifelse(batting_team == away_team, home_team, away_team),
          
          #convert numbers to numeric, leaving 'null' values as NA
          hit_speed = as.numeric(hit_speed),
          hit_distance_sc = as.numeric(hit_distance_sc),
-         hit_angle = as.numeric(hit_angle))
+         hit_angle = as.numeric(hit_angle),
+         px = as.numeric(px),
+         pz = as.numeric(pz))%>%
+  inner_join(fg_info, by=c("playerid" = "PlayerId")) %>%
+  
+  #Add player's first name & spray angle of hit
+  mutate(Name = sprintf("%s %s", FirstName, LastName),
+         spray_angle = round(tan((hc_x - 125.42)/ (198.27-hc_y)) * 180/pi*.75, 1))
+  
 ```
 
-### compute horizontal and vertical plate coverage for hitters
+### compute horizontal and vertical plate coverage for non-pitchers who hit at least 50 balls fair, as well as YoY change
 ```{r}
 plate_coverage <- savant_data %>%
   filter(str_detect(description, "In play")) %>%
   arrange(game_date, tfs_zulu) %>%
-  inner_join(fg_info, by=c("playerid" = "PlayerId")) %>%
-  filter(!BISPosition %in% c("", "SP", "RP")) %>%   #filter out pitchers
-  mutate(Name = sprintf("%s %s", FirstName, LastName),
-         spray_angle = round(tan((hc_x - 125.42)/ (198.27-hc_y)) * 180/pi*.75, 1)) %>%
+  filter(!BISPosition %in% c("", "SP", "RP"),
+         pz > 0) %>%    #why does this line remove all 2017 balls?
   select(Name, player_name, everything()) %>%
   group_by(Name, game_year) %>%
   summarize(num_balls_contacted = n(),
-            horiz_coverage = mad(px),
-            vertical_coverage = mad(pz)) %>%
+            horiz_coverage = round(mad(px), 3),
+            vertical_coverage = round(mad(pz), 3)) %>%
   mutate(total_coverage = horiz_coverage * vertical_coverage) %>%
   filter(num_balls_contacted >= 50)
 
@@ -96,15 +109,94 @@ plate_coverage_change <- plate_coverage %>%
   arrange(game_year) %>%
   mutate(horiz_diff = horiz_coverage - lag(horiz_coverage),
          vertical_diff = vertical_coverage - lag(vertical_coverage),
-         total_diff = horiz_diff + vertical_diff) %>%
+         total_diff = round(horiz_diff + vertical_diff, 3)) %>%
   filter(game_year == 2017)
 
-coverage_change_plot <- ggplot(plate_coverage_change, aes(horiz_diff, vertical_diff, label=Name)) + geom_point()
+coverage_change_plot <- ggplot(plate_coverage_change, aes(horiz_diff, vertical_diff, label=Name)) + geom_point() + fgt
 ggplotly(coverage_change_plot)
 
 ```
 
+### Boxplots for worst/best players in 2016
 
+```{r}
+example_horiz_coverage <- savant_data %>%
+  filter(game_year == 2016,
+         str_detect(description, "In play"),
+         Name %in% c("Caleb Joseph", "Delino DeShields")) %>%
+  select(Name, px)
+
+ggplot(example_horiz_coverage, aes(y=px, x=Name)) + geom_boxplot() + geom_jitter() + coord_flip() + fgt +
+  ggtitle("Worst and Best Horizontal Plate Coverage, 2016") + labs(x="", y="Horizontal Location of Contact (feet)")
+
+example_vertical_coverage <- savant_data %>%
+  filter(game_year == 2016,
+         str_detect(description, "In play"),
+         Name %in% c("Taylor Motter", "Corey Dickerson")) %>%
+  select(Name, pz)
+
+ggplot(example_vertical_coverage, aes(y=pz, x=Name)) + geom_boxplot() + geom_jitter() + coord_flip() + fgt +
+  ggtitle("Worst and Best Vertical Plate Coverage, 2016") + labs(x="", y="Vertical Location of Contact (feet)")
+           
+```
+
+
+### Boxplots for 2016 - 2017 changers
+
+biggest increase in horizontal coverage: ender inciarte
+biggest decrease in horizontal coverage: maikel franco
+
+biggest increase in vertical coverage: jose peraza 
+biggest decrease in vertical coverage: travis shaw
+
+Figure out how to order these graphs by year.
+
+```{r}
+
+inciarte_plate_coverage <- savant_data %>%
+  filter(game_year >= 2016,
+         str_detect(description, "In play"),
+         Name == "Ender Inciarte",
+         pz > 0) %>%
+  select(game_year, px, pz)
+
+franco_plate_coverage <- savant_data %>%
+  filter(game_year >= 2016,
+         str_detect(description, "In play"),
+         Name == "Maikel Franco",
+         pz > 0) %>%
+  select(game_year, px, pz)
+
+
+peraza_plate_coverage <- savant_data %>%
+  filter(game_year >= 2016,
+         str_detect(description, "In play"),
+         Name == "Jose Peraza",
+         pz > 0) %>%
+  select(game_year, px, pz)
+
+shaw_plate_coverage <- savant_data %>%
+  filter(game_year >= 2016,
+         str_detect(description, "In play"),
+         Name == "Travis Shaw",
+         pz > 0) %>%
+  select(game_year, px, pz)
+
+ggplot(inciarte_plate_coverage, aes(y=px, x=as.character(game_year)))+ 
+  geom_boxplot() + geom_jitter() + coord_flip() + fgt + ggtitle("Ender Inciarte Horizontal Plate Coverage, 2016 - 2017") +
+  labs(x="", y="Horizontal Location of Contact (feet)")
+
+ggplot(franco_plate_coverage, aes(y=px, x=as.character(game_year))) + geom_boxplot() + geom_jitter() + coord_flip() + fgt +
+  ggtitle("Maikel Franco Horizontal Plate Coverage, 2016 - 2017") + labs(x="", y="Horizontal Location of Contact (feet)")
+
+ggplot(peraza_plate_coverage, aes(y=pz, x=as.character(game_year))) + geom_boxplot() + geom_jitter() + fgt +
+  ggtitle("Jose Peraza Vertical Plate Coverage, 2016 - 2017") + labs(x="", y="Vertical Location of Contact (feet)")
+
+ggplot(shaw_plate_coverage, aes(y=pz, x=as.character(game_year))) + geom_boxplot() + geom_jitter() + fgt +
+  ggtitle("Travis Shaw Vertical Plate Coverage, 2016 - 2017") + labs(x="", y="Vertical Location of Contact (feet)")
+
+
+```
 
 ### Get fielders' names for plays
 
