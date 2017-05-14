@@ -77,7 +77,9 @@ plate_coverage_raw <- savant_data_plate_coverage %>%
             horiz_coverage = round(mad(px_in), 3),
             vertical_coverage = round(mad(pz_in), 3)) %>%
   mutate(total_coverage = horiz_coverage * vertical_coverage) %>%
-  filter(num_balls_contacted >= 50)
+  filter(num_balls_contacted >= 50) %>%
+  group_by(game_year) %>%
+  mutate(zCoverage = (total_coverage - mean(total_coverage)) / sd(total_coverage))
 
 # can i draw total coverage for each player, madx * madz??
 
@@ -93,7 +95,7 @@ plate_coverage_change <- plate_coverage_raw %>%
 
 NEED AN INTRO
 
-To find whose plate coverage improved and declined the most, I looked at all fair balls in both 2016 and 2017. For each non-pitcher who hit at least 50 such balls in each season, I computed the median absolute deviation (MAD) where the pitch crossed the plate on both the x and z axes. (MLB Gameday uses z as the vertical axis because y is the measurement of a pitch's distance from home plate.) Gameday measures in feet but I report here in inches, because baseball is a game of them.
+To find whose plate coverage improved and declined the most, I looked at all fair balls in both 2016 and 2017. For each non-pitcher who hit at least 50 such balls in each season, I computed the median absolute deviation (MAD) where the pitch crossed the plate on both the x and z axes. (MLB Gameday uses z as the vertical axis because y is the measurement of a pitch's distance from home plate.) Statcast measures in feet but I report here in inches, because baseball is a game of them.
 
 For each axis, the median absolute deviation gives a great idea of the batter's ability to hit inside/outside, or high/low, pitches while keeping them fair.
 
@@ -184,33 +186,11 @@ ggplot(joseph_avila, aes(px_in, pz_in)) + geom_point() + facet_grid(~Name) + ggt
 
 ```
 
-Joseph clearly was able to reach, and keep fair, much wider range of pitches than Avila did.
+Joseph clearly was able to hit, and keep fair, much wider range of pitches than Avila did.
 
-## 2017
+BUT IS PLATE COVERAGE A GOOD THING?
 
-It's too early in the season to do leadboards for plate coverage. Instead, let's see who's doing better and worse relative to last year.
-
-The following players have increased their plate coverage the most:
-
-```{r}
-# leaders
-ggplot(plate_coverage_change %>% head(10), aes(reorder(Name, total_coverage_diff), total_coverage_diff)) + geom_bar(stat="identity") + coord_flip() + labs(y="Difference (sq. inches)", x="") + ggtitle("Largest Increases in Plate Coverage, 2016 – 2017")
-```
-
-Peraza's added about 32 square inches of plate coverage, enough to cover the 11 more locations of a pitched baseball. Being a slap/contact hitter, he would do well to maintain a large plate coverage. As it is, his wRC+ of 46 leaves a lot to be desired, even for a speedy shortstop. 
-
-The same holds true for Dyson, another guy who relies on making contact and using his speed to beat out hits.
-
-Garcia, Myers, Mazara, Odor, and Betts are more towards the power side of the hitting spectrum. The idea that they're increasing their plate coverage makes them much scarier opponents.
-
-Now, those who have lost the most plate coverage:
-
-```{r}
-#laggards
-ggplot(plate_coverage_change %>% tail(10), aes(reorder(Name, total_coverage_diff), total_coverage_diff)) + geom_bar(stat="identity") + coord_flip()  + labs(y="Difference (sq. inches)", x="")
-```
-
-Charlie Blackmon is one of the more underrated players in baseball. He and his 122 wRC+ are having another very good year. This fact prompts the question: just how much does plate coverage affect offense? The following graph gives us an idea:
+The following graph gives us an idea:
 
 ```{r}
 plate_coverage_model <- lm(plate_coverage_raw$wrc_plus ~ plate_coverage_raw$total_coverage)
@@ -219,34 +199,72 @@ summary(plate_coverage_model)
 #ggplot(augment(plate_coverage_model), aes(x = .fitted, y = .resid)) + geom_point()
 
 
-ggplot(plate_coverage_raw, aes(total_coverage, wrc_plus)) + geom_point() + geom_smooth(method="lm")  + 
-  ggtitle("Plate Coverage vs. wRC+, 2016 – May 14, 2017") + labs(y="wRC+", x="Plate Coverage (sq. in)")
+ggplot(plate_coverage_raw %>% filter(game_year == 2016), aes(total_coverage, wrc_plus)) + geom_point() + geom_smooth(method="lm")  + 
+  ggtitle("Plate Coverage vs. wRC+, 2016") + labs(y="wRC+", x="Plate Coverage (sq. in)")
+
 
 #wRC+ = 100.4 - (.0093 * Total Coverage)
 
 ```
 
-With eight months of data, the answer appears to be "not much." You can see that the regression line is basically flat, indicating total coverage affects very, very little of wRC+. Interestingly, the line slopes downwards, indicating covering more of the plate is _bad_ for players' offensive output. Mike Trout and his incredibly high wRC+ (171 in 2016; 216 so far in 2017) have a plate coverage of only 53 square inches.
+Keeping in mind we have only eight months of data, the answer appears to be "no." The regression line slopes downwards every so slightly, indicating that not only is covering more of the plate _bad_ for players' offensive output, but also that plate coverage doesn't matter much. After all, Mike Trout and his incredibly high wRC+ (171 in 2016; 216 so far in 2017) have a plate coverage of only 53 square inches.
 
-Although we'll have to wait for more data, this makes sense logically: plate coverage indicates simply that a player made contact with a pitch that resulted in a fair ball. Not all fair balls are created equally. Players may be reaching for pitches too much, resulting in weak contact and an easy out instead of extending the plate appearance or simply taking a called strike. A future study of this data should look at exit velocity and launch angle, or perhaps xWOBA on these pitches. 
+Although we'll have to wait for more data, this makes sense logically: plate coverage indicates simply that a player made contact with a pitch that resulted in a fair ball. Players with a wide zone may be reaching for pitches too much, resulting in weak contact and easy outs instead of letting a borderline strike or clear ball go by.
 
-The following graph further supports the notion that a large plate coverage is a bad thing:
+Joseph's plot above shows he made contact with pitches less than a foot off the ground. If he'd simply taken them for balls, he'd have gained an advantage over the pitcher. Perhaps instead of plate _coverage_, we should be talking about plate _discipline_.
+
+Here's a video of him hitting this pitch: 
+
+<div style="width:100%;height:0;padding-bottom:56%;position:relative;"><iframe src="https://giphy.com/embed/3og0ITbC1vh9rAHwWI" width="100%" height="100%" style="position:absolute" frameBorder="0" class="giphy-embed" allowFullScreen></iframe></div><p><a href="https://giphy.com/gifs/3og0ITbC1vh9rAHwWI">via GIPHY</a></p>
+
+That's, er ... not a pitch you should be swinging at. To be fair, there were runners on the corners with no one out in the seventh inning with the Orioles down by two. He probably got too aggressive.
+
+Let's return to the notion that Mike Trout, with his plate coverage of 53 inches, hits better than Avila or Joseph with their respective small and large coverages. Look at the graph: the points appear to form a slight curve. This would indicate a new hypothesis: you don't want to have too little plate coverage (Avila) or too much (Joseph). You want to be right in the middle (Trout).
+
+The following graph reveals this curve:
 
 ```{r}
-plate_coverage_diff_model <- lm(plate_coverage_change$wrc_diff ~ plate_coverage_change$total_coverage_diff)
-summary(plate_coverage_model)
-
-#ggplot(augment(plate_coverage_diff_model), aes(x = .fitted, y = .resid)) + geom_point()
-
-ggplot(plate_coverage_change, aes(total_coverage_diff, wrc_diff)) + geom_point() + geom_smooth(method="lm")  + 
-  ggtitle("Plate Coverage Change vs. wRC+ Change, 2016 – May 14, 2017") + labs(y="wRC+ Change", x="Plate Coverage Change (sq. in)")
+ggplot(plate_coverage_raw %>% filter(game_year == 2016), aes(total_coverage, wrc_plus)) + geom_point() + geom_smooth(method="loess")  + 
+  ggtitle("Plate Coverage vs. wRC+, 2016") + labs(y="wRC+", x="Plate Coverage (sq. in)")
 ```
 
-Again, the downward-sloping line indicates that players who've added coverage have in general _decreased_ their offensive output. The dot near the bottom-right of the graph is our man Jose Peraza, who leads the league in increased plate coverage but whose wRC+ dropped by 56 runs, the third-largest drop in this dataset.
+Our hypothesis appears validated. As plate coverage rises towards 60 square inches, wRC+ rises as well. As plate coverage increases beyond 60 square inches, wRC+ tends to drop. This curve matches our logic. You want your plate coverage to be large enough that you can hit a lot of pitches fair, but not so large you're lunging and making weak contact.
+
+## 2017
+
+It's too early in the season to do leadboards for plate coverage. But we can see who's doing better and worse relative to last year, keeping in mind our findings from 2016.
+
+The following players have increased their plate coverage the most:
+
+```{r}
+# leaders
+ggplot(plate_coverage_change %>% head(10), aes(reorder(Name, total_coverage_diff), total_coverage_diff)) + geom_bar(stat="identity") + coord_flip() + labs(y="Difference (sq. inches)", x="") + ggtitle("Largest Increases in Plate Coverage, 2016 – 2017")
+```
+
+Peraza's added about 32 square inches of plate coverage, enough to cover the 11 more locations of a pitched baseball. But interestingly enough, his wRC+ is down from 103 to 46. These facts provide more support for the idea that not all plate coverage is good.
+
+Now for those who have lost the most plate coverage:
+
+```{r}
+#laggards
+ggplot(plate_coverage_change %>% tail(10), aes(reorder(Name, total_coverage_diff), total_coverage_diff)) + geom_bar(stat="identity") + coord_flip()  + labs(y="Difference (sq. inches)", x="")
+```
+
+Charlie Blackmon is one of the more underrated players in baseball. He and his 122 wRC+ are having another very good year. Combined with what we know about Peraza's plate coverage and wRC+ dro, we should infer that our findings from 2016 hold true: increasing plate coverage isn't necessarily a good thing.
+
+The following graph shows this relationship:
+
+```{r}
+
+ggplot(plate_coverage_change, aes(total_coverage_diff, wrc_diff)) + geom_point() + labs(y="wRC+ Difference", x="Plate Coverage Difference (sq. in)") + ggtitle("Plate Coverage Changes vs. wRC+ Changes, 2016 – 2017") + geom_smooth(method = "lm")
+```
+
+The trend is slight but clear: increasing your plate coverage may result in a small decrease in wRC+.
+
 
 ### Conclusion
 
-
+I don't have a grand conclusion here. 
 
 
 Figure out how to order these graphs by year.
