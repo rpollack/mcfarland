@@ -18,8 +18,8 @@ fgt = theme(
   plot.title = element_text(family = "Lato"),
   panel.grid.major = element_line(size = .1, color = "lightgrey"),
   panel.grid.minor = element_line(size = 0),
-  strip.background = element_rect(fill = "#50ae26"),
-  strip.text = element_text(color="white", family="Lato")
+  #strip.background = element_rect(fill = "#50ae26"),
+  strip.text = element_text(family="Lato")
   )
 
 fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"), 
@@ -44,13 +44,13 @@ fg_info <- fg_db %>%
 batting_war <- fg_db %>%
   tbl("stats_batting") %>%
   filter(Type == 0, 
-         Season >= 2016) %>%
+         Season >= 2015) %>%
   select(playerid, Season, wrc_plus = `wRC+`) %>%
   collect(n=Inf)
 
 savant_data_plate_coverage <- fg_db %>%
   tbl("gd_savant") %>%
-  filter(game_year >= 2016) %>%
+  filter(game_year >= 2015) %>%
   select(batter, player_name, game_year, description, px, pz) %>%
   inner_join(gd_info, by=c("batter" = "mlbamid")) %>%
   collect(n=Inf) %>%
@@ -66,6 +66,8 @@ savant_data_plate_coverage <- fg_db %>%
          pz_in = pz * 12) %>%
   inner_join(batting_war, by=c("playerid", "game_year" = "Season"))  # add wRC+
 
+
+
 ```
 
 ### Compute plate coverage info
@@ -79,25 +81,24 @@ plate_coverage_raw <- savant_data_plate_coverage %>%
   mutate(total_coverage = horiz_coverage * vertical_coverage) %>%
   filter(num_balls_contacted >= 50) %>%
   group_by(game_year) %>%
-  mutate(zCoverage = (total_coverage - mean(total_coverage)) / sd(total_coverage))
-
-# can i draw total coverage for each player, madx * madz??
-
-plate_coverage_change <- plate_coverage_raw %>%
-  group_by(Name) %>%
-  arrange(game_year) %>%
-  mutate(total_coverage_diff = (total_coverage - lag(total_coverage)),
-         wrc_diff = wrc_plus - lag(wrc_plus)) %>%
-  arrange(desc(total_coverage_diff)) %>%
-  filter(!is.na(total_coverage_diff))
+  mutate(zCoverage = (total_coverage - mean(total_coverage)) / sd(total_coverage),
+         dist_from_optimal = round(abs(51-total_coverage), 3))
 
 ```
 
-NEED AN INTRO
+MORE PLATE COVERAGE ISN'T NECESSARILY A GOOD THING
 
-To find whose plate coverage improved and declined the most, I looked at all fair balls in both 2016 and 2017. For each non-pitcher who hit at least 50 such balls in each season, I computed the median absolute deviation (MAD) where the pitch crossed the plate on both the x and z axes. (MLB Gameday uses z as the vertical axis because y is the measurement of a pitch's distance from home plate.) Statcast measures in feet but I report here in inches, because baseball is a game of them.
+The PITCHf/x and Statcast eras brought classification and quanitification to a many previously unexplored facets of baseball. In particular, we've known for awhile the precise coordinates pitched balls as they cross the plate. This data has enabled all kinds of fun analysis. For example, this data powers the heatmaps [http://www.fangraphs.com/zonegrid.aspx?playerid=10155&position=OF] at FanGraphs and other sites. This data also powers single-pitch-analysis, like Jeff Sullivan's takes on Kevin Pillar's exceptional double [[http://www.fangraphs.com/blogs/kevin-pillar-reached-a-new-height/]] and home run [http://www.fangraphs.com/blogs/instagraphs/kevin-pillar-hit-a-stupid-home-run/] in last year's playoffs. See also this fun article [http://www.fangraphs.com/blogs/the-worst-of-the-best-the-seasons-wildest-swings/], that nearly became a series, exploring the wildest swings in baseball.
 
-For each axis, the median absolute deviation gives a great idea of the batter's ability to hit inside/outside, or high/low, pitches while keeping them fair.
+Instead of exploring individual batters or individual pitches, I wanted to use Statcast data to talk about plate coverage across the league. Writers, players, and managers alike often invoke plate coverage as a holy grail. See for example Mike Axisa's take in 2016 on how Trevor Story's plate coverage fueled his impressive start [http://www.cbssports.com/mlb/news/trevor-storys-plate-coverage-fueling-historic-power-display/]. Here's one from Dan Connolly in 2015 about the then-hot Jimmy Paredes and his impressive plate coverage [http://www.baltimoresun.com/sports/bal-jimmy-paredes-and-his-impressive-plate-coverage-20150519-story.html]. And in 2014, Harold Reynolds and Dan Plesac produced a whole video [http://m.mlb.com/video/topic/6479266/v34251547/harold-and-dan-demo-plate-coverage] on the issue for MLB Tonight.   
+
+In general, you might think, covering more of the plate is better. But is it?
+
+To find out, I found all balls hit hair in 2016 and 2017 by non-pitchers who hit at least 50 fair balls. Sending a ball foul is better than a swing-and-miss, but I don't think a foul ball is considered "coverage". Then I defined horizontal coverage by computing the median absolute deviation along the x- and z-axes for all of these pitches. Multiplying both axes gives a fair idea, in square inches, of how much plate area a batter can cover (and still keep the ball fair).
+
+
+MAYBE SKIP EXAMPLES?
+
 
 Examples: The Best and Worst of 2016
 
@@ -118,7 +119,15 @@ example_vertical_coverage <- savant_data_plate_coverage %>%
 
 ```{r}
 ggplot(example_horiz_coverage, aes(y=px_in, x=Name)) + geom_boxplot() + geom_jitter() + coord_flip()  +
-  ggtitle("Worst and Best Horizontal Plate Coverage, 2016") + labs(x="", y="Horizontal Location of Pitch (inches, catcher's perspective)")
+  ggtitle("Worst and Best Horizontal Plate Coverage, 2016") + labs(x="", y="Horizontal Location of Pitch (inches, catcher's perspective)") + fgt
+```
+
+
+```{r}
+deshields_pitch <- savant_data_plate_coverage %>%
+  filter(game_year == 2016,
+         Name == "Delino DeShields") %>%
+  arrange(px_in)
 ```
 
 In 2016, Delino DeShields' bat covered the smallest amount of home plate, side-to-side, of anyone. His MAD on the x-axis (from here on out, MADx) was 0.375 feet, or 4.5 inches. This means most of the balls DeShields was able to not only hit, but also keep fair, fell within a 4.5-inch-wide horizontal section of home plate.
@@ -135,7 +144,7 @@ Taylor Motter, in his rookie year with the Rays, recorded a MADy of 0.368 feet, 
 
 ```{r}
 ggplot(example_vertical_coverage, aes(y=pz_in, x=Name)) + geom_boxplot() + geom_jitter()  +
-  ggtitle("Worst and Best Vertical Plate Coverage, 2016") + labs(x="", y="Vertical Location of Pitch (inches)")
+  ggtitle("Worst and Best Vertical Plate Coverage, 2016") + labs(x="", y="Vertical Location of Pitch (inches)") + fgt
            
 ```
 
@@ -146,10 +155,10 @@ Multiplaying horizontal by vertical coverage tells us who had the most overall c
 ```{r}
 top_10_zone_2016 <- plate_coverage_raw %>%
   filter(game_year == 2016) %>%
-  select(Name, `Plate Coverage Distribution (sq. in)` = total_coverage) %>%
-  arrange(desc(`Plate Coverage Distribution (sq. in)`))
+  select(Name, `Plate Coverage (sq. in)` = total_coverage) %>%
+  arrange(desc(`Plate Coverage (sq. in)`))
 
-ggplot(top_10_zone_2016 %>% head(10), aes(reorder(Name, `Plate Coverage Distribution (sq. in)`), `Plate Coverage Distribution (sq. in)`)) + geom_bar(stat="identity") + coord_flip()  + labs(x="") + ggtitle("Largest Plate Coverage, 2016")
+ggplot(top_10_zone_2016 %>% head(10), aes(reorder(Name, `Plate Coverage (sq. in)`), `Plate Coverage (sq. in)`)) + geom_bar(stat="identity") + coord_flip()  + labs(x="") + ggtitle("Largest Plate Coverage, 2016") + fgt
 ```
 
 Joseph and Dickerson lead the list, as does free-swinger Salvador Perez. (Former) teammates Matt Wieters and Adam Jones, another free-swinger, come in next. Except for Joseph, these guys are all full-time players. Their bats can reach a large variety of pitches in the strike zone.
@@ -163,13 +172,13 @@ Now the 2016 laggards, those with the smallest plate coverage in 2016:
 ```{r}
 bottom_10_zone_2016 <- plate_coverage_raw %>%
   filter(game_year == 2016) %>%
-  select(Name, `Plate Coverage Distribution (sq. in)` = total_coverage) %>%
-  arrange(desc(`Plate Coverage Distribution (sq. in)`))
+  select(Name, `Plate Coverage (sq. in)` = total_coverage) %>%
+  arrange(desc(`Plate Coverage (sq. in)`))
 
-ggplot(top_10_zone_2016 %>% tail(10), aes(reorder(Name, `Plate Coverage Distribution (sq. in)`), `Plate Coverage Distribution (sq. in)`)) + geom_bar(stat="identity") + coord_flip()  + labs(x="") + ggtitle("Smallest Plate Coverage, 2016")
+ggplot(top_10_zone_2016 %>% tail(10), aes(reorder(Name, `Plate Coverage (sq. in)`), `Plate Coverage (sq. in)`)) + geom_bar(stat="identity") + coord_flip()  + labs(x="") + ggtitle("Smallest Plate Coverage, 2016") + fgt
 ```
 
-This list contains catchers and up-the-middle players galore: Avila, Phegley, Garcia, Cervelli, La Stella, Hundley, and DeShields. Motter is a utility player but has spent most of his time at shortstop. None of these guys are particularly good hitters. Now we may have an idea as to why. Pitchers have an easier time with these guys because they can't reach as many balls. The guys in this list mostly rely on their defense to stick in the majors. Alex Avila's coverage fits about 8.6 baseballs in it.
+This list contains up-the-middle players galore: Alex Avila, Josh Phegley, Greg Garcia, Francisco Cervelli, Tommy La Stella, Nick Hundley, and Delino DeShields. Motter is a utility player but has spent most of his time at shortstop. None of these guys are particularly good hitters. Now we may have an idea as to why. Pitchers have an easier time with these guys because they can't reach as many balls. The guys in this list mostly rely on their defense to stick in the majors. Alex Avila's coverage fits about 8.6 baseballs in it.
 
 Compariing league-worst Avila to league-best Joseph, we see the differences visually:
 
@@ -182,7 +191,7 @@ joseph_avila <- savant_data_plate_coverage %>%
   select(Name, px_in, pz_in)
 
 ggplot(joseph_avila, aes(px_in, pz_in)) + geom_point() + facet_grid(~Name) + ggtitle("Locations of Pitches Hit Fair, 2016") +
-  labs(x="Horizontal location (inches, catcher's perspective)", y="Vertical location (inches)")
+  labs(x="Horizontal location (inches, catcher's perspective)", y="Vertical location (inches)") + fgt
 
 ```
 
@@ -193,31 +202,177 @@ BUT IS PLATE COVERAGE A GOOD THING?
 The following graph gives us an idea:
 
 ```{r}
-plate_coverage_model <- lm(plate_coverage_raw$wrc_plus ~ plate_coverage_raw$total_coverage)
+
+plate_coverage_2016 <- plate_coverage_raw %>%
+  filter(game_year <= 2016)
+
+plate_coverage_model <- lm(plate_coverage_2016$wrc_plus ~ plate_coverage_2016$total_coverage)
 summary(plate_coverage_model)
+
+plate_coverage_ex <- lm(plate_coverage_2016$wrc_plus ~ poly(plate_coverage_2016$total_coverage, 2))
+summary(plate_coverage_ex)
 
 #ggplot(augment(plate_coverage_model), aes(x = .fitted, y = .resid)) + geom_point()
 
 
-ggplot(plate_coverage_raw %>% filter(game_year == 2016), aes(total_coverage, wrc_plus)) + geom_point() + geom_smooth(method="lm")  + 
-  ggtitle("Plate Coverage vs. wRC+, 2016") + labs(y="wRC+", x="Plate Coverage (sq. in)")
+ggplot(plate_coverage_2016, aes(total_coverage, wrc_plus)) + geom_point() + 
+  geom_smooth(method="lm", formula = y ~ poly(x, 2)) + 
+  ggtitle("Plate Coverage vs. wRC+, 2015 - 2016") + labs(y="wRC+", x="Plate Coverage (sq. in)") + fgt
 
 
-#wRC+ = 100.4 - (.0093 * Total Coverage)
 
 ```
 
-Keeping in mind we have only eight months of data, the answer appears to be "no." The regression line slopes downwards every so slightly, indicating that not only is covering more of the plate _bad_ for players' offensive output, but also that plate coverage doesn't matter much. After all, Mike Trout and his incredibly high wRC+ (171 in 2016; 216 so far in 2017) have a plate coverage of only 53 square inches.
+The scatterplot indicates that a linear model is insufficient for this data. See how wRC+ rises along with plate coverage until the latter reaches about 50 square inches, then declines as coverage further increases. With an R2 of .019 vs. an R2 of .003, a parabola is a better fit than a linear model (although neither indicates a large effect.)
 
-Although we'll have to wait for more data, this makes sense logically: plate coverage indicates simply that a player made contact with a pitch that resulted in a fair ball. Players with a wide zone may be reaching for pitches too much, resulting in weak contact and easy outs instead of letting a borderline strike or clear ball go by.
+In real-world terms: you want to cover a moderate amount of the plate with your swing. With too little coverage, pitchers can easily sneak pitches past you. With too much coverage, you put balls into play that you shouldn't.
 
-Joseph's plot above shows he made contact with pitches less than a foot off the ground. If he'd simply taken them for balls, he'd have gained an advantage over the pitcher. Perhaps instead of plate _coverage_, we should be talking about plate _discipline_.
+Joseph's plot above shows he made contact with pitches less than a foot off the ground. If he'd simply taken them for balls, he'd have gained an advantage over the pitcher. 
 
-Here's a video of him hitting this pitch: 
+The lowest pitch in his 2016 dataset was 10.6 inches off the ground. Here's a video of him hitting it: 
 
 <div style="width:100%;height:0;padding-bottom:56%;position:relative;"><iframe src="https://giphy.com/embed/3og0ITbC1vh9rAHwWI" width="100%" height="100%" style="position:absolute" frameBorder="0" class="giphy-embed" allowFullScreen></iframe></div><p><a href="https://giphy.com/gifs/3og0ITbC1vh9rAHwWI">via GIPHY</a></p>
 
-That's, er ... not a pitch you should be swinging at. To be fair, there were runners on the corners with no one out in the seventh inning with the Orioles down by two. He probably got too aggressive.
+That's, er ... not a pitch you should swing at. To be fair, there were runners on the corners with no one out in the seventh inning with the Orioles down by two. I'd be aggressive in that situation too.
+
+Eyeballing the peak of 60 square inches, here are the players who came closest to it in 2016 and their wRC+:
+
+```{r}
+peak_2016 <- plate_coverage_raw %>%
+  filter(game_year == 2016) %>%
+  ungroup() %>%
+  select(Name, dist_from_optimal, wrc_plus) %>%
+  mutate(wrc_plus = round(wrc_plus, 0)) %>%
+  arrange(dist_from_optimal, wrc_plus) %>%
+  head(10) %>%
+  write_csv("plate-coverage-optimal.csv")
+
+peak_2016
+
+```
+
+Chris Gimenez and Tuffy Gosewisch aside, these are hitters you'd be happy to have on your team.
+
+Now those furthest from the optimal plate coverage:
+
+```{r}
+worst_2016 <- plate_coverage_raw %>%
+  filter(game_year == 2016) %>% 
+  ungroup() %>%
+  mutate(wrc_plus = round(wrc_plus, 0)) %>%
+  select(Name, dist_from_optimal, wrc_plus) %>%
+  arrange(dist_from_optimal) %>%
+  tail(10) %>%
+  write_csv("plate-coverage-sucks.csv")
+
+worst_2016
+
+```
+
+You can find a few bright spots here, but overall this group of players is way less impressive than the other one.
+
+### 2017
+
+Now that we know 60 square inches is about optimal for plate coverage, who in 2017 has changed for the better? To find out I computed each how far each player's plate coverage has changed from the optimal value (about 60 square inches, remember) and saw how their wRC+ has changed:
+
+```{r}
+
+# have to compute dist. from 60 in 2016 vs. dist from 60 in 2017. and look at THOSE leaders/laggards.
+
+plate_coverage_change <- plate_coverage_raw %>%
+  group_by(Name) %>%
+  arrange(game_year) %>%
+  mutate(total_coverage_diff = (total_coverage - lag(total_coverage)),
+         wrc_diff = round(wrc_plus - lag(wrc_plus), 0),
+         optim_diff = lag(dist_from_optimal) - dist_from_optimal) %>%
+  arrange(desc(total_coverage_diff)) %>%
+  filter(!is.na(total_coverage_diff))
+
+plate_coverage_change_best <- plate_coverage_change %>%
+  select(Name, optim_diff, wrc_diff) %>%
+  arrange(optim_diff) 
+
+ggplot(plate_coverage_change, aes(optim_diff, wrc_diff)) + geom_point() + geom_smooth(method="lm") +
+  ggtitle("Changes in Plate Coverage vs. Changes in wRC+, 2015 - 2017") + labs(x="Change in Distance from Optimal Plate Coverage (sq. in)", y="Change in wRC+")
+
+change_mdl <- lm(wrc_diff ~ optim_diff, data = plate_coverage_change)
+summary(change_mdl)
+
+# wrc_diff = .65 * (optim_diff) - 5.93
+# 
+
+```
+
+On the x-axis, negative numbers indicate plate coverages that moved closer to the optimal area of 60 square inches. Positive numbers indicate plate coverages that moved further from the optimal area. As a whole, players who moved closer to the ideal coverage have seen their wRC+ increase. With a low R2 of .035, the relationship isn't strong 
+
+
+```{r}
+peraza_yoy <- savant_data_plate_coverage %>%
+  filter(game_year >= 2016,
+         Name == "Jose Peraza") %>%
+  select(Name, game_year, px_in, pz_in)
+
+ggplot(peraza_yoy, aes(px_in, pz_in)) + geom_point() + facet_grid(~game_year) + ggtitle("Jose Peraza's Plate Coverage") +
+  labs(x="Horizontal location (inches, catcher's perspective)", y="Vertical location (inches)") + fgt
+
+jones_yoy <- savant_data_plate_coverage %>%
+  filter(game_year >= 2016,
+         Name == "Adam Jones") %>%
+  select(Name, game_year, px_in, pz_in)
+
+ggplot(jones_yoy, aes(px_in, pz_in)) + geom_point() + facet_grid(~game_year) + ggtitle("Adam Jones' Plate Coverage") +
+  labs(x="Horizontal location (inches, catcher's perspective)", y="Vertical location (inches)") + fgt
+
+
+```
+
+The scatterplot and trend line confirm that the further your plate converage moves from 60 square inches, the worse your wRC+ becomes. 
+
+50 in 2016 to 60 in 2017
+optim of 0 to optim of 10
+
+
+
+50 in 2016 to 60 in 2017
+optim of 10 to optim of 0
+diff of 10
+got better. 
+
+80 in 2016 to 60 in 2017
+optim of 20 to optim of 0
+diff of 20
+got better
+
+60 in 2016 to 60 2017
+optim of 0 to optim of 0
+diff of 0. still good tho
+
+20 in 2016 to 80 in 2017
+optim of 40 to optim of 20
+diff of 20
+
+59 in 2016 to 60 in 2017
+optim of 1 vs. optim of 0
+change of -1; but got better.
+
+what i'm computing is the change in optimal plate coverage ... what I want to find is who converged towards 60 the most.
+
+coverage changes:
+
+from 50 to 60 would be BAD; optim of
+
+like from 30 to 60 would be GOOD (optim from 30 to 0, diff of -30)
+from 60 to 80 would be BAD (optim from 0 to 20, diff of 20)
+from 40 to 60 would be GOOD (optim from 20 to 0, diff of -20)
+from 60 to 10 would be BAD (optim from 0 to 50, diff of 50)
+from 90 to 40 would be GOOD (optim of 30 to optim of 20, diff of -10)
+40 to 50 would be GOOD (diff of 10)
+
+
+======
+
+
+
 
 Let's return to the notion that Mike Trout, with his plate coverage of 53 inches, hits better than Avila or Joseph with their respective small and large coverages. Look at the graph: the points appear to form a slight curve. This would indicate a new hypothesis: you don't want to have too little plate coverage (Avila) or too much (Joseph). You want to be right in the middle (Trout).
 
@@ -250,7 +405,7 @@ Now for those who have lost the most plate coverage:
 ggplot(plate_coverage_change %>% tail(10), aes(reorder(Name, total_coverage_diff), total_coverage_diff)) + geom_bar(stat="identity") + coord_flip()  + labs(y="Difference (sq. inches)", x="")
 ```
 
-Charlie Blackmon is one of the more underrated players in baseball. He and his 122 wRC+ are having another very good year. Combined with what we know about Peraza's plate coverage and wRC+ dro, we should infer that our findings from 2016 hold true: increasing plate coverage isn't necessarily a good thing.
+Charlie Blackmon is one of the more underrated players in baseball. He and his 122 wRC+ are having another very good year. Combined with what we know about Peraza's plate coverage and wRC+ drop, we should infer that our findings from 2016 hold true: increasing plate coverage isn't necessarily a good thing.
 
 The following graph shows this relationship:
 
@@ -261,10 +416,12 @@ ggplot(plate_coverage_change, aes(total_coverage_diff, wrc_diff)) + geom_point()
 
 The trend is slight but clear: increasing your plate coverage may result in a small decrease in wRC+.
 
-
 ### Conclusion
 
+
+
 I don't have a grand conclusion here. 
+
 
 
 Figure out how to order these graphs by year.
