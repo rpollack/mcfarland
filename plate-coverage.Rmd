@@ -49,21 +49,20 @@ batting_war <- fg_db %>%
   collect(n=Inf)
 
 savant_data_plate_coverage <- fg_db %>%
-  tbl("gd_savant") %>%
-  filter(game_year >= 2015) %>%
-  select(batter, player_name, game_year, description, px, pz) %>%
+  tbl("gd_savant_new") %>%
+  select(batter, player_name, game_year, description, plate_x, plate_z) %>%
   inner_join(gd_info, by=c("batter" = "mlbamid")) %>%
   collect(n=Inf) %>%
-  filter(str_detect(description, "In play")) %>%
-  mutate(px = as.numeric(px),
-         pz = as.numeric(pz)) %>%
+  filter(str_detect(description, "hit_into_play")) %>%
+  mutate(plate_x = as.numeric(plate_x),
+         plate_z = as.numeric(plate_z)) %>%
   inner_join(fg_info, by=c("playerid" = "PlayerId")) %>%
   filter(!BISPosition %in% c("", "SP", "RP")) %>%
   mutate(Name = sprintf("%s %s", FirstName, LastName),
          
          #compute inches instead of feet
-         px_in = px * 12,
-         pz_in = pz * 12) %>%
+         px_in = plate_x * 12,
+         pz_in = plate_z * 12) %>%
   inner_join(batting_war, by=c("playerid", "game_year" = "Season"))  # add wRC+
 
 
