@@ -83,6 +83,22 @@ plate_coverage_raw <- savant_data_plate_coverage %>%
   mutate(zCoverage = (total_coverage - mean(total_coverage)) / sd(total_coverage),
          dist_from_optimal = round(abs(51-total_coverage), 3))
 
+high_achievers <- plate_coverage_raw %>%
+  filter(wrc_plus >= 160,
+         game_year < 2017) %>%
+  ungroup() %>%
+  select(-zCoverage) %>%
+  mutate(wrc_plus = round(wrc_plus, 0)) %>%
+  summarize(mean_dist_from_optimal = mean(dist_from_optimal))
+
+normies <- plate_coverage_raw %>%
+  filter(wrc_plus < 160,
+         game_year < 2017) %>%
+  ungroup() %>%
+  select(-zCoverage) %>%
+  mutate(wrc_plus = round(wrc_plus, 0)) %>%
+  summarize(mean_dist_from_optimal = mean(dist_from_optimal))
+
 ```
 
 MORE PLATE COVERAGE ISN'T NECESSARILY A GOOD THING
