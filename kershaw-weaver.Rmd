@@ -8,6 +8,7 @@ library(stringr)
 library(plotly)
 library(lubridate)
 library(RMySQL)
+library(knitr)
 
 fgt = theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
@@ -71,12 +72,13 @@ team_lookup <- fg_db %>%
          run_diff_plus = R_plus - RA_plus)
 
 pitcher_info <- fg_db %>%
-  tbl("stats_pitching") %>%
+  tbl("stats_pitching_master") %>%
   filter(Type == 0,
          Season >= 2015) %>%
-  select(PlayerId, Season, G, GS, IP, TBF) %>%
+  select(PlayerId, Season, G, GS, IP, TBF, SO, BB, hr_fb = `HR/FB`, `xFIP`, `FIP`) %>%
   collect(Inf) %>%
-  inner_join(fg_info, by="PlayerId")
+  inner_join(fg_info, by="PlayerId") %>%
+  mutate(k_perc = 100 * (SO / TBF), bb_perc = 100 *(BB / TBF))
 
 
 ```
@@ -102,18 +104,6 @@ savant_data <- savant_data %>%
          #assign correct wOBA value to walks & HBP
          xwoba = ifelse(events == "walk", 0.69,
                         ifelse(events == "hit_by_pitch", 0.72, xwoba)))
-
-```
-
-
-```{r}
-kershaw_results <- savant_data %>%
-  filter(player_name == "Clayton Kershaw") %>%
-  group_by(game_year) %>%
-  summarize(mean_hit_speed = mean(launch_speed, na.rm = TRUE),
-            mean_launch_angle = mean(launch_angle, na.rm = TRUE),
-            mad_hit_speed = mad(launch_speed, na.rm = TRUE),
-            mad_launch_angle = mad(launch_angle, na.rm = TRUE))
 
 ```
 
@@ -148,22 +138,57 @@ HOW CLAYTON KERSHAW IS LIKE JERED WEAVER
 
 ### Discuss Kershaw's Decline this year
 
-Decline in K%
-Increase in BB%
-Increase in HR/FB%
+```{r}
+kershaw_stats <- pitcher_info %>%
+  filter(GS/G >= .5,
+         TBF >= 200) %>%
+  group_by(Season) %>%
+  mutate(k_plus = round(100 * (k_perc / mean(k_perc)), 0),
+         bb_plus = round(100 * bb_perc / mean(bb_perc), 0),
+         hr_fb_plus = round(100 * (hr_fb / mean(hr_fb)), 0),
+         fip_plus = round(100 * (FIP / mean(FIP))),
+         xfip_plus = round(100 * (xFIP / mean(xFIP)))) %>%
+  select(Name, Season, `K%+` = k_plus, `BB%+` = bb_plus, `HR/FB+` = hr_fb_plus, `FIP-` = fip_plus, `xFIP-` = xfip_plus)
 
-Increase in FIP- from 45 to 72
+foo <- gather(kershaw_stats, stat, value, contains("+"))
 
-Even if you strip out the (supposedly) bad luck in HR/FB, Kershaw's xFIP- still has increased from 56 to 64.
+ggplot(foo %>% filter(Name == "Clayton Kershaw"), aes(as.character(Season), value, group = 1)) + geom_point() + geom_line() +
+  facet_wrap(~stat) + ggtitle("The Slight Decline of Clayton Kershaw, 2015 - 2017") + labs(y="", x="")
+```
+
+
+His FIP- and xFIP- have suffered as well:
+
+```{r}
+foo2 <- gather(kershaw_stats, stat, value, contains("-"))
+
+ggplot(foo2 %>% filter(Name == "Clayton Kershaw"), aes(as.character(Season), value, group = 1)) + geom_point() + geom_line() +
+  facet_wrap(~stat) + ggtitle("The Slight Decline of Clayton Kershaw, 2015 - 2017, Part 2") + labs(y="", x="")
+
+```
 
 Getting more granular, his plate discipline stats are also going in the wrong direction. He's not fooling hitters as badly as he used to.
 
 Decline in SwStr%
 Increase in O-Zone% + Decline in O-Swing%  (or just do O-Swing / O-Zone)
 
-Mean EXIT VEL?
 
-Mean LAUNCH ANGLE?
+
+Kershaw's exit velocity has also increased, although his average launch angle has come down quite a bit:
+
+```{r}
+kershaw_results <- savant_data %>%
+  filter(player_name == "Clayton Kershaw") %>%
+  group_by(game_year) %>%
+  summarize(mean_hit_speed = mean(launch_speed, na.rm = TRUE),
+            mean_launch_angle = mean(launch_angle, na.rm = TRUE)) %>%
+  kable
+
+```
+
+
+By these stats alone, one could conclude that Kershaw is having a less-than-epic year. But we can go even further by looking at xWOBA. 
+
 
 ## Now talk about xWOBA
 
