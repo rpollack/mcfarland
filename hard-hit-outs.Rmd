@@ -1,0 +1,324 @@
+
+
+```{r setup, include=FALSE, echo=FALSE}
+
+
+library(tidyverse)
+library(rvest)
+library(stringr)
+library(plotly)
+library(lubridate)
+library(RMySQL)
+
+fgt = theme(
+  panel.background = element_rect(color = "lightgrey", fill = "white"),
+  axis.title = element_text(family = "Lato"),
+  axis.text = element_text(family = "Lato"),
+  legend.title = element_text(family = "Lato"),
+  legend.text = element_text(family = "Lato"),
+  legend.background = element_rect(fill = "white"),
+  legend.key = element_rect(fill = "white"),
+  plot.title = element_text(family = "Lato"),
+  panel.grid.major = element_line(size = .1, color = "lightgrey"),
+  panel.grid.minor = element_line(size = 0),
+  strip.background = element_rect(fill = "#50ae26"),
+  strip.text = element_text(color="white", family="Lato")
+  )
+
+fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"), 
+                            host = Sys.getenv("FG_HOST"), 
+                            user = Sys.getenv("FG_USER"),
+                            password = Sys.getenv("FG_PW"))
+```
+
+
+### Get Data
+
+```{r}
+
+gd_info <- fg_db %>%
+  tbl("gd_roster") %>%
+  select(mlbamid, playerid)
+
+fg_info <- fg_db %>%
+  tbl("player_info") %>%
+  select(PlayerId, FirstName, LastName, BISPosition) %>%
+  collect(n=Inf) %>%
+  mutate(Name = sprintf("%s %s", FirstName, LastName)) %>%
+  select(PlayerId, Name, BISPosition)
+
+savant_data <- fg_db %>%
+  tbl("gd_savant_new") %>%
+  select(batter, player_name, game_date, game_year, pitch_type, release_speed, events, description, des, plate_x, plate_z, 
+         hc_x, hc_y, launch_speed, launch_angle, hit_distance_sc, home_team, away_team, inning_top_bottom, xwoba) %>%
+  inner_join(gd_info, by=c("batter" = "mlbamid")) %>%
+  collect(n=Inf)
+
+team_lookup <- fg_db %>%
+  tbl("season_team") %>%
+  filter(Season >= 2015) %>%
+  select(Season, AbbName, W, L, R, RA) %>%
+  collect(n=Inf) %>%
+  mutate(AbbName = ifelse(AbbName == "WSN", "WSH",
+                          ifelse(AbbName == "SDP", "SD",
+                                 ifelse(AbbName == "SFG", "SF",
+                                        ifelse(AbbName == "TBR", "TB",
+                                               ifelse(AbbName == "KCR", "KC",
+                                                      ifelse(AbbName == "CHW", "CWS", AbbName)))))),
+         pct = W / (W + L)) %>%
+  group_by(Season) %>%
+  mutate(R_plus = round(100 * (R / mean(R)), 0),
+         RA_plus = round(100 * (RA / mean(RA)), 0),
+         run_diff_plus = R_plus - RA_plus)
+
+
+```
+
+
+```{r}
+savant_data <- savant_data %>%
+  #add player names
+  inner_join(fg_info, by=c("playerid" = "PlayerId")) %>%
+  
+  #compute batting team & fielding team
+  mutate(batting_team = ifelse(inning_top_bottom == "N", home_team, away_team),
+         fielding_team = ifelse(batting_team == away_team, home_team, away_team),
+         
+         #convert numbers to numeric, leaving 'null' values as NA
+         launch_speed = as.numeric(launch_speed),
+         hit_distance_sc = as.numeric(hit_distance_sc),
+         launch_angle = as.numeric(launch_angle),
+         plate_x = as.numeric(plate_x),
+         plate_z = as.numeric(plate_z),
+         spray_angle = round(tan((hc_x - 125.42)/ (198.27-hc_y)) * 180/pi*.75, 1),
+         
+         #assign correct wOBA value to walks & HBP
+         xwoba = ifelse(events == "walk", 0.69,
+                        ifelse(events == "hit_by_pitch", 0.72, xwoba)))
+
+```
+
+### Trends in xWOBA
+
+```{r}
+xwoba_gainers_batters <- savant_data %>%
+  filter(des != "") %>%
+  group_by(game_year) %>%
+  mutate(xwoba_plus = 100 * xwoba / mean(xwoba)) %>%
+  ungroup() %>%
+  group_by(Name, game_year) %>%
+  summarize(num_pitches_seen = n(),
+            mean_xwoba_plus = mean(xwoba_plus)) %>%
+  filter(num_pitches_seen >= 300) %>%
+  group_by(Name) %>%
+  arrange(game_year) %>%
+  mutate(xwoba_diff = mean_xwoba_plus - lag(mean_xwoba_plus)) %>%
+  filter(!is.na(xwoba_diff)) %>%
+  arrange(desc(xwoba_diff))
+
+xwoba_gainers_pitchers <- savant_data %>%
+  filter(des != "") %>%
+  group_by(game_year) %>%
+  mutate(xwoba_plus = 100 * xwoba / mean(xwoba)) %>%
+  ungroup() %>%
+  group_by(player_name, game_year) %>%
+  summarize(num_pitches_seen = n(),
+            mean_xwoba_plus = mean(xwoba_plus)) %>%
+  filter(num_pitches_seen >= 300) %>%
+  group_by(player_name) %>%
+  arrange(game_year) %>%
+  mutate(xwoba_diff = mean_xwoba_plus - lag(mean_xwoba_plus)) %>%
+  filter(!is.na(xwoba_diff)) %>%
+  arrange(desc(xwoba_diff))
+
+#xwoba increase leaders - batters
+ggplot(xwoba_gainers_batters %>% filter(game_year == 2017) %>% head(10), aes(reorder(Name, xwoba_diff), xwoba_diff)) + geom_bar (stat="identity") + coord_flip() + ggtitle("Largest Increases in xwOBA+, 2016 - 2017") + labs(x="", y="Change in xWOBA+ (%)")
+
+#xwoba increase laggards - batters
+ggplot(xwoba_gainers_batters %>% filter(game_year == 2017) %>% tail(10), aes(reorder(Name, xwoba_diff), xwoba_diff)) + geom_bar (stat="identity") + coord_flip() + ggtitle("Largest Decreases in xwOBA+, 2016 - 2017") + labs(x="", y="Change in xWOBA+ (%)")
+
+#xwoba allowed decrease - pitchers (larger decrease is better)
+ggplot(xwoba_gainers_pitchers %>% filter(game_year == 2017) %>% tail(10), aes(reorder(player_name, -xwoba_diff), xwoba_diff)) + geom_bar (stat="identity") + coord_flip() + ggtitle("Largest Decreases in xwOBA+ Allowed, 2016 - 2017") + labs(x="", y="Change in xWOBA+ Allowed (%, lower is better)")
+
+#xwoba allowed increase - pitchers (larger increase is worse)
+ggplot(xwoba_gainers_pitchers %>% filter(game_year == 2017) %>% head(10), aes(reorder(player_name, xwoba_diff), xwoba_diff)) + geom_bar (stat="identity") + coord_flip() + ggtitle("Largest Increases in xwOBA+ Allowed, 2016 - 2017") + labs(x="", y="Change in xWOBA+ Allowed (%, larager is worse)")
+
+
+
+```
+
+METHODOLOGY
+
+Be sure to remind folks I asigned 0.69 to walks and 0.72 to HBP per the wOBA formula. 
+
+```{r}
+
+team_colors <- tibble(`team` = c("BAL", "NYY", "TOR", "BOS", "TB",
+                                 "CLE", "MIN", "CWS", "DET", "KC",
+                                 "LAA", "OAK", "SEA", "TEX", "HOU",
+                                 "WSH", "ATL", "NYM", "MIA", "PHI",
+                                 "CHC", "PIT", "MIL", "CIN", "STL",
+                                 "ARI", "LAD", "SD", "COL", "SF"),
+                      `team_color` = c("#ED4C09", "#1C2841", "#003DA5", "#C60C30", "#9ECEEE",
+                                       "#003366", "#072754", "#000000", "#001742", "#74B4FA",
+                                       "#B71234", "#003831", "#005C5C", "#BD1021", "#FF7F00",
+                                       "#BA122B", "#002F5F", "#FB4F14", "#000000", "#BA0C2F",
+                                       "#003279", "#FDB829", "#182B49", "#C6011F", "#C41E3A",
+                                       "#A71930", "#083C6B", "#002147", "#333366", "#F2552C"))
+team_colors
+
+
+# compute offensive xwoba relative to lg average, each year
+xwoba_offense <- savant_data %>%
+  filter(des != "") %>%
+  group_by(game_year) %>%
+  mutate(xwoba_plus = 100 * xwoba / mean(xwoba)) %>%
+  ungroup() %>%
+  group_by(batting_team, game_year) %>%
+  summarize(mean_xwoba_plus = round(mean(xwoba_plus), 0)) %>%
+  mutate(division = ifelse(batting_team %in% c("BAL", "NYY", "TOR", "BOS", "TB"), "AL East",
+                           ifelse(batting_team %in% c("CLE", "MIN", "CWS", "DET", "KC"), "AL Central",
+                                  ifelse(batting_team %in% c("LAA", "OAK", "SEA", "TEX", "HOU"), "AL West",
+                                         ifelse(batting_team %in% c("WSH", "ATL", "NYM", "MIA", "PHI"), "NL East",
+                                                ifelse(batting_team %in% c("CHC", "PIT", "MIL", "CIN", "STL"), "NL Central",
+                                                       ifelse(batting_team %in% c("ARI", "LAD", "SD", "COL", "SF"),
+                                                              "NL West", "NA"))))))) %>%
+  inner_join(team_colors, by=c("batting_team" = "team")) %>%
+  inner_join(team_lookup, by=c("batting_team" = "AbbName", "game_year" = "Season"))
+
+
+xwoba_offense_plt <- ggplot(xwoba_offense, aes(as.character(game_year), mean_xwoba_plus, color=batting_team, group=1)) + geom_point() + geom_line() + facet_wrap(~division)
+
+ggplotly(xwoba_offense_plt)
+
+#compute xwoba allowed relative to lg average, each year
+xwoba_allowed <- savant_data %>%
+  filter(des != "") %>%
+  group_by(game_year) %>%
+  mutate(xwoba_allowed_plus = 100 * xwoba / mean(xwoba)) %>%
+  ungroup() %>%
+  group_by(fielding_team, game_year) %>%
+  summarize(mean_xwoba_allowed_plus = round(mean(xwoba_allowed_plus), 0)) %>%
+  mutate(division = ifelse(fielding_team %in% c("BAL", "NYY", "TOR", "BOS", "TB"), "AL East",
+                           ifelse(fielding_team %in% c("CLE", "MIN", "CWS", "DET", "KC"), "AL Central",
+                                  ifelse(fielding_team %in% c("LAA", "OAK", "SEA", "TEX", "HOU"), "AL West",
+                                         ifelse(fielding_team %in% c("WSH", "ATL", "NYM", "MIA", "PHI"), "NL East",
+                                                ifelse(fielding_team %in% c("CHC", "PIT", "MIL", "CIN", "STL"), "NL Central",
+                                                       ifelse(fielding_team %in% c("ARI", "LAD", "SD", "COL", "SF"),
+                                                              "NL West", "NA"))))))) %>%
+  inner_join(team_lookup, by=c("fielding_team" = "AbbName", "game_year" = "Season"))
+
+xwoba_allowed_plt <- ggplot(xwoba_allowed, aes(as.character(game_year), mean_xwoba_allowed_plus, color=fielding_team, group=1)) +
+  geom_point() + geom_line() + facet_wrap(~division)
+
+ggplotly(xwoba_allowed_plt)
+
+xwoba_diff <- inner_join(xwoba_allowed, xwoba_offense, by=c("fielding_team" = "batting_team", "game_year")) %>%
+  mutate(xwoba_plus_diff = round(mean_xwoba_plus - mean_xwoba_allowed_plus, 5)) %>%
+  select(team = fielding_team, game_year, mean_xwoba_plus, mean_xwoba_allowed_plus, xwoba_plus_diff, division = division.y,
+         pct = pct.x, run_diff_plus = run_diff_plus.x, R_plus = R_plus.x, RA_plus = RA_plus.x)
+
+xwoba_diff_plt <- ggplot(xwoba_diff, aes(as.character(game_year), xwoba_plus_diff, color=team, group=1)) +
+  geom_point() + geom_line() + facet_wrap(~division)
+
+ggplotly(xwoba_diff_plt)
+
+run_diff_plt <- ggplot(xwoba_diff, aes(as.character(game_year), run_diff_plus, color=team, group=1)) +
+  geom_point() + geom_line() + facet_wrap(~division)
+ggplotly(run_diff_plt)
+```
+
+```{r}
+ggplot(xwoba_diff %>% filter(division == "AL West"), aes(as.character(game_year), run_diff_plus, group=team, color=team)) + geom_point() + geom_line() + ggtitle("Run Differential+, AL West, 2015 - 2017") + labs(y="Run Differential+ (0 = league average)", x = "Year")
+```
+
+What could cause differences b/w xWOBA and actual WOBA?
+- Offense:
+-- Speed of runners (see http://www.fangraphs.com/blogs/how-to-beat-statcasts-hitting-metric/),
+-- Sequencing
+- Defense
+-- Fielding ability
+-- Sequencing
+
+### Releate xWOBA Diff to W-L
+
+```{r}
+ggplot(xwoba_diff, aes(mean_xwoba_plus, R_plus)) + geom_point() + geom_smooth(method = "lm")
+
+
+ggplot(xwoba_diff, aes(mean_xwoba_allowed_plus, RA_plus)) + geom_point() + geom_smooth(method = "lm")
+
+ggplot(xwoba_diff, aes(xwoba_plus_diff, run_diff_plus)) + geom_point() + geom_smooth(method="lm")
+
+
+```
+
+### Relate xWOBA+ Diff to PCT
+
+```{r}
+
+ggplot(xwoba_diff, aes(xwoba_plus_diff, pct)) + geom_point() + geom_smooth(method="lm")
+
+ggplot(xwoba_diff, aes(run_diff_plus, pct)) + geom_point() + geom_smooth(method="lm")
+
+
+```
+
+
+```{r}
+hard_hit_outs <- savant_data %>%
+  filter(description == "hit_into_play" & events == "field_out",
+         game_year >= 2016) %>%
+  group_by(game_year, fielding_team) %>%
+  summarize(mean_launch_speed_of_outs = mean(launch_speed, na.rm = TRUE),
+            max_launch_speed_of_outs = max(launch_speed, na.rm = TRUE),
+            min_launch_speed_of_outs = min(launch_speed, na.rm = TRUE),
+            median_launch_speed_of_outs = median(launch_speed, na.rm = TRUE),
+            median_abs_deviation_of_outs = mad(launch_speed, na.rm = TRUE),
+            mad_xwoba_of_outs = mad(xwoba, na.rm = TRUE))
+
+```
+
+```{r}
+
+#compute YoY change in  launch speed of outs
+year_diff_mean_launch_speed <- hard_hit_outs %>%
+  group_by(fielding_team) %>%
+  arrange(game_year) %>%
+  mutate(diff_mean_launch_speed_of_outs = mean_launch_speed_of_outs - lag(mean_launch_speed_of_outs),
+         diff_mad_launch_speed_of_outs = median_abs_deviation_of_outs - lag(median_abs_deviation_of_outs),
+         diff_mad_xwoba_of_outs = mad_xwoba_of_outs - lag(mad_xwoba_of_outs)) %>%
+  filter(game_year == 2017)
+
+
+#show diff in MAD launch speed of outs -- indicating teams are getting to a wider or smaller distribution of launch speeds
+#and converting them into outs
+ggplot(year_diff_mean_launch_speed, aes(reorder(fielding_team, diff_mad_xwoba_of_outs), diff_mad_xwoba_of_outs)) + geom_bar(stat ="identity") + coord_flip()
+
+# but are pitchers just allowing higher exit vels?
+
+# include xWOBA? which fielding teams have changed their xWOBA-wOBA differential?
+
+```
+
+
+
+### YoY Change in MAD hit speed of outs.
+
+A drop (CLE, CIN) means teams are getting to a narrower range of batted ball speeds than last year.
+An increase (NYM, SEA) means teams are getting to a wider range of batted ball speeds than last year. 
+
+(use a boxplot to show the differences)
+```{r}
+year_diff_mad_launch_speed <- hard_hit_outs %>%
+  group_by(fielding_team) %>%
+  arrange(game_year) %>%
+  mutate(diff_mad_launch_speed_of_outs = median_abs_deviation_of_outs - lag(median_abs_deviation_of_outs)) %>%
+  filter(!is.na(diff_mad_launch_speed_of_outs)) %>%
+  select(fielding_team, diff_mad_launch_speed_of_outs)
+
+ggplot(year_diff_mad_launch_speed, aes(reorder(fielding_team, diff_mad_launch_speed_of_outs), diff_mad_launch_speed_of_outs)) +
+  geom_bar(stat="identity") + coord_flip()
+
+
+```
