@@ -1,0 +1,219 @@
+
+```{r setup, include=FALSE, echo=FALSE}
+
+
+library(tidyverse)
+library(rvest)
+library(stringr)
+library(plotly)
+library(lubridate)
+library(RMySQL)
+
+fgt = theme(
+  panel.background = element_rect(color = "lightgrey", fill = "white"),
+  axis.title = element_text(family = "Lato"),
+  axis.text = element_text(family = "Lato"),
+  legend.title = element_text(family = "Lato"),
+  legend.text = element_text(family = "Lato"),
+  legend.background = element_rect(fill = "white"),
+  legend.key = element_rect(fill = "white"),
+  plot.title = element_text(family = "Lato"),
+  panel.grid.major = element_line(size = .1, color = "lightgrey"),
+  panel.grid.minor = element_line(size = 0),
+  strip.background = element_rect(fill = "#50ae26"),
+  strip.text = element_text(color="white", family="Lato")
+  )
+
+fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"), 
+                            host = Sys.getenv("FG_HOST"), 
+                            user = Sys.getenv("FG_USER"),
+                            password = Sys.getenv("FG_PW"))
+```
+
+
+### Get Data
+
+```{r}
+
+gd_info <- fg_db %>%
+  tbl("gd_roster") %>%
+  select(mlbamid, playerid)
+
+fg_info <- fg_db %>%
+  tbl("player_info") %>%
+  select(PlayerId, FirstName, LastName, BISPosition) %>%
+  collect(n=Inf) %>%
+  mutate(Name = sprintf("%s %s", FirstName, LastName)) %>%
+  select(PlayerId, Name, BISPosition)
+
+savant_data <- fg_db %>%
+  tbl("gd_savant_new") %>%
+  select(batter, player_name, game_date, game_year, pitch_type, release_speed, events, description, des, plate_x, plate_z, 
+         hc_x, hc_y, launch_speed, launch_angle, hit_distance_sc, home_team, away_team, inning_top_bottom, xwoba) %>%
+  inner_join(gd_info, by=c("batter" = "mlbamid")) %>%
+  collect(n=Inf)
+
+team_lookup <- fg_db %>%
+  tbl("season_team") %>%
+  filter(Season >= 2015) %>%
+  select(Season, AbbName, W, L, R, RA) %>%
+  collect(n=Inf) %>%
+  mutate(AbbName = ifelse(AbbName == "WSN", "WSH",
+                          ifelse(AbbName == "SDP", "SD",
+                                 ifelse(AbbName == "SFG", "SF",
+                                        ifelse(AbbName == "TBR", "TB",
+                                               ifelse(AbbName == "KCR", "KC",
+                                                      ifelse(AbbName == "CHW", "CWS", AbbName)))))),
+         pct = W / (W + L)) %>%
+  group_by(Season) %>%
+  mutate(R_plus = round(100 * (R / mean(R)), 0),
+         RA_plus = round(100 * (RA / mean(RA)), 0),
+         run_diff_plus = R_plus - RA_plus)
+
+pitcher_info <- fg_db %>%
+  tbl("stats_pitching") %>%
+  filter(Type == 0,
+         Season >= 2015) %>%
+  select(PlayerId, Season, G, GS, IP, TBF) %>%
+  collect(Inf) %>%
+  inner_join(fg_info, by="PlayerId")
+
+
+```
+
+
+```{r}
+savant_data <- savant_data %>%
+  #add player names
+  inner_join(fg_info, by=c("playerid" = "PlayerId")) %>%
+  
+  #compute batting team & fielding team
+  mutate(batting_team = ifelse(inning_top_bottom == "N", home_team, away_team),
+         fielding_team = ifelse(batting_team == away_team, home_team, away_team),
+         
+         #convert numbers to numeric, leaving 'null' values as NA
+         launch_speed = as.numeric(launch_speed),
+         hit_distance_sc = as.numeric(hit_distance_sc),
+         launch_angle = as.numeric(launch_angle),
+         plate_x = as.numeric(plate_x),
+         plate_z = as.numeric(plate_z),
+         spray_angle = round(tan((hc_x - 125.42)/ (198.27-hc_y)) * 180/pi*.75, 1),
+         
+         #assign correct wOBA value to walks & HBP
+         xwoba = ifelse(events == "walk", 0.69,
+                        ifelse(events == "hit_by_pitch", 0.72, xwoba)))
+
+```
+
+
+```{r}
+kershaw_results <- savant_data %>%
+  filter(player_name == "Clayton Kershaw") %>%
+  group_by(game_year) %>%
+  summarize(mean_hit_speed = mean(launch_speed, na.rm = TRUE),
+            mean_launch_angle = mean(launch_angle, na.rm = TRUE),
+            mad_hit_speed = mad(launch_speed, na.rm = TRUE),
+            mad_launch_angle = mad(launch_angle, na.rm = TRUE))
+
+```
+
+
+```{r}
+#filter for starters who faced at least 200 batters each year
+xwoba_gainers_pitchers <- savant_data %>%
+  inner_join(pitcher_info, by=c("player_name" = "Name", "game_year" = "Season")) %>%
+  filter(des != "",
+         GS/G >= 0.5,
+         TBF >= 200) %>%
+  group_by(game_year) %>%
+  mutate(xwoba_plus = 100 * xwoba / mean(xwoba)) %>%
+  ungroup() %>%
+  group_by(player_name, game_year) %>%
+  summarize(num_pitches_seen = n(),
+            mean_xwoba_plus = round(mean(xwoba_plus), 0)) %>%
+  group_by(player_name) %>%
+  arrange(game_year) %>%
+  mutate(xwoba_diff = mean_xwoba_plus - lag(mean_xwoba_plus)) %>%
+  group_by(game_year) %>%
+  mutate(percentile = round(100 * (1 - percent_rank(mean_xwoba_plus)), 2)) %>%
+  filter(!is.na(xwoba_diff)) %>%
+  arrange(desc(xwoba_diff))
+
+```
+
+
+HOW CLAYTON KERSHAW IS LIKE JERED WEAVER
+
+### Intro
+
+### Discuss Kershaw's Decline this year
+
+Decline in K%
+Increase in BB%
+Increase in HR/FB%
+
+Increase in FIP- from 45 to 72
+
+Even if you strip out the (supposedly) bad luck in HR/FB, Kershaw's xFIP- still has increased from 56 to 64.
+
+Getting more granular, his plate discipline stats are also going in the wrong direction. He's not fooling hitters as badly as he used to.
+
+Decline in SwStr%
+Increase in O-Zone% + Decline in O-Swing%  (or just do O-Swing / O-Zone)
+
+Mean EXIT VEL?
+
+Mean LAUNCH ANGLE?
+
+## Now talk about xWOBA
+
+Enter xWOBA. This stat computes the expected wOBA [http://m.mlb.com/glossary/statcast/expected-woba] of all balls put in play against a pitcher based on its launch angle and hit speed (also known as "exit velocity"). Although xWOBA isn't computed for walks, it's easy enough to do based on the weighting factor for wOBA itself, so I applied it to get a more well-rounded picture of how a pitcher is performing. Strikouts are already factored in with an xWOBA of 0. I also normalized each pitcher's xWOBA to league average that year, giving us xWOBA+.
+
+In 2016, among starters with at least 200 batters faced, Kershaw led MLB with a 70 xWOBA+ Allowed:
+
+```{r}
+ggplot(xwoba_gainers_pitchers %>% filter(game_year == 2016) %>% arrange(mean_xwoba_plus) %>% head(10), aes(reorder(player_name, -mean_xwoba_plus) , mean_xwoba_plus)) + geom_bar(stat="identity") + coord_flip() + ggtitle("xWOBA+ Allowed Leaders, 2016") + 
+  labs(x="", y="xWOBA+ Allowed (smaller is better)")
+```
+
+The other guys on this list are no slouches themselves, but if you'd voted for Clayton Kershaw for the NL Cy Young last year, you'd have a very defensible argument. No one was better at striking out batters, and limiting walks and quality contact.
+
+This year though, Kershaw's xWOBA+ Allowed is 96. That's a drop from the 100th percentile to the 64th percentile, putting him alongside such starters as Tyler Anderson, Mike Leake, Wily Peralta, and Jaime Garcia. While Yu Darvish and Jeff Samardzija are also in the mix, none of these guys are having stellar years:
+
+```{r}
+ggplot(xwoba_gainers_pitchers %>% filter(game_year == 2017, mean_xwoba_plus >= 94, mean_xwoba_plus <= 98) %>% arrange(mean_xwoba_plus) %>% head(10), aes(reorder(player_name, -mean_xwoba_plus) , mean_xwoba_plus)) + geom_bar(stat="identity") + coord_flip() + ggtitle("xWOBA+ Allowed, 2017, xWOBA betwewn 94 and 98") + 
+  labs(x="", y="xWOBA+ Allowed (smaller is better)")
+```
+
+Further, Kershaw's 26% increase in xWOBA+ Allowed is the second-highest of any starter this year:
+
+```{r}
+#xwoba allowed increase - pitchers (larger increase is worse)
+
+#xwoba allowed increase - pitchers (larger increase is worse)
+ggplot(xwoba_gainers_pitchers %>% filter(game_year == 2017) %>% head(10), aes(reorder(player_name, xwoba_diff), xwoba_diff)) + geom_bar (stat="identity") + coord_flip() + ggtitle("Largest Increases in xwOBA+ Allowed, 2016 - 2017") + labs(x="", y="Change in xWOBA+ Allowed (%, smaller is better)")
+```
+
+Only Kyle Gibson is allowing worse results this year than last. And again: while Ivan Nova, Matt Moore, Masahiro Tanaka, Jordan Zimmermann, and Yu Darvish are fine pitchers, we're not used to thinking they're in any way comparable to Kershaw.
+
+But they are this year.
+
+### Conclusion
+
+Is Kershaw toast? Hell no. 80% of Kershaw's peak is still in the running for Best Pitcher in Baseball. He's still dominant and is still an early frontrunner for the 2017 NL Cy Young.
+
+But anytime you can be mentioned in the same conversation as Kyle Gibson, you may need to work on your stuff a little bit.
+
+### 
+
+
+It's the nature of superstardom that there's nowhere to go but down. 
+
+Kershaw's every move is scrutinized.
+
+
+http://m.mlb.com/glossary/statcast/expected-woba
+
+
+
+
