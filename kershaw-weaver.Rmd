@@ -21,7 +21,7 @@ fgt = theme(
   plot.title = element_text(family = "Lato"),
   panel.grid.major = element_line(size = .1, color = "lightgrey"),
   panel.grid.minor = element_line(size = 0),
-  strip.background = element_rect(fill = "#50ae26"),
+ strip.background = element_rect(fill = "#50ae26"),
   strip.text = element_text(color="white", family="Lato")
   )
 
@@ -86,6 +86,7 @@ pitcher_info <- fg_db %>%
          fool = oswing / ozone)
 
 
+
 ```
 
 
@@ -110,22 +111,24 @@ savant_data <- savant_data %>%
          xwoba = ifelse(events == "walk", 0.69,
                         ifelse(events == "hit_by_pitch", 0.72, xwoba)))
 
+starters_for_comparision <- pitcher_info %>%
+  filter(GS/G >= .5) %>%
+  #the 2017 season is 1/3 finished so account for that when comparing against 2015 and 2016, which are full seasons
+  mutate(include = ifelse(((Season == 2016 | Season == 2015) & TBF >= 200) | (Season == 2017 & TBF >= 67), "Y", "N")) %>%
+  filter(include == "Y")
+
 ```
 
 
 ```{r}
 #filter for starters who faced at least 200 batters each year
 xwoba_gainers_pitchers <- savant_data %>%
-  inner_join(pitcher_info, by=c("player_name" = "Name", "game_year" = "Season")) %>%
-  filter(des != "",
-         GS/G >= 0.5,
-         TBF >= 200) %>%
+  inner_join(starters_for_comparision, by=c("player_name" = "Name", "game_year" = "Season")) %>%
   group_by(game_year) %>%
   mutate(xwoba_plus = 100 * xwoba / mean(xwoba)) %>%
   ungroup() %>%
   group_by(player_name, game_year) %>%
-  summarize(num_pitches_seen = n(),
-            mean_xwoba_plus = round(mean(xwoba_plus), 0)) %>%
+  summarize(mean_xwoba_plus = round(mean(xwoba_plus), 0)) %>%
   group_by(player_name) %>%
   arrange(game_year) %>%
   mutate(xwoba_diff = mean_xwoba_plus - lag(mean_xwoba_plus)) %>%
@@ -137,13 +140,162 @@ xwoba_gainers_pitchers <- savant_data %>%
 ```
 
 
-Clayton Kershaw's Hidden Less-than-Epic Season
+What xwOBA Tells Us about Clayton Kershaw's 2017 Season
 
 ### Intro
 
 By both traditional and modern metrics, Clayton Kershaw is having another dominant season. His 2.28 ERA leads NL starters and his 2.2 fWAR is behind only Stephen Strasburg's 2.3 [http://www.fangraphs.com/leaders.aspx?pos=all&stats=sta&lg=nl&qual=y&type=8&season=2017&month=0&season1=2017&ind=0&team=0&rost=0&age=0&filter=&players=0] for tops among NL starters. He's a frontrunner for the NL Cy Young once again.
 
-He's having success despite showing some cracks in his armor. Year-to-year, Kershaw's walks are up and his strikeouts are down, even when accounting for league-wide trends. He's also allowed a significant number of home runs: 11 in just 83 innings, or 15.7 for every 100 fly balls allowed. Despite the league-wide increase in home run rate, Kershaw's HR/FB is now worse than league-average:
+He's having success despite showing some cracks in his armor. Year-to-year, Kershaw's walks are up and his strikeouts are down, even when accounting for league-wide trends. He's also allowed a significant number of home runs: 11 in just 83 innings, or 15.7 for every 100 fly balls allowed. Accordingly, his FIP- and xFIP- are worse than last year's:
+
+```{r}
+fip <- kershaw_stats %>%
+  select(Name, Season, `FIP-` = fip_plus, `xFIP-` = xfip_plus)
+
+foo3 <- gather(fip, stat, value, contains("-"))
+
+ggplot(foo3 %>% filter(Name == "Clayton Kershaw"), aes(as.character(Season), value, group = 1)) + geom_point() + geom_line() +
+  facet_wrap(~stat) + ggtitle("The Slight Decline of Clayton Kershaw, 2015 - 2017") + labs(y="Value (lower is better)", x="") + fgt
+
+```
+
+Here, xFIP- tells a more inforative story than FIP-. The former stat accounts for the league-wide increase in long balls [https://www.washingtonpost.com/news/fancy-stats/wp/2017/06/01/mlb-home-run-spike-shows-statcast-science-is-more-potent-than-steroids/?utm_term=.baa94b47401c]. Still, by either measure, Kershaw's operating at less-than-peak.
+
+What's gone wrong? FanGraphs' linear weights, computed per 100 count of each pitch type, give us a clue. The following graphs normalize this metric to league-average for each pitch type, to better track year-to-year variations among starters with at least 200 batters faced:
+
+```{r}
+kershaw_pitch_types <- pitcher_info %>%
+  filter(GS/G >= .5,
+         TBF >= 200) %>%
+  group_by(Season) %>%
+  mutate(w_fb_c_plus = round(100 * (w_fb_c / mean(w_fb_c, na.rm = TRUE)), 0),
+         w_sl_c_plus = round(100 * (w_sl_c / mean(w_sl_c, na.rm = TRUE)), 0),
+         w_cu_c_plus = round(100 * (w_cu_c / mean(w_cu_c, na.rm = TRUE)), 0)) %>%
+  select(Name, Season, `Curveball` = w_cu_c_plus, `Fastball` = w_fb_c_plus, `Slider` = w_sl_c_plus)
+
+foo4 <- gather(kershaw_pitch_types, stat, value, -Name, -Season)
+
+ggplot(foo4 %>% filter(Name == "Clayton Kershaw"), aes(as.character(Season), value, group = 1)) + geom_point() + geom_line() +
+  facet_wrap(~stat) + ggtitle("Kershaw's Curveball isn't what it Used to Be") + labs(y="Runs Above Average per 100 Pitches+\n(higher is better)", x="") + fgt        
+
+```
+
+The graph above shows us: it's the curveball, stupid! Kershaw's fastball and slider are just fine; better, in fact, than last year's.
+
+But linear weights analysis, although very helpful in isolating a pitcher's struggles, still measures _results_: singles, doubles, walks, strikeouts, and so on. This analysis includes not just the pitch itself, but also the quality of the defense behind Kershaw, wind speed and direction, and many other factors. 
+
+That's where xwOBA comes in. xwOBA, as measured by Statcast and provided by Baseball Savant, uses launch speed (also known as exit velocity) and launch angle to compute the expected wOBA of a batted ball. By relying on these two characteristics, xwOBA ignores defense, weather, and other elements that neither a batter nor a pitcher can control. Thus it gets at a more meaningful question than linear weights results: what's the quality of contact?
+
+To dig deeper into Kershaw's 2017 season, I pulled xwOBA data for all starters with at least 200 batters faced in a season since 2014. I modified the dataset to add .69 xwOBA for each walk and .72 xwOBA for each hit-by-pitch (By default, Statcast reports these events as 0 xwOBA, which is inaccurate for my purposes here). I then computed the mean xwOBA allowed for each pitch type in each season.
+
+With these modifications, xwOBA functions perfectly as a complete measure of the quality of a pitcher's results, independent of defense, weather, and other factors. Batted balls, strikeouts (0 xwOBA), and walks are all included. The results paint a different picture of Kershaw's arsenal than linear weights analysis alone:
+
+  #how to find starters with equivalent starting time as they had in 2016?
+  # ex. in 2016, 200 BF is a good metric
+  # the equivalent in 2017 is ... 200/3 since we've been through 1/3 of the season. this is 66 BF.
+  # how to say, 200 BF in 2016 but 66 BF in 2017? (162 - G is total games)
+  
+  THIS IS THE QUESTION!!! ^^^ I KNOW THERE IS A WAY.
+  
+  
+
+
+```{r}
+pitch_type_xwoba <- savant_data %>%
+  inner_join(starters_for_comparision, by=c("player_name" = "Name", "game_year" = "Season")) %>%
+  group_by(game_year, pitch_type) %>%
+  mutate(xwoba_plus = 100 * xwoba / mean(xwoba)) %>%
+  ungroup() %>%
+  group_by(player_name, game_year, pitch_type) %>%
+  summarize(num_pitches = n(),
+            mean_xwoba = mean(xwoba_plus, na.rm = TRUE)) %>%
+  filter(num_pitches >= 100) %>%
+  mutate(pitch_type = str_replace_all(pitch_type, c("CU" = "Curveball", "FF" = "Fastball", "SL" = "Slider")))
+  
+
+ggplot(pitch_type_xwoba %>% filter(player_name == "Clayton Kershaw"), aes(as.character(game_year), mean_xwoba, group=1)) + geom_point() + geom_line() + labs(x="", y="xwOBA+ Allowed (Relative to Lg. Average per Pitch Type)\n(lower is better)") + ggtitle("Kershaw's 2017 Arsenal is Worse Across the Board") + facet_grid(~pitch_type) + fgt
+
+```
+
+Although his curveball is responsible for the majority of his struggles, Dodgers pitching coach Rick Honeycutt would to well to look at all of his ace's pitches.
+
+xwOBA can tell us more. In 2016, Kershaw led MLB starters in xwOBA+ allowed with 71:
+
+200 BF = 100% of 2016
+
+67 BF = 100% of 2017
+
+need to use BF to figure out % of season. 
+
+mutate include = ifelse((year == 2016 & TBF >= 200) | (year == 2017 & TBF >= 67), "Y", "N")
+
+
+what's the equivalency?!?!
+
+
+
+
+```{r}
+xwoba_gainers_pitchers %>%
+  ungroup() %>%
+  filter(game_year == 2016) %>%
+  arrange(mean_xwoba_plus) %>%
+  head(10) %>%
+  select(player_name, mean_xwoba_plus) %>%
+  write_csv("xwoba-2016.csv")
+
+
+ggplot(xwoba_gainers_pitchers %>% filter(game_year == 2016) %>% arrange(mean_xwoba_plus) %>% head(10), aes(reorder(player_name, -mean_xwoba_plus) , mean_xwoba_plus)) + geom_bar(stat="identity", fill ="#50ae26") + coord_flip() + ggtitle("xwOBA+ Allowed Leaders, 2016, Starting Pitchers >= 200 Batters") + 
+  labs(x="", y="xwOBA+ Allowed (smaller is better)") + fgt
+```
+
+This year, his xwOBA+ allowed is a more pedestrian 96. He's dropped from the 100th percentile to the 64th. He's now accompanied by names like Jaime Garcia, Mike Leake, and Matt Shoemaker: serviceable pitchers all, but not whom you think of when you think of "best active pitcher in MLB":
+
+```{r}
+
+xwoba_gainers_pitchers %>%
+  ungroup() %>%
+  filter(game_year == 2017,
+         mean_xwoba_plus >= 94,
+         mean_xwoba_plus <= 98) %>%
+  arrange(mean_xwoba_plus) %>%
+  head(10) %>%
+  select(player_name, mean_xwoba_plus) %>%
+  write_csv("xwoba-2017.csv")
+
+
+ggplot(xwoba_gainers_pitchers %>% filter(game_year == 2017, mean_xwoba_plus >= 92, mean_xwoba_plus <= 94) %>% arrange(mean_xwoba_plus), aes(reorder(player_name, -mean_xwoba_plus) , mean_xwoba_plus)) + geom_bar(stat="identity", fill ="#50ae26") + coord_flip() + ggtitle("xwOBA+ Allowed, 2017, xwOBA between 91 and 95") + 
+  labs(x="", y="xwOBA+ Allowed (smaller is better)") + fgt
+```
+
+You also don't want your name associated with Kyle Gibson. But that's the only guy whose year-over-year increase in xwOBA+ allowed is worse than Kershaw's:
+
+```{r}
+
+xwoba_gainers_pitchers %>%
+  ungroup() %>%
+  filter(game_year == 2017) %>%
+  arrange(-xwoba_diff) %>%
+  head(10) %>%
+  select(player_name, xwoba_diff) %>%
+  write_csv("xwoba-2017-diff.csv")
+
+
+#xwoba allowed increase - pitchers (larger increase is worse)
+ggplot(xwoba_gainers_pitchers %>% filter(game_year == 2017) %>% head(10), aes(reorder(player_name, xwoba_diff), xwoba_diff)) +
+  geom_bar(stat="identity", fill ="#50ae26") + coord_flip() + ggtitle("Largest Increases in xwOBA+ Allowed, 2016 - 2017") +
+  labs(x="",y="Change in xwOBA+ Allowed (%, smaller is better)") + fgt
+```
+
+Is Clayton Kershaw toast? Hardly. 90 - 96% of Clayton Kershaw's peak is still someone you'd want on the mound in an elimination game. His base talent level is so high, he can lose some of that shine while still contending for the NL Cy Young. At the very least, he can lead FanGraphs' WAR leaderboards.
+
+But those leaderboards don't account for the fact that batters are making better contact on all of Kershaw's primary pitches than they were last year. Anytime you can be mentioned in the same conversation as Wily Peralta and Kyle Gibson, you may need to work on your stuff a little bit. Baseball is a game of adjustments, and Kershaw may need to tweak his arsenal a little bit. xwOBA helps us see where the adjustments need to be.
+
+
+
+
+
+
 
 ```{r}
 kershaw_stats <- pitcher_info %>%
@@ -183,56 +335,27 @@ ggplot(foo2 %>% filter(Name == "Clayton Kershaw"), aes(as.character(Season), val
 
 As expected, his FIP- and xFIP- have suffered:
 
-```{r}
-fip <- kershaw_stats %>%
-  select(Name, Season, `FIP-` = fip_plus, `xFIP-` = xfip_plus)
 
-foo3 <- gather(fip, stat, value, contains("-"))
-
-ggplot(foo3 %>% filter(Name == "Clayton Kershaw"), aes(as.character(Season), value, group = 1)) + geom_point() + geom_line() +
-  facet_wrap(~stat) + ggtitle("The Slight Decline of Clayton Kershaw, 2015 - 2017, Part 3") + labs(y="", x="")
-
-```
 
 Looking at xFIP- here is important because of the league-wide increase in home run rate. FIP- doesn't account for this change, making Kershaw look worse than he probably deserves.
 
-```{r}
-kershaw_results <- savant_data %>%
-  filter(player_name == "Clayton Kershaw") %>%
-  group_by(game_year) %>%
-  summarize(mean_hit_speed = mean(launch_speed, na.rm = TRUE),
-            mean_launch_angle = mean(launch_angle, na.rm = TRUE))
+### xwOBA
 
-```
+By these stats alone, one could conclude that Kershaw is having a less-than-epic year. But we can go even further by looking at expected wOBA (xwOBA). This stat computes the expected wOBA [http://m.mlb.com/glossary/statcast/expected-woba] of all balls put in play against a pitcher based on its launch angle and hit speed (also known as exit velocity). In doing this analysis I also accounted for the xwOBA of walks and normalized values to league-average. Doing this gives us a complete picture of the expected outcomes against a pitcher based on quality of contact, walks, and strikeouts.
 
-### xWOBA
+In 2016, among starters with at least 200 batters faced, Kershaw led MLB with a 70 xwOBA+ Allowed:
 
-By these stats alone, one could conclude that Kershaw is having a less-than-epic year. But we can go even further by looking at expected wOBA (xWOBA). This stat computes the expected wOBA [http://m.mlb.com/glossary/statcast/expected-woba] of all balls put in play against a pitcher based on its launch angle and hit speed (also known as exit velocity). In doing this analysis I also accounted for the xWOBA of walks and normalized values to league-average. Doing this gives us a complete picture of the expected outcomes against a pitcher based on quality of contact, walks, and strikeouts.
 
-In 2016, among starters with at least 200 batters faced, Kershaw led MLB with a 70 xWOBA+ Allowed:
-
-```{r}
-ggplot(xwoba_gainers_pitchers %>% filter(game_year == 2016) %>% arrange(mean_xwoba_plus) %>% head(10), aes(reorder(player_name, -mean_xwoba_plus) , mean_xwoba_plus)) + geom_bar(stat="identity") + coord_flip() + ggtitle("xWOBA+ Allowed Leaders, 2016") + 
-  labs(x="", y="xWOBA+ Allowed (smaller is better)")
-```
 
 The other guys on this list are no slouches themselves, but if you'd voted for Clayton Kershaw for the NL Cy Young last year, you'd have a very defensible argument. No one was better at striking out batters and limiting walks and quality contact.
 
-This year though, Kershaw's xWOBA+ Allowed is 96. That's a drop from the 100th percentile to the 64th percentile, putting him alongside such starters as Tyler Anderson, Mike Leake, Wily Peralta, and Jaime Garcia. While Yu Darvish and Jeff Samardzija are also in the mix, the aforementioned names are not ones you traditionally associate with Kershaw:
+This year though, Kershaw's xwOBA+ Allowed is 96. That's a drop from the 100th percentile to the 64th percentile, putting him alongside such starters as Tyler Anderson, Mike Leake, Wily Peralta, and Jaime Garcia. While Yu Darvish and Jeff Samardzija are also in the mix, the aforementioned names are not ones you traditionally associate with Kershaw:
 
-```{r}
-ggplot(xwoba_gainers_pitchers %>% filter(game_year == 2017, mean_xwoba_plus >= 94, mean_xwoba_plus <= 98) %>% arrange(mean_xwoba_plus) %>% head(10), aes(reorder(player_name, -mean_xwoba_plus) , mean_xwoba_plus)) + geom_bar(stat="identity") + coord_flip() + ggtitle("xWOBA+ Allowed, 2017, xWOBA betwewn 94 and 98") + 
-  labs(x="", y="xWOBA+ Allowed (smaller is better)")
-```
 
-Kershaw's 26% increase in xWOBA+ Allowed is the second-highest of any starter this year:
 
-```{r}
-#xwoba allowed increase - pitchers (larger increase is worse)
+Kershaw's 26% increase in xwOBA+ Allowed is the second-highest of any starter this year:
 
-#xwoba allowed increase - pitchers (larger increase is worse)
-ggplot(xwoba_gainers_pitchers %>% filter(game_year == 2017) %>% head(10), aes(reorder(player_name, xwoba_diff), xwoba_diff)) + geom_bar (stat="identity") + coord_flip() + ggtitle("Largest Increases in xwOBA+ Allowed, 2016 - 2017") + labs(x="", y="Change in xWOBA+ Allowed (%, smaller is better)")
-```
+
 
 Only Kyle Gibson is allowing worse results this year than last. And again: while Ivan Nova, Matt Moore, Masahiro Tanaka, Jordan Zimmermann, and Yu Darvish are fine pitchers, we're not used to thinking they're in any way comparable to Kershaw.
 
@@ -242,56 +365,25 @@ But they are this year.
 
 Which of Kershaw's three primary pitches are most resposible for his decline? The following plots show it's his curveball:
 
-```{r}
-kershaw_pitch_types <- pitcher_info %>%
-  filter(GS/G >= .5,
-         TBF >= 200) %>%
-  group_by(Season) %>%
-  mutate(w_fb_c_plus = round(100 * (w_fb_c / mean(w_fb_c, na.rm = TRUE)), 0),
-         w_sl_c_plus = round(100 * (w_sl_c / mean(w_sl_c, na.rm = TRUE)), 0),
-         w_cu_c_plus = round(100 * (w_cu_c / mean(w_cu_c, na.rm = TRUE)), 0)) %>%
-  select(Name, Season, `Curveball` = w_cu_c_plus, `Fastball` = w_fb_c_plus, `Slider` = w_sl_c_plus)
 
-foo4 <- gather(kershaw_pitch_types, stat, value, -Name, -Season)
-
-ggplot(foo4 %>% filter(Name == "Clayton Kershaw"), aes(as.character(Season), value, group = 1)) + geom_point() + geom_line() +
-  facet_wrap(~stat) + ggtitle("Kershaw's Curveball isn't what it Used to Be") + labs(y="Runs Above Average per 100 Pitches+", x="")        
-
-```
 
 While Kershaw's fastball and slider are still getting results, his curveball is in its third straight year of decline, relative to league average.
 
-Heatmaps from FanGraphs show he's hanging more of them on 2017: this pitch's location in 2016 ...
+But we can go deeper. The graphs above are based on linear weight analysis of _results_. These results include, among other things, the quality of the Dodgers' defense, wind speed and direction, and the park Kershaw's pitching in. 
 
-http://www.fangraphs.com/zonegrid.aspx?playerid=2036&position=P&ss=&se=&type=0&hand=all&count=all&blur=1&grid=10&view=pit&pitch=CU&season=2017
+Looking at xwOBA+ Allowed measures the process: quality of contact per pitch type across the years, regardless of defense, weather, or park, which allows us to get close to judging what Kershaw himself can control. When we look at xwOBA+ Allowed, we see the problem isn't just with his curveball:
 
-... than he did in 2016:
 
-http://www.fangraphs.com/zonegrid.aspx?playerid=2036&position=P&ss=&se=&type=0&hand=all&count=all&blur=1&grid=10&view=pit&pitch=CU&season=2016
 
-Indeed, the xWOBA on Kershaw's curveball has jumped dramatically. The following graph shows this xWOBA, normalized to league-average for all curveballs and knuckle-curves of starters with at least 200 batters faced:
-
-```{r}
-curveball_xwoba <- savant_data %>%
-  filter(pitch_type == "CU" | pitch_type == "KC") %>%
-  group_by(game_year) %>%
-  mutate(xwoba_plus = 100 * xwoba / mean(xwoba)) %>%
-  ungroup() %>%
-  group_by(player_name, game_year) %>%
-  summarize(mean_xwoba_cu = mean(xwoba_plus, na.rm = TRUE))
-
-ggplot(curveball_xwoba %>% filter(player_name == "Clayton Kershaw"), aes(as.character(game_year), mean_xwoba_cu, group=1)) + geom_point() + geom_line() + labs(x="", y="xWOBA+ Allowed (Curveballs Only)") + ggtitle("Kershaw's Curveball is Contributing to his Decline")
-
-```
-
+His curveball is merely exhibiting the worst decline, in quality of contact allowed, among his three primary pitch types.
 
 ### Conclusion
 
-I struggled with how to title this article. Is Kershaw toast? No. Is he having a "down year"? Hardly. Is he "struggling"? I don't think so. 
+I struggled with how to title this article. Is Kershaw toast? No. Is he having a "down year"? Hardly. Is he "struggling"? I don't think so. Does he need to tweak his delivery or pitch mix a bit? Perhaps.
 
 I'm not sure how to describe this phenomenon, when an elite starting pitcher shows signs of being slightly-less-than-elite. It's confusing because his base talent level is so high that a 5 - 10% drop in talent level is still in the running for the NL Cy Young. Indeed, Kershaw still is atop FanGraphs' NL starter leaderboards [http://www.fangraphs.com/leaders.aspx?pos=all&stats=sta&lg=nl&qual=y&type=8&season=2017&month=0&season1=2017&ind=0&team=0&rost=0&age=0&filter=&players=0].
 
-But those leaderboards don't account for the better quality of contact Kershaw is now allowing. Anytime you can be mentioned in the same conversation as Wily Peralta and Kyle Gibson, you may need to work on your stuff a little bit. Baseball is a game of adjustments, and Kershaw may need to tweak his curveball usage a little bit.
+But those leaderboards don't account for the better quality of contact Kershaw is now allowing on all his pitches. Anytime you can be mentioned in the same conversation as Wily Peralta and Kyle Gibson, you may need to work on your stuff a little bit. Baseball is a game of adjustments, and Kershaw may need to tweak his arsenal a little bit.
 
 
 
