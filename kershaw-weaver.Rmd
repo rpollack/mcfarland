@@ -164,9 +164,7 @@ Here, xFIP- tells a more inforative story than FIP-. The former stat accounts fo
 What's gone wrong? FanGraphs' linear weights, computed per 100 count of each pitch type, give us a clue. The following graphs normalize this metric to league-average for each pitch type, to better track year-to-year variations among starters with at least 200 batters faced:
 
 ```{r}
-kershaw_pitch_types <- pitcher_info %>%
-  filter(GS/G >= .5,
-         TBF >= 200) %>%
+kershaw_pitch_types <- starters_for_comparision %>%
   group_by(Season) %>%
   mutate(w_fb_c_plus = round(100 * (w_fb_c / mean(w_fb_c, na.rm = TRUE)), 0),
          w_sl_c_plus = round(100 * (w_sl_c / mean(w_sl_c, na.rm = TRUE)), 0),
@@ -256,15 +254,14 @@ This year, his xwOBA+ allowed is a more pedestrian 96. He's dropped from the 100
 xwoba_gainers_pitchers %>%
   ungroup() %>%
   filter(game_year == 2017,
-         mean_xwoba_plus >= 94,
-         mean_xwoba_plus <= 98) %>%
+         mean_xwoba_plus >= 92,
+         mean_xwoba_plus <= 94) %>%
   arrange(mean_xwoba_plus) %>%
-  head(10) %>%
   select(player_name, mean_xwoba_plus) %>%
   write_csv("xwoba-2017.csv")
 
 
-ggplot(xwoba_gainers_pitchers %>% filter(game_year == 2017, mean_xwoba_plus >= 92, mean_xwoba_plus <= 94) %>% arrange(mean_xwoba_plus), aes(reorder(player_name, -mean_xwoba_plus) , mean_xwoba_plus)) + geom_bar(stat="identity", fill ="#50ae26") + coord_flip() + ggtitle("xwOBA+ Allowed, 2017, xwOBA between 91 and 95") + 
+ggplot(xwoba_gainers_pitchers %>% filter(game_year == 2017, mean_xwoba_plus >= 92, mean_xwoba_plus <= 94) %>% arrange(mean_xwoba_plus), aes(reorder(player_name, -mean_xwoba_plus) , mean_xwoba_plus)) + geom_bar(stat="identity", fill ="#50ae26") + coord_flip() + ggtitle("xwOBA+ Allowed, 2017, xwOBA between 92 and 94") + 
   labs(x="", y="xwOBA+ Allowed (smaller is better)") + fgt
 ```
 
@@ -298,9 +295,7 @@ But those leaderboards don't account for the fact that batters are making better
 
 
 ```{r}
-kershaw_stats <- pitcher_info %>%
-  filter(GS/G >= .5,
-         TBF >= 200) %>%
+kershaw_stats <- starters_for_comparision %>%
   group_by(Season) %>%
   mutate(k_plus = round(100 * (k_perc / mean(k_perc)), 0),
          bb_plus = round(100 * bb_perc / mean(bb_perc), 0),
@@ -317,7 +312,7 @@ core_decline_plt <- kershaw_stats %>%
 foo <- gather(core_decline_plt, stat, value, contains("+"))
 
 ggplot(foo %>% filter(Name == "Clayton Kershaw"), aes(as.character(Season), value, group = 1)) + geom_point() + geom_line() +
-  facet_wrap(~stat) + ggtitle("The Slight Decline of Clayton Kershaw, 2015 - 2017") + labs(y="", x="")
+  facet_wrap(~stat) + ggtitle("The Slight Decline of Clayton Kershaw, 2015 - 2017") + labs(y="", x="") + fgt
 
 disc_decline_plt <- kershaw_stats %>%
   select(Name, Season, `SwStr%+` = swstr_plus, `O-Swing/O-Zone+` = fool_plus, `Zone%+` = zone_plus)
