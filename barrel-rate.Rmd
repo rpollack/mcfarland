@@ -1,0 +1,223 @@
+```{r setup, include=FALSE, echo=FALSE}
+
+
+library(tidyverse)
+library(rvest)
+library(stringr)
+library(plotly)
+library(lubridate)
+library(RMySQL)
+library(stats4)
+library(VGAM)
+
+fgt = theme(
+  panel.background = element_rect(color = "lightgrey", fill = "white"),
+  axis.title = element_text(family = "Lato"),
+  axis.text = element_text(family = "Lato"),
+  legend.title = element_text(family = "Lato"),
+  legend.text = element_text(family = "Lato"),
+  legend.background = element_rect(fill = "white"),
+  legend.key = element_rect(fill = "white"),
+  plot.title = element_text(family = "Lato"),
+  panel.grid.major = element_line(size = .1, color = "lightgrey"),
+  panel.grid.minor = element_line(size = 0),
+  strip.background = element_rect(fill = "#50ae26"),
+  strip.text = element_text(color="white", family="Lato")
+  )
+
+fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"), 
+                            host = Sys.getenv("FG_HOST"), 
+                            user = Sys.getenv("FG_USER"),
+                            password = Sys.getenv("FG_PW"))
+
+estBetaParams <- function(mu, var) {
+  alpha <- ((1 - mu) / var - 1 / mu) * mu ^ 2
+  beta <- alpha * (1 / mu - 1)
+  return(params = list(alpha = alpha, beta = beta))
+}
+```
+
+
+### Get Data
+
+```{r}
+
+gd_info <- fg_db %>%
+  tbl("gd_roster") %>%
+  select(mlbamid, playerid)
+
+batter_info <- fg_db %>%
+  tbl("stats_batting") %>%
+  filter(Season >= 2015,
+         Type == 0) %>%
+  select(playerid, Season, PA) %>%
+  collect(n=Inf)
+
+fg_info <- fg_db %>%
+  tbl("player_info") %>%
+  select(PlayerId, FirstName, LastName, BISPosition) %>%
+  collect(n=Inf) %>%
+  mutate(Name = sprintf("%s %s", FirstName, LastName)) %>%
+  select(PlayerId, Name, BISPosition)
+
+savant_data <- fg_db %>%
+  tbl("gd_savant_new") %>%
+  select(batter, player_name, game_date, game_year, pitch_type, release_speed, events, description, des, plate_x, plate_z, 
+         hc_x, hc_y, launch_speed, launch_angle, hit_distance_sc, home_team, away_team, inning_top_bottom, xwoba, stand) %>%
+  inner_join(gd_info, by=c("batter" = "mlbamid")) %>%
+  collect(n=Inf)
+
+pitcher_info <- fg_db %>%
+  tbl("stats_pitching_master_pfx") %>%
+  filter(Type == 0,
+         Season >= 2015) %>%
+  select(PlayerId, Season, TBF) %>%
+  collect(Inf) %>%
+  inner_join(fg_info, by="PlayerId")
+
+```
+
+```{r}
+savant_data_clean <- savant_data %>%
+  #add player names
+  inner_join(fg_info, by=c("playerid" = "PlayerId")) %>%
+ 
+  #compute batting team & fielding team
+  mutate(batting_team = ifelse(inning_top_bottom == "N", home_team, away_team),
+         fielding_team = ifelse(batting_team == away_team, home_team, away_team),
+         
+         #convert numbers to numeric, leaving 'null' values as NA
+         launch_speed = as.numeric(launch_speed),
+         hit_distance_sc = as.numeric(hit_distance_sc),
+         launch_angle = as.numeric(launch_angle),
+         plate_x = as.numeric(plate_x),
+         plate_z = as.numeric(plate_z),
+         spray_angle = round(tan((hc_x - 125.42)/ (198.27-hc_y)) * 180/pi*.75, 1),
+         
+         #from bill petti
+         barrel = ifelse(launch_angle <= 50 & launch_speed >= 98 & launch_speed * 1.5 - launch_angle >= 11 & launch_speed + launch_angle >= 124, 1, 0),
+        
+         #assign correct wOBA value to walks & HBP
+         xwoba = ifelse(events == "walk", 0.69,
+                        ifelse(events == "hit_by_pitch", 0.72, xwoba)))
+
+barrel_data_batters <- savant_data_clean %>%
+  select(playerid, batter_name = Name, game_year, stand, barrel) %>%
+  group_by(playerid, batter_name, game_year) %>%
+  summarize(num_barrels = sum(barrel, na.rm = TRUE)) %>%
+  inner_join(batter_info, by=c("playerid", "game_year" = "Season")) %>%
+  mutate(barrel_rate = num_barrels / PA) %>%
+  filter(PA >= 80) #remove pitchers, mostly
+
+```
+
+### define & plot prior
+
+```{r}
+#estBetaParams(mean(barrel_data_batters$barrel_rate), var(barrel_data_batters$barrel_rate))
+
+ll <- function(alpha, beta) {
+  x <- barrel_data_batters$num_barrels
+  total <- barrel_data_batters$PA
+  -sum(VGAM::dbetabinom.ab(x, total, alpha, beta, log = TRUE))
+}
+
+# maximum likelihood estimation
+m <- mle(ll, start = list(alpha = 1, beta = 10), method = "L-BFGS-B", lower = c(0.0001, .1))
+
+ab <- coef(m)
+alpha0 <- ab[1]
+beta0 <- ab[2]
+
+
+ggplot(barrel_data_batters, aes(barrel_rate)) + geom_histogram(binwidth = .01, aes(y=..density..)) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = alpha0, shape2 =  beta0),
+                lwd=2,
+                col="red") +
+  ggtitle("Probability Distribution for Barrel Rates, 2015 – 2017")
+
+```
+
+#estimate posterior based on prior + evidence
+
+next step: need to weight prior years at .6 and .3
+
+and then need to add handedness to priors
+
+```{r}
+barrel_data_batters_weighted <- barrel_data_batters %>%
+  group_by(playerid) %>%
+  arrange(playerid, game_year) %>%
+  
+  #project barrel rate by regressing to mean + weighting past 2 years at .6 and .3, respectively.
+  #for missing years, assume average performance: alpha0 / (alpha0 + beta0)
+  mutate(est_barrels_this_year = num_barrels + alpha0,
+         est_barrels_last_year = ifelse(is.na(lag(num_barrels)), alpha0, .6 * lag(num_barrels) + alpha0),
+         est_barrels_two_years_ago = ifelse(is.na(lag(num_barrels, 1)), alpha0, .3 * lag(num_barrels, 1) + alpha0),
+         est_pa_this_year = PA + alpha0 + beta0,
+         est_pa_last_year = ifelse(is.na(lag(PA)), alpha0 + beta0, .6 * lag(PA) + alpha0 + beta0),
+         est_pa_two_years_ago = ifelse(is.na(lag(PA, 1)), alpha0 + beta0, .3 * lag(PA, 1) + alpha0 + beta0),
+         est_barrel_rate_weighted = (est_barrels_this_year + est_barrels_last_year + 
+                                       est_barrels_two_years_ago) / (est_pa_this_year + est_pa_last_year +
+                                                                       est_pa_two_years_ago)) %>%
+  ungroup() %>%
+  #select(Name = batter_name, Season = game_year, barrel_rate, est_barrel_rate_weighted) %>%
+  arrange(desc(est_barrel_rate_weighted))
+
+
+
+
+barrels_weighted_2017 <- barrel_data_batters_weighted %>%
+  filter(game_year == 2017) %>%
+  mutate(alpha1 = est_barrels_this_year,
+         beta1 = beta0 + PA - est_barrels_this_year) %>%
+  #crossing(x = seq(.01, .20, .00025)) %>%
+  select(batter_name, game_year, alpha1, beta1, est_barrel_rate_weighted) %>%
+  mutate(density = dbeta(est_barrel_rate_weighted, alpha1, beta1),
+         low = qbeta(.025, alpha1, beta1),
+         high = qbeta(.975, alpha1, beta1)) %>%
+  head(25)
+
+
+ggplot(barrels_weighted_2017, aes(reorder(batter_name, est_barrel_rate_weighted), est_barrel_rate_weighted)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = low, ymax = high)) +
+  coord_flip() +
+  labs(y="Est. Barrel Rate, Weighted, w/95% Credible Interval", x="")
+
+```
+
+#ggplot(barrels)
+
+# 
+# #  head(10)
+#   #gather(parameter, value, alpha1, beta1)
+# 
+# #foo <- plyr::ddply(barrels_weighted_2017, "batter_name", fun = rbeta, n = 10000, shape1 = alpha1, shape2 = beta1)
+# 
+# judge_sim <- as_tibble(rbeta(10000, 50.81244, 297.4897))
+# judge_sim$name <- "Aaron Judge"
+# 
+# 
+# martinez_sim <- rbeta(10000, 25.81244, 179.4897)
+# martinez_sim$name <- "J.D. Martinez"
+# 
+# 
+# 
+# 
+# barrels_plt <- judge_compares
+# 
+# 
+# 
+# sim_barrels <- rbeta(10000, barrels_weighted_2017$alpha1, barrels_weighted_2017$beta1)
+# 
+
+
+#ggplot(barrels_weighted_2017, aes(x=est_barrel_rate_weighted))
+  
+
+#regression toal is 51 PA. Pretty low. Indicates barrel rate is fairly stable.
+
+```
+
