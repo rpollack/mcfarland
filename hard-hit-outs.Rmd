@@ -36,9 +36,17 @@ fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"),
 
 ```{r}
 
-gd_info <- fg_db %>%
-  tbl("gd_roster") %>%
-  select(mlbamid, playerid)
+id_info <- fg_db %>%
+  tbl("playerid_lookup") %>%
+  select(mlbamid, playerid) %>%
+  collect(n=Inf)
+
+batter_info <- fg_db %>%
+  tbl("stats_batting") %>%
+  filter(Season >= 2015,
+         Type == 0) %>%
+  select(playerid, Season, PA) %>%
+  collect(n=Inf)
 
 fg_info <- fg_db %>%
   tbl("player_info") %>%
@@ -51,13 +59,13 @@ savant_data <- fg_db %>%
   tbl("gd_savant_new") %>%
   select(batter, player_name, game_date, game_year, pitch_type, release_speed, events, description, des, plate_x, plate_z, 
          hc_x, hc_y, launch_speed, launch_angle, hit_distance_sc, home_team, away_team, inning_top_bottom, xwoba) %>%
-  inner_join(gd_info, by=c("batter" = "mlbamid")) %>%
-  collect(n=Inf)
+  collect(n=Inf) %>%
+  inner_join(id_info, by=c("batter" = "mlbamid"))
 
 team_lookup <- fg_db %>%
   tbl("season_team") %>%
   filter(Season >= 2015) %>%
-  select(Season, AbbName, W, L, R, RA) %>%
+  select(Season, AbbName, W, L, R, RA, singles = `1B`, doubles = `2B`, triples = `3B`, HR, BB, HBP, AB, IBB, SF, HBP) %>%
   collect(n=Inf) %>%
   mutate(AbbName = ifelse(AbbName == "WSN", "WSH",
                           ifelse(AbbName == "SDP", "SD",
@@ -65,12 +73,20 @@ team_lookup <- fg_db %>%
                                         ifelse(AbbName == "TBR", "TB",
                                                ifelse(AbbName == "KCR", "KC",
                                                       ifelse(AbbName == "CHW", "CWS", AbbName)))))),
-         pct = W / (W + L)) %>%
+         pct = W / (W + L),
+         team_woba = (ifelse(Season == 2015, ((.687 * BB) + (.718 * HBP) + (.881 * singles) + (1.256 * doubles) + (1.594 * triples) + 
+                                                              (2.065 * HR)) / (AB + BB - IBB + SF + HBP),
+                             ifelse(Season == 2016, ((.691 * BB) + (.721 * HBP) + (.878 * singles) + (1.242 * doubles) + (1.569 * triples) + 
+                                                              (2.015 * HR)) / (AB + BB - IBB + SF + HBP),
+                                    ifelse(Season == 2017, ((.693 * BB) + (.723 * HBP) + (.876 * singles) + (1.231 * doubles) + (1.550 * triples) + 
+                                                              (1.975 * HR)) / (AB + BB - IBB + SF + HBP), 0)))),
+         team_woba = round(team_woba, 3)) %>%
   group_by(Season) %>%
   mutate(R_plus = round(100 * (R / mean(R)), 0),
          RA_plus = round(100 * (RA / mean(RA)), 0),
-         run_diff_plus = R_plus - RA_plus)
-
+         run_diff_plus = R_plus - RA_plus,
+         woba_plus = round(100 * (team_woba / mean(team_woba)), 0))
+ 
 
 ```
 
@@ -79,6 +95,7 @@ team_lookup <- fg_db %>%
 savant_data <- savant_data %>%
   #add player names
   inner_join(fg_info, by=c("playerid" = "PlayerId")) %>%
+  inner_join(batter_info, by=c("playerid", "game_year" = "Season")) %>%
   
   #compute batting team & fielding team
   mutate(batting_team = ifelse(inning_top_bottom == "N", home_team, away_team),
@@ -102,34 +119,42 @@ savant_data <- savant_data %>%
 
 ```{r}
 xwoba_gainers_batters <- savant_data %>%
-  filter(des != "") %>%
+  mutate(include = ifelse(((game_year == 2016 | game_year == 2015) & PA >= 200) |
+                            (game_year == 2017 & PA >= 67), "Y", "N")) %>%
+  filter(include == "Y") %>%
   group_by(game_year) %>%
   mutate(xwoba_plus = 100 * xwoba / mean(xwoba)) %>%
   ungroup() %>%
-  group_by(Name, game_year) %>%
-  summarize(num_pitches_seen = n(),
-            mean_xwoba_plus = mean(xwoba_plus)) %>%
-  filter(num_pitches_seen >= 300) %>%
+  group_by(Name, game_year, PA) %>%
+  summarize(mean_xwoba_plus = mean(xwoba_plus)) %>%
   group_by(Name) %>%
   arrange(game_year) %>%
   mutate(xwoba_diff = mean_xwoba_plus - lag(mean_xwoba_plus)) %>%
   filter(!is.na(xwoba_diff)) %>%
   arrange(desc(xwoba_diff))
 
-xwoba_gainers_pitchers <- savant_data %>%
-  filter(des != "") %>%
-  group_by(game_year) %>%
-  mutate(xwoba_plus = 100 * xwoba / mean(xwoba)) %>%
-  ungroup() %>%
-  group_by(player_name, game_year) %>%
-  summarize(num_pitches_seen = n(),
-            mean_xwoba_plus = mean(xwoba_plus)) %>%
-  filter(num_pitches_seen >= 300) %>%
-  group_by(player_name) %>%
-  arrange(game_year) %>%
-  mutate(xwoba_diff = mean_xwoba_plus - lag(mean_xwoba_plus)) %>%
-  filter(!is.na(xwoba_diff)) %>%
-  arrange(desc(xwoba_diff))
+
+
+# xwoba_gainers_pitchers <- savant_data %>%
+#   filter(des != "") %>%
+#   group_by(game_year) %>%
+#   mutate(xwoba_plus = 100 * xwoba / mean(xwoba)) %>%
+#   ungroup() %>%
+#   group_by(player_name, game_year) %>%
+#   summarize(num_pitches_seen = n(),
+#             mean_xwoba_plus = mean(xwoba_plus)) %>%
+#   filter(num_pitches_seen >= 300) %>%
+#   group_by(player_name) %>%
+#   arrange(game_year) %>%
+#   mutate(xwoba_diff = mean_xwoba_plus - lag(mean_xwoba_plus)) %>%
+#   filter(!is.na(xwoba_diff)) %>%
+#   arrange(desc(xwoba_diff))
+
+#xwoba leaders, 2016
+ggplot(xwoba_gainers_batters %>% filter(game_year == 2016) %>% head(10), aes(reorder(Name, mean_xwoba_plus), mean_xwoba_plus)) + geom_bar (stat="identity") + coord_flip() + ggtitle("xwOBA+ Leaders, 2016") + labs(x="", y="xWOBA+")
+
+#xwoba leaders, 2017
+ggplot(xwoba_gainers_batters %>% filter(game_year == 2017) %>% head(10), aes(reorder(Name, mean_xwoba_plus), mean_xwoba_plus)) + geom_bar (stat="identity") + coord_flip() + ggtitle("xwOBA+ Leaders, 2017") + labs(x="", y="xWOBA+")
 
 #xwoba increase leaders - batters
 ggplot(xwoba_gainers_batters %>% filter(game_year == 2017) %>% head(10), aes(reorder(Name, xwoba_diff), xwoba_diff)) + geom_bar (stat="identity") + coord_flip() + ggtitle("Largest Increases in xwOBA+, 2016 - 2017") + labs(x="", y="Change in xWOBA+ (%)")
@@ -137,11 +162,11 @@ ggplot(xwoba_gainers_batters %>% filter(game_year == 2017) %>% head(10), aes(reo
 #xwoba increase laggards - batters
 ggplot(xwoba_gainers_batters %>% filter(game_year == 2017) %>% tail(10), aes(reorder(Name, xwoba_diff), xwoba_diff)) + geom_bar (stat="identity") + coord_flip() + ggtitle("Largest Decreases in xwOBA+, 2016 - 2017") + labs(x="", y="Change in xWOBA+ (%)")
 
-#xwoba allowed decrease - pitchers (larger decrease is better)
-ggplot(xwoba_gainers_pitchers %>% filter(game_year == 2017) %>% tail(10), aes(reorder(player_name, -xwoba_diff), xwoba_diff)) + geom_bar (stat="identity") + coord_flip() + ggtitle("Largest Decreases in xwOBA+ Allowed, 2016 - 2017") + labs(x="", y="Change in xWOBA+ Allowed (%, lower is better)")
-
-#xwoba allowed increase - pitchers (larger increase is worse)
-ggplot(xwoba_gainers_pitchers %>% filter(game_year == 2017) %>% head(10), aes(reorder(player_name, xwoba_diff), xwoba_diff)) + geom_bar (stat="identity") + coord_flip() + ggtitle("Largest Increases in xwOBA+ Allowed, 2016 - 2017") + labs(x="", y="Change in xWOBA+ Allowed (%, larager is worse)")
+# #xwoba allowed decrease - pitchers (larger decrease is better)
+# ggplot(xwoba_gainers_pitchers %>% filter(game_year == 2017) %>% tail(10), aes(reorder(player_name, -xwoba_diff), xwoba_diff)) + geom_bar (stat="identity") + coord_flip() + ggtitle("Largest Decreases in xwOBA+ Allowed, 2016 - 2017") + labs(x="", y="Change in xWOBA+ Allowed (%, lower is better)")
+# 
+# #xwoba allowed increase - pitchers (larger increase is worse)
+# ggplot(xwoba_gainers_pitchers %>% filter(game_year == 2017) %>% head(10), aes(reorder(player_name, xwoba_diff), xwoba_diff)) + geom_bar (stat="identity") + coord_flip() + ggtitle("Largest Increases in xwOBA+ Allowed, 2016 - 2017") + labs(x="", y="Change in xWOBA+ Allowed (%, larager is worse)")
 
 
 
@@ -214,7 +239,7 @@ xwoba_allowed_plt <- ggplot(xwoba_allowed, aes(as.character(game_year), mean_xwo
 ggplotly(xwoba_allowed_plt)
 
 xwoba_diff <- inner_join(xwoba_allowed, xwoba_offense, by=c("fielding_team" = "batting_team", "game_year")) %>%
-  mutate(xwoba_plus_diff = round(mean_xwoba_plus - mean_xwoba_allowed_plus, 5)) %>%
+  mutate(xwoba_plus_diff = round(mean_xwoba_plus - mean_xwoba_allowed_plus, 5) + 100) %>%
   select(team = fielding_team, game_year, mean_xwoba_plus, mean_xwoba_allowed_plus, xwoba_plus_diff, division = division.y,
          pct = pct.x, run_diff_plus = run_diff_plus.x, R_plus = R_plus.x, RA_plus = RA_plus.x)
 
