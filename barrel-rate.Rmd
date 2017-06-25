@@ -74,28 +74,6 @@ savant_data <- fg_db %>%
   collect(n=Inf) %>%
   inner_join(mapping, by=c("batter" = "MLBID"))
 
-#find batters who have batted since 2015 but who are not in gd_roster
-# not_found <- anti_join(fg_info, gd_info, by=c("PlayerId" = "playerid")) %>%
-#   inner_join(batter_info, c("PlayerId" = "playerid")) %>%
-#   group_by(PlayerId, batter_name) %>%
-#   distinct(PlayerId, batter_name, BISPosition) %>%
-#   write_csv("no-entry-in-gd-roster-table.csv")
-
-# 
-# %>%
-#   inner_join(gd_info, by=c("batter" = "mlbamid")) %>%
-#   collect(n=Inf)
-
-# pitcher_info <- fg_db %>%
-#   tbl("stats_pitching_master_pfx") %>%
-#   filter(Type == 0,
-#          Season >= 2015) %>%
-#   select(PlayerId, Season, TBF) %>%
-#   collect(Inf) %>%
-#   inner_join(fg_info, by="PlayerId")
-
-
-
 ```
 
 ```{r}
