@@ -1,0 +1,81 @@
+```{r setup, include=FALSE, echo=FALSE}
+
+
+library(tidyverse)
+library(rvest)
+library(stringr)
+library(plotly)
+library(lubridate)
+library(RMySQL)
+
+fgt = theme(
+  panel.background = element_rect(color = "lightgrey", fill = "white"),
+  axis.title = element_text(family = "Lato"),
+  axis.text = element_text(family = "Lato"),
+  legend.title = element_text(family = "Lato"),
+  legend.text = element_text(family = "Lato"),
+  legend.background = element_rect(fill = "white"),
+  legend.key = element_rect(fill = "white"),
+  plot.title = element_text(family = "Lato"),
+  panel.grid.major = element_line(size = .1, color = "lightgrey"),
+  panel.grid.minor = element_line(size = 0),
+  strip.background = element_rect(fill = "#50ae26"),
+  strip.text = element_text(color="white", family="Lato")
+  )
+
+fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"), 
+                            host = Sys.getenv("FG_HOST"), 
+                            user = Sys.getenv("FG_USER"),
+                            password = Sys.getenv("FG_PW"))
+
+
+```
+
+```{r}
+id_lookup <- fg_db %>%
+  tbl("playerid_lookup") %>%
+  dplyr::select(mlbamid, playerid) %>%
+  collect(n=Inf)
+
+fg_info <- fg_db %>%
+  tbl("player_info") %>%
+  dplyr::select(PlayerId, FirstName, LastName) %>%
+  collect(n=Inf) %>%
+  unite(Name, FirstName, LastName, sep=" ")
+
+pitching_stats <- fg_db %>%
+  tbl("stats_pitching_master_pfx") %>%
+  filter(Type == 0,
+         Season >= 2015) %>%
+  dplyr::select(PlayerId, Season, swstr = `SwStr%`, walkrate = `BB%`, krate = `K%`) %>%
+  collect(n=Inf) %>%
+  inner_join(fg_info, by="PlayerId") %>%
+  dplyr::select(PlayerId, Name, Season, swstr, walkrate, krate) %>%
+  mutate(k_minus_bb = krate - walkrate) %>%
+  inner_join(id_lookup, by=c("PlayerId" = "playerid"))
+
+savant_data_pitch_speeds <- fg_db %>%
+  tbl("gd_savant_new") %>%
+  filter(release_speed > 0,
+         !pitch_type %in% c("null", "PO", "IN", "")) %>%
+  dplyr::select(pitcher, player_name, game_year, pitch_type, release_speed, xwoba) %>%
+  collect(n=Inf)
+
+```
+
+```{r}
+savant_data_pitch_speed_tbl <- savant_data_pitch_speeds %>%
+  group_by(pitcher, player_name, game_year, pitch_type) %>%
+  summarize(num_pitches = n(),
+            max_release_speed = max(release_speed),
+            min_release_speed = min(release_speed),
+            median_release_speed = median(release_speed),
+            mad_release_speed = mad(release_speed),
+            mean_xwoba = mean(xwoba, na.rm = TRUE)) %>%
+  inner_join(pitching_stats, by=c("pitcher" = "mlbamid", "game_year" = "Season")) %>%
+  filter(num_pitches >= 200)
+
+
+ggplot(savant_data_pitch_speed_tbl, aes(mad_release_speed, k_minus_bb)) + geom_point()
+
+```
