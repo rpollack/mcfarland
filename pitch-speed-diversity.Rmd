@@ -47,8 +47,9 @@ pitching_stats <- fg_db %>%
   tbl("stats_pitching_master_pfx") %>%
   filter(Type == 0,
          Season >= 2015) %>%
-  dplyr::select(PlayerId, Season, swstr = `SwStr%`, walkrate = `BB%`, krate = `K%`) %>%
+  dplyr::select(PlayerId, Season, swstr = `SwStr%`, walkrate = `BB%`, krate = `K%`, G, GS) %>%
   collect(n=Inf) %>%
+  filter(GS/G >= .50) %>%
   inner_join(fg_info, by="PlayerId") %>%
   dplyr::select(PlayerId, Name, Season, swstr, walkrate, krate) %>%
   mutate(k_minus_bb = krate - walkrate) %>%
@@ -58,7 +59,7 @@ savant_data_pitch_speeds <- fg_db %>%
   tbl("gd_savant_new") %>%
   filter(release_speed > 0,
          !pitch_type %in% c("null", "PO", "IN", "")) %>%
-  dplyr::select(pitcher, player_name, game_year, pitch_type, release_speed, xwoba) %>%
+  dplyr::select(pitcher, player_name, game_year, pitch_type, release_speed, xwoba, p_throws) %>%
   collect(n=Inf)
 
 ```
@@ -73,7 +74,7 @@ savant_data_pitch_speeds <- fg_db %>%
 # to get the true xwoba, I need to filter for only balls that end at-bats, and add .69 and .72 as needed
 
 savant_data_pitch_speed_tbl <- savant_data_pitch_speeds %>%
-  group_by(pitcher, player_name, game_year, pitch_type) %>%
+  group_by(pitcher, player_name, game_year, pitch_type, p_throws) %>%
   summarize(num_pitches = n(),
             max_release_speed = max(release_speed),
             min_release_speed = min(release_speed),
@@ -83,25 +84,212 @@ savant_data_pitch_speed_tbl <- savant_data_pitch_speeds %>%
   filter(num_pitches >= 300) %>%
   inner_join(pitching_stats, by=c("pitcher" = "mlbamid", "game_year" = "Season")) %>%
   group_by(game_year) %>%
-  mutate(k_minus_bb_plus = 100 * (k_minus_bb / mean(k_minus_bb)))
+  mutate(k_minus_bb_plus = 100 * (k_minus_bb / mean(k_minus_bb))) %>%
+  group_by(game_year, pitch_type) %>%
+  arrange(desc(mad_release_speed)) %>%
+  mutate(rank_mad_season_pitch_type = round(100 * percent_rank(mad_release_speed), 1))
+```
+
+
+MAKE UP A HEADLINE
+
+If you haven't read The Player's Tribune, the athlete-point-of-view magazine started by Derek Jeter after his retirement, you're missing out. He's published such notable stories as ...
+
+One story this summer caught my attention: Evan Longoria describing the five toughest pitchers he faces in the AL East. Number one atop his list? None other than Chris Sale, who is thriving in his new Boston home after an offseason trade from the Chicago White Sox.
+
+In the article, Longoria opines as to why Sale is so tough to face:
+
+"I think what makes Sale so tough is that he’s really unpredictable. He has the ability to mix his pitches and throw them all for strikes, but he also mixes velocities within those pitches, which is something that you don’t see a lot of guys do with very much success.
+
+Every now and then you’ll see a guy who can throw a slider from 82 to 88 mph, or who has an 87-mph changeup that he can drop down to 82 mph when he wants to bury it. Sale has the ability to vary speed like that with all of his pitches — especially his fastball, which he can throw anywhere from 89 to 99 mph."
+
+Longoria then describes a plate appearance against sale that featured just such a variety of speeds. I read this section and I wondered: how important is varying the release speed of distinct pitches? Do pitchers who vary these speeds have more success than others?
+
+Before I checked out that data, I wanted to see whether Sale truly is the master speed-mixer Longoria makes him out to be. To find out, I looked at starting pitchers from 2015 through this year who'd thrown at least 300 of a distinct pitch. I then computed the median absolute deviation (MAD) within each pitch type.
+
+Sale indeed ranks highly by this measure:
+
+```{r}
+sale_mad_rank <- savant_data_pitch_speed_tbl %>%
+  filter(player_name == "Chris Sale") %>%
+  select(game_year, pitch_type, mad_release_speed, rank_mad_season_pitch_type) %>%
+  mutate(mad_release_speed = round(mad_release_speed, 1)) %>%
+  arrange(game_year, pitch_type) %>%
+  write_csv("sale_mad_ranks.csv")
+
+sale_mad_rank
+
+```
+
+Longoria's correct. Since 2015 Sale's ranked at the 90th percentile or above for how much he varies the speed of each of his pitches. What does this mean for Sale's effectiveness? I looked at all starting pitchers and compared their pitches' MAD to their normalized K-BB% (K-BB+) for that year to see if mixing pitch speeds has a relationship with on-field dominance.
+
+The findings are not encouraging:
+
+```{r}
+
+mad_model <- with(savant_data_pitch_speed_tbl, lm(k_minus_bb_plus ~ mad_release_speed))
 
 ggplot(savant_data_pitch_speed_tbl, aes(mad_release_speed, k_minus_bb_plus)) + geom_point() + 
-  geom_smooth(method="lm", color="#8e001c") + fgt
+  geom_smooth(method="lm", color="#8e001c") + fgt +
+  ggtitle("Relationship between Pitch Speed Variations and K-BB+\nStarting Pitchers, 2015 - 2017") +
+  labs(x="MAD Release Speed (MPH)", y="K-BB+") + ggsave("pitch-speed-variation-overall.png")
+
 ```
 
-That's about as weak a relationship as you can get. Based on this graph, pitchers who vary the release speeds of a pitch don't perform any better than those who hover around a certain speed. In fact, the negative slope of the line indicates the opposite: players with a higher deviation of release speeds tend, in general, to do slightly worse than pitchers who release pitches at similar speeds.
+Each x-axis mark represents a single pitch type, pitcher, and season. To Longoria's credit, we do see a positive relationship. Pitchers who vary the speeds of distinct pitches do enjoy a slight advantage in K-BB%. But the emphasis is on "slight": r is 0.0006923, barely worth mentioning.
 
-Let's remember a few things. First, just because Evan Longoria had problems with Chris Sale throwing those pitches in that plate appearance, doesn't mean all other pitchers do. Longoria could just be storytelling, highlighting one example to illustrate a wider narrative about Sale being tough to hit. (As if we need any more convincing!) Second, the data above relies on MLB's pitch classifications, which aren't perfect -- if they were, Pitch Info [http://www.pitchinfo.com/] would have one less job to do. Third, we know enough about baseball to understand that pitcher performance is never just _one_ thing, such as varying the speed of a single pitch. A ton of factors comprise pitcher performance, many of which are situational: what pitch the hitter's expecting, what pitches the pitcher feels comfortable throwing, what pitchers the
+The graph above is a bit messy though. Sale has four primary pitches in 2017 and thus four points on the x-axis, but he has only one K-BB+ rate and so only one point on the y-axis. You can glean only so much by examining individual pitch types, because a pitcher's success is based on his entire arsenal, but we can at least dig in a bit and see if varying the speed of any one pitch is more effective than another.
 
-I don't know what I expected to see in this graph, but now that 
+To do this we graph each pitch type separately:
 
-What about if we break 
+```{r, fig.height=4}
 
-```{}
-ggplot(mad_by_pitches, aes(mad_release_speed, k_minus_bb_plus)) + geom_point() + 
+# mad_by_pitches <- savant_data_pitch_speed_tbl %>%  
+#   group_by(game_year, pitch_type) %>%
+#   arrange(desc(mad_release_speed)) %>%
+#   mutate(mad_rank_in_pitch_for_season = 100 * (percent_rank(mad_release_speed))) %>%
+#   inner_join(pitching_stats, by=c("pitcher" = "mlbamid", "game_year" = "Season")) %>%
+#   group_by(game_year) %>%
+#   mutate(k_minus_bb_plus = 100 * (k_minus_bb / mean(k_minus_bb)))
+
+
+ggplot(savant_data_pitch_speed_tbl, aes(mad_release_speed, k_minus_bb_plus)) + geom_point() + 
   geom_smooth(method="lm", color="#8e001c") +
-  facet_wrap(~pitch_type) + fgt
+  ggtitle("Relationship between Pitch Speed Variations and K-BB+\nStarting Pitchers, 2015 - 2017") +
+  labs(x="MAD Release Speed (MPH)", y="K-BB+") +
+  facet_wrap(~pitch_type, nrow = 5, dir = "h") + fgt + ggsave("pitch_types.png")
 ```
+
+That's a bit more informative, but not by much. The relationships appear weak in all cases, and when they do exist, they're negative except for change-ups. And the positive relationship there doesn't appear all that strong.
+
+Let's explore another dimension: pitcher handedness. Maybe Sale's sinister nature provides him some kind of advantage? We can examine how the MAD release speed of each pitch differs between Sale's left-handed counterparts and right-handers:
+
+
+```{r}
+
+pitch_hand_tbl <- savant_data_pitch_speed_tbl %>%
+  unite(pitch_hand, pitch_type, p_throws, sep = " - ")
+
+
+ch_l_mdl <- with(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "CH")), lm(k_minus_bb_plus ~ mad_release_speed))
+
+ggplot(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "CH")), aes(mad_release_speed, k_minus_bb_plus)) + geom_point() +
+  geom_smooth(method="lm", color="#8e001c") +
+  ggtitle("Relationship between Pitch Speed Variations, Handedness, and K-BB+\nStarting Pitchers, 2015 - 2017") +
+  labs(x="MAD Release Speed (MPH)", y="K-BB+") +
+  facet_wrap(~pitch_hand, ncol = 2) + fgt + ggsave("pitch_type_hands_ch.png")
+
+ggplot(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "FF")), aes(mad_release_speed, k_minus_bb_plus)) + geom_point() +
+  geom_smooth(method="lm", color="#8e001c") +
+  ggtitle("Relationship between Pitch Speed Variations, Handedness, and K-BB+\nStarting Pitchers, 2015 - 2017") +
+  labs(x="MAD Release Speed (MPH)", y="K-BB+") +
+  facet_wrap(~pitch_hand, ncol = 2) + fgt + ggsave("pitch_type_hands_ff.png")
+
+ggplot(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "FT")), aes(mad_release_speed, k_minus_bb_plus)) + geom_point() +
+  geom_smooth(method="lm", color="#8e001c") +
+  ggtitle("Relationship between Pitch Speed Variations, Handedness, and K-BB+\nStarting Pitchers, 2015 - 2017") +
+  labs(x="MAD Release Speed (MPH)", y="K-BB+") +
+  facet_wrap(~pitch_hand, ncol = 2) + fgt + ggsave("pitch_type_hands_ft.png")
+
+ggplot(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "SI")), aes(mad_release_speed, k_minus_bb_plus)) + geom_point() +
+  geom_smooth(method="lm", color="#8e001c") +
+  ggtitle("Relationship between Pitch Speed Variations, Handedness, and K-BB+\nStarting Pitchers, 2015 - 2017") +
+  labs(x="MAD Release Speed (MPH)", y="K-BB+") +
+  facet_wrap(~pitch_hand, ncol = 2) + fgt + ggsave("pitch_type_hands_si.png")
+
+ggplot(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "FC")), aes(mad_release_speed, k_minus_bb_plus)) + geom_point() +
+  geom_smooth(method="lm", color="#8e001c") +
+  ggtitle("Relationship between Pitch Speed Variations, Handedness, and K-BB+\nStarting Pitchers, 2015 - 2017") +
+  labs(x="MAD Release Speed (MPH)", y="K-BB+") +
+  facet_wrap(~pitch_hand, ncol = 2) + fgt + ggsave("pitch_type_hands_fc.png")
+
+
+ggplot(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "CU")), aes(mad_release_speed, k_minus_bb_plus)) + geom_point() +
+  geom_smooth(method="lm", color="#8e001c") +
+  ggtitle("Relationship between Pitch Speed Variations, Handedness, and K-BB+\nStarting Pitchers, 2015 - 2017") +
+  labs(x="MAD Release Speed (MPH)", y="K-BB+") +
+  facet_wrap(~pitch_hand, ncol = 2) + fgt + ggsave("pitch_type_hands_cu.png")
+
+
+ggplot(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "SL")), aes(mad_release_speed, k_minus_bb_plus)) + geom_point() +
+  geom_smooth(method="lm", color="#8e001c") +
+  ggtitle("Relationship between Pitch Speed Variations, Handedness, and K-BB+\nStarting Pitchers, 2015 - 2017") +
+  labs(x="MAD Release Speed (MPH)", y="K-BB+") +
+  facet_wrap(~pitch_hand, ncol = 2) + fgt + ggsave("pitch_type_hands_sl.png")
+
+ggplot(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "KC")), aes(mad_release_speed, k_minus_bb_plus)) + geom_point() +
+  geom_smooth(method="lm", color="#8e001c") +
+  ggtitle("Relationship between Pitch Speed Variations, Handedness, and K-BB+\nStarting Pitchers, 2015 - 2017") +
+  labs(x="MAD Release Speed (MPH)", y="K-BB+") +
+  facet_wrap(~pitch_hand, ncol = 2) + fgt + ggsave("pitch_type_hands_kc.png")
+
+# ggplot(savant_data_pitch_speed_tbl %>% filter(p_throws == "R"), aes(mad_release_speed, k_minus_bb_plus)) + geom_point() + 
+#   geom_smooth(method="lm", color="#8e001c") +
+#   ggtitle("Relationship between Pitch Speed Variations and K-BB+\nRHP Starting Pitchers, 2015 - 2017") +
+#   labs(x="MAD Release Speed (MPH)", y="K-BB+") +
+#   facet_wrap(~pitch_type, nrow = 5, dir = "h") + fgt + ggsave("pitch_type_rhp.png")
+# 
+# ggplot(savant_data_pitch_speed_tbl %>% filter(p_throws == "L"), aes(mad_release_speed, k_minus_bb_plus)) + geom_point() + 
+#   geom_smooth(method="lm", color="#8e001c") +
+#   ggtitle("Relationship between Pitch Speed Variations and K-BB+\nLHP Starting Pitchers, 2015 - 2017") +
+#   labs(x="MAD Release Speed (MPH)", y="K-BB+") +
+#   facet_wrap(~pitch_type, nrow = 5, dir = "h") + fgt + ggsave("pitch_type_lhp.png")
+```
+
+We see a few distinctions when throwing the same pitch from different sides of the rubber:
+
+- For southpaws, varying the speed of your change-ups and two-seam fastballs seems to increase your K-BB rate; the opposite is true with righties. Sale features both a change-up and a two-seam fastball and, as we saw above, varies the speeds of both better than nearly any other starting pitcher. Neither relationship is strong through; left-handed change-up graph features an r of .04 and 
+- Righties experience a better K-BB rate when they vary the speed in their sinkers and knuckle-curves; the opposite is true for left-handers.
+- When left-handers vary the speeds of their curveballs, they experience a sharper K-BB% decline than when righties do.
+- For the other pitch types, speed variance affects righties and lefties similarly.
+
+But ultimately, variation in very few pitch types lead to better results for the pitcher, and the relationships are all weak. 
+
+CONCLUSION
+
+Longoria is right about Chris Sale being one of the best in the game at mixing speeds of distinct pitch types. But overall, his (implied) claim that high-variance pitchers are tougher to hit doesn't hold up. The evidence shows that while variance of certain pitches (from certain-handed batters) are associated with improved K-BB rates, the relationship is so weak as to be not worth mentioning.
+
+This doesn't mean Longoria was wrong about that one particular plate appearance against Sale. I'm sure Sale did indeed mix up his speeds in that plate appearance, and Longoria did strike out. But I think Longoria's K had more to do with him expecting a 92-93 MPH fastball and getting one at 95. He implies as much when, earlier in the article, he says:
+
+"Earlier this season when I faced him, he threw me a couple of 92–93 mph fastballs early in the count, and then he dialed up back-to-back sliders in the 78–80 mph range."
+
+Reflecting on the 95 MPH fastball that put him away, Longoria says, "If that pitch comes in at 92–93 mph, maybe I foul it off and stay alive." To me, the fact that he mentions the 92-93 MPH range implies Longora was expecting just such a fastball. And while Longoria is a top-shelf athlete with years of baseball experience at the major-league level, an extra 2 MPH is sometimes all it takes to get a strikeout.
+
+And that, I think, is the true secret to a pitcher's dominance: throw what hitters don't expect and can't react to quickly.
+
+
+===
+
+
+
+even when accounting for pitcher handedness,  
+
+don't. While Chris Sale is clearly able to do this, others of his ilk do it also and 
+
+this may be true of Chris Sale in general, and it probably was true of that particular plate appearance Longoria mentioned, 
+
+After examining the evidence, it appears varying the speeds of distinct pitch types has little to no relationship with on-field strikeout and walk rates. 
+
+This finding doesn't mean Longoria was wrong. I'm sure he was legitimately fooled by Sale's 95 MPH heater. (Many batters are.) But although he  
+
+no strong relationship exists between None of the relationships appear strong. 
+
+I'm not surprised that no strong relationship exists between varying the speeds of distinct pitches and K-BB%. Let's remember a few things. First, just because Evan Longoria had problems with Chris Sale throwing those pitches in that plate appearance, doesn't mean all other pitchers do. Longoria could just be storytelling, highlighting one example to illustrate a wider narrative about Sale being tough to hit. (As if we need any more convincing!) Second, the data above relies on MLB's pitch classifications, which aren't perfect -- if they were, Pitch Info [http://www.pitchinfo.com/] would have one less job to do. Third, we know enough about baseball to understand that pitcher performance is never just [one] thing, such as varying the speed of a single pitch. A ton of factors comprise pitcher performance, many of which are situational: what pitch the hitter's expecting, what pitches the pitcher feels comfortable throwing, what pitchers the catcher wants to call, and so on.
+
+Longoria says as much. He implies that he's expecting a 92-93 MPH fastball in this situation, because that's what Sale had thrown him in previous situations, and that's what he'd seen earlier in the plate appearance. Instead, Sale blows him away with a 95 MPH heater. The fact that Sale varied his pitch speed may matter less than what Longoria was expecting to see. Unfortunately we can't quantify the latter; if we could, we'd essentially solve the same of baseball.
+
+
+
+```
+
+The regression equation though is 90.909 + (6.178 * mad_release_speed_ch)
+
+k_bb = 90.909 + (6.178) * mad_release_speed_ch
+
+
+
+
+
 
 
 pitch_speed_overall <- savant_data_pitch_speed_tbl %>%
@@ -113,13 +301,7 @@ pitch_speed_overall <- savant_data_pitch_speed_tbl %>%
   
   
   
-mad_by_pitches <- savant_data_pitch_speed_tbl %>%  
-  group_by(game_year, pitch_type) %>%
-  arrange(desc(mad_release_speed)) %>%
-  mutate(mad_rank_in_pitch_for_season = 100 * (percent_rank(mad_release_speed))) %>%
-  inner_join(pitching_stats, by=c("pitcher" = "mlbamid", "game_year" = "Season")) %>%
-  group_by(game_year) %>%
-  mutate(k_minus_bb_plus = 100 * (k_minus_bb / mean(k_minus_bb)))
+
 
 
 ggplot(mad_by_pitches, aes(mad_release_speed, k_minus_bb_plus)) + geom_point() + 
