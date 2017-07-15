@@ -19,7 +19,7 @@ fgt = theme(
   plot.title = element_text(family = "Lato"),
   panel.grid.major = element_line(size = .1, color = "lightgrey"),
   panel.grid.minor = element_line(size = 0),
-  strip.background = element_rect(fill = "#50ae26"),
+  strip.background = element_rect(fill="#8e001c"),
   strip.text = element_text(color="white", family="Lato")
   )
 
@@ -63,7 +63,15 @@ savant_data_pitch_speeds <- fg_db %>%
 
 ```
 
+
+
+
+
+
 ```{r}
+
+# to get the true xwoba, I need to filter for only balls that end at-bats, and add .69 and .72 as needed
+
 savant_data_pitch_speed_tbl <- savant_data_pitch_speeds %>%
   group_by(pitcher, player_name, game_year, pitch_type) %>%
   summarize(num_pitches = n(),
@@ -72,10 +80,50 @@ savant_data_pitch_speed_tbl <- savant_data_pitch_speeds %>%
             median_release_speed = median(release_speed),
             mad_release_speed = mad(release_speed),
             mean_xwoba = mean(xwoba, na.rm = TRUE)) %>%
+  filter(num_pitches >= 300) %>%
   inner_join(pitching_stats, by=c("pitcher" = "mlbamid", "game_year" = "Season")) %>%
-  filter(num_pitches >= 200)
+  group_by(game_year) %>%
+  mutate(k_minus_bb_plus = 100 * (k_minus_bb / mean(k_minus_bb)))
+
+ggplot(savant_data_pitch_speed_tbl, aes(mad_release_speed, k_minus_bb_plus)) + geom_point() + 
+  geom_smooth(method="lm", color="#8e001c") + fgt
+```
+
+That's about as weak a relationship as you can get. Based on this graph, pitchers who vary the release speeds of a pitch don't perform any better than those who hover around a certain speed. In fact, the negative slope of the line indicates the opposite: players with a higher deviation of release speeds tend, in general, to do slightly worse than pitchers who release pitches at similar speeds.
+
+Let's remember a few things. First, just because Evan Longoria had problems with Chris Sale throwing those pitches in that plate appearance, doesn't mean all other pitchers do. Longoria could just be storytelling, highlighting one example to illustrate a wider narrative about Sale being tough to hit. (As if we need any more convincing!) Second, the data above relies on MLB's pitch classifications, which aren't perfect -- if they were, Pitch Info [http://www.pitchinfo.com/] would have one less job to do. Third, we know enough about baseball to understand that pitcher performance is never just _one_ thing, such as varying the speed of a single pitch. A ton of factors comprise pitcher performance, many of which are situational: what pitch the hitter's expecting, what pitches the pitcher feels comfortable throwing, what pitchers the
+
+I don't know what I expected to see in this graph, but now that 
+
+What about if we break 
+
+```{}
+ggplot(mad_by_pitches, aes(mad_release_speed, k_minus_bb_plus)) + geom_point() + 
+  geom_smooth(method="lm", color="#8e001c") +
+  facet_wrap(~pitch_type) + fgt
+```
 
 
-ggplot(savant_data_pitch_speed_tbl, aes(mad_release_speed, k_minus_bb)) + geom_point()
+pitch_speed_overall <- savant_data_pitch_speed_tbl %>%
+  
+  group_by(pitcher, player_name, game_year) %>%
+  arrange(desc(mad_release_speed)) %>%
+  mutate(mad_rank_in_pitch_for_season = 100 * (percent_rank(mad_release_speed)))
+  group_by(game_year) %>%
+  
+  
+  
+mad_by_pitches <- savant_data_pitch_speed_tbl %>%  
+  group_by(game_year, pitch_type) %>%
+  arrange(desc(mad_release_speed)) %>%
+  mutate(mad_rank_in_pitch_for_season = 100 * (percent_rank(mad_release_speed))) %>%
+  inner_join(pitching_stats, by=c("pitcher" = "mlbamid", "game_year" = "Season")) %>%
+  group_by(game_year) %>%
+  mutate(k_minus_bb_plus = 100 * (k_minus_bb / mean(k_minus_bb)))
+
+
+ggplot(mad_by_pitches, aes(mad_release_speed, k_minus_bb_plus)) + geom_point() + 
+  geom_smooth(method="lm", color="#8e001c") +
+  facet_wrap(~pitch_type) + fgt
 
 ```
