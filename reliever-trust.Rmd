@@ -36,9 +36,10 @@ fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"),
 ```{r}
 fg_info <- fg_db %>%
   tbl("player_info") %>%
-  select(PlayerId, FirstName, LastName) %>%
+  select(PlayerId, FirstName, LastName, BirthDate) %>%
   collect(n=Inf) %>%
-  unite(Name, FirstName, LastName, sep = " ")
+  unite(Name, FirstName, LastName, sep = " ") %>%
+  mutate(birth_year = year(BirthDate))
 
 gmli <- fg_db %>%
   tbl("stats_pitching_master") %>%
@@ -49,10 +50,11 @@ gmli <- fg_db %>%
   collect(n=Inf) %>%
   inner_join(fg_info, by="PlayerId") %>%
   filter(GS/G < .5) %>%   #get relievers only
-  mutate(k_minus_bb_relief = 100 * ((SO/TBF) - (BB/TBF))) %>%    #k-bb% is now relative to relievers only
+  mutate(k_minus_bb_relief = 100 * ((SO/TBF) - (BB/TBF)), #k-bb% is now relative to relievers only
+         proj_age = Season - birth_year) %>%    
   group_by(Season) %>%
   #mutate(k_minus_bb_plus_relief = 100 * (k_minus_bb_relief / mean(k_minus_bb_relief))) %>%
-  select(PlayerId, Name, Season, Age, GS, G, TBF, k_minus_bb_relief, ValueW, gmLI)
+  select(PlayerId, Name, Season, proj_age, GS, G, TBF, k_minus_bb_relief, ValueW, gmLI)
 
 ```
 
@@ -67,22 +69,26 @@ reliever_trust_changes <- gmli %>%
   arrange(Season) %>%
   mutate(gmli_diff = gmLI - lag(gmLI),
          from_year = lag(Season),
-         to_year = Season,
-         display = sprintf("%s %s – %s", Name, from_year, to_year),
+         to_year = Season) %>%
+  filter(to_year - from_year == 1) %>%
+  mutate(display = sprintf("%s %s – %s", Name, from_year, to_year),
+         
          proj_k_bb = (.6 * lag(k_minus_bb_relief)) + (.3 * (lag(k_minus_bb_relief, 1))) +
            (.1 * lag(k_minus_bb_relief, 2)),
-         project_kbb_minus_kbb = proj_k_bb - k_minus_bb_relief) %>%
-  filter(!is.na(gmli_diff),
-         to_year - from_year == 1) %>% 
-  select(PlayerId, Name, from_year, to_year, Age, TBF, k_minus_bb_relief, 
-         proj_k_bb, gmli_diff, project_kbb_minus_kbb) %>%
+         project_kbb_minus_kbb = proj_k_bb - k_minus_bb_relief,
+         
+         proj_war = (.8 * ((.6 * lag(ValueW)) + (.3 * (lag(ValueW, 1))) +
+           (.1 * lag(ValueW, 2)))) - ((26 - proj_age) * .1),
+         war_diff = proj_war - ValueW) %>%
+  select(PlayerId, Name, from_year, to_year, gmli_diff, proj_war, ValueW, war_diff) %>%
   arrange(desc(gmli_diff)) %>%
   ungroup()
 
 # if proj - actual is positive, 50 - 20, then player performed worse than expected.
 # if proj - actual is negative, 20 - 50, then player performed better than expected.
-ggplot(reliever_trust_changes, aes(gmli_diff, project_kbb_minus_kbb)) + geom_point() + geom_smooth(method = "lm") + fgt +
-  ggtitle("Given More Trust, Relievers Perform Better than Expected")
+ggplot(reliever_trust_changes, aes(gmli_diff, war_diff)) + geom_point() + geom_smooth(method = "lm") + fgt +
+  ggtitle("Given More Trust, Relievers Perform Better than Expected\n(Relivers who Faced at least 100 batters in Back-to-Back Years)") +
+  labs(x="Change in gmLI from Previous Year", y="Projected WAR - Actual WAR")
 
 ```
 
