@@ -171,7 +171,37 @@ pitch_hand_tbl <- savant_data_pitch_speed_tbl %>%
   unite(pitch_hand, pitch_type, p_throws, sep = " - ")
 
 
-ch_l_mdl <- with(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "CH")), lm(k_minus_bb_plus ~ mad_release_speed))
+
+ff_l_mdl <- with(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "FF - L")), lm(k_minus_bb_plus ~ mad_release_speed))
+ff_r_mdl <- with(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "FF - R")), lm(k_minus_bb_plus ~ mad_release_speed))
+
+ft_l_mdl <- with(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "FT - L")), lm(k_minus_bb_plus ~ mad_release_speed))
+ft_r_mdl <- with(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "FT - R")), lm(k_minus_bb_plus ~ mad_release_speed))
+
+si_l_mdl <- with(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "SI - L")), lm(k_minus_bb_plus ~ mad_release_speed))
+si_r_mdl <- with(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "SI - R")), lm(k_minus_bb_plus ~ mad_release_speed))
+
+fc_l_mdl <- with(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "FC - L")), lm(k_minus_bb_plus ~ mad_release_speed))
+fc_r_mdl <- with(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "FC - R")), lm(k_minus_bb_plus ~ mad_release_speed))
+
+sl_l_mdl <- with(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "SL - L")), lm(k_minus_bb_plus ~ mad_release_speed))
+sl_r_mdl <- with(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "SL - R")), lm(k_minus_bb_plus ~ mad_release_speed))
+
+cu_l_mdl <- with(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "CU - L")), lm(k_minus_bb_plus ~ mad_release_speed))
+cu_r_mdl <- with(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "CU - R")), lm(k_minus_bb_plus ~ mad_release_speed))
+
+kc_l_mdl <- with(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "KC - L")), lm(k_minus_bb_plus ~ mad_release_speed))
+kc_r_mdl <- with(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "KC - R")), lm(k_minus_bb_plus ~ mad_release_speed))
+
+ch_l_mdl <- with(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "CH - L")), lm(k_minus_bb_plus ~ mad_release_speed))
+ch_r_mdl <- with(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "CH - R")), lm(k_minus_bb_plus ~ mad_release_speed))
+
+fs_l_mdl <- with(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "FS - L")), lm(k_minus_bb_plus ~ mad_release_speed))
+fs_r_mdl <- with(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "FS - R")), lm(k_minus_bb_plus ~ mad_release_speed))
+```
+
+```{r}
+
 
 ggplot(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "CH")), aes(mad_release_speed, k_minus_bb_plus)) + geom_point() +
   geom_smooth(method="lm", color="#8e001c") +
@@ -204,6 +234,8 @@ ggplot(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "FC")), aes(mad_release_
   facet_wrap(~pitch_hand, ncol = 2) + fgt + ggsave("pitch_type_hands_fc.png")
 
 
+cu_l_mdl <- with(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "CU - L")), lm(k_minus_bb_plus ~ mad_release_speed))
+
 ggplot(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "CU")), aes(mad_release_speed, k_minus_bb_plus)) + geom_point() +
   geom_smooth(method="lm", color="#8e001c") +
   ggtitle("Relationship between Pitch Speed Variations, Handedness, and K-BB+\nStarting Pitchers, 2015 - 2017") +
@@ -216,6 +248,12 @@ ggplot(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "SL")), aes(mad_release_
   ggtitle("Relationship between Pitch Speed Variations, Handedness, and K-BB+\nStarting Pitchers, 2015 - 2017") +
   labs(x="MAD Release Speed (MPH)", y="K-BB+") +
   facet_wrap(~pitch_hand, ncol = 2) + fgt + ggsave("pitch_type_hands_sl.png")
+
+ggplot(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "FS")), aes(mad_release_speed, k_minus_bb_plus)) + geom_point() +
+  geom_smooth(method="lm", color="#8e001c") +
+  ggtitle("Relationship between Pitch Speed Variations, Handedness, and K-BB+\nStarting Pitchers, 2015 - 2017") +
+  labs(x="MAD Release Speed (MPH)", y="K-BB+") +
+  facet_wrap(~pitch_hand, ncol = 2) + fgt + ggsave("pitch_type_hands_fs.png")
 
 ggplot(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "KC")), aes(mad_release_speed, k_minus_bb_plus)) + geom_point() +
   geom_smooth(method="lm", color="#8e001c") +
@@ -234,6 +272,20 @@ ggplot(pitch_hand_tbl %>% filter(str_detect(pitch_hand, "KC")), aes(mad_release_
 #   ggtitle("Relationship between Pitch Speed Variations and K-BB+\nLHP Starting Pitchers, 2015 - 2017") +
 #   labs(x="MAD Release Speed (MPH)", y="K-BB+") +
 #   facet_wrap(~pitch_type, nrow = 5, dir = "h") + fgt + ggsave("pitch_type_lhp.png")
+```
+
+
+```{r}
+
+high_vs_low <- savant_data_pitch_speed_tbl %>%
+  filter(pitch_type != "KN") %>%
+  mutate(class = ntile(k_minus_bb_plus, 5)) %>%
+  group_by(pitch_type, class) %>%
+  summarize(avg_mad = mean(mad_release_speed))
+
+ggplot(high_vs_low, aes(pitch_type, avg_mad, fill=as.character(class))) + geom_bar(position = "dodge", stat="identity") + 
+  fgt + labs(x="", y="Avg. MAD Release Speed (MPH)", fill = "Class of Pitcher (1 = low K-BB+, 5 = high K-BB+)", color="") + ggsave("pitcher-class.png") + scale_fill_brewer(palette = "Reds") + theme(legend.position="bottom")
+
 ```
 
 We see a few distinctions when throwing the same pitch from different sides of the rubber:
