@@ -1,0 +1,205 @@
+```{r setup, include=FALSE, echo=FALSE}
+
+
+library(tidyverse)
+library(rvest)
+library(stringr)
+library(plotly)
+library(lubridate)
+library(RMySQL)
+
+fgt = theme(
+  panel.background = element_rect(color = "lightgrey", fill = "white"),
+  axis.title = element_text(family = "Lato"),
+  axis.text = element_text(family = "Lato"),
+  legend.title = element_text(family = "Lato"),
+  legend.text = element_text(family = "Lato"),
+  legend.background = element_rect(fill = "white"),
+  legend.key = element_rect(fill = "white"),
+  plot.title = element_text(family = "Lato"),
+  panel.grid.major = element_line(size = .1, color = "lightgrey"),
+  panel.grid.minor = element_line(size = 0),
+  strip.background = element_rect(fill = "#50ae26"),
+  strip.text = element_text(color="white", family="Lato")
+  )
+
+fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"), 
+                            host = Sys.getenv("FG_HOST"), 
+                            user = Sys.getenv("FG_USER"),
+                            password = Sys.getenv("FG_PW"))
+```
+
+
+
+
+
+```{r}
+fg_info <- fg_db %>%
+  tbl("player_info") %>%
+  select(PlayerId, FirstName, LastName) %>%
+  collect(n=Inf) %>%
+  unite(Name, FirstName, LastName, sep = " ")
+
+gmli <- fg_db %>%
+  tbl("stats_pitching_master") %>%
+  filter(Type == 0,
+         Season >= 1974,
+         Season <= 2016) %>%
+  select(PlayerId, Season, Age, G, GS, TBF, SO, BB, ValueW, gmLI) %>%
+  collect(n=Inf) %>%
+  inner_join(fg_info, by="PlayerId") %>%
+  filter(GS/G < .5) %>%   #get relievers only
+  mutate(k_minus_bb_relief = 100 * ((SO/TBF) - (BB/TBF))) %>%    #k-bb% is now relative to relievers only
+  group_by(Season) %>%
+  #mutate(k_minus_bb_plus_relief = 100 * (k_minus_bb_relief / mean(k_minus_bb_relief))) %>%
+  select(PlayerId, Name, Season, Age, GS, G, TBF, k_minus_bb_relief, ValueW, gmLI)
+
+```
+
+
+```{r}
+
+# find gmLI changes for only relievers who faced 150 batters in back-to-back years
+
+reliever_trust_changes <- gmli %>%
+  filter(TBF >= 100) %>%   
+  group_by(PlayerId) %>%
+  arrange(Season) %>%
+  mutate(gmli_diff = gmLI - lag(gmLI),
+         from_year = lag(Season),
+         to_year = Season,
+         display = sprintf("%s %s – %s", Name, from_year, to_year),
+         proj_k_bb = (.6 * lag(k_minus_bb_relief)) + (.3 * (lag(k_minus_bb_relief, 1))) +
+           (.1 * lag(k_minus_bb_relief, 2)),
+         project_kbb_minus_kbb = proj_k_bb - k_minus_bb_relief) %>%
+  filter(!is.na(gmli_diff),
+         to_year - from_year == 1) %>% 
+  select(PlayerId, Name, from_year, to_year, Age, TBF, k_minus_bb_relief, 
+         proj_k_bb, gmli_diff, project_kbb_minus_kbb) %>%
+  arrange(desc(gmli_diff)) %>%
+  ungroup()
+
+# if proj - actual is positive, 50 - 20, then player performed worse than expected.
+# if proj - actual is negative, 20 - 50, then player performed better than expected.
+ggplot(reliever_trust_changes, aes(gmli_diff, project_kbb_minus_kbb)) + geom_point() + geom_smooth(method = "lm") + fgt +
+  ggtitle("Given More Trust, Relievers Perform Better than Expected")
+
+```
+
+
+INTRO
+
+"The best way to find out if you can trust somebody is to trust them." -- Ernest Hemingway
+
+"Having another person's trust is more powerful than all other management techniques put together." -- Linus Torvalds
+
+FIND ONE MORE.
+
+
+METHODOLOGY
+
+I used FanGraphs' gmLI stat [http://www.fangraphs.com/library/misc/li/] to gauge the level of trust each reliever inspired in their manager. gmLI is the leverage index when a reliever enters the game. High gmLIs indicate the manager is trusting the reliver to get the team out of jams. Low gmLIs indicate the manager considers the reliever fit for only mop-up duty. Accordingly, closers often have the highest gmLI in the game.
+
+This method isn't perfect; it doesn't account for fluctuations in overall gmLI. A lower gmLI could indicate not a loss of trust, but a year where the team needs fewer high-leverage innings overall. I decided against accounting for this because leverage is still leverage; every team has them, and managers aren't thinking about league average when deciding when to insert a reliever into the game. They're thinking only: who can give me the best chance of putting up a goose egg? (Full disclosure: I'm not and never have been a manager.)
+
+With each reliever's gmLI in hand (no pun intended),  computed year-to-year differences for relivers who met the following criteria:
+
+-- Started fewer than 50% of their games in both seasons
+-- Faced at least 150 batters in each season
+
+These criteria removed guys like Jimmy Key, who entered the league as a reliever, had a distinguished career as a starter, then ended his career in the bullpen again. These criteria also removed guys like Derrick Turnbow who were injured or ineffective for some intervening seasons. Lacking a way to project their gmLI for that year, removing them is okay.
+
+When talking about a reliever gaining or losing the trust of his manager, the reliever's performance probably is the dominant factor. But there are others. A change in managers could bring about a different evaluation of the reliever in question. The reliever could've changed teams. And of course, the team could've changed out other relievers, making the guy in question look better by comparison.
+
+
+COUNTING DOWN THE TOP THREE GAINERS
+
+KEVIN GREGG, 2012 - 2013: +1.33 gmLI
+
+Gregg's gmLI increased here because different teams have different needs. A playoff-bound team like the 2012 Orioles needed every save locked down as tightly as possible, especially since the franchise hadn't sniffed the postseason since 1997. Gregg couldn't provide that, so the team DFA'd him late in the year in favor of Jim Johnson. But the 96-loss 2013 Cubs didn't care much who was in the closer's role. They just needed a guy to eat innings, and Gregg provided that value just fine. Gregg was mostly the same pitcher in both years, but becoming the Cubs' closer in 2013 increased his gmLI from 0.48 to 1.81.
+
+BILL CAUDILL, 1981 - 1982, +1.35 gmLI
+
+Here's another team-changer. Caudill was a high-strikeout, high-walk reliever for the Cubs from 1979 - 1980. His 1980 season was particularly nice, pitching over 127 innings with a FIP- of 91 and an ERA- of 56. But in 1981 he lost some of his mojo, recording a FIP- of 123 with an ERA- of 156. Looking back, his 1980 was fueled by a crazy-low .260 BABIP and a crazy-high 84.3% strand rate. In 1981 those numbers regressed to .320 and 65.2% respectively, leading to a mid-career-low usage of 0.93 gmLI. His gmLI was lower only in his first and last seasons in the majors.
+
+Caudill wasn't _that_ terrible, but in the early 80's baseball decision makers didn't know about regression to the mean, so the Cubs traded him to the Yankees, who turned him around to the Mariners. Caudill responded with an excellent season, recording a 63 FIP- and 56 ERA- in high-leverage spots for the Mariners (2.28 gmLI).
+
+Fun fact: Caudill was Scott Boras' first client.
+
+MIKE TIMLIN, 1994 - 1995: +1.40 gmLI
+
+What makes Timlin's feat more impressive is that he didn't change teams or managers in these years. Cito Gaston and the Toronto Blue Jays employed and therefore evaluated Timlin in both years. What changed is that Timlin became a better pitcher. In 1994 Timlin pitched poorly with runners on base, strandeing only 67.9% of baserunners. He also struggled with command, walking 11.2% of batters. In 1995 he cut his walk rate by 1.5 percentage points while keeping an above-average strikeout rate, leading to a much nicer K-BB% and a 79.1% strand rate. Gaston noticed the increase in Timlin's effectiveness and used him in higher-leverage spots, causing Timlin's gmLI to jump from 0.69 in 1994 to 2.10 in 1995.
+
+The funny part is that despite being a better pitcher overall in 1995, Timlin actually hurt his team more that year. His WPA decreased from -0.13 in 1994 to -0.62 in 1995. Oh well; if he ever feels sad about this fact, he can just polish his four World Series rings.
+
+COUNTING DOWN THE TOP THREE DECLINERS
+
+Not everyone gets handed the keys to the kingdom. Some guys get the keys taken away from them after they tramp mud all over the rug, knock over a lamp, and start a fire in the kitchen. So it goes with these three guys, the top three year-to-year decliners in gmLI since 1974.
+
+Donne Wall, 2000 - 2001: -1.38 gmLI
+
+Wall spent 1998 - 2000 as a trustworthy member of the San Diego Padres, averaging at least a 1.50 gmLI each year with a 2.92 ERA in his time there. Unfortunately he may be best remembered by Yankees fans. In Game 1 of the 1998 World Series, Chuck Knoblauch hit a game-tying three-run home run of Wall to knot the score at 5.
+
+Following the 2000 season, the Padres traded Wall to the Mets, who were fresh off their World Series loss to the Yankees. Wall pitched well for the Mets; better, in fact, than he'd pitched for the Padres the previous year. But his Clutch score of -2.46, and his HR/9 of 1.69, indicates why new manager Bobby Valentine lost faith in Wall.
+
+Wall started the season terribly, allowing three runs in two innings. He worked a few scoreless games before another two-run, two-inning performance on April 24th in Milwaukee. His next appearance was fine, but on April 29th against the Cardinals Wall allowed six hits, three walks, and four runs in 1.2 innings. He got torched again on May 11th against the Giants: two walks and one run in 0.1 innings. Overall he recorded five meltdowns against zero shutdowns as his gmLI dropped from 1.75 in San Diego to 0.37 in Flushing.  
+
+Jordan Walden, 2011 - 2012: -1.423 gmLI
+
+Walden burst onto the scene in 2010 with a 100 MPH heater and a 24.6 K-BB%. In 2011 the Angels made him their closer, replacing Fernando Rodney, and he rewarded them with an 83 xFIP- season, averaging a 2.167 gmLI in the process. At age 23, he seemed to be baseball's next great reliever, although his high 10.5% walk rate was perhaps alarming, and he tied for the major league lead in blown saves with 10.
+
+Walden opened 2012 with an 8.31 ERA in his first six games, the sixth one ending in his first blown save of the season. Two days later Mike Scioscia announced Walden had lost the closer job. Walden finished the season with an 83 xFIP-, albeit in much lower-leverage work as his gmLI fell to 0.72. If it's any consolation, on the same day Scioscia announced Walden's demotion, he also announced the promotion of some guy named Mike Trout.
+
+Luis Sanchez, 1984 - 1985: -1.427 gmLI
+
+Score another one for the Angels. Sanchez was the team's primary closer in 1984 and he pitched okay, recording a 100 FIP- with a 2.11 gmLI. Prior to the 1985 season though, the team acquired Donnie Moore to be their closer. Manager John McNamara also left for Boston and was replaced by former Angels skipper Gene Mauch. Under Mauch, and having been replaced by Moore, Sanchez fell into setup and middle-relief duty and saw his FIP- rise to 115 even as his gmLI declined to 0.68. 1985 was his last year in baseball.     
+MORE GUYS
+
+The following graphs show you more names than I could write about here:
+
+```{r}
+increased_trust <- reliever_trust_changes %>%
+  head(20)
+
+ggplot(increased_trust, aes(reorder(display, gmli_diff), gmli_diff)) + geom_bar(stat="identity", fill = "#8e001c") + coord_flip() + fgt +
+  ggtitle("Relievers Who Gained the Most Trust Year-to-Year, 1974 - 2016") +
+  labs(x="", y="Change in Mean gmLI")
+```
+
+```{r}
+decreased_trust <- reliever_trust_changes %>%
+  tail(20)
+
+ggplot(decreased_trust, aes(reorder(display, gmli_diff), gmli_diff)) + geom_bar(stat="identity", fill="#8e001c") + coord_flip() + fgt + 
+  ggtitle("Relievers Who Lost the Most Trust Year-to-Year, 1974 - 2016") +
+  labs(x="", y="Change in Mean gmLI")
+```
+
+CLOSING THOUGHTS
+
+I'm happy 
+
+
+
+
+
+Kevin Gregg's spent 2012 with the Baltimore Orioles who surprisingly won 93 games and the AL Wild Card game, advancing to the playoffs for the first time since 1997. But Gregg wasn't a key member of the team. He'd begun his stint with the Orioles the year before in 2011, but by the end of the year Jim Johnson was the team's primary closer. In 2012 manager Buck Showalter used Gregg mostly in mop-up situations, leading to an unimpressive 0.48 gmLI.
+
+The team designated him for assignment in September 2012 whereupon he was signed by the Los Angeles Dodgers on a minor-league deal. Gregg opted out after not making the major-league roster in April and was picked up by the then-rebuilding Chicago Cubs. He became that team's primary closer, leading to a mean gmLI of 1.81. The team would finish 66-96, so a closer to them was just a guy to eat innings, and Gregg did just that. He bounced around to a few minor-league deals after the season, but never pitched in the majors again.
+
+
+
+
+
+
+Counting down the 
+
+Since 1974, the following pitchers inspired the largest, quickest increases in trust year-to-year:
+
+
+
+
+From 1994 - 1995 Mike Timlin was on the 
+
+
+
