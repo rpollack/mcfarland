@@ -63,8 +63,12 @@ gmli <- fg_db %>%
 
 # find gmLI changes for only relievers who faced 150 batters in back-to-back years
 
+#we need all seasons in order to compute projected WAR difference.
+
+#then filter for TBF >= 150 3 years straight to get the gmLI folks
+
 reliever_trust_changes <- gmli %>%
-  filter(TBF >= 100) %>%   
+  filter(TBF >= 150) %>%   
   group_by(PlayerId) %>%
   arrange(Season) %>%
   mutate(gmli_diff = gmLI - lag(gmLI),
@@ -72,25 +76,176 @@ reliever_trust_changes <- gmli %>%
          to_year = Season) %>%
   filter(to_year - from_year == 1) %>%
   mutate(display = sprintf("%s %s – %s", Name, from_year, to_year),
-         
-         proj_k_bb = (.6 * lag(k_minus_bb_relief)) + (.3 * (lag(k_minus_bb_relief, 1))) +
-           (.1 * lag(k_minus_bb_relief, 2)),
-         project_kbb_minus_kbb = proj_k_bb - k_minus_bb_relief,
-         
-         proj_war = (.8 * ((.6 * lag(ValueW)) + (.3 * (lag(ValueW, 1))) +
-           (.1 * lag(ValueW, 2)))) - ((26 - proj_age) * .1),
-         war_diff = proj_war - ValueW) %>%
-  select(PlayerId, Name, from_year, to_year, gmli_diff, proj_war, ValueW, war_diff) %>%
+   
+         #project WAR using Warcels: http://tangotiger.com/index.php/site/comments/war-marcels-...-warcels
+         proj_war_after_trust_change = (((.6 * ValueW) + (.3 * (lag(ValueW))) + (.1 * lag(ValueW, 1))) * .8) - 
+           ((proj_age - 26) * .1),
+         actual_war_after_trust_change = lead(ValueW),
+         war_diff_year_after_trust_change = actual_war_after_trust_change - proj_war_after_trust_change) %>%
+  select(PlayerId, Name, from_year, to_year, proj_age, gmli_diff, ValueW, actual_war_after_trust_change, proj_war_after_trust_change,
+         war_diff_year_after_trust_change) %>%
   arrange(desc(gmli_diff)) %>%
+  filter(!is.na(war_diff_year_after_trust_change)) %>%
   ungroup()
 
-# if proj - actual is positive, 50 - 20, then player performed worse than expected.
-# if proj - actual is negative, 20 - 50, then player performed better than expected.
-ggplot(reliever_trust_changes, aes(gmli_diff, war_diff)) + geom_point() + geom_smooth(method = "lm") + fgt +
-  ggtitle("Given More Trust, Relievers Perform Better than Expected\n(Relivers who Faced at least 100 batters in Back-to-Back Years)") +
-  labs(x="Change in gmLI from Previous Year", y="Projected WAR - Actual WAR")
+# if actual - proj is positive, 50 - 20, then player performed better than expected.
+# if actual - proj is negative, 20 - 50, then player performed worse than expected.
+```
+
+
+
+
+
+HOW DO RELIEVERS RESPOND TO CHANGES IN TRUST?
+
+DO BULLPEN PROMOTIONS AND DEMOTIONS AFFECT RELIEVER PERFORMANCE?
+
+
+
+
+INTRO
+
+MAKE THIS ABOUT SAM DYSON...?
+
+...
+
+My last article [http://www.hardballtimes.com/relievers-who-gained-or-lost-the-most-trust-in-a-single-year/] explored the relievers who gained or lost the most trust in a single offseason since 1974. It was a fun list to compile, and I learned some interesting stories abouy guys like Mike Timlin and Donne Wall. And as always, the comments and Twitter generated some interesting discussions and provided avenues for future research.
+
+One of those avenues of research is the question we should all be asking ourselves when we read articles like these: "so what?" Talking about relievers losing or gaining trust can be fun and interesting from a historical perspective. Sometimes that's enough. Other times, we want to dig deeper. To that effect, one specific Internet citizen suggested some future research to me:
+
+<blockquote class="twitter-tweet" data-lang="en"><p lang="en" dir="ltr">In other words, following a year of trust (or lack thereof), did the reliever respond any differently than he would have otherwise?</p>&mdash; Tangotiger (@tangotiger) <a href="https://twitter.com/tangotiger/status/880431118574637056">June 29, 2017</a></blockquote>
+<script async src="//platform.twitter.com/widgets.js" charset="utf-8"></script>
+
+The question is a fine one. Answering it will help us understand what, if any, effect a demotion or promotion has on actual relief performance. Given today's focus on relief pitcher roles, which despite Andrew Miller's 2016 posteason are still the norm on baseball diamonds nationwide, knowing this information could guide bullpen construction. Plus, the question is just plain interesting. So I decided to attempt an answer. 
+
+
+METHODOLOGY
+
+For this study I used the same Year 1 and Year 2 gmLI measurements and data as I did in my last article. I also added in my interpretation of "did the reliever respond any differently than he would have otherwise?" A subsequent tweet by Tango proposes to measure "differently" in the year following the gmLI change, or Year 3. Mathematically I translated this to Year 3 Actual WAR - Year 3 Projected WAR.
+
+Finding Actual WAR was easy. To compute Projected WAR, I used Tango's own WARcels method [link]. This method has many caveats, especially for relievers, but it's the only one I have. 
+
+I set the threshold at 150 batters faced for three straight seasons because I wanted to include as many relievers as possible while ignoring flukes. As with many studies, selection bias rears its head here. The study includes only relievers who were good enough to be sent to a major-league mound three years in a row. But it's the data we have. Lowering the threshold any further opens us up to fluke changes in gmLI or partial seasons, and I'm not equipped to incorporate those yet.
+
+EXAMPLES
+
+You'll recall from my last article that Mike Timlin's gmLI increased by 1.40 from 1994 to 1995. He didn't change teams or managers; he just pitched better, earning a more important role on the team. The question I answered was: how well did Timlin pitch in 1996, the year following his "promotion", vs. his 1996 projection, which is what we'd otherwise expect of him?
+
+Tango's WARcels method projected Timlin for 0.38 WAR in 1996. This projection seems quite low until you glance at the WAR values it's using. From 1993 - 1995 Timlin recorded WARs of 0.2, 0.2, and 1.3. He also debuted at age 25, making 1996 his age-30 season. So any reasonable manager, let alone an algorithm, would have reason to doubt he could maintain his 1995 breakout into 1996.
+
+But maintain it he did: in 1996 Timlin recorded 1.42 WAR. So after seeing a Year 1 to Year 2 increase of 1.4 gmLI, he overperformed his Year 3 projections by 1.04 WAR. In the scatter plot you'll see below, I'll place a point at (1.4, 1.04).
+
+Another example: from 2013 to 2014, Pat Neshek moved from the Athletics to the Cardinals and gained 1.15 gmLI along the way. After a solid year his projected WAR for Year 3, his 2015 season with the Astros, was 0.42. He instead compiled only 0.21 WAR. So we add another data point, but this time at (1.15, -0.21).
+
+Last one: Sparky Lyle lost 0.46 gmLI in between 1977, his Cy Young season, and 1978. His 1979 season projected for a 0.23 WAR. Lyle instead recorded 0.57 WAR. Slap a data point at (-0.46, 0.34).
+
+RESULTS
+
+A scatterplot of all available data points looks like this:
+
+```{r}
+ggplot(reliever_trust_changes, aes(gmli_diff, war_diff_year_after_trust_change)) + geom_point(color="#8e001c") + geom_smooth(method = "lm",) +
+  fgt + ggtitle("Given More Trust in Year 2, Relievers Are Slightly Worse than Expected in Year 3\n(Relievers who pitched 3 straight years, 1974 - 2016)") + labs(x="Change in gmLI Year 1 to Year 2", y="WAR Overperformance in Year 3")
+
+war_trust_mdl <- with(reliever_trust_changes, lm(war_diff_year_after_trust_change ~ gmli_diff))
+summary(war_trust_mdl)
+
+#r2 = .001 or .1%
+#r = .032. weak relationship
+
+#overperformance in Year 3 = 0.498 - 0.098 * (gmli_diff)
+```
+
+The line of best fit shows a miniscule (r = -0.04) relationship between the gmLI change from Year 1 to Year 2 and WAR overperformance in Year 3. The tiny relationship that's there is negative; that is, relievers who gained trust in Year 2 of a three-year stretch overperformed their Year 3 WAR by less than those who lost trust in Year 2.
+
+To the extent that this effect is worth worrying about, I presume it's because ...
+
+I also bucketed the reliever season-pairs into 10 groups and calculated the mean WAR overperformance in each group. Group 1 lost the largest amount of gmLI in year 2, whereas Group 10 gained the most. The following chart shows that in Year 3, all deciles experienced a similar overperformance relative to their projections:
+
+```{r}
+bayes_gmli_change <- reliever_trust_changes %>%
+  mutate(gmli_change_bucket_year_1_2 = ntile(gmli_diff, 10)) %>%
+  group_by(gmli_change_bucket_year_1_2) %>%
+  summarize(mean_war_overperformance = mean(war_diff_year_after_trust_change, na.rm = TRUE))
+
+#8409 total entries
+
+ggplot(bayes_gmli_change, aes(reorder(as.character(gmli_change_bucket_year_1_2), gmli_change_bucket_year_1_2),
+                              mean_war_overperformance)) + geom_bar(stat="identity", fill="#8e001c") + fgt + 
+  labs(x="gmLI Decile\n(1 = Large Drop in gmLI, 10 = Large Gain in gmLI)", y="Mean WAR Overperformance") + 
+  ggtitle("Changes in Reliever Trust from Y1 - Y2 don't Affect Relief Performance in Y3")
 
 ```
+
+These groups are mostly the same, but we see the same trend: relievers who gain the most gmLI in Year 2 tend to overperform their WAR projections by the least amount in Year 3. The effect can't be due to age, since the projections take that into account. 
+
+I am struck by the fact that all groups outperform their projections, on average. I suspect this fact has more to do with the projections themselves and doesn't mean there's a hidden pattern here we're not seeing. If anyone has suggestions for other projection mechanisms that would be suitable here, let me know in the comments.
+
+CONCLUSION
+
+So, Sam Dyson can rest easy. 
+
+
+
+...
+
+
+
+
+
+
+
+take this phenomenon to be simple regression to the mean. would have outperformed expectations regardless; it just so happens that in Y1 they were on the receiving end of some bad luck or other uncontrollable factor and were punished as if they'd lost some essential skill.
+
+Writing this paragraph made me think of Sam Dyson, who struggled mightily to begin the 2017 season to the tune of a 10.80 ERA before getting DFA'd by the Rangers. Dyson's gmLI dropped from 1.83 in 2016 to 1.40 in 2017, as he was removed from the closer's role before being removed from the team.   
+
+
+
+Another way to 
+
+
+
+
+
+account for these changes you have to project the player's WAR in Year 3 and subtract that projection from their actual WAR.
+
+Simply looking at WAR overperformance itself doesn't do the trick either. 
+
+
+
+
+Selection bias comes into play here. 
+
+Using WAR projections allows me to remove a 'batters faced' threshold. In my last article this was 150 batters in a season; for this article, the gloves are off. 
+
+But some selection bias still remains. Ultimate
+
+As we saw in my last article, a player could lose or gain gmLI through no fault of his own. Kevin Gregg gained gmLI in 2013 by virtue of switching to a worse team who could afford to care less about his performance; conversely, Luis Sanches lost gmLI in 1985 when his team acquired Donnie Moore. 
+
+Using projected WAR eliminates some of the selection bias, but not all. By removing a minimum 'batters-faced' number, we can get more at the heart of a play
+
+
+
+
+
+Lower deciles include decreases in gmLI, while higher deciles include increases in gmLI. No matter the direction of the gmLI change, relievers do a bit better than what's expected of them.
+
+In fact it seems the relievers who experience a decrease in trust (deciles 1 - 3) outperform their WAR projections the most. This may be because a relievers who gets demoted really is struggling due to factors outside their control and will experience positive regression to the mean.  
+
+
+
+
+
+this study is:
+
+-reliever's gmLI in year n - gmLI the year before
+take actual WAR In year 3 and subtract projected WAR in year 3
+
+
+
+makes sense but we have to be careful. we could just be seeing managers rewarding good performers with increased leverage roles and simultaneously demoting poor performers from higher-leverage roles.
+
+
 
 
 INTRO
