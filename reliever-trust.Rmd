@@ -88,6 +88,14 @@ reliever_trust_changes <- gmli %>%
   filter(!is.na(war_diff_year_after_trust_change)) %>%
   ungroup()
 
+
+high_gain_or_drop <- reliever_trust_changes %>%
+  mutate(type = ifelse(gmli_diff <= -1, "BIG DROP",
+                       ifelse(gmli_diff >= 1, "BIG GAIN", "OTHER"))) %>%
+  group_by(type) %>%
+  summarize(num = n()) %>%
+  mutate(percent = 100 * num / sum(num))
+
 # if actual - proj is positive, 50 - 20, then player performed better than expected.
 # if actual - proj is negative, 20 - 50, then player performed worse than expected.
 ```
@@ -107,45 +115,44 @@ INTRO
 
 MAKE THIS ABOUT SAM DYSON...?
 
-...
+Every year, we see a few major-league relievers get shunted to a lesser role while others get increased responsibilities. In 2017 Sam Dyson received a lot of coverage for his demotion, but Kevin Siegrist and Luke Gregerson have lost the most gmLI since last year. Meanwhile, Chris Devenski has gained the most gmLI since last season, followed by Matt Belisle. In 2016, J.P. Howell and Mark Lowe lost the most trust while Tyler Thornburg and Jeanmar Gomez received opportunities to shine.
 
-My last article [http://www.hardballtimes.com/relievers-who-gained-or-lost-the-most-trust-in-a-single-year/] explored the relievers who gained or lost the most trust in a single offseason since 1974. It was a fun list to compile, and I learned some interesting stories abouy guys like Mike Timlin and Donne Wall. And as always, the comments and Twitter generated some interesting discussions and provided avenues for future research.
+My last article [http://www.hardballtimes.com/relievers-who-gained-or-lost-the-most-trust-in-a-single-year/] explored the relievers who gained or lost the most trust in a single offseason since 1974. Some were acquired by new teams, some were put under new managers, and others simply pitched better. It was a fun list to compile, and I learned some interesting stories about guys like Mike Timlin and Donne Wall.
 
-One of those avenues of research is the question we should all be asking ourselves when we read articles like these: "so what?" Talking about relievers losing or gaining trust can be fun and interesting from a historical perspective. Sometimes that's enough. Other times, we want to dig deeper. To that effect, one specific Internet citizen suggested some future research to me:
+Talking about relievers losing or gaining trust can be fun and interesting from a historical perspective. Sometimes that's enough. Other times, we want to dig deeper. To that effect, one specific Internet citizen suggested some future research to me:
 
 <blockquote class="twitter-tweet" data-lang="en"><p lang="en" dir="ltr">In other words, following a year of trust (or lack thereof), did the reliever respond any differently than he would have otherwise?</p>&mdash; Tangotiger (@tangotiger) <a href="https://twitter.com/tangotiger/status/880431118574637056">June 29, 2017</a></blockquote>
 <script async src="//platform.twitter.com/widgets.js" charset="utf-8"></script>
 
-The question is a fine one. Answering it will help us understand what, if any, effect a demotion or promotion has on actual relief performance. Given today's focus on relief pitcher roles, which despite Andrew Miller's 2016 posteason are still the norm on baseball diamonds nationwide, knowing this information could guide bullpen construction. Plus, the question is just plain interesting. So I decided to attempt an answer. 
-
+The question is a fine one. Answering it will help us understand what effect a demotion or promotion has on actual relief performance. Given today's focus on relief pitcher roles, which despite Andrew Miller's 2016 posteason are still the norm in Majoe League Baseball, knowing this information could guide bullpen construction and roster management. Plus, the question is just plain interesting. So I decided to dig deeper. 
 
 METHODOLOGY
 
-For this study I used the same Year 1 and Year 2 gmLI measurements and data as I did in my last article. I also added in my interpretation of "did the reliever respond any differently than he would have otherwise?" A subsequent tweet by Tango proposes to measure "differently" in the year following the gmLI change, or Year 3. Mathematically I translated this to Year 3 Actual WAR - Year 3 Projected WAR.
+For this study I used the same Year 1 and Year 2 gmLI measurements and data as I did in my last article. I also added in my interpretation of "did the reliever respond any differently than he would have otherwise?" A subsequent tweet by Tango clarifies "following" as Year 3 in this Year 1 to Year 2 sequence. I interpresed "otherwise" to be the player's Year 3 WAR projections.And I substituted Year 3 WAR for "respond".
 
 Finding Actual WAR was easy. To compute Projected WAR, I used Tango's own WARcels method [link]. This method has many caveats, especially for relievers, but it's the only one I have. 
 
-I set the threshold at 150 batters faced for three straight seasons because I wanted to include as many relievers as possible while ignoring flukes. As with many studies, selection bias rears its head here. The study includes only relievers who were good enough to be sent to a major-league mound three years in a row. But it's the data we have. Lowering the threshold any further opens us up to fluke changes in gmLI or partial seasons, and I'm not equipped to incorporate those yet.
+I set the threshold at 150 batters faced for three straight seasons because I wanted to include as many relievers as possible while ignoring flukes. As with many studies, selection bias rears its head here. The study includes only relievers who were good enough to be sent to a major-league mound three years in a row. But it's the data we have. Lowering the threshold any further opens us up to chance changes in gmLI or partial seasons, and I'm not equipped to incorporate those yet.
 
 EXAMPLES
 
-You'll recall from my last article that Mike Timlin's gmLI increased by 1.40 from 1994 to 1995. He didn't change teams or managers; he just pitched better, earning a more important role on the team. The question I answered was: how well did Timlin pitch in 1996, the year following his "promotion", vs. his 1996 projection, which is what we'd otherwise expect of him?
+Recall from my last article that Mike Timlin's gmLI increased by 1.40 from 1994 to 1995. He didn't change teams or managers; he just pitched better, earning a more important role on the team. The question I answered was: how well did Timlin pitch in 1996, the year following his "promotion", vs. his 1996 projection, which is what we'd otherwise expect of him?
 
-Tango's WARcels method projected Timlin for 0.38 WAR in 1996. This projection seems quite low until you glance at the WAR values it's using. From 1993 - 1995 Timlin recorded WARs of 0.2, 0.2, and 1.3. He also debuted at age 25, making 1996 his age-30 season. So any reasonable manager, let alone an algorithm, would have reason to doubt he could maintain his 1995 breakout into 1996.
+Tango's WARcels method projected Timlin for 0.38 WAR in 1996. This projection seems quite low until you glance at the WAR values it's using. From 1993 - 1995 Timlin recorded WARs of 0.2, 0.2, and 1.3. 1996 was also his age-30 season, making him old (for a pitcher, anyway). So any reasonable manager, let alone an algorithm, would've had reason to doubt he could've maintained his 1995 breakout into 1996.
 
-But maintain it he did: in 1996 Timlin recorded 1.42 WAR. So after seeing a Year 1 to Year 2 increase of 1.4 gmLI, he overperformed his Year 3 projections by 1.04 WAR. In the scatter plot you'll see below, I'll place a point at (1.4, 1.04).
+But maintain it he did: in 1996 Timlin recorded 1.42 WAR. So after seeing a Year 1 to Year 2 increase of 1.40 gmLI, he overperformed his Year 3 projections by 1.04 WAR. In the scatterplot you'll see below, I'll place a point at (1.40, 1.04).
 
-Another example: from 2013 to 2014, Pat Neshek moved from the Athletics to the Cardinals and gained 1.15 gmLI along the way. After a solid year his projected WAR for Year 3, his 2015 season with the Astros, was 0.42. He instead compiled only 0.21 WAR. So we add another data point, but this time at (1.15, -0.21).
+Another example: from 2013 to 2014, Pat Neshek moved from the Athletics to the Cardinals and gained 1.15 gmLI along the way. After a solid season in St. Louis his projected WAR for Year 3, his 2015 season with the Astros, was 0.42 WAR. He instead compiled only 0.21 WAR. So we add another data point, but this time at (1.15, -0.21).
 
 Last one: Sparky Lyle lost 0.46 gmLI in between 1977, his Cy Young season, and 1978. His 1979 season projected for a 0.23 WAR. Lyle instead recorded 0.57 WAR. Slap a data point at (-0.46, 0.34).
 
 RESULTS
 
-A scatterplot of all available data points looks like this:
+The following scatterplot shows all 2,279 qualifying season-trios:
 
 ```{r}
 ggplot(reliever_trust_changes, aes(gmli_diff, war_diff_year_after_trust_change)) + geom_point(color="#8e001c") + geom_smooth(method = "lm",) +
-  fgt + ggtitle("Given More Trust in Year 2, Relievers Are Slightly Worse than Expected in Year 3\n(Relievers who pitched 3 straight years, 1974 - 2016)") + labs(x="Change in gmLI Year 1 to Year 2", y="WAR Overperformance in Year 3")
+  fgt + ggtitle("Given More Trust in Year 2, Relievers Overperform by Less in Year 3\n(Relievers who pitched 3 straight years, 1974 - 2016)") + labs(x="Change in gmLI Year 1 to Year 2", y="WAR Overperformance in Year 3")
 
 war_trust_mdl <- with(reliever_trust_changes, lm(war_diff_year_after_trust_change ~ gmli_diff))
 summary(war_trust_mdl)
@@ -156,11 +163,22 @@ summary(war_trust_mdl)
 #overperformance in Year 3 = 0.498 - 0.098 * (gmli_diff)
 ```
 
-The line of best fit shows a miniscule (r = -0.04) relationship between the gmLI change from Year 1 to Year 2 and WAR overperformance in Year 3. The tiny relationship that's there is negative; that is, relievers who gained trust in Year 2 of a three-year stretch overperformed their Year 3 WAR by less than those who lost trust in Year 2.
+That's a pretty blob of randomness. The line of best fit shows a miniscule (r = -0.032) relationship between the gmLI change from Year 1 to Year 2 and WAR overperformance in Year 3. Note that the tiny relationship that's there is negative; relievers who gained trust in Year 2 of a three-year stretch overperformed their Year 3 WAR by _less_ than those who lost trust in Year 2; conversely, relievers who lost trust year-to-year overperformebd their Year 3 WAR by more.
+ 
 
-To the extent that this effect is worth worrying about, I presume it's because ...
+The effect on player performance also isn't large. For every 1 point gained (or lost) in gmLI, overperformance decreased (or increased) by .098 WAR. That's about one-tenth of a win, which isn't a lot. WAR isn't so precise that (for example) 5.4 WAR is meaningfully different from 5.3 or 5.5 WAR. The best you could say is that players who get demoted in Year 2 tend to rise a spot or two in the FanGraphs WAR leaderboard rankings in Year 3.
 
-I also bucketed the reliever season-pairs into 10 groups and calculated the mean WAR overperformance in each group. Group 1 lost the largest amount of gmLI in year 2, whereas Group 10 gained the most. The following chart shows that in Year 3, all deciles experienced a similar overperformance relative to their projections:
+Why is a demotion associated with a WAR overperformance increase anyway? Why's the relationship _negative_? The best reason I can think of is simple regression to the mean. Players who got demoted in Year 2 were likely not as bad as they appeared to be; meanwhile, managers may tend to promote players based on luck masquerading as an improvement in skill. This situation reminds me of Daniel Kahneman describing his experience with regression to the mean. As Robert Matthews writes in The National:
+
+Kahneman is famed for witnessing a classic example of its effects while working with fighter-pilot instructors in the 1960s.
+
+Kahneman tried to convince the instructors that praising trainee pilots worked better than punishment. One of the veteran instructors was having none of this, however. He insisted that whenever he praised cadet pilots for doing well, they did worse on the next outing. In contrast, whenever he screamed at them for blunders, they usually did better.
+
+“So please do not tell us that reward works and punishment does not,” intoned the instructor, “because the opposite is the case”.
+
+Kahneman realised that this apparent refutation of his beliefs was an example of regression to the mean.
+
+Taking one last look at the data in case I missed something, I bucketed the reliever season-pairs into 10 groups and calculated the mean WAR overperformance in each group. Group 1 lost the largest amount of gmLI in year 2, whereas Group 10 gained the most. The following chart shows that in Year 3, all deciles experienced a similar overperformance relative to their projections:
 
 ```{r}
 bayes_gmli_change <- reliever_trust_changes %>%

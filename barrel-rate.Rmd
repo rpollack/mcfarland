@@ -1,6 +1,6 @@
 ```{r setup, include=FALSE, echo=FALSE}
 
-
+#library(devtools)
 library(tidyverse)
 library(rvest)
 library(stringr)
@@ -9,6 +9,8 @@ library(lubridate)
 library(RMySQL)
 library(stats4)
 library(VGAM)
+library(gamlss)
+library(broom)
 
 fgt = theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
@@ -42,8 +44,8 @@ estBetaParams <- function(mu, var) {
 
 ```{r}
 
-gd_info <- fg_db %>%
-  tbl("gd_roster") %>%
+id_info <- fg_db %>%
+  tbl("playerid_lookup") %>%
   select(mlbamid, playerid) %>%
   collect(n=Inf)
 
@@ -56,37 +58,32 @@ batter_info <- fg_db %>%
 
 fg_info <- fg_db %>%
   tbl("player_info") %>%
-  select(PlayerId, FirstName, LastName, BISPosition) %>%
+  filter(!BISposition %in% c("SP", "RP")) %>%   #remove pitchers from sample
+  select(PlayerId, FirstName, LastName) %>%
   collect(n=Inf) %>%
-  mutate(Name = sprintf("%s %s", FirstName, LastName)) %>%
-  select(PlayerId, batter_name = Name, BISPosition) %>%
-  collect(n=Inf)
-
-#read mapping from http://www.smartfantasybaseball.com/tools/ since so many players aren't in gd_roster
-mapping <- read_csv("~/Downloads/SFBB Player ID Map - PLAYERIDMAP.csv") %>%
-  select(PLAYERNAME, IDFANGRAPHS, MLBID, POS)
-
+  unite(Name, FirstName, LastName, sep = " ") %>%
+  select(PlayerId, Name) %>%
+  collect(n=Inf) %>%
+  inner_join(batter_info, by=c("PlayerId" = "playerid")) %>%
+  inner_join(id_info, by=c("PlayerId" = "playerid"))
 
 savant_data <- fg_db %>%
   tbl("gd_savant_new") %>%
   select(batter, player_name, game_date, game_year, pitch_type, release_speed, events, description, des, plate_x, plate_z, 
          hc_x, hc_y, launch_speed, launch_angle, hit_distance_sc, home_team, away_team, inning_top_bottom, xwoba, stand) %>%
   collect(n=Inf) %>%
-  inner_join(mapping, by=c("batter" = "MLBID"))
+  inner_join(fg_info, by=c("batter" = "mlbamid", "game_year" = "Season"))
 
 ```
 
 ```{r}
 savant_data_clean <- savant_data %>%
-  #add player names
-  #inner_join(fg_info, by=c("playerid" = "PlayerId")) %>%
- 
   #compute batting team & fielding team
   mutate(batting_team = ifelse(inning_top_bottom == "N", home_team, away_team),
          fielding_team = ifelse(batting_team == away_team, home_team, away_team),
          
          #convert numbers to numeric, leaving 'null' values as NA
-         IDFANGRAPHS = as.numeric(IDFANGRAPHS),
+
          launch_speed = as.numeric(launch_speed),
          hit_distance_sc = as.numeric(hit_distance_sc),
          launch_angle = as.numeric(launch_angle),
@@ -103,21 +100,82 @@ savant_data_clean <- savant_data %>%
                         ifelse(events == "hit_by_pitch", 0.72, xwoba)))
 
 barrel_data_batters <- savant_data_clean %>%
-  
-  #remove hitters who are really pitchers
-  filter(POS != "P") %>%
-  select(IDFANGRAPHS, batter_name = PLAYERNAME, game_year, stand, barrel) %>%
-  group_by(IDFANGRAPHS, batter_name, game_year) %>%
+  group_by(PlayerId, Name, game_year, PA) %>%
   summarize(num_barrels = sum(barrel, na.rm = TRUE)) %>%
-  
-  #add names & season info 
-  inner_join(batter_info, by=c("IDFANGRAPHS" = "playerid", "game_year" = "Season")) %>%
   mutate(barrel_rate = num_barrels / PA) %>%
   filter(PA >= 80)
 
 ```
 
-### define & plot prior. allow number of PA to influence prior
+
+### fit beta-binomial regression using maximum-likelihood
+allow PA to influence priors. this gives more weight to players with more plate appearances. 
+
+```{r}
+fit <- gamlss(cbind(barrels, PA - barrels) ~ log(PA),
+              data = barrel_data_batters_unweighted,
+              family = BB(mu.link = "identity"))
+
+td <- tidy(fit)
+
+mu <- fitted(fit, parameter = "mu")
+sigma <- fitted(fit, parameter="sigma")
+
+barrels_accounting_for_pa <- barrel_data_batters_unweighted %>%
+  ungroup() %>%
+  dplyr::select(PlayerId, Name, barrels, PA) %>%
+  mutate(mu = mu,
+         alpha0 = mu / sigma,
+         beta0 = (1 - mu) / sigma,
+         alpha1 = alpha0 + barrels,
+         beta1 = beta0 + PA - barrels,
+         est_barrel_rate = round(100 * (alpha1 / (alpha1 + beta1)), 1),
+         low_credible = qbeta(.025, alpha1, beta1), 
+         high_credible = qbeta(.975, alpha1, beta1),
+         interval_dist = high_credible - low_credible) %>%
+  arrange(desc(est_barrel_rate))
+
+```
+
+### Plots
+
+```{r}
+#calculate prior distributions, based on PA
+
+mu_0 <- td$estimate[1]
+mu_PA <- td$estimate[2]
+sigma <- exp(td$estimate[3])
+
+barrel_rate_priors <- crossing(x = seq(.001, .2, .001), PA = c(100, 250, 500, 750, 1000)) %>%
+  mutate(density = dbeta(x, (mu_0 + mu_PA * log(PA)) / sigma,
+                         (1 - (mu_0 + mu_PA * log(PA))) / sigma)) %>%
+  mutate(PA = factor(PA))
+
+
+#plot prior distributions
+ggplot(barrel_rate_priors, aes(x, density, color = PA, group = PA)) +
+  geom_line(group=1) +
+  xlab("Barrel rate") +
+  ylab("Prior density")
+
+# plot barrel rate leaders & laggards based on expected rate. also show credible intervals
+ggplot(barrel_data_batters_unweighted %>% head(25), aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
+  labs(y="", x="Estimated Barrels / PA with 95% Credible Interval") +
+  ggtitle("Barrel Rate Leaders, 2015 – 2017: Top 25") + fgt
+
+ggplot(barrel_data_batters_unweighted %>% tail(25), aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
+  labs(y="", x="Estimated Barrels / PA, with 95% Credible Interval") +
+  ggtitle("Barrel Rate Laggards, 2015 – 2017: Bottom 25") + fgt
+
+
+```
+
+
+### define & plot prior. 
 
 ```{r}
 #estBetaParams(mean(barrel_data_batters$barrel_rate), var(barrel_data_batters$barrel_rate))
@@ -132,21 +190,34 @@ ll <- function(alpha, beta) {
 m <- mle(ll, start = list(alpha = 1, beta = 10), method = "L-BFGS-B", lower = c(0.0001, .1))
 
 ab <- coef(m)
-alpha0 <- ab[1]
-beta0 <- ab[2]
+alpha0_barrels <- ab[1]
+beta0_barrels <- ab[2]
 
 
 ggplot(barrel_data_batters, aes(barrel_rate)) + geom_histogram(binwidth = .01, aes(y=..density..)) +
   stat_function(fun = dbeta,
-                args=list(shape1 = alpha0, shape2 =  beta0),
+                args=list(shape1 = alpha0_barrels, shape2 =  beta0_barrels),
                 lwd=2,
-                col="red") +
-  ggtitle("Probability Distribution for Barrels / PA, 2015 – 2017")
+                aes(color="MLB Hitters")) + 
+  ggtitle("Probability Distribution for Barrels / PA, 2015 – 2017") +
+  labs(color = "Distributions") +
+  scale_color_brewer(palette="Set1", direction= -1) +
+  labs(x="Barrels / PA") + xlim(0,.2)
 
 ```
 
-#estimate posterior based on prior + evidence
+### Barrel Rate Leaders, 2017
 
+```{r}
+
+barrels_2017 <- barrel_data_batters %>%
+  filter(game_year == 2017) %>%
+  arrange(desc(barrel_rate))
+
+ggplot(barrels_2017 %>% head(25), aes(reorder(Name, barrel_rate), barrel_rate)) + geom_bar(stat="identity") +
+  coord_flip() + labs(y="Barrels / PA", x="") + ggtitle("Barrel Rate Leaders, 2017\n(Batters with at least 80 PA)")
+
+```
 
 
 ```{r}
@@ -154,98 +225,120 @@ ggplot(barrel_data_batters, aes(barrel_rate)) + geom_histogram(binwidth = .01, a
 #compute estimated barrel rates (using the mode) plus parameters for posterior distributions & credible intervals
 
 barrel_data_batters_unweighted <- barrel_data_batters %>%
-  group_by(IDFANGRAPHS, batter_name) %>%
+  group_by(PlayerId, Name) %>%
   summarize(barrels = sum(num_barrels),
             PA = sum(PA)) %>%
-  mutate(est_barrel_rate = ((barrels + alpha0) - 1) / ((PA + alpha0 + beta0) -2),
-         alpha1 = barrels + alpha0,
-         beta1 = PA + beta0 - barrels,
+  mutate(est_barrel_rate = ((barrels + alpha0_barrels) - 1) / ((PA + alpha0_barrels + beta0_barrels) -2),
+         alpha1 = barrels + alpha0_barrels,
+         beta1 = PA + beta0_barrels - barrels,
          low_credible = qbeta(.025, alpha1, beta1), 
          high_credible = qbeta(.975, alpha1, beta1),
          interval_dist = high_credible - low_credible) %>%
   arrange(desc(est_barrel_rate))
 
-
-(alpha0 -1) / ((alpha0 + beta0) -2)
-
-ggplot(barrel_data_batters_unweighted %>% head(25), aes(est_barrel_rate, reorder(batter_name, est_barrel_rate))) +
+ggplot(barrel_data_batters_unweighted %>% head(25), aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
   geom_point() +
   geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
   labs(y="", x="Estimated Barrels / PA with 95% Credible Interval") +
-  ggtitle("Barrel Rate Leaders, 2015 – 2017: Top 25")
+  ggtitle("Barrel Rate Leaders, 2015 – 2017: Top 25") + fgt
 
-ggplot(barrel_data_batters_unweighted %>% tail(25), aes(est_barrel_rate, reorder(batter_name, est_barrel_rate))) +
+ggplot(barrel_data_batters_unweighted %>% tail(25), aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
   geom_point() +
   geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
   labs(y="", x="Estimated Barrels / PA, with 95% Credible Interval") +
-  ggtitle("Barrel Rate Laggards, 2015 – 2017: Bottom 25")
-
-
-#Cody Bellinger, Matt Davidson, Aaron Judge already among best hitters in baseball
-
+  ggtitle("Barrel Rate Laggards, 2015 – 2017: Bottom 25") + fgt
 
 ```
 
 ```{r}
+hoskins_alpha1 <- 16.59423
+hoskins_beta1 <- 129.4645
+  
+  
 ggplot(barrel_data_batters, aes(barrel_rate)) + geom_histogram(binwidth = .01, aes(y=..density..)) +
   stat_function(fun = dbeta,
-                args=list(shape1 = alpha0, shape2 =  beta0),
+                args=list(shape1 = alpha0_barrels, shape2 =  beta0_barrels),
                 lwd=2,
-                aes(color="MLB Hitters")) +
+                aes(color="MLB Hitters (Prior)")) +
   stat_function(fun = dbeta,
-                args =list(shape1 = 30.67194, shape2 = 237.7585),
+                args =list(shape1 = hoskins_alpha1, shape2 = hoskins_beta1),
                 lwd=2,
-                aes(color = "Matt Davidson")) +
+                aes(color = "Rhys Hoskins (Posterior)")) +
   labs(color = "Distributions") +
-  labs(x="Barrels per PA")
+  scale_color_brewer(palette="Set1", direction= -1) +
+  labs(x="Barrels / PA") + ggtitle("Rhys Hoskins's Prior & Posterior Barrel Rates") + xlim(0, .2)
   
+```
 
-  
-  
 
-  
+```{r}
+hoskins_barrels <- 14
+hoskins_pa <- 96
+
+#alpha0_barrels <-
+#beta0_barrels <- 
+
+est_hoskins_barrel_rate <- ((hoskins_barrels + alpha0_barrels) - 1) / ((hoskins_pa + alpha0_barrels + beta0_barrels) - 2)
+est_hoskins_barrel_rate <- round(est_hoskins_barrel_rate, 3)
+
+hoskins_sim <- as_tibble(rbeta(10000, hoskins_alpha1, hoskins_beta1))
+
+ggplot(hoskins_sim, aes(value, y = ..density..)) + geom_histogram(binwidth = .001) +
+  annotate("text", x = .05, y = 19.2, label=sprintf("Expected Barrels/PA in 2017: %s", est_hoskins_barrel_rate)) +
+  labs(x="Simulated Barrels/PA") + ggtitle("10,000 Simulated Rhys Hoskins Seasons") +
+  scale_fill_brewer(palette="Set1", direction = -1) + xlim(0, .2) +
+  geom_vline(aes(xintercept=est_hoskins_barrel_rate), color="red", linetype="dashed")
+
+# 95% confidence interval
+quantile(hoskins_sim$value, c(.025, .975))
 ```
 
 
 
 
 ```{r}
+
+# I think all this is right, except I need to weight the the endpoints of the 95% confidence intervals, too.
+
+
   #scheme to weight past years --- not 100% sure this is right yet.
   #project barrel rate by regressing to mean + weighting past 2 years at .6 and .3, respectively.
-  #for missing years, assume average performance: alpha0 -1 / (alpha0 + beta0)
-  # mutate(est_barrels_this_year = num_barrels + alpha0) - 1,
-  #        est_barrels_last_year = ifelse(is.na(lag(num_barrels)), alpha0 * .6, .6 * lag(num_barrels) + alpha0),
-  #        est_barrels_two_years_ago = ifelse(is.na(lag(num_barrels, 1)), alpha0 * .3, .3 * lag(num_barrels, 1) + alpha0),
-  #        est_pa_this_year = PA + alpha0 + beta0,
-  #        est_pa_last_year = ifelse(is.na(lag(PA)), alpha0 + beta0, .6 * lag(PA) + alpha0 + beta0),
-  #        est_pa_two_years_ago = ifelse(is.na(lag(PA, 1)), alpha0 + beta0, .3 * lag(PA, 1) + alpha0 + beta0),
-  #        est_barrel_rate_weighted = (est_barrels_this_year + est_barrels_last_year + 
-  #                                      est_barrels_two_years_ago) - 1 / (est_pa_this_year + est_pa_last_year +
-  #                                                                      est_pa_two_years_ago)) %>%
-  # ungroup() %>%
-  # #select(Name = batter_name, Season = game_year, barrel_rate, est_barrel_rate_weighted) %>%
-  # arrange(desc(est_barrel_rate_weighted))
+  #for missing years, assume average performance: alpha0_barrels -1 / (alpha0_barrels + beta0_barrels)
+   
+barrel_data_batters_weighted <- barrel_data_batters %>%
+  mutate(est_barrels_this_year = (num_barrels + alpha0_barrels) - 1,
+         est_barrels_last_year = ifelse(is.na(lag(num_barrels)), alpha0_barrels * .6, .6 * lag(num_barrels) + alpha0_barrels),
+         est_barrels_two_years_ago = ifelse(is.na(lag(num_barrels, 1)), alpha0_barrels * .3, .3 * lag(num_barrels, 1) + alpha0_barrels),
+         est_pa_this_year = PA + alpha0_barrels + beta0_barrels,
+         est_pa_last_year = ifelse(is.na(lag(PA)), alpha0_barrels + beta0_barrels, .6 * lag(PA) + alpha0_barrels + beta0_barrels),
+         est_pa_two_years_ago = ifelse(is.na(lag(PA, 1)), alpha0_barrels + beta0_barrels, .3 * lag(PA, 1) + alpha0_barrels + beta0_barrels),
+         est_barrel_rate_weighted = (est_barrels_this_year + est_barrels_last_year +
+                                       est_barrels_two_years_ago) - 1 / (est_pa_this_year + est_pa_last_year +
+                                                                           est_pa_two_years_ago))
+   #ungroup() %>%
+   #select(Name, Season = game_year, barrel_rate, est_barrel_rate_weighted) %>%
+   #arrange(desc(est_barrel_rate_weighted))
 # 
 # 
 # b
 # 
-# barrels_weighted_2017 <- barrel_data_batters_weighted %>%
-#   filter(game_year == 2017) %>%
-#   mutate(alpha1 = est_barrels_this_year,
-#          beta1 = beta0 + PA - est_barrels_this_year) %>%
-#   #crossing(x = seq(.01, .20, .00025)) %>%
-#   select(batter_name, game_year, alpha1, beta1, est_barrel_rate_weighted) %>%
-#   mutate(density = dbeta(est_barrel_rate_weighted, alpha1, beta1),
-#          low = qbeta(.025, alpha1, beta1),
-#          high = qbeta(.975, alpha1, beta1)) %>%
-#   head(25)
+barrels_weighted_2017 <- barrel_data_batters_weighted %>%
+  filter(Season == 2017) %>%
+  mutate(alpha1 = est_barrels_this_year,
+         beta1 = beta0_barrels + PA - est_barrels_this_year) %>%
+  crossing(x = seq(.01, .20, .00025)) %>%
+  select(Name, Season, alpha1, beta1, est_barrel_rate_weighted) %>%
+  mutate(density = dbeta(est_barrel_rate_weighted, alpha1, beta1),
+         low = qbeta(.025, alpha1, beta1),
+         high = qbeta(.975, alpha1, beta1)) %>%
+  head(25)
 # 
 # 
-# ggplot(barrels_weighted_2017, aes(reorder(batter_name, est_barrel_rate_weighted), est_barrel_rate_weighted)) +
-#   geom_point() +
-#   geom_errorbar(aes(ymin = low, ymax = high)) +
-#   coord_flip() +
-#   labs(y="Est. Barrels per PA, Weighted, w/95% Credible Interval", x="")
+ggplot(barrels_weighted_2017, aes(reorder(Name, est_barrel_rate_weighted), est_barrel_rate_weighted)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = low, ymax = high)) +
+  coord_flip() +
+  labs(y="Est. Barrels per PA, Weighted, w/95% Credible Interval", x="")
 
 ```
 

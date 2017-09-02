@@ -121,7 +121,6 @@ starters_for_comparision <- pitcher_info %>%
 
 
 ```{r}
-#filter for starters who faced at least 200 batters each year
 xwoba_gainers_pitchers <- savant_data %>%
   inner_join(starters_for_comparision, by=c("player_name" = "Name", "game_year" = "Season")) %>%
   group_by(game_year) %>%
@@ -154,8 +153,9 @@ fip <- kershaw_stats %>%
 
 foo3 <- gather(fip, stat, value, contains("-"))
 
+
 ggplot(foo3 %>% filter(Name == "Clayton Kershaw"), aes(as.character(Season), value, group = 1)) + geom_point() + geom_line() +
-  facet_wrap(~stat) + ggtitle("The Slight Decline of Clayton Kershaw, 2015 - 2017") + labs(y="Value (lower is better)", x="") + fgt
+  facet_wrap(~stat) + ggtitle("The Slight Decline of Clayton Kershaw, 2015 - 2017") + labs(y="Value (lower is better)", x="")
 
 ```
 
@@ -165,16 +165,12 @@ What's gone wrong? FanGraphs' linear weights, computed per 100 count of each pit
 
 ```{r}
 kershaw_pitch_types <- starters_for_comparision %>%
-  group_by(Season) %>%
-  mutate(w_fb_c_plus = round(100 * (w_fb_c / mean(w_fb_c, na.rm = TRUE)), 0),
-         w_sl_c_plus = round(100 * (w_sl_c / mean(w_sl_c, na.rm = TRUE)), 0),
-         w_cu_c_plus = round(100 * (w_cu_c / mean(w_cu_c, na.rm = TRUE)), 0)) %>%
-  select(Name, Season, `Curveball` = w_cu_c_plus, `Fastball` = w_fb_c_plus, `Slider` = w_sl_c_plus)
+  select(Name, Season, `Curveball` = w_cu_c, `Fastball` = w_fb_c, `Slider` = w_sl_c)
 
 foo4 <- gather(kershaw_pitch_types, stat, value, -Name, -Season)
 
 ggplot(foo4 %>% filter(Name == "Clayton Kershaw"), aes(as.character(Season), value, group = 1)) + geom_point() + geom_line() +
-  facet_wrap(~stat) + ggtitle("Kershaw's Curveball isn't what it Used to Be") + labs(y="Runs Above Average per 100 Pitches+\n(higher is better)", x="") + fgt        
+  facet_wrap(~stat) + ggtitle("Linear Weights for Kershaw's Pitches, 2015 - 2017") + labs(y="Runs Above Average per 100 Pitches\n(higher is better)", x="")        
 
 ```
 
@@ -211,7 +207,7 @@ pitch_type_xwoba <- savant_data %>%
   mutate(pitch_type = str_replace_all(pitch_type, c("CU" = "Curveball", "FF" = "Fastball", "SL" = "Slider")))
   
 
-ggplot(pitch_type_xwoba %>% filter(player_name == "Clayton Kershaw"), aes(as.character(game_year), mean_xwoba, group=1)) + geom_point() + geom_line() + labs(x="", y="xwOBA+ Allowed (Relative to Lg. Average per Pitch Type)\n(lower is better)") + ggtitle("Kershaw's 2017 Arsenal is Worse Across the Board") + facet_grid(~pitch_type) + fgt
+ggplot(pitch_type_xwoba %>% filter(player_name == "Clayton Kershaw"), aes(as.character(game_year), mean_xwoba, group=1)) + geom_point() + geom_line() + labs(x="", y="xwOBA+ Allowed (Relative to Lg. Average per Pitch Type)\n(lower is better)") + ggtitle("Kershaw's 2017 Arsenal is Worse Across the Board") + facet_grid(~pitch_type)
 
 ```
 
@@ -243,8 +239,8 @@ xwoba_gainers_pitchers %>%
   write_csv("xwoba-2016.csv")
 
 
-ggplot(xwoba_gainers_pitchers %>% filter(game_year == 2016) %>% arrange(mean_xwoba_plus) %>% head(10), aes(reorder(player_name, -mean_xwoba_plus) , mean_xwoba_plus)) + geom_bar(stat="identity", fill ="#50ae26") + coord_flip() + ggtitle("xwOBA+ Allowed Leaders, 2016, Starting Pitchers >= 200 Batters") + 
-  labs(x="", y="xwOBA+ Allowed (smaller is better)") + fgt
+ggplot(xwoba_gainers_pitchers %>% filter(game_year == 2016) %>% arrange(mean_xwoba_plus) %>% head(10), aes(reorder(player_name, -mean_xwoba_plus) , mean_xwoba_plus)) + geom_bar(stat="identity") + coord_flip() + ggtitle("xwOBA+ Allowed Leaders, 2016, Starting Pitchers >= 200 Batters") + 
+  labs(x="", y="xwOBA+ Allowed (smaller is better)")
 ```
 
 This year, his xwOBA+ allowed is a more pedestrian 96. He's dropped from the 100th percentile to the 64th. He's now accompanied by names like Jaime Garcia, Mike Leake, and Matt Shoemaker: serviceable pitchers all, but not whom you think of when you think of "best active pitcher in MLB":
@@ -261,8 +257,8 @@ xwoba_gainers_pitchers %>%
   write_csv("xwoba-2017.csv")
 
 
-ggplot(xwoba_gainers_pitchers %>% filter(game_year == 2017, mean_xwoba_plus >= 92, mean_xwoba_plus <= 94) %>% arrange(mean_xwoba_plus), aes(reorder(player_name, -mean_xwoba_plus) , mean_xwoba_plus)) + geom_bar(stat="identity", fill ="#50ae26") + coord_flip() + ggtitle("xwOBA+ Allowed, 2017, xwOBA between 92 and 94") + 
-  labs(x="", y="xwOBA+ Allowed (smaller is better)") + fgt
+ggplot(xwoba_gainers_pitchers %>% filter(game_year == 2017, mean_xwoba_plus >= 93, mean_xwoba_plus <= 95) %>% arrange(mean_xwoba_plus), aes(reorder(player_name, -mean_xwoba_plus) , mean_xwoba_plus)) + geom_bar(stat="identity") + coord_flip() + ggtitle("xwOBA+ Allowed, 2017, xwOBA between 93 and 95") + 
+  labs(x="", y="xwOBA+ Allowed (smaller is better)")
 ```
 
 You also don't want your name associated with Kyle Gibson. But that's the only guy whose year-over-year increase in xwOBA+ allowed is worse than Kershaw's:
@@ -280,8 +276,8 @@ xwoba_gainers_pitchers %>%
 
 #xwoba allowed increase - pitchers (larger increase is worse)
 ggplot(xwoba_gainers_pitchers %>% filter(game_year == 2017) %>% head(10), aes(reorder(player_name, xwoba_diff), xwoba_diff)) +
-  geom_bar(stat="identity", fill ="#50ae26") + coord_flip() + ggtitle("Largest Increases in xwOBA+ Allowed, 2016 - 2017") +
-  labs(x="",y="Change in xwOBA+ Allowed (%, smaller is better)") + fgt
+  geom_bar(stat="identity") + coord_flip() + ggtitle("Largest Increases in xwOBA+ Allowed, 2016 - 2017") +
+  labs(x="",y="Change in xwOBA+ Allowed (%, smaller is better)")
 ```
 
 Is Clayton Kershaw toast? Hardly. 90 - 96% of Clayton Kershaw's peak is still someone you'd want on the mound in an elimination game. His base talent level is so high, he can lose some of that shine while still contending for the NL Cy Young. At the very least, he can lead FanGraphs' WAR leaderboards.
@@ -312,7 +308,7 @@ core_decline_plt <- kershaw_stats %>%
 foo <- gather(core_decline_plt, stat, value, contains("+"))
 
 ggplot(foo %>% filter(Name == "Clayton Kershaw"), aes(as.character(Season), value, group = 1)) + geom_point() + geom_line() +
-  facet_wrap(~stat) + ggtitle("The Slight Decline of Clayton Kershaw, 2015 - 2017") + labs(y="", x="") + fgt
+  facet_wrap(~stat) + ggtitle("The Slight Decline of Clayton Kershaw, 2015 - 2017") + labs(y="", x="")
 
 disc_decline_plt <- kershaw_stats %>%
   select(Name, Season, `SwStr%+` = swstr_plus, `O-Swing/O-Zone+` = fool_plus, `Zone%+` = zone_plus)
