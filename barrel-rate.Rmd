@@ -99,23 +99,16 @@ savant_data_clean <- savant_data %>%
          xwoba = ifelse(events == "walk", 0.69,
                         ifelse(events == "hit_by_pitch", 0.72, xwoba)))
 
-barrel_data_batters <- savant_data_clean %>%
+barrel_data_seasonal <- savant_data_clean %>%
   group_by(PlayerId, Name, game_year, PA) %>%
   summarize(num_barrels = sum(barrel, na.rm = TRUE)) %>%
   mutate(barrel_rate = num_barrels / PA) %>%
   filter(PA >= 2)
 
-barrel_data_batters_unweighted <- barrel_data_batters %>%
+barrel_data_totals <- barrel_data_seasonal %>%
   group_by(PlayerId, Name) %>%
   summarize(barrels = sum(num_barrels),
-            PA = sum(PA)) %>%
-  mutate(est_barrel_rate = ((barrels + alpha0_barrels) - 1) / ((PA + alpha0_barrels + beta0_barrels) -2),
-         alpha1 = barrels + alpha0_barrels,
-         beta1 = PA + beta0_barrels - barrels,
-         low_credible = qbeta(.025, alpha1, beta1), 
-         high_credible = qbeta(.975, alpha1, beta1),
-         interval_dist = high_credible - low_credible) %>%
-  arrange(desc(est_barrel_rate))
+            PA = sum(PA))
 
 ```
 
@@ -125,7 +118,7 @@ allow PA to influence priors. this gives more weight to players with more plate 
 
 ```{r}
 fit <- gamlss(cbind(barrels, PA - barrels) ~ log(PA),
-              data = barrel_data_batters_unweighted,
+              data = barrel_data_totals,
               family = BB(mu.link = "identity"))
 
 td <- tidy(fit)
@@ -133,7 +126,7 @@ td <- tidy(fit)
 mu <- fitted(fit, parameter = "mu")
 sigma <- fitted(fit, parameter="sigma")
 
-barrels_accounting_for_pa <- barrel_data_batters_unweighted %>%
+barrels_accounting_for_pa <- barrel_data_totals %>%
   ungroup() %>%
   dplyr::select(PlayerId, Name, barrels, PA) %>%
   mutate(mu = mu,
@@ -141,7 +134,7 @@ barrels_accounting_for_pa <- barrel_data_batters_unweighted %>%
          beta0 = (1 - mu) / sigma,
          alpha1 = alpha0 + barrels,
          beta1 = beta0 + PA - barrels,
-         est_barrel_rate = round(100 * (alpha1 / (alpha1 + beta1)), 1),
+         est_barrel_rate = alpha1 / (alpha1 + beta1),
          low_credible = qbeta(.025, alpha1, beta1), 
          high_credible = qbeta(.975, alpha1, beta1),
          interval_dist = high_credible - low_credible) %>%
@@ -158,7 +151,7 @@ mu_0 <- td$estimate[1]
 mu_PA <- td$estimate[2]
 sigma <- exp(td$estimate[3])
 
-barrel_rate_priors <- crossing(x = seq(0, .2, .001), PA = c(100, 250, 500, 750, 1000, 1500)) %>%
+barrel_rate_priors <- crossing(x = seq(0, .2, .001), PA = c(250, 500, 750, 1000, 1250)) %>%
   mutate(density = dbeta(x, (mu_0 + mu_PA * log(PA)) / sigma,
                          (1 - (mu_0 + mu_PA * log(PA))) / sigma)) %>%
   mutate(PA = factor(PA))
@@ -169,17 +162,17 @@ ggplot(barrel_rate_priors, aes(x, density, color = PA, group = PA)) +
   ggtitle("More PA = Increased Probability of Higher Barrel Rate")
 
 # plot barrel rate leaders & laggards based on expected rate. also show credible intervals
-ggplot(barrel_data_batters_unweighted %>% head(25), aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
+ggplot(barrels_accounting_for_pa %>% head(25), aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
   geom_point() +
   geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
   labs(y="", x="Estimated Barrels / PA with 95% Credible Interval") +
-  ggtitle("Barrel Rate Leaders, 2015 – 2017: Top 25") + fgt
+  ggtitle("Estimated Barrel Rate Leaders, 2015 – 2017: Top 25") + fgt
 
-ggplot(barrel_data_batters_unweighted %>% tail(25), aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
+ggplot(barrels_accounting_for_pa %>% tail(25), aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
   geom_point() +
   geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
   labs(y="", x="Estimated Barrels / PA, with 95% Credible Interval") +
-  ggtitle("Barrel Rate Laggards, 2015 – 2017: Bottom 25") + fgt
+  ggtitle("Estimated Barrel Rate Laggards, 2015 – 2017: Bottom 25") + fgt
 
 
 ```
@@ -236,7 +229,7 @@ ggplot(barrels_2017 %>% head(25), aes(reorder(Name, barrel_rate), barrel_rate)) 
 
 #compute estimated barrel rates (using the mode) plus parameters for posterior distributions & credible intervals
 
-barrel_data_batters_unweighted <- barrel_data_batters %>%
+barrel_data_totals <- barrel_data_batters %>%
   group_by(PlayerId, Name) %>%
   summarize(barrels = sum(num_barrels),
             PA = sum(PA)) %>%
@@ -248,13 +241,13 @@ barrel_data_batters_unweighted <- barrel_data_batters %>%
          interval_dist = high_credible - low_credible) %>%
   arrange(desc(est_barrel_rate))
 
-ggplot(barrel_data_batters_unweighted %>% head(25), aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
+ggplot(barrel_data_totals %>% head(25), aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
   geom_point() +
   geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
   labs(y="", x="Estimated Barrels / PA with 95% Credible Interval") +
   ggtitle("Barrel Rate Leaders, 2015 – 2017: Top 25") + fgt
 
-ggplot(barrel_data_batters_unweighted %>% tail(25), aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
+ggplot(barrel_data_totals %>% tail(25), aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
   geom_point() +
   geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
   labs(y="", x="Estimated Barrels / PA, with 95% Credible Interval") +
