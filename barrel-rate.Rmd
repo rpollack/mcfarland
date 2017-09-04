@@ -46,33 +46,36 @@ estBetaParams <- function(mu, var) {
 
 id_info <- fg_db %>%
   tbl("playerid_lookup") %>%
-  select(mlbamid, playerid) %>%
+  dplyr::select(mlbamid, playerid) %>%
   collect(n=Inf)
 
 batter_info <- fg_db %>%
   tbl("stats_batting") %>%
   filter(Season >= 2015,
          Type == 0) %>%
-  select(playerid, Season, PA) %>%
+  dplyr::select(playerid, Season, PA) %>%
   collect(n=Inf)
 
 fg_info <- fg_db %>%
   tbl("player_info") %>%
   filter(!BISposition %in% c("SP", "RP")) %>%   #remove pitchers from sample
-  select(PlayerId, FirstName, LastName) %>%
+  dplyr::select(PlayerId, FirstName, LastName, LastGame) %>%
   collect(n=Inf) %>%
   unite(Name, FirstName, LastName, sep = " ") %>%
-  select(PlayerId, Name) %>%
+  dplyr::select(PlayerId, Name, LastGame) %>%
   collect(n=Inf) %>%
+  mutate(LastGame = ymd(LastGame),
+         lastYear = year(LastGame)) %>%
   inner_join(batter_info, by=c("PlayerId" = "playerid")) %>%
   inner_join(id_info, by=c("PlayerId" = "playerid"))
 
-savant_data <- fg_db %>%
-  tbl("gd_savant_new") %>%
-  select(batter, player_name, game_date, game_year, pitch_type, release_speed, events, description, des, plate_x, plate_z, 
-         hc_x, hc_y, launch_speed, launch_angle, hit_distance_sc, home_team, away_team, inning_top_bottom, xwoba, stand) %>%
-  collect(n=Inf) %>%
-  inner_join(fg_info, by=c("batter" = "mlbamid", "game_year" = "Season"))
+# savant_data <- fg_db %>%
+#   tbl("gd_savant_new") %>%
+#   select(batter, player_name, game_date, game_year, pitch_type, release_speed, events, 
+#          description, des, plate_x, plate_z, hc_x, hc_y, launch_speed, launch_angle, 
+#          hit_distance_sc, home_team, away_team, inning_top_bottom, xwoba, stand) %>%
+#   collect(n=Inf) %>%
+#   inner_join(fg_info, by=c("batter" = "mlbamid", "game_year" = "Season"))
 
 ```
 
@@ -116,20 +119,23 @@ barrel_data_totals <- barrel_data_seasonal %>%
 
 ### Read barrel data from Baseball Savant data files
 ```{r}
-barrels_2015 <- suppressMessages(read_csv("~/Downloads/barrels - 2015.csv"))
-barrels_2016 <- suppressMessages(read_csv("~/Downloads/barrels - 2016.csv"))
-barrels_2017 <- suppressMessages(read_csv("~/Downloads/barrels - 2017.csv"))
+barrels_2015 <- suppressMessages(read_csv("~/Downloads/barrels - 2015.csv")) %>%
+  mutate(Season = 2015)
+barrels_2016 <- suppressMessages(read_csv("~/Downloads/barrels - 2016.csv")) %>%
+  mutate(Season = 2016)
+barrels_2017 <- suppressMessages(read_csv("~/Downloads/barrels - 2017.csv")) %>%
+  mutate(Season = 2017)
 
-pa_totals <- fg_info %>%
-  group_by(Name) %>%
-  summarize(PA = sum(PA)) %>%
-  filter(PA >= 2)
+barrels_seasonal <- bind_rows(barrels_2015, barrels_2016, barrels_2017) %>%
+  dplyr::select(Player, Barrels, Season) %>%
+  inner_join(fg_info, by=c("Player" = "Name", "Season"))
 
-barrels_combined <- bind_rows(barrels_2015, barrels_2016, barrels_2017) %>%
-  group_by(Player) %>%
-  summarize(barrels = sum(Barrels)) %>%
-  inner_join(pa_totals, by=c("Player" = "Name")) %>%
-  dplyr::select(Name = Player, barrels, PA)
+barrels_combined <- barrels_seasonal %>%
+  group_by(Player, lastYear) %>%
+  summarize(barrels = sum(Barrels),
+            PA = sum(PA)) %>%
+  filter(PA >= 3) %>%
+  dplyr::select(Name = Player, lastYear, barrels, PA)
 ```
 
 
@@ -148,7 +154,7 @@ sigma <- fitted(fit, parameter="sigma")
 
 barrels_accounting_for_pa <- barrels_combined %>%
   ungroup() %>%
-  dplyr::select(Name, barrels, PA) %>%
+  dplyr::select(Name, barrels, PA, lastYear) %>%
   mutate(mu = mu,
          alpha0 = mu / sigma,
          beta0 = (1 - mu) / sigma,
@@ -156,9 +162,9 @@ barrels_accounting_for_pa <- barrels_combined %>%
          beta1 = beta0 + PA - barrels,
          est_barrel_rate = alpha1 / (alpha1 + beta1),
          low_credible = qbeta(.025, alpha1, beta1), 
-         high_credible = qbeta(.975, alpha1, beta1),
-         interval_dist = high_credible - low_credible,
-         percentile_mlb_barrel_rate_rank = round(percent_rank(est_barrel_rate) * 100, 1)) %>%
+         high_credible = qbeta(.975, alpha1, beta1)) %>%
+  filter(lastYear == 2017) %>%  #all players are used to compute priors, but plot & rank only active players
+  mutate(percentile_mlb_barrel_rate_rank = round(percent_rank(est_barrel_rate) * 100, 1)) %>%
   arrange(desc(est_barrel_rate))
 
 ```
@@ -183,17 +189,17 @@ ggplot(barrel_rate_priors, aes(x, density, color = PA, group = PA)) +
   ggtitle("More PA = Increased Probability of Higher Barrel Rate")
 
 # plot barrel rate leaders & laggards based on expected rate. also show credible intervals
-ggplot(barrels_accounting_for_pa %>% head(30), aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
+ggplot(barrels_accounting_for_pa %>% head(25), aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
   geom_point() +
   geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
   labs(y="", x="Estimated Barrels / PA with 95% Credible Interval") +
-  ggtitle("Estimated Barrel Rate Leaders, 2015 – 2017: Top 30") + fgt
+  ggtitle("Estimated Barrel Rate Leaders, 2017: Top 25") + fgt
 
 ggplot(barrels_accounting_for_pa %>% tail(25), aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
   geom_point() +
   geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
   labs(y="", x="Estimated Barrels / PA, with 95% Credible Interval") +
-  ggtitle("Estimated Barrel Rate Laggards, 2015 – 2017: Bottom 25") + fgt
+  ggtitle("Estimated Barrel Rate Laggards, 2017: Bottom 25") + fgt
 
 # mancini_plt <- ggplot(barrels_accounting_for_pa %>% filter(percentile_mlb_barrel_rate_rank > 96), 
 #        aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
