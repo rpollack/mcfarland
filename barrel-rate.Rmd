@@ -100,15 +100,17 @@ savant_data_clean <- savant_data %>%
                         ifelse(events == "hit_by_pitch", 0.72, xwoba)))
 
 barrel_data_seasonal <- savant_data_clean %>%
-  group_by(PlayerId, Name, game_year, PA) %>%
+  group_by(PlayerId, Name, game_year, PA, stand) %>%
   summarize(num_barrels = sum(barrel, na.rm = TRUE)) %>%
   mutate(barrel_rate = num_barrels / PA) %>%
   filter(PA >= 2)
 
 barrel_data_totals <- barrel_data_seasonal %>%
-  group_by(PlayerId, Name) %>%
+  group_by(PlayerId, Name, stand) %>%
   summarize(barrels = sum(num_barrels),
-            PA = sum(PA))
+            PA = sum(PA)) %>%
+  mutate(stand = factor(stand, levels=c("R", "L")),
+         stand = relevel(stand, "R"))
 
 ```
 
@@ -117,7 +119,7 @@ barrel_data_totals <- barrel_data_seasonal %>%
 allow PA to influence priors. this gives more weight to players with more plate appearances. 
 
 ```{r}
-fit <- gamlss(cbind(barrels, PA - barrels) ~ log(PA),
+fit <- gamlss(cbind(barrels, PA - barrels) ~ log(PA) + stand,
               data = barrel_data_totals,
               family = BB(mu.link = "identity"))
 
@@ -140,6 +142,26 @@ barrels_accounting_for_pa <- barrel_data_totals %>%
          interval_dist = high_credible - low_credible) %>%
   arrange(desc(est_barrel_rate))
 
+
+# sigma <- fitted(fit2, "sigma")[1]
+# 
+# barrel_priors <- 
+# 
+# crossing(bats = c("L", "R"),
+#          AB = c(1, 10, 100, 1000, 10000)) %>%
+#   augment(fit2, newdata = .) %>%
+#   rename(mu = .fitted) %>%
+#   crossing(x = seq(.1, .36, .0005)) %>%
+#   mutate(alpha = mu / sigma,
+#          beta = (1 - mu) / sigma,
+#          density = dbeta(x, alpha, beta)) %>%
+#   ggplot(aes(x, density, color = factor(AB), lty = bats)) +
+#   geom_line() +
+#   labs(x = "Batting average",
+#        y = "Prior density",
+#        color = "AB",
+#        lty = "Batting hand")
+
 ```
 
 ### Plots
@@ -157,9 +179,9 @@ barrel_rate_priors <- crossing(x = seq(0, .2, .001), PA = c(250, 500, 750, 1000,
   mutate(PA = factor(PA))
 
 #plot prior distributions
-ggplot(barrel_rate_priors, aes(x, density, color = PA, group = PA)) +
-  geom_line(group=1) + labs(x="Barrel Rate", y="Prior Density") + xlim(-.1, .2) + fgt +
-  ggtitle("More PA = Increased Probability of Higher Barrel Rate")
+# ggplot(barrel_rate_priors, aes(x, density, color = PA, group = PA)) +
+#   geom_line(group=1) + labs(x="Barrel Rate", y="Prior Density") + xlim(-.1, .2) + fgt +
+#   ggtitle("More PA = Increased Probability of Higher Barrel Rate")
 
 # plot barrel rate leaders & laggards based on expected rate. also show credible intervals
 ggplot(barrels_accounting_for_pa %>% head(25), aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
