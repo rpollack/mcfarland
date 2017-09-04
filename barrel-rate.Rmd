@@ -76,6 +76,8 @@ savant_data <- fg_db %>%
 
 ```
 
+### Compute barrel data from Gameday data + Bill Petti's calculation
+
 ```{r}
 savant_data_clean <- savant_data %>%
   #compute batting team & fielding team
@@ -99,10 +101,6 @@ savant_data_clean <- savant_data %>%
          xwoba = ifelse(events == "walk", 0.69,
                         ifelse(events == "hit_by_pitch", 0.72, xwoba)))
 
-
-
-
-
 barrel_data_seasonal <- savant_data_clean %>%
   group_by(PlayerId, Name, game_year, PA, stand) %>%
   summarize(num_barrels = sum(barrel, na.rm = TRUE)) %>%
@@ -116,13 +114,31 @@ barrel_data_totals <- barrel_data_seasonal %>%
 
 ```
 
+### Read barrel data from Baseball Savant data files
+```{r}
+barrels_2015 <- suppressMessages(read_csv("~/Downloads/barrels - 2015.csv"))
+barrels_2016 <- suppressMessages(read_csv("~/Downloads/barrels - 2016.csv"))
+barrels_2017 <- suppressMessages(read_csv("~/Downloads/barrels - 2017.csv"))
+
+pa_totals <- fg_info %>%
+  group_by(Name) %>%
+  summarize(PA = sum(PA)) %>%
+  filter(PA >= 2)
+
+barrels_combined <- bind_rows(barrels_2015, barrels_2016, barrels_2017) %>%
+  group_by(Player) %>%
+  summarize(barrels = sum(Barrels)) %>%
+  inner_join(pa_totals, by=c("Player" = "Name")) %>%
+  dplyr::select(Name = Player, barrels, PA)
+```
+
 
 ### fit beta-binomial regression using maximum-likelihood
 allow PA to influence priors. this gives more weight to players with more plate appearances. 
 
 ```{r}
 fit <- gamlss(cbind(barrels, PA - barrels) ~ log(PA),
-              data = barrel_data_totals,
+              data = barrels_combined,
               family = BB(mu.link = "identity"))
 
 td <- tidy(fit)
@@ -130,9 +146,9 @@ td <- tidy(fit)
 mu <- fitted(fit, parameter = "mu")
 sigma <- fitted(fit, parameter="sigma")
 
-barrels_accounting_for_pa <- barrel_data_totals %>%
+barrels_accounting_for_pa <- barrels_combined %>%
   ungroup() %>%
-  dplyr::select(PlayerId, Name, barrels, PA) %>%
+  dplyr::select(Name, barrels, PA) %>%
   mutate(mu = mu,
          alpha0 = mu / sigma,
          beta0 = (1 - mu) / sigma,
