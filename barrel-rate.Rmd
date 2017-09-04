@@ -157,28 +157,9 @@ barrels_accounting_for_pa <- barrels_combined %>%
          est_barrel_rate = alpha1 / (alpha1 + beta1),
          low_credible = qbeta(.025, alpha1, beta1), 
          high_credible = qbeta(.975, alpha1, beta1),
-         interval_dist = high_credible - low_credible) %>%
+         interval_dist = high_credible - low_credible,
+         percentile_mlb_barrel_rate_rank = round(percent_rank(est_barrel_rate) * 100, 1)) %>%
   arrange(desc(est_barrel_rate))
-
-
-# sigma <- fitted(fit2, "sigma")[1]
-# 
-# barrel_priors <- 
-# 
-# crossing(bats = c("L", "R"),
-#          AB = c(1, 10, 100, 1000, 10000)) %>%
-#   augment(fit2, newdata = .) %>%
-#   rename(mu = .fitted) %>%
-#   crossing(x = seq(.1, .36, .0005)) %>%
-#   mutate(alpha = mu / sigma,
-#          beta = (1 - mu) / sigma,
-#          density = dbeta(x, alpha, beta)) %>%
-#   ggplot(aes(x, density, color = factor(AB), lty = bats)) +
-#   geom_line() +
-#   labs(x = "Batting average",
-#        y = "Prior density",
-#        color = "AB",
-#        lty = "Batting hand")
 
 ```
 
@@ -202,17 +183,25 @@ ggplot(barrel_rate_priors, aes(x, density, color = PA, group = PA)) +
   ggtitle("More PA = Increased Probability of Higher Barrel Rate")
 
 # plot barrel rate leaders & laggards based on expected rate. also show credible intervals
-ggplot(barrels_accounting_for_pa %>% head(25), aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
+ggplot(barrels_accounting_for_pa %>% head(30), aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
   geom_point() +
   geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
   labs(y="", x="Estimated Barrels / PA with 95% Credible Interval") +
-  ggtitle("Estimated Barrel Rate Leaders, 2015 – 2017: Top 25") + fgt
+  ggtitle("Estimated Barrel Rate Leaders, 2015 – 2017: Top 30") + fgt
 
 ggplot(barrels_accounting_for_pa %>% tail(25), aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
   geom_point() +
   geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
   labs(y="", x="Estimated Barrels / PA, with 95% Credible Interval") +
   ggtitle("Estimated Barrel Rate Laggards, 2015 – 2017: Bottom 25") + fgt
+
+# mancini_plt <- ggplot(barrels_accounting_for_pa %>% filter(percentile_mlb_barrel_rate_rank > 96), 
+#        aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
+#   geom_point() +
+#   geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
+#   labs(y="", x="Estimated Barrels / PA with 95% Credible Interval") +
+#   ggtitle("Estimated Barrel Rates 2015 – 2017, Top 5% of MLB Players") + fgt
+# mancini_plt
 
 ```
 
