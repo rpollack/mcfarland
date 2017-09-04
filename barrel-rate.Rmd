@@ -99,16 +99,20 @@ savant_data_clean <- savant_data %>%
          xwoba = ifelse(events == "walk", 0.69,
                         ifelse(events == "hit_by_pitch", 0.72, xwoba)))
 
+
+
+
+
 barrel_data_seasonal <- savant_data_clean %>%
   group_by(PlayerId, Name, game_year, PA, stand) %>%
   summarize(num_barrels = sum(barrel, na.rm = TRUE)) %>%
-  mutate(barrel_rate = num_barrels / PA) %>%
-  filter(PA >= 2)
+  mutate(barrel_rate = num_barrels / PA)
 
 barrel_data_totals <- barrel_data_seasonal %>%
   group_by(PlayerId, Name) %>%
   summarize(barrels = sum(num_barrels),
-            PA = sum(PA))
+            PA = sum(PA)) %>%
+  filter(PA >= 2)
 
 ```
 
@@ -194,8 +198,9 @@ ggplot(barrels_accounting_for_pa %>% tail(25), aes(est_barrel_rate, reorder(Name
   labs(y="", x="Estimated Barrels / PA, with 95% Credible Interval") +
   ggtitle("Estimated Barrel Rate Laggards, 2015 – 2017: Bottom 25") + fgt
 
-
 ```
+
+
 
 
 
