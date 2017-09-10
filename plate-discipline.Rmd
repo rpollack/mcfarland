@@ -68,7 +68,7 @@ savant_data <- fg_db %>%
   filter(description %in% c("foul", "hit_into_play", "hit_into_play_no_out",
                             "hit_into_play_score", "swinging_pitchout", "swinging_strike",
                             "swinging_strike_blocked")) %>%
-  dplyr::select(batter, pitcher = player_name, game_date, game_year, description, plate_x, plate_z,
+  dplyr::select(batter, pitcher = player_name, pitcher_mlbam_id = pitcher, game_date, game_year, description, plate_x, plate_z,
                 on_1b, on_2b, on_3b, balls, strikes, outs_when_up) %>%
   collect(n=Inf) %>%
   inner_join(batting_war, by=c("batter" = "mlbamid", "game_year" = "Season")) %>%
@@ -85,7 +85,7 @@ savant_data <- fg_db %>%
          runners_on_base = paste0(on_1b, on_2b, on_3b))
 ```
 
-### Compute plate coverage info
+### Compute batter aggeression
 
 ```{r}
 
@@ -195,5 +195,29 @@ ggplot(year_to_year_changes_2017, aes(disc_diff, wrc_diff)) + geom_point()
 ggplot(plate_discipline_overall, aes(as.character(game_year),
                                      discipline_per_100_pitches)) + geom_boxplot() + coord_flip() + 
   labs(x="", y="Aggression per 100 Pitches (sq. in)") + ggtitle("Hitters Are Becoming More Aggressive")
+```
+
+
+### compute pitcher aggression (that they induce in batters)
+
+```{r}
+pitcher_plate_discipline_overall <- savant_data %>%
+  group_by(pitcher, game_year) %>%
+  summarize(num_swings = n(),
+            horiz_disc = round(mad(px_in), 3),
+            vertical_disc = round(mad(pz_in), 3)) %>%
+  mutate(discipline_sq_in = horiz_disc * vertical_disc,
+         discipline_per_100_pitches = discipline_sq_in / num_swings * 100) %>%
+  filter(num_swings >= 200) %>%    #this is about 1/6 of a full season, to reduce survivor bias
+  arrange(discipline_per_100_pitches)
+
+# it seems the best pitchers induce lots of swings IN the zone ... but somehow remain untouched.
+
+#correlate discipline_per_100 to xFIP-
+
+ggplot(savant_data %>% filter(game_year == 2017,
+                              pitcher %in% c("Max Scherzer", "Hisashi Iwakuma")),
+       aes(px_in, pz_in)) + geom_point() + facet_grid(~pitcher) + 
+  ggtitle("Swings Induced by Select Pitchers, 2017") + xlim(-20, 20) +ylim(0, 60)
 ```
 
