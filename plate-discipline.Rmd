@@ -65,7 +65,6 @@ batting_war <- fg_db %>%
 #get all swings
 savant_data <- fg_db %>%
   tbl("gd_savant_new") %>%
-  #dplyr::select(batter, player_name, game_year, description, plate_x, plate_z) %>%
   filter(description %in% c("foul", "hit_into_play", "hit_into_play_no_out",
                             "hit_into_play_score", "swinging_pitchout", "swinging_strike",
                             "swinging_strike_blocked")) %>%
@@ -92,40 +91,40 @@ savant_data <- fg_db %>%
 
 plate_discipline_overall <- savant_data %>%
   group_by(playerid, batter_name, game_year, wrc_plus) %>%
-  summarize(num_pitches = n(),
+  summarize(num_swings = n(),
             horiz_disc = round(mad(px_in), 3),
             vertical_disc = round(mad(pz_in), 3)) %>%
   mutate(discipline_sq_in = horiz_disc * vertical_disc,
-         discipline_per_pitch = discipline_sq_in / num_pitches) %>%
-  filter(num_pitches >= 400) %>%    #this is about 1/3 of a full season
+         discipline_per_100_pitches = discipline_sq_in / num_swings * 100) %>%
+  filter(num_swings >= 200) %>%    #this is about 1/6 of a full season, to reduce survivor bias
   arrange(discipline_sq_in)
 
 year_to_year_changes_2017 <- plate_discipline_overall %>%
   group_by(playerid) %>%
   arrange(game_year) %>%
-  mutate(disc_diff = discipline_sq_in - lag(discipline_sq_in),
+  mutate(disc_diff = discipline_per_100_pitches - lag(discipline_per_100_pitches),
          wrc_diff = wrc_plus - lag(wrc_plus)) %>%
   filter(!is.na(disc_diff))
 
 
 plate_discipline_by_base_state <- savant_data %>%
   group_by(playerid, batter_name, game_year, runners_on_base) %>%
-  summarize(num_pitches = n(),
+  summarize(num_swings = n(),
             horiz_disc = round(mad(px_in), 3),
             vertical_disc = round(mad(pz_in), 3)) %>%
   mutate(discipline_sq_in = horiz_disc * vertical_disc)
 
 plate_discipline_deciles <- plate_discipline_overall %>%
   ungroup() %>%
-  mutate(decile = ntile(discipline_per_pitch, 10)) %>%
+  mutate(decile = ntile(discipline_per_100_pitches, 10)) %>%
   group_by(decile) %>%
-  summarize(from_disc = min(discipline_per_pitch),
-            to_disc = max(discipline_per_pitch),
+  summarize(from_disc = min(discipline_per_100_pitches),
+            to_disc = max(discipline_per_100_pitches),
             mean_wrc_plus = mean(wrc_plus))
 
 largest_zone_2017 <- plate_discipline_overall %>%
   filter(game_year == 2017) %>%
-  arrange(desc(discipline_sq_in)) %>%
+  arrange(desc(discipline_per_100_pitches)) %>%
   head(10)
 
 largest_zone_plts <- savant_data %>%
@@ -134,7 +133,7 @@ largest_zone_plts <- savant_data %>%
 
 smallest_zone_2017 <- plate_discipline_overall %>%
   filter(game_year == 2017) %>%
-  arrange(desc(discipline_sq_in)) %>%
+  arrange(desc(discipline_per_100_pitches)) %>%
   tail(10) 
 
 smallest_zone_plts <- savant_data %>%
@@ -145,11 +144,11 @@ smallest_zone_plts <- savant_data %>%
 ### Model
 
 ```{r}
-discipline_per_pitch_model <- lm(plate_discipline_overall$wrc_plus ~ 
-                                   poly(plate_discipline_overall$discipline_per_pitch, 2))
-summary(discipline_per_pitch_model)
+discipline_per_100_pitches_model <- lm(plate_discipline_overall$wrc_plus ~ 
+                                   poly(plate_discipline_overall$discipline_per_100_pitches, 2))
+summary(discipline_per_100_pitches_model)
 
-#r^2 = .15!!!
+#r^2 = .21!!!
 
 ```
 
@@ -157,33 +156,44 @@ summary(discipline_per_pitch_model)
 ### plots
 
 ```{r}
-ggplot(plate_discipline_overall, aes(discipline_per_pitch, wrc_plus)) + geom_point() + 
+ggplot(plate_discipline_overall, aes(discipline_per_100_pitches, wrc_plus)) + geom_point() + 
   geom_smooth(method = "lm", formula = y ~ poly(x, 2)) +
-  labs(x="sq. inches of aggression per pitch", y="wRC+")
+  labs(x="Aggression (sq. inches / 100 swings)", y="wRC+") + 
+  ggtitle("It Pays to be Patient at the Plate") + fgt
 #per_pitch makes no mathematical sense but it equalizes folks and the top of the list 'looks' right in that
 #it has really good hitters in it.
 
-ggplot(largest_zone_plts, aes(px_in, pz_in)) + geom_point() +
-  facet_wrap(~batter_name) + ggtitle("Least Selective Batters") + ylim(0, 60) + xlim(-20, 20)
+ggplot(year_to_year_changes_2017, aes(disc_diff, wrc_diff)) + geom_point() +
+  geom_smooth(method="lm") + labs(x="YoY Change in Aggression (sq. in / 100 swings)", y="YoY Change in wRC+") +
+  ggtitle("Expanding the Zone is Associated with a Decrease in Offense") + fgt
 
-ggplot(smallest_zone_plts, aes(px_in, pz_in)) + geom_point() +
-  facet_wrap(~batter_name) + ggtitle("Most Selective Batters") + ylim(0, 60) + xlim(-20, 20)
+```
 
-#plot least selective & most selective. notice mccutchen''s swings are far more spread out compared to hedges's
+```{r}
+
+#votto & bour are two great examples; they're both lefties and their plots contrast well.
 ggplot(savant_data %>% filter(game_year == 2017,
-                              batter_name %in% c("Joey Votto", "Adrian Gonzalez")),
+                              batter_name %in% c("Joey Votto", "Justin Bour")),
        aes(px_in, pz_in)) + geom_point() + facet_grid(~batter_name) + 
   ggtitle("Swings from Select Hitters, 2017") + xlim(-20, 20) +ylim(0, 60)
+
+ggplot(largest_zone_plts, aes(px_in, pz_in)) + geom_point() +
+  facet_wrap(~batter_name) + ggtitle("Most Aggressive Batters per 100 Pitches, 2017") + ylim(0, 60) + xlim(-20, 20)
+
+ggplot(smallest_zone_plts, aes(px_in, pz_in)) + geom_point() +
+  facet_wrap(~batter_name) + ggtitle("Least Aggressive Batters per 100 Pitches, 2017") + ylim(0, 60) + xlim(-20, 20)
+
+#biggest declines in aggression, 2016-2017
+ggplot(year_to_year_changes_2017 %>% arrange(disc_diff))
+
 
 ggplot(plate_discipline_deciles, aes(reorder(as.character(decile), decile), mean_wrc_plus)) +
   geom_bar(stat="identity") + labs(x="Decile", y="Mean wRC+") + fgt
 
 ggplot(year_to_year_changes_2017, aes(disc_diff, wrc_diff)) + geom_point()
 
-ggplot(plate_discipline_overall, aes(discipline_sq_in, wrc_plus)) + geom_point() +
-  geom_smooth(method="loess")
-
-ggplot(plate_discipline_overall, aes(as.character(game_year), discipline_sq_in)) + geom_boxplot() + coord_flip() +
-  labs(x="", y="Swing Zone (sq. in)") + ggtitle("Hitters Are Becoming Less Aggressive")
+ggplot(plate_discipline_overall, aes(as.character(game_year),
+                                     discipline_per_100_pitches)) + geom_boxplot() + coord_flip() + 
+  labs(x="", y="Aggression per 100 Pitches (sq. in)") + ggtitle("Hitters Are Becoming More Aggressive")
 ```
 
