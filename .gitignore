@@ -10,3 +10,6 @@ warcels-copy.Rmd
 *.txt
 *.html
 Untitled.Rmd
+*.jpg
+*.numbers
+.DS_Store
