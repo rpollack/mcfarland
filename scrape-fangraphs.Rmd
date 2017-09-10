@@ -176,34 +176,7 @@ discipline_changes <- fg_data %>%
   mutate(change = discipline_diff - lag(discipline_diff)) %>%
   filter(Season == 2016)
 
-fg_players <- fg_db %>%
-  tbl("player_info") %>%
-  collect(n=Inf)
 
-fg_bat <- fg_db %>%
-  tbl("stats_batting_master_pfx") %>%
-  filter(Type == 0) %>%     #get only full-season stats for each player
-  collect(n=Inf)
-
-fg_batters <- inner_join(fg_players, fg_bat, by=c("PlayerId" = "playerid")) %>%
-  filter(Position != "P",             #don't get batting WAR for pitchers
-         BISPosition != "SP",
-         BISPosition != "RP") %>%
-  mutate(Name = sprintf("%s %s", FirstName, LastName)) %>%
-  select(PlayerId, Name, Season, PA, -BirthDate, ValueW, oswing = `pfxO-Swing%`, zswing = `pfxZ-Swing%`, `wRC+`) %>%
-  filter(PA >= 200) %>%
-  mutate(zo = zswing - oswing) %>%  #this goes across non-consecutive seasons; affects folks like Corey Patterson
-  filter(is.na(zo) == FALSE) %>%  
-  group_by(PlayerId) %>%
-  arrange(Season) %>%
-  mutate(consec = as.integer(Season) - as.integer(lag(Season))) %>%
-  mutate(change = zo - lag(zo),
-         wRC_change_next_year = lead(`wRC+`) - `wRC+`) %>%
-  filter(!is.na(change),
-         consec == 1) %>% #throw out non-consecutive seasons
-  ungroup() %>%
-  mutate(perc_rank = round(percent_rank(change) * 100, 2))
-  
   #since we're throwing out sub-300 PA seasons, throw out non-consec. seasons also
 ```
 
