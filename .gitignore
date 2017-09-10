@@ -6,3 +6,7 @@
 *.Rproj
 cubs-rays-relative.png
 warcels-copy.Rmd
+*.png
+*.txt
+*.html
+Untitled.Rmd
