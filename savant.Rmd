@@ -153,56 +153,11 @@ str6 <- "Stephen Piscotty lines out to right fielder Nick Markakis."
 ### who turns hard-hit balls into outs the most often?
 # which team turns the highest % of barrels into outs?
 
-```{r}
-hard_hit_outs <- savant_data %>%
-  filter(description == "In play, out(s)",
-         game_year >= 2016) %>%
-  group_by(game_year, fielding_team) %>%
-  summarize(mean_hit_speed_of_outs = mean(hit_speed, na.rm = TRUE),
-            max_hit_speed_of_outs = max(hit_speed, na.rm = TRUE),
-            min_hit_speed_of_outs = min(hit_speed, na.rm = TRUE),
-            median_hit_speed_of_outs = median(hit_speed, na.rm = TRUE),
-            median_abs_deviation_of_outs = mad(hit_speed, na.rm = TRUE))
 
-```
 
 ### Compute YoY change in mean hit speed of outs.
 
-```{r}
 
-#compute YoY change in median hit speed of HHO
-year_diff_mean_hit_speed <- hard_hit_outs %>%
-  group_by(fielding_team) %>%
-  arrange(game_year) %>%
-  mutate(diff_mean_hit_speed_of_outs = mean_hit_speed_of_outs - lag(mean_hit_speed_of_outs)) %>%
-  filter(!is.na(diff_mean_hit_speed_of_outs)) %>%
-  select(fielding_team, diff_mean_hit_speed_of_outs)
-
-ggplot(year_diff_mean_hit_speed, aes(reorder(fielding_team, diff_mean_hit_speed_of_outs), diff_mean_hit_speed_of_outs)) + geom_bar(stat ="identity") + coord_flip()
-
-
-```
-
-
-### YoY Change in MAD hit speed of outs.
-
-A drop (CLE, CIN) means teams are getting to a narrower range of batted ball speeds than last year.
-An increase (NYM, SEA) means teams are getting to a wider range of batted ball speeds than last year. 
-
-(use a boxplot to show the differences)
-```{r}
-year_diff_mad_hit_speed <- hard_hit_outs %>%
-  group_by(fielding_team) %>%
-  arrange(game_year) %>%
-  mutate(diff_mad_hit_speed_of_outs = median_abs_deviation_of_outs - lag(median_abs_deviation_of_outs)) %>%
-  filter(!is.na(diff_mad_hit_speed_of_outs)) %>%
-  select(fielding_team, diff_mad_hit_speed_of_outs)
-
-ggplot(year_diff_mad_hit_speed, aes(reorder(fielding_team, diff_mad_hit_speed_of_outs), diff_mad_hit_speed_of_outs)) +
-  geom_bar(stat="identity") + coord_flip()
-
-
-```
 
 
 
