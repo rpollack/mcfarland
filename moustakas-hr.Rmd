@@ -1,0 +1,189 @@
+```{r setup, include=FALSE, echo=FALSE}
+
+
+library(tidyverse)
+library(rvest)
+library(stringr)
+library(plotly)
+library(RMySQL)
+library(gamlss)
+
+fgt = theme(
+  panel.background = element_rect(color = "lightgrey", fill = "white"),
+  axis.title = element_text(family = "Lato"),
+  axis.text = element_text(family = "Lato"),
+  legend.title = element_text(family = "Lato"),
+  legend.text = element_text(family = "Lato"),
+  legend.background = element_rect(fill = "white"),
+  legend.key = element_rect(fill = "white"),
+  plot.title = element_text(family = "Lato"),
+  panel.grid.major = element_line(size = .1, color = "lightgrey"),
+  panel.grid.minor = element_line(size = 0),
+  strip.background = element_rect(fill = "#50ae26"),
+  strip.text = element_text(color="white", family="Lato")
+  )
+
+fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"), 
+                            host = Sys.getenv("FG_HOST"), 
+                            user = Sys.getenv("FG_USER"),
+                            password = Sys.getenv("FG_PW"))
+
+estBetaParams <- function(mu, var) {
+  alpha <- ((1 - mu) / var - 1 / mu) * mu ^ 2
+  beta <- alpha * (1 / mu - 1)
+  return(params = list(alpha = alpha, beta = beta))
+}
+
+
+```
+
+### Will Mike Moustakas Break the Royals' Single-Season HR record?
+
+```{r}
+mike_compares <- fg_db %>%
+  tbl("player_info") %>%
+  filter(!BISPosition %in% c("SP", "RP"),
+         BISPosition != "",
+         Bats == "L") %>%
+  dplyr::select(PlayerId, FirstName, LastName) %>%
+  collect(n=Inf)
+
+mike_hr_pa <- fg_db %>%
+  tbl("stats_batting") %>%
+  filter(Type == 0,
+         playerid %in% mike_compares$PlayerId,
+         Season %in% c(2015, 2016, 2017),
+         PA >= 80) %>%
+  collect(n=Inf) %>%
+  inner_join(mike_compares, by=c("playerid" = "PlayerId")) %>%
+  unite(Name, FirstName, LastName, sep = " ") %>%
+  dplyr::select(Name, Season, HR, PA) %>%
+  mutate(hr_pa = HR / PA) %>%
+  filter(!is.na(hr_pa))
+
+mu <- mean(mike_hr_pa$hr_pa)
+var <- var(mike_hr_pa$hr_pa)
+
+alpha0 <- ((1 - mu) / var - 1 / mu) * mu ^ 2
+beta0 <- alpha0 * (1 / mu - 1)
+
+mike_hr <-  22
+mike_pa <- 307
+
+```
+
+MIKE MOUSTAKAS WILL BREAK THE ROYALS' SINGLE-SEASON HOME-RUN RECORD
+
+The Kansas City Royals have experienced a lot of success in recent years. After 10+ losing seasons, they made a surprise World Series run in 2014 and came within 90 feet of tying Game 7 before Salvador Perez popped out to Pablo Sandoval. The following year, they took down the NL East-winning New York Mets in five games to win their first World Series since 1985. After a down year in 2016 and a poor start to 2017, the team is in the thick of the playoff race again.
+
+
+INTRO
+...
+
+
+
+Mike Moustakas is on fire this year. The Kansas City Royals' third baseman has hit 21 home runs in 298 PA, putting him among the league leaders in long balls this year [http://www.fangraphs.com/leaders.aspx?pos=all&stats=bat&lg=all&qual=y&type=8&season=2017&month=0&season1=2017&ind=0&team=0&rost=0&age=0&filter=&players=0&sort=5,d]. Overall he's hitting .271/.309/.546 with a wRC+ of 118.
+
+Some of these home runs are due to his talent, some are due to luck, and some are due to a firmer baseball with lower seams [https://fivethirtyeight.com/features/in-mlbs-new-home-run-era-its-the-baseballs-that-are-juicing/]. Whatever the case, Roayals fans only want to know one thing: will Moustakas break the team's single-season home-run record?
+
+Steve Balboni currently hold it. In 1985 he hit 36 big flies for the Royals, who won the World Series that year for the first time in franchise history. No Royal since has matched or surpassed him, not even during the offensive boom of the late 1990's and early 2000's. Gary Gaetti came the closest; in 1995 he smacked 35 round-trippers. But all throughout the offensive boom of the late 1990's and early 2000's, the best the team could muster was Dean Palmer's 34 in 1998, Jermaine Dye's 33 in 2000, and Chili Davis' 30 in 1997.  
+
+But home runs are now at record-breaking numbers [http://bleacherreport.com/articles/2719188-mlb-record-for-most-hrs-in-single-month-set-with-justin-smoak-blast-vs-red-sox], so it's fitting Moustakas has a shot at breaking his own team's record. He's currently hitting 7 for every 100 plate appearances. The following graph shows this rate (in Royals powder blue, naturally) and how it compares to all left-handed batters with at least 80 PA in a season since 2015:
+
+```{r}
+ggplot(mike_hr_pa, aes(hr_pa)) + geom_histogram(binwidth = .01, aes(y=..density..)) +
+  ggtitle("HR/PA, Left-Handed Batters, 2015 – 2017\n(With Mike Moustakas in Blue)") +
+  labs(color = "Distributions") + labs(x="HR/PA") + 
+  geom_vline(xintercept=(mike_hr / mike_pa), color="#74B4FA", lwd=1.5, linetype = "dashed") +
+  scale_color_brewer(palette="Set1")
+```
+
+As I did with Aaron Judge, the correct approach is to define prior beliefs of Moustakas' home run and see how Moustakas' _actual_  home run rate affects these beliefs. Unlike Judge, I chose to use only the years since 2015, due to the increased home run rates in thos years. The histogram above shows these expectations, and the one below also shows a probability distribution:
+
+```{r}
+ggplot(mike_hr_pa, aes(hr_pa)) + geom_histogram(binwidth = .01, aes(y=..density..)) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = alpha0, shape2 =  beta0),
+                lwd=1.5,
+                aes(color="Left-handed Batters 2015 - 2017\n>= 80 PA/Season")) +
+  ggtitle("Probability Distribution for HR/PA\nLeft-Handed Batters, 2015 – 2017") +
+  labs(color = "Distributions") + labs(x="HR/PA") +
+  scale_color_brewer(palette="Set1")
+```
+
+If we knew nothing else about him, we'd expect Moustakas to have a .03 HR/PA rate. But we do know more about him! The following graph shows not only our prior beliefs, but also our current expectations, after observing Moustakas this year:
+
+
+```{r}
+
+mike_pa_wo_hr <- mike_pa - mike_hr
+alpha1 = mike_hr + alpha0
+beta1 = mike_pa_wo_hr + beta0
+
+ggplot(mike_hr_pa, aes(hr_pa)) + geom_histogram(binwidth = 0.009, aes(y=..density..)) +
+  stat_function(fun = dbeta,
+                args=list(shape1 =  alpha0, shape2 = beta0),
+                lwd=1.5,
+                aes(color = "Left-handed Batters 2015 - 2017\n>= 80 PA/Season")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = alpha1, shape2 = beta1),
+                lwd=1.5,
+                aes(color="Mike Moustakas, 2017")) +
+  labs(x="HR/PA") + xlim(0, .1) + 
+  ggtitle("Probability Distributions for HR/PA") +
+  scale_color_brewer(palette="Set1") +
+  labs(color = "Distributions")
+```
+
+As we saw with Aaron Judge, Moustakas' HR/PA rate has a high probability of being greater than that of other left handed batters. This makes sense, given what we've seen him do on the field. Even with the home run surge, he's put himself ahead of the pack.
+
+The blue curve in the graph above is the probability distribution of Moustakas' true HR/PA rate right now. Its peak is the single value we'd expect him to exhibit going forward. You can eyeball it, but I prefer to be sure, so I simulated 10,000 seasons of his on-field performance:
+
+```{r}
+mike_sim <- as_tibble(rbeta(10000, alpha1, beta1))
+
+est_mike_hr_rate <- ((mike_hr + alpha0) - 1) / ((mike_pa + alpha0 + beta0) -2)
+est_mike_hr_rate <- round(est_hr_rate, 3)
+
+
+(alpha0 -1) / ((alpha0 + beta0) - 2)
+
+low <- round(quantile(mike_sim$value, .025), 3)
+high <- round(quantile(mike_sim$value, .975), 3)
+
+ggplot(mike_sim, aes(value, y = ..density..)) + geom_histogram(binwidth = .001, fill="#74B4FA") +
+  annotate("text", x = .11, y = 27, label=sprintf("95%% Credible Interval (Low): %s", low)) +
+  annotate("text", x = .11, y = 25, label=sprintf("95%% Credible Interval (High): %s", high)) +
+  annotate("text", x = .11, y = 23, label=sprintf("Expected HR/PA in 2017: %s", est_mike_hr_rate)) +
+  labs(x="Simulated HR/PA") + ggtitle("10,000 Simulated Mike Moustakas Seasons") +
+  scale_fill_brewer(palette="Set1", direction = -1) + xlim(0, .15)
+```
+
+Moustakas' most likely HR/PA is .06, or 6 home runs for every 100 PA. Notice this is slightly below his current .07 rate. That's because his current rate involves not just talent, but also luck.
+
+With this expected rate in hand, we can plot how many plate appearances he'll need this season to hit his record-breaking 37th home run:
+
+```{r}
+
+# 95% confidence interval
+quantile(mike_sim$value, .025)
+
+mike_final_hr <- as_tibble(seq(400, 700))
+mike_final_hr <- mike_final_hr %>%
+  mutate(hr = ceiling(((value-mike_pa) * est_hr_rate) + mike_hr)) %>%
+  filter(hr >= 37)
+
+ggplot(mike_final_hr, aes(value, hr)) + geom_point() + geom_line() +
+  ggtitle("Mike Moustakas's 2017 HR Total Depends on How Many PA he Gets") +
+  labs(x="PA", y="Expected HR Total")
+
+```
+
+The graph above shows that Moustakas will hit his 37th home run sometime around his 541st plate appearance. A typical season of 650 PA should produce about between 43 and 44 home runs. Moustakas has an excellent chance to double his career high of 22 long balls, set in 2015. 
+ 
+So, Mr. Balboni: you've had a nice run, over 30 years, as the Royals' single-season record holder. I hope you've enjoyed your time at the top. Wave goodbye, because unless Mike Moustakas suffers a debilitating injury this year, he'll take your crown before the 23017 season is through.
+
+
+
+
+KCR home run leaders: http://www.fangraphs.com/leaders.aspx?pos=all&stats=bat&lg=all&qual=y&type=8&season=2017&month=0&season1=1969&ind=1&team=7&rost=0&age=0&filter=&players=0&sort=5,d
