@@ -117,10 +117,10 @@ plate_discipline_by_base_state <- savant_data %>%
 
 plate_discipline_deciles <- plate_discipline_overall %>%
   ungroup() %>%
-  mutate(decile = ntile(discipline_sq_in, 10)) %>%
+  mutate(decile = ntile(discipline_per_pitch, 10)) %>%
   group_by(decile) %>%
-  summarize(from_disc = min(discipline_sq_in),
-            to_disc = max(discipline_sq_in),
+  summarize(from_disc = min(discipline_per_pitch),
+            to_disc = max(discipline_per_pitch),
             mean_wrc_plus = mean(wrc_plus))
 
 largest_zone_2017 <- plate_discipline_overall %>%
@@ -176,7 +176,7 @@ ggplot(savant_data %>% filter(game_year == 2017,
   ggtitle("Swings from Select Hitters, 2017") + xlim(-20, 20) +ylim(0, 60)
 
 ggplot(plate_discipline_deciles, aes(reorder(as.character(decile), decile), mean_wrc_plus)) +
-  geom_bar(stat="identity") + labs(x="Decile", y="Mean wRC+")
+  geom_bar(stat="identity") + labs(x="Decile", y="Mean wRC+") + fgt
 
 ggplot(year_to_year_changes_2017, aes(disc_diff, wrc_diff)) + geom_point()
 
