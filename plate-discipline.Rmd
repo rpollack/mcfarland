@@ -1,0 +1,189 @@
+```{r setup, include=FALSE, echo=FALSE}
+
+
+library(tidyverse)
+library(stringr)
+library(plotly)
+library(RMySQL)
+library(broom)
+
+fgt = theme(
+  panel.background = element_rect(color = "lightgrey", fill = "white"),
+  axis.title = element_text(family = "Lato"),
+  axis.text = element_text(family = "Lato"),
+  legend.title = element_text(family = "Lato"),
+  legend.text = element_text(family = "Lato"),
+  legend.background = element_rect(fill = "white"),
+  legend.key = element_rect(fill = "white"),
+  plot.title = element_text(family = "Lato"),
+  panel.grid.major = element_line(size = .1, color = "lightgrey"),
+  panel.grid.minor = element_line(size = 0),
+  #strip.background = element_rect(fill = "#50ae26"),
+  strip.text = element_text(family="Lato")
+  )
+
+fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"), 
+                            host = Sys.getenv("FG_HOST"), 
+                            user = Sys.getenv("FG_USER"),
+                            password = Sys.getenv("FG_PW"))
+```
+
+### Get data
+
+```{r}
+
+# gd_info <- fg_db %>%
+#   tbl("gd_roster") %>%
+#   dplyr::select(mlbamid, playerid)
+
+id_info <- fg_db %>%
+  tbl("playerid_lookup") %>%
+  dplyr::select(mlbamid, playerid) %>%
+  collect(n=Inf)
+
+fg_info <- fg_db %>%
+  tbl("player_info") %>%
+  filter(!BISPosition %in% c("SP", "RP")) %>%
+  dplyr::select(PlayerId, FirstName, LastName) %>%
+  collect(n=Inf) %>%
+  unite(batter_name, FirstName, LastName, sep = " ")
+
+batting_war <- fg_db %>%
+  tbl("stats_batting") %>%
+  filter(Type == 0, 
+         Season >= 2015) %>%
+  dplyr::select(playerid, Season, wrc_plus = `wRC+`) %>%
+  collect(n=Inf) %>%
+  inner_join(fg_info, by=c("playerid" = "PlayerId")) %>%
+  inner_join(id_info, by="playerid")
+
+
+# for each spot in zone ... ratio of swings to takes? can divide px and pz into deciles to compute zones ... 
+
+#get all pitches, then classify as swing/non-swing, then take ratio, then split by baserunner situation
+
+#get all swings
+savant_data <- fg_db %>%
+  tbl("gd_savant_new") %>%
+  #dplyr::select(batter, player_name, game_year, description, plate_x, plate_z) %>%
+  filter(description %in% c("foul", "hit_into_play", "hit_into_play_no_out",
+                            "hit_into_play_score", "swinging_pitchout", "swinging_strike",
+                            "swinging_strike_blocked")) %>%
+  dplyr::select(batter, pitcher = player_name, game_date, game_year, description, plate_x, plate_z,
+                on_1b, on_2b, on_3b, balls, strikes, outs_when_up) %>%
+  collect(n=Inf) %>%
+  inner_join(batting_war, by=c("batter" = "mlbamid", "game_year" = "Season")) %>%
+  mutate(plate_x = as.numeric(plate_x),
+         plate_z = as.numeric(plate_z)) %>%
+  #compute inches instead of feet
+  mutate(px_in = plate_x * 12,
+         pz_in = plate_z * 12,
+         
+         #don't care WHO the runners are, just where they are
+         on_1b = ifelse(on_1b > 0, "Y", "N"),
+         on_2b = ifelse(on_2b > 0, "Y", "N"),
+         on_3b = ifelse(on_3b > 0, "Y", "N"),
+         runners_on_base = paste0(on_1b, on_2b, on_3b))
+```
+
+### Compute plate coverage info
+
+```{r}
+
+plate_discipline_overall <- savant_data %>%
+  group_by(playerid, batter_name, game_year, wrc_plus) %>%
+  summarize(num_pitches = n(),
+            horiz_disc = round(mad(px_in), 3),
+            vertical_disc = round(mad(pz_in), 3)) %>%
+  mutate(discipline_sq_in = horiz_disc * vertical_disc,
+         discipline_per_pitch = discipline_sq_in / num_pitches) %>%
+  filter(num_pitches >= 400) %>%    #this is about 1/3 of a full season
+  arrange(discipline_sq_in)
+
+year_to_year_changes_2017 <- plate_discipline_overall %>%
+  group_by(playerid) %>%
+  arrange(game_year) %>%
+  mutate(disc_diff = discipline_sq_in - lag(discipline_sq_in),
+         wrc_diff = wrc_plus - lag(wrc_plus)) %>%
+  filter(!is.na(disc_diff))
+
+
+plate_discipline_by_base_state <- savant_data %>%
+  group_by(playerid, batter_name, game_year, runners_on_base) %>%
+  summarize(num_pitches = n(),
+            horiz_disc = round(mad(px_in), 3),
+            vertical_disc = round(mad(pz_in), 3)) %>%
+  mutate(discipline_sq_in = horiz_disc * vertical_disc)
+
+plate_discipline_deciles <- plate_discipline_overall %>%
+  ungroup() %>%
+  mutate(decile = ntile(discipline_sq_in, 10)) %>%
+  group_by(decile) %>%
+  summarize(from_disc = min(discipline_sq_in),
+            to_disc = max(discipline_sq_in),
+            mean_wrc_plus = mean(wrc_plus))
+
+largest_zone_2017 <- plate_discipline_overall %>%
+  filter(game_year == 2017) %>%
+  arrange(desc(discipline_sq_in)) %>%
+  head(10)
+
+largest_zone_plts <- savant_data %>%
+  filter(game_year == 2017,
+         batter_name %in% largest_zone_2017$batter_name) 
+
+smallest_zone_2017 <- plate_discipline_overall %>%
+  filter(game_year == 2017) %>%
+  arrange(desc(discipline_sq_in)) %>%
+  tail(10) 
+
+smallest_zone_plts <- savant_data %>%
+  filter(game_year == 2017,
+         batter_name %in% smallest_zone_2017$batter_name) 
+```
+
+### Model
+
+```{r}
+discipline_per_pitch_model <- lm(plate_discipline_overall$wrc_plus ~ 
+                                   poly(plate_discipline_overall$discipline_per_pitch, 2))
+summary(discipline_per_pitch_model)
+
+#r^2 = .15!!!
+
+```
+
+
+### plots
+
+```{r}
+ggplot(plate_discipline_overall, aes(discipline_per_pitch, wrc_plus)) + geom_point() + 
+  geom_smooth(method = "lm", formula = y ~ poly(x, 2)) +
+  labs(x="sq. inches of aggression per pitch", y="wRC+")
+#per_pitch makes no mathematical sense but it equalizes folks and the top of the list 'looks' right in that
+#it has really good hitters in it.
+
+ggplot(largest_zone_plts, aes(px_in, pz_in)) + geom_point() +
+  facet_wrap(~batter_name) + ggtitle("Least Selective Batters") + ylim(0, 60) + xlim(-20, 20)
+
+ggplot(smallest_zone_plts, aes(px_in, pz_in)) + geom_point() +
+  facet_wrap(~batter_name) + ggtitle("Most Selective Batters") + ylim(0, 60) + xlim(-20, 20)
+
+#plot least selective & most selective. notice mccutchen''s swings are far more spread out compared to hedges's
+ggplot(savant_data %>% filter(game_year == 2017,
+                              batter_name %in% c("Joey Votto", "Adrian Gonzalez")),
+       aes(px_in, pz_in)) + geom_point() + facet_grid(~batter_name) + 
+  ggtitle("Swings from Select Hitters, 2017") + xlim(-20, 20) +ylim(0, 60)
+
+ggplot(plate_discipline_deciles, aes(reorder(as.character(decile), decile), mean_wrc_plus)) +
+  geom_bar(stat="identity") + labs(x="Decile", y="Mean wRC+")
+
+ggplot(year_to_year_changes_2017, aes(disc_diff, wrc_diff)) + geom_point()
+
+ggplot(plate_discipline_overall, aes(discipline_sq_in, wrc_plus)) + geom_point() +
+  geom_smooth(method="loess")
+
+ggplot(plate_discipline_overall, aes(as.character(game_year), discipline_sq_in)) + geom_boxplot() + coord_flip() +
+  labs(x="", y="Swing Zone (sq. in)") + ggtitle("Hitters Are Becoming Less Aggressive")
+```
+
