@@ -32,9 +32,14 @@ fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"),
 
 ```{r}
 
-gd_info <- fg_db %>%
-  tbl("gd_roster") %>%
-  select(mlbamid, playerid)
+# gd_info <- fg_db %>%
+#   tbl("gd_roster") %>%
+#   select(mlbamid, playerid)
+
+id_info <- fg_db %>%
+  tbl("playerid_lookup") %>%
+  dplyr::select(mlbamid, playerid) %>%
+  collect(n=Inf)
 
 fg_info <- fg_db %>%
   tbl("player_info") %>%
@@ -51,7 +56,7 @@ batting_war <- fg_db %>%
 savant_data_plate_coverage <- fg_db %>%
   tbl("gd_savant_new") %>%
   select(batter, player_name, game_year, description, plate_x, plate_z) %>%
-  inner_join(gd_info, by=c("batter" = "mlbamid")) %>%
+  inner_join(id_info, by=c("batter" = "mlbamid")) %>%
   collect(n=Inf) %>%
   filter(str_detect(description, "hit_into_play")) %>%
   mutate(plate_x = as.numeric(plate_x),
