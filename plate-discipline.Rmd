@@ -255,7 +255,7 @@ ggplot(savant_data %>% filter(game_year == 2017,
 ```{r}
 ggplot(plate_discipline_by_base_out_states, aes(x=runners_on_base, y=as.character(outs_when_up))) +
          geom_point(aes(color=discipline_per_100_swings, size=discipline_per_100_swings)) +
-  ggtitle("Hitters are Most Aggressive with No Outs and RISP") +
+  ggtitle("Hitters are Most Aggressive with No Outs and a Runner on Third") +
   labs(x="Runners On Base (Y = Runner, N = No Runner)", y="Outs") +
   guides(color=guide_legend(), size = guide_legend()) +
   scale_color_gradient(low="green", high = "red") + fgt
