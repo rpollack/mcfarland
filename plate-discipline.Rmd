@@ -44,15 +44,17 @@ id_info <- fg_db %>%
 fg_info <- fg_db %>%
   tbl("player_info") %>%
   filter(!BISPosition %in% c("SP", "RP")) %>%
-  dplyr::select(PlayerId, FirstName, LastName) %>%
+  dplyr::select(PlayerId, FirstName, LastName, LastGame) %>%
   collect(n=Inf) %>%
+  mutate(LastGame = ymd(LastGame),
+         lastYear = year(LastGame)) %>%
   unite(batter_name, FirstName, LastName, sep = " ")
 
 batting_war <- fg_db %>%
   tbl("stats_batting") %>%
   filter(Type == 0, 
          Season >= 2015) %>%
-  dplyr::select(playerid, Season, wrc_plus = `wRC+`) %>%
+  dplyr::select(playerid, Season, wrc_plus = `wRC+`, RBI) %>%
   collect(n=Inf) %>%
   inner_join(fg_info, by=c("playerid" = "PlayerId")) %>%
   inner_join(id_info, by="playerid")
@@ -68,7 +70,8 @@ savant_data <- fg_db %>%
   filter(description %in% c("foul", "hit_into_play", "hit_into_play_no_out",
                             "hit_into_play_score", "swinging_pitchout", "swinging_strike",
                             "swinging_strike_blocked")) %>%
-  dplyr::select(batter, pitcher = player_name, pitcher_mlbam_id = pitcher, game_date, game_year, description, plate_x, plate_z,
+  dplyr::select(batter, pitcher = player_name, pitcher_mlbam_id = pitcher, game_date, 
+                game_year, description, plate_x, plate_z,
                 on_1b, on_2b, on_3b, balls, strikes, outs_when_up) %>%
   collect(n=Inf) %>%
   inner_join(batting_war, by=c("batter" = "mlbamid", "game_year" = "Season")) %>%
@@ -93,72 +96,37 @@ savant_data <- fg_db %>%
 ```{r}
 
 plate_discipline_overall <- savant_data %>%
-  group_by(playerid, batter_name, game_year, wrc_plus) %>%
+  group_by(playerid, batter_name, game_year, lastYear, wrc_plus) %>%
   summarize(num_swings = n(),
             horiz_disc = round(mad(px_in), 3),
             vertical_disc = round(mad(pz_in), 3)) %>%
   mutate(discipline_sq_in = horiz_disc * vertical_disc,
-         discipline_per_100_swings = discipline_sq_in / num_swings * 100) %>%
+         aggression_per_100_swings = discipline_sq_in / num_swings * 100) %>%
   filter(num_swings >= 200) %>%    #this is about 1/6 of a full season, to reduce survivor bias
   arrange(discipline_sq_in)
 
 year_to_year_changes_2017 <- plate_discipline_overall %>%
   group_by(playerid) %>%
   arrange(game_year) %>%
-  mutate(disc_diff = discipline_per_100_swings - lag(discipline_per_100_swings),
+  mutate(disc_diff = aggression_per_100_swings - lag(aggression_per_100_swings),
          wrc_diff = wrc_plus - lag(wrc_plus)) %>%
   filter(!is.na(disc_diff)) %>%
   arrange(disc_diff)
 
-#by baserunner state, count, and outsgenerally.
-plate_discipline_by_base_out_states <- savant_data %>%
-  group_by(runners_on_base, outs_when_up) %>%
-  summarize(num_swings = n(),
-            horiz_disc = round(mad(px_in), 3),
-            vertical_disc = round(mad(pz_in), 3),
-            discipline_sq_in = horiz_disc * vertical_disc,
-            discipline_per_100_swings = discipline_sq_in / num_swings * 100) %>%
- # filter(num_swings >= 200) %>%    #this is about 1/6 of a full season, to reduce survivor bias
-  arrange(discipline_per_100_swings)
+
 
 #by batter by baserunner state. who is more aggressive when there are runners on base?
 plate_discipline_by_base_state <- savant_data %>%
-  group_by(playerid, batter_name, game_year, runners_on_base) %>%
+  group_by(playerid, batter_name, game_year, last_year, runners_on_base) %>%
   summarize(num_swings = n(),
             horiz_disc = round(mad(px_in), 3),
             vertical_disc = round(mad(pz_in), 3)) %>%
   mutate(discipline_sq_in = horiz_disc * vertical_disc,
-         discipline_per_100_swings = discipline_sq_in / num_swings * 100) %>%
+         aggression_per_100_swings = discipline_sq_in / num_swings * 100) %>%
  # filter(num_swings >= 200) %>%    #this is about 1/6 of a full season, to reduce survivor bias
-  arrange(discipline_per_100_swings)
+  arrange(aggression_per_100_swings)
 
 
-
-plate_discipline_deciles <- plate_discipline_overall %>%
-  ungroup() %>%
-  mutate(decile = ntile(discipline_per_100_swings, 10)) %>%
-  group_by(decile) %>%
-  summarize(from_disc = min(discipline_per_100_swings),
-            to_disc = max(discipline_per_100_swings),
-            mean_wrc_plus = mean(wrc_plus))
-
-# largest_zone_2017 <- plate_discipline_overall %>%
-#   filter(game_year == 2017) %>%
-#   arrange(desc(discipline_per_100_swings)) %>%
-#   head(10)
-# 
-# largest_zone_plts <- savant_data %>%
-#   filter(game_year == 2017,
-#          batter_name %in% largest_zone_2017$batter_name) 
-# 
-# smallest_zone_2017 <- plate_discipline_overall %>%
-#   filter(game_year == 2017) %>%
-#   arrange(desc(discipline_per_100_swings)) %>%
-#   tail(10) 
-# 
-# smallest_zone_plts <- savant_data %>%
-#   filter(game_year == 2017,
-#          batter_name %in% smallest_zone_2017$batter_name) 
 ```
 
 
@@ -167,7 +135,7 @@ plate_discipline_deciles <- plate_discipline_overall %>%
 ### plots
 
 ```{r}
-ggplot(plate_discipline_overall, aes(discipline_per_100_swings, wrc_plus)) + geom_point() + 
+ggplot(plate_discipline_overall, aes(aggression_per_100_swings, wrc_plus)) + geom_point() + 
   geom_smooth(method = "lm", formula = y ~ poly(x, 2)) +
   labs(x="Aggression (sq. inches / 100 swings)", y="wRC+") + 
   ggtitle("It Pays to be Patient at the Plate") + fgt
@@ -178,26 +146,47 @@ ggplot(year_to_year_changes_2017, aes(disc_diff, wrc_diff)) + geom_point() +
   geom_smooth(method="lm") + labs(x="YoY Change in Aggression (sq. in / 100 swings)", y="YoY Change in wRC+") +
   ggtitle("Year-over-Year, Expanding the Zone is Associated with a Decrease in Offense") + fgt
 
+ggplot(plate_discipline_overall, aes(as.character(game_year),
+                                     aggression_per_100_swings)) + geom_boxplot() + coord_flip() + 
+  labs(x="", y="Aggression (sq. in / 100 swings)") + 
+  ggtitle("Hitters Are Becoming Not Only More Similar, But Also More Aggressive") + fgt
+
+```
+
+### compute & plot deciles
+
+```{r}
+
+plate_discipline_deciles <- plate_discipline_overall %>%
+  ungroup() %>%
+  mutate(decile = ntile(aggression_per_100_swings, 10)) %>%
+  group_by(decile) %>%
+  summarize(from_disc = min(aggression_per_100_swings),
+            to_disc = max(aggression_per_100_swings),
+            mean_wrc_plus = mean(wrc_plus))
+
+
+ggplot(plate_discipline_deciles, aes(reorder(as.character(decile), decile), mean_wrc_plus)) +
+  geom_bar(stat="identity") + labs(x="Decile (1 = Low Aggression, 10 = High Aggression)", y="Mean wRC+") + fgt
 ```
 
 ### Models for Graphs Above
 
 ```{r}
-discipline_per_100_swings_model <- lm(plate_discipline_overall$wrc_plus ~ 
-                                   poly(plate_discipline_overall$discipline_per_100_swings, 2))
-summary(discipline_per_100_swings_model)
+aggression_per_100_swings_model <- lm(plate_discipline_overall$wrc_plus ~ 
+                                   poly(plate_discipline_overall$aggression_per_100_swings, 2))
+summary(aggression_per_100_swings_model)
 
 #r^2 = .21!!!
 
-discipline_augmented <- augment(discipline_per_100_swings_model)
+discipline_augmented <- augment(aggression_per_100_swings_model)
 
 yoy_discipline_model <- lm (year_to_year_changes_2017$wrc_diff ~ year_to_year_changes_2017$disc_diff)
 summary(yoy_discipline_model)
 
-
-
-# r2 = 
 ```
+
+### show votto & bour's aggression to demonstrate the methodology
 
 ```{r}
 
@@ -207,25 +196,6 @@ ggplot(savant_data %>% filter(game_year == 2017,
        aes(px_in, pz_in)) + geom_point() + facet_grid(~batter_name) + 
   ggtitle("Swings from Select Hitters, 2017") + xlim(-20, 20) +ylim(0, 60)
 
-# ggplot(largest_zone_plts, aes(px_in, pz_in)) + geom_point() +
-#   facet_wrap(~batter_name) + ggtitle("Most Aggressive Batters per 100 Pitches, 2017") + ylim(0, 60) + xlim(-20, 20)
-# 
-# ggplot(smallest_zone_plts, aes(px_in, pz_in)) + geom_point() +
-#   facet_wrap(~batter_name) + ggtitle("Least Aggressive Batters per 100 Pitches, 2017") + ylim(0, 60) + xlim(-20, 20)
-
-#biggest declines in aggression, 2016-2017
-ggplot(year_to_year_changes_2017 %>% filter(game_year == 2017) %>% arrange(disc_diff))
-
-
-ggplot(plate_discipline_deciles, aes(reorder(as.character(decile), decile), mean_wrc_plus)) +
-  geom_bar(stat="identity") + labs(x="Decile", y="Mean wRC+") + fgt
-
-ggplot(year_to_year_changes_2017, aes(disc_diff, wrc_diff)) + geom_point()
-
-ggplot(plate_discipline_overall, aes(as.character(game_year),
-                                     discipline_per_100_swings)) + geom_boxplot() + coord_flip() + 
-  labs(x="", y="Aggression (sq. in / 100 swings)") + 
-  ggtitle("Hitters Are Becoming Not Only More Similar, but also More Aggressive")
 ```
 
 
@@ -238,9 +208,9 @@ pitcher_plate_discipline_overall <- savant_data %>%
             horiz_disc = round(mad(px_in), 3),
             vertical_disc = round(mad(pz_in), 3)) %>%
   mutate(discipline_sq_in = horiz_disc * vertical_disc,
-         discipline_per_100_swings = discipline_sq_in / num_swings * 100) %>%
+         aggression_per_100_swings = discipline_sq_in / num_swings * 100) %>%
   filter(num_swings >= 200) %>%    #this is about 1/6 of a full season, to reduce survivor bias
-  arrange(discipline_per_100_swings)
+  arrange(aggression_per_100_swings)
 
 # it seems the best pitchers induce lots of swings IN the zone ... but somehow remain untouched.
 
@@ -248,17 +218,65 @@ pitcher_plate_discipline_overall <- savant_data %>%
 
 ggplot(savant_data %>% filter(game_year == 2017,
                               pitcher %in% c("Max Scherzer", "Hisashi Iwakuma")),
-       aes(px_in, pz_in)) + geom_point() + facet_grid(~pitcher) + 
+       aes(px_in, pz_in)) + geom_point() + facet_wrap(~pitcher) + 
   ggtitle("Swings Induced by Select Pitchers, 2017") + xlim(-20, 20) +ylim(0, 60)
 ```
 
+### in which base-out states are hitters the most aggressive?
+
 ```{r}
+
+#by baserunner state, count, and outs generally.
+plate_discipline_by_base_out_states <- savant_data %>%
+  group_by(runners_on_base, outs_when_up) %>%
+  summarize(num_swings = n(),
+            horiz_disc = round(mad(px_in), 3),
+            vertical_disc = round(mad(pz_in), 3),
+            discipline_sq_in = horiz_disc * vertical_disc,
+            aggression_per_100_swings = discipline_sq_in / num_swings * 100) %>%
+  filter(num_swings >= 10) %>%    
+  arrange(aggression_per_100_swings)
+
 ggplot(plate_discipline_by_base_out_states, aes(x=runners_on_base, y=as.character(outs_when_up))) +
-         geom_point(aes(color=discipline_per_100_swings, size=discipline_per_100_swings)) +
-  ggtitle("Hitters are Most Aggressive with No Outs and a Runner on Third") +
+         geom_point(aes(color=aggression_per_100_swings, size=aggression_per_100_swings)) +
+  ggtitle("Hitters are Most Aggressive when a Runner's on Third Base") +
   labs(x="Runners On Base (Y = Runner, N = No Runner)", y="Outs") +
   guides(color=guide_legend(), size = guide_legend()) +
   scale_color_gradient(low="green", high = "red") + fgt
+
+```
+
+```{r}
+# which players change their approach the most from runner-not-on-third to runner-on-third (when there are 0 outs)
+
+player_aggression_relative <- savant_data %>%
+  mutate(runner_on_third = ifelse(runners_on_base %in% c("NNY", "NYY", "YNY", "YYY"), "Y", "N")) %>%
+  group_by(playerid, batter_name, lastYear, runner_on_third) %>%
+  summarize(num_swings = n(),
+            horiz_disc = round(mad(px_in), 3),
+            vertical_disc = round(mad(pz_in), 3),
+            discipline_sq_in = horiz_disc * vertical_disc,
+            aggression_per_100_swings = discipline_sq_in / num_swings * 100) %>%
+  filter(num_swings >= 50) %>%   #want players who've swung at least 50 times in both situations
+  group_by(playerid, batter_name, lastYear) %>%
+  arrange(runner_on_third) %>%
+  mutate(aggression_multiplier_when_runner_on_third = aggression_per_100_swings / lag(aggression_per_100_swings)) %>%
+  filter(lastYear == 2017,
+         !is.na(aggression_multiplier_when_runner_on_third)) %>%
+  arrange(desc(aggression_multiplier_when_runner_on_third)) %>%
+  ungroup()
+  
+#players who change their approach the most with runners on 3rd
+player_aggression_relative %>%
+  dplyr::select(batter_name, aggression_multiplier_when_runner_on_third) %>%
+  head(25)
+
+#the least
+player_aggression_relative %>%
+  dplyr::select(batter_name, aggression_multiplier_when_runner_on_third) %>%
+  tail(25)
+
+mean(player_aggression_relative$aggression_multiplier_when_runner_on_third)
 
 ```
 
