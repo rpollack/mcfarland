@@ -280,3 +280,26 @@ mean(player_aggression_relative$aggression_multiplier_when_runner_on_third)
 
 ```
 
+### graph outlier players
+
+```{r}
+
+#pitches from player who gets more aggressive
+aggressive_player <- savant_data %>%
+  mutate(runner_on_third = ifelse(runners_on_base %in% c("NNY", "NYY", "YNY", "YYY"), "Y", "N")) %>%
+  filter(batter_name == "Manuel Margot")
+
+ggplot(aggressive_player, aes(px_in, pz_in)) + geom_point() + facet_wrap(~runner_on_third) +
+  ggtitle("Manuel Margot's Aggression w/Runners on Third & Without")
+
+non_aggressive_player <- savant_data %>%
+  mutate(runner_on_third = ifelse(runners_on_base %in% c("NNY", "NYY", "YNY", "YYY"), "Y", "N")) %>%
+  filter(batter_name == "Raul Mondesi")
+
+ggplot(non_aggressive_player, aes(px_in, pz_in)) + geom_point() + facet_wrap(~runner_on_third) +
+  ggtitle("Raul Mondesi's Aggression w/Runners on Third & Without")
+
+
+
+```
+
