@@ -91,7 +91,48 @@ savant_data <- fg_db %>%
   unite(count, balls, strikes, sep = "-")
 ```
 
-### Compute batter aggeression
+
+HEADLINE OPTIONS (What am I promising here?)
+
+- 
+- 
+- 
+- 
+- 
+
+INTRO
+
+- Set the tone
+
+
+
+A couple of months ago I wrote about plate coverage, which I defined as several folks asked me -- what about plate _discipline_? This is a metric that gets even more attention
+
+
+DEFINING AGGRESSION
+
+I used Statcast data to compute hitters' Aggression Factors in the following manner:
+
+- For each hitter in each year, I found the median absolute deviation (MAD) along the horizontal (MADx) and vertical (MADy) axes of pitches they'd swung at.
+- I multiplied these MADx and MADy together to get a sense of the square inches a hitter's attempted to cover.
+- I divided this number by the total number of swings and multiplied by 100, to normalize among hitters with different amounts of playing time. This resulting number is the hitter's Aggression Factor (AF). Lower AF's indicate the hitter swings mostly at pitches in one area; higher AF's indicate a player chases pitches in a variety of locations.
+- I filtered out hitters who'd swung fewer than 200 times in a season, to prevent role players from polluting the sample too much.
+
+EXAMPLES
+
+Joey Votto and Justin Bour are both left-handed NL first basemen. Whereas in 2017 Votto has an AF of 4.3, Bour has an AF of 13.6. The plots below show pitches they've swung at:
+```{r}
+ggplot(savant_data %>% filter(game_year == 2017,
+                              batter_name %in% c("Joey Votto", "Justin Bour")),
+       aes(px_in, pz_in)) + geom_point() + facet_grid(~batter_name) + 
+  ggtitle("Swings from Select Hitters, 2017") + xlim(-20, 20) +ylim(0, 60) + fgt
+```
+
+Bour's clearly is the more aggressive hitter, swinging at pitches all over the place, including some close to five feet off the ground. Meanwhile Votto's plot demonstrates the patience for which he's known, refusing to chase at balls off the plate and, in particular, recognizing middle-middle pitches really well.
+
+LEADERS AND LAGGARDS
+
+The following table shows the 25 least aggressive hitter-seasons in this dataset:
 
 ```{r}
 
@@ -101,14 +142,91 @@ plate_discipline_overall <- savant_data %>%
             horiz_disc = round(mad(px_in), 3),
             vertical_disc = round(mad(pz_in), 3)) %>%
   mutate(discipline_sq_in = horiz_disc * vertical_disc,
-         aggression_per_100_swings = discipline_sq_in / num_swings * 100) %>%
+         aggression_factor = discipline_sq_in / num_swings * 100) %>%
   filter(num_swings >= 200) %>%    #this is about 1/6 of a full season, to reduce survivor bias
-  arrange(discipline_sq_in)
+  arrange(aggression_factor) %>%
+  ungroup()
+
+
+least_aggressive <- plate_discipline_overall %>%
+  mutate(wrc_plus = round(wrc_plus, 0),
+         aggression_factor = round(aggression_factor, 1)) %>%
+  dplyr::select(Name = batter_name, Season = game_year, `wRC+` = wrc_plus, `Aggression Factor` = aggression_factor) %>%
+  unite(name_season, Name, Season, sep = ", ") %>%
+  head(25)
+
+ggplot(least_aggressive, aes(reorder(name_season, -`Aggression Factor`), `Aggression Factor`)) + geom_bar(stat="identity") + 
+  coord_flip() + fgt + labs(x="") + ggtitle("Least Aggressive Hitters, 2015 - 2017")
+
+```
+
+These are some very good hitter-seasons. The cohort includes Josh Donaldson's 2015 MVP campaign; overall, the mean wRC+ of this cohort is a stellar 129. Seeing Votto on this list helps validate the metric's worth, matching our perception of him as one of the most patient hitters in baseball.
+
+And now the most aggressive hitters in this dataset:
+```{r}
+most_aggressive <- plate_discipline_overall %>%
+  mutate(wrc_plus = round(wrc_plus, 0),
+         aggression_factor = round(aggression_factor, 1)) %>%
+  dplyr::select(Name = batter_name, Season = game_year, `wRC+` = wrc_plus, `Aggression Factor` = aggression_factor) %>%
+  unite(name_season, Name, Season, sep = ", ") %>%
+  tail(25)
+
+ggplot(most_aggressive, aes(reorder(name_season, -`Aggression Factor`), `Aggression Factor`)) + geom_bar(stat="identity") + 
+  coord_flip() + fgt + labs(x="") + ggtitle("Most Aggressive Hitters, 2015 - 2017")
+```
+
+These hitters are not so notable. Despite a few standout campaigns like Corey Seager's 174 wRC+ in 27 games in 2015, the mean wRC+ for these hitter-seasons is just 84.
+
+Looking at these two graphs, you might conclude that Aggression Factor correlates with offense. And you'd be right. The following scatterplot and parabola of best-fit show that the more aggressive a hitter becomes, the more his offense drops:
+
+```{r}
+ggplot(plate_discipline_overall, aes(aggression_factor, wrc_plus)) + geom_point() + 
+  geom_smooth(method = "lm", formula = y ~ poly(x, 2)) +
+  labs(x="Aggression Factor", y="wRC+") + 
+  ggtitle("It Pays to be Patient at the Plate") + fgt
+
+aggression_factor_model <- lm(plate_discipline_overall$wrc_plus ~ 
+                                   poly(plate_discipline_overall$aggression_factor, 2))
+summary(aggression_factor_model)
+```
+
+A polynomial model of wRC+ = 96.16 + (170.6 * AF^2) - (425 * AF), with p < 2.2e-16, best fits this data. The R^2 of .21 indicates AF explains 21% of the variation in a hitter's wRC+. That's quite a large effect for just one metric to have in understanding a hitter's ability.
+
+I also broke this dataset into deciles, where Decile 1 contains the least aggressive hitters (AF's from 4.2 to 5.9) and Decile 10 contains the most aggressive hitters (AF's from 22.6 to 41.5), and computed the mean wRC+ in each decile. The results show how as hitters get more aggressive, their offensive output declines. 
+
+```{r}
+
+plate_discipline_deciles <- plate_discipline_overall %>%
+  ungroup() %>%
+  mutate(decile = ntile(aggression_factor, 10)) %>%
+  group_by(decile) %>%
+  summarize(from_disc = min(aggression_factor),
+            to_disc = max(aggression_factor),
+            mean_wrc_plus = mean(wrc_plus))
+
+
+ggplot(plate_discipline_deciles, aes(reorder(as.character(decile), decile), mean_wrc_plus)) +
+  geom_bar(stat="identity") + labs(x="Decile (1 = Low Aggression, 10 = High Aggression)", y="Mean wRC+") + fgt
+```
+
+
+
+
+
+
+
+I defined aggression as the median absolute deviation (MAD) along the horizontal and vertical axes of pitches that hitters swung at
+
+### Compute batter aggeression
+
+```{r}
+
+
 
 year_to_year_changes_2017 <- plate_discipline_overall %>%
   group_by(playerid) %>%
   arrange(game_year) %>%
-  mutate(disc_diff = aggression_per_100_swings - lag(aggression_per_100_swings),
+  mutate(disc_diff = aggression_factor - lag(aggression_factor),
          wrc_diff = wrc_plus - lag(wrc_plus)) %>%
   filter(!is.na(disc_diff)) %>%
   arrange(disc_diff)
@@ -117,14 +235,14 @@ year_to_year_changes_2017 <- plate_discipline_overall %>%
 
 #by batter by baserunner state. who is more aggressive when there are runners on base?
 plate_discipline_by_base_state <- savant_data %>%
-  group_by(playerid, batter_name, game_year, last_year, runners_on_base) %>%
+  group_by(playerid, batter_name, game_year, lastYear, runners_on_base) %>%
   summarize(num_swings = n(),
             horiz_disc = round(mad(px_in), 3),
             vertical_disc = round(mad(pz_in), 3)) %>%
   mutate(discipline_sq_in = horiz_disc * vertical_disc,
-         aggression_per_100_swings = discipline_sq_in / num_swings * 100) %>%
+         aggression_factor = discipline_sq_in / num_swings * 100) %>%
  # filter(num_swings >= 200) %>%    #this is about 1/6 of a full season, to reduce survivor bias
-  arrange(aggression_per_100_swings)
+  arrange(aggression_factor)
 
 
 ```
@@ -135,10 +253,7 @@ plate_discipline_by_base_state <- savant_data %>%
 ### plots
 
 ```{r}
-ggplot(plate_discipline_overall, aes(aggression_per_100_swings, wrc_plus)) + geom_point() + 
-  geom_smooth(method = "lm", formula = y ~ poly(x, 2)) +
-  labs(x="Aggression (sq. inches / 100 swings)", y="wRC+") + 
-  ggtitle("It Pays to be Patient at the Plate") + fgt
+
 #per_pitch makes no mathematical sense but it equalizes folks and the top of the list 'looks' right in that
 #it has really good hitters in it.
 
@@ -147,7 +262,7 @@ ggplot(year_to_year_changes_2017, aes(disc_diff, wrc_diff)) + geom_point() +
   ggtitle("Year-over-Year, Expanding the Zone is Associated with a Decrease in Offense") + fgt
 
 ggplot(plate_discipline_overall, aes(as.character(game_year),
-                                     aggression_per_100_swings)) + geom_boxplot() + coord_flip() + 
+                                     aggression_factor)) + geom_boxplot() + coord_flip() + 
   labs(x="", y="Aggression (sq. in / 100 swings)") + 
   ggtitle("Hitters Are Becoming Not Only More Similar, But Also More Aggressive") + fgt
 
@@ -155,31 +270,16 @@ ggplot(plate_discipline_overall, aes(as.character(game_year),
 
 ### compute & plot deciles
 
-```{r}
 
-plate_discipline_deciles <- plate_discipline_overall %>%
-  ungroup() %>%
-  mutate(decile = ntile(aggression_per_100_swings, 10)) %>%
-  group_by(decile) %>%
-  summarize(from_disc = min(aggression_per_100_swings),
-            to_disc = max(aggression_per_100_swings),
-            mean_wrc_plus = mean(wrc_plus))
-
-
-ggplot(plate_discipline_deciles, aes(reorder(as.character(decile), decile), mean_wrc_plus)) +
-  geom_bar(stat="identity") + labs(x="Decile (1 = Low Aggression, 10 = High Aggression)", y="Mean wRC+") + fgt
-```
 
 ### Models for Graphs Above
 
 ```{r}
-aggression_per_100_swings_model <- lm(plate_discipline_overall$wrc_plus ~ 
-                                   poly(plate_discipline_overall$aggression_per_100_swings, 2))
-summary(aggression_per_100_swings_model)
+
 
 #r^2 = .21!!!
 
-discipline_augmented <- augment(aggression_per_100_swings_model)
+discipline_augmented <- augment(aggression_factor_model)
 
 yoy_discipline_model <- lm (year_to_year_changes_2017$wrc_diff ~ year_to_year_changes_2017$disc_diff)
 summary(yoy_discipline_model)
@@ -191,10 +291,7 @@ summary(yoy_discipline_model)
 ```{r}
 
 #votto & bour are two great examples; they're both lefties and their plots contrast well.
-ggplot(savant_data %>% filter(game_year == 2017,
-                              batter_name %in% c("Joey Votto", "Justin Bour")),
-       aes(px_in, pz_in)) + geom_point() + facet_grid(~batter_name) + 
-  ggtitle("Swings from Select Hitters, 2017") + xlim(-20, 20) +ylim(0, 60)
+
 
 ```
 
@@ -208,9 +305,9 @@ pitcher_plate_discipline_overall <- savant_data %>%
             horiz_disc = round(mad(px_in), 3),
             vertical_disc = round(mad(pz_in), 3)) %>%
   mutate(discipline_sq_in = horiz_disc * vertical_disc,
-         aggression_per_100_swings = discipline_sq_in / num_swings * 100) %>%
+         aggression_factor = discipline_sq_in / num_swings * 100) %>%
   filter(num_swings >= 200) %>%    #this is about 1/6 of a full season, to reduce survivor bias
-  arrange(aggression_per_100_swings)
+  arrange(aggression_factor)
 
 # it seems the best pitchers induce lots of swings IN the zone ... but somehow remain untouched.
 
@@ -233,12 +330,12 @@ plate_discipline_by_base_out_states <- savant_data %>%
             horiz_disc = round(mad(px_in), 3),
             vertical_disc = round(mad(pz_in), 3),
             discipline_sq_in = horiz_disc * vertical_disc,
-            aggression_per_100_swings = discipline_sq_in / num_swings * 100) %>%
+            aggression_factor = discipline_sq_in / num_swings * 100) %>%
   filter(num_swings >= 10) %>%    
-  arrange(aggression_per_100_swings)
+  arrange(aggression_factor)
 
 ggplot(plate_discipline_by_base_out_states, aes(x=runners_on_base, y=as.character(outs_when_up))) +
-         geom_point(aes(color=aggression_per_100_swings, size=aggression_per_100_swings)) +
+         geom_point(aes(color=aggression_factor, size=aggression_factor)) +
   ggtitle("Hitters are Most Aggressive when a Runner's on Third Base") +
   labs(x="Runners On Base (Y = Runner, N = No Runner)", y="Outs") +
   guides(color=guide_legend(), size = guide_legend()) +
@@ -256,11 +353,11 @@ player_aggression_relative <- savant_data %>%
             horiz_disc = round(mad(px_in), 3),
             vertical_disc = round(mad(pz_in), 3),
             discipline_sq_in = horiz_disc * vertical_disc,
-            aggression_per_100_swings = discipline_sq_in / num_swings * 100) %>%
+            aggression_factor = discipline_sq_in / num_swings * 100) %>%
   filter(num_swings >= 50) %>%   #want players who've swung at least 50 times in both situations
   group_by(playerid, batter_name, lastYear) %>%
   arrange(runner_on_third) %>%
-  mutate(aggression_multiplier_when_runner_on_third = aggression_per_100_swings / lag(aggression_per_100_swings)) %>%
+  mutate(aggression_multiplier_when_runner_on_third = aggression_factor / lag(aggression_factor)) %>%
   filter(lastYear == 2017,
          !is.na(aggression_multiplier_when_runner_on_third)) %>%
   arrange(desc(aggression_multiplier_when_runner_on_third)) %>%
