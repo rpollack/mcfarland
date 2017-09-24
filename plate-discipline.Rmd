@@ -92,11 +92,24 @@ savant_data <- fg_db %>%
   unite(count, balls, strikes, sep = "-")
 ```
 
+```{r}
+plate_discipline_overall <- savant_data %>%
+  group_by(playerid, batter_name, game_year, lastYear, wrc_plus) %>%
+  summarize(num_swings = n(),
+            horiz_disc = round(mad(px_in), 3),
+            vertical_disc = round(mad(pz_in), 3)) %>%
+  mutate(discipline_sq_in = horiz_disc * vertical_disc,
+         aggression_factor = discipline_sq_in / num_swings * 100) %>%
+  filter(num_swings >= 400) %>%    #avg. hitter has 700 swings this is about 1/6 of a full season, to reduce survivor bias
+  arrange(aggression_factor) %>%
+  ungroup()
+```
+
 
 HEADLINE OPTIONS (What am I promising here?)
 
 - UNDERSTANDING HITTER AGGRESSION
-- VISUALIZING HITTERS' PLATE DISCIPLINE
+- VISUALIZING HITTER AGGRESSION
 - 
 - 
 - 
@@ -127,11 +140,13 @@ So: who is the modern-day Ted Williams? To find out I defined a metric called Ag
 - Using Statcast data for each hitter in each year, I found the median absolute deviation (MAD) along the horizontal (MADx) and vertical (MADy) axes of pitches they'd swung at.
 - I multiplied these MADx and MADy together to get a sense of the square inches a hitter's attempted to cover.
 - I divided this number by the total number of swings and multiplied by 100, to normalize among hitters with different amounts of playing time. This resulting number is the hitter's Aggression Factor (AF). Lower AF's indicate the hitter swings mostly at pitches in one area; higher AF's indicate a player chases pitches in a variety of locations.
-- I filtered out hitters who'd swung fewer than 200 times in a season, to prevent role players from polluting the sample too much.
+- I filtered out hitters who'd swung fewer than 400 times in a season, to prevent role players from polluting the sample too much.
+
+
 
 EXAMPLES
 
-Joey Votto and Justin Bour are both left-handed NL first basemen. Whereas in 2017 Votto has an AF of 4.3, Bour has an AF of 13.6. The plots below show pitches they've swung at:
+Joey Votto and Justin Bour are both left-handed NL first basemen. Whereas in 2017 Votto has an AF of 4.2, Bour has an AF of 12.5. The plots below show pitches they've swung at:
 ```{r}
 ggplot(savant_data %>% filter(game_year == 2017,
                               batter_name %in% c("Joey Votto", "Justin Bour")),
@@ -142,20 +157,18 @@ ggplot(savant_data %>% filter(game_year == 2017,
 
 Bour's clearly the more aggressive hitter, swinging at pitches all over the place, including some close to five feet off the ground. Meanwhile Votto's plot demonstrates the patience for which he's known, refusing to chase at balls off the plate and, in particular, recognizing middle-middle pitches really well.
 
-Here's another pair of hitters: Joey Gallo 2015 (AF of 33.7) and Joey Gallo 2017 (AF of 7.8):
+Here's another pair of hitters: Chris Taylor (AF of 5.7 and Hernan Perez (AF of 11.3):
 
 ```{r}
 ggplot(savant_data %>% 
-         filter(game_year %in% c(2015, 2017),
-                batter_name == "Joey Gallo"), 
-       aes(px_in, pz_in)) + geom_point(color="#8e001c") + facet_grid(~game_year) + 
+         filter(game_year == 2017,
+                batter_name %in% c("Hernan Perez", "Chris Taylor")), 
+       aes(px_in, pz_in)) + geom_point(color="#8e001c") + facet_grid(~batter_name) + 
   ggtitle("Swings from Select Hitters, 2017") + xlim(-20, 20) +ylim(0, 60) + fgt +
   labs(x="Horizontal Pitch Location (in.)", y="Vertical Pitch Location (in.)")
 ```
 
-Per swing, Gallo is much less aggressive in 2017 than he was in 2015. While he still swings at eye-level pitches, now that he's playing everyday he complements that approach with more hacks at pitches around the center of the zone.
-
-
+Perez is the more aggressive hitter by far.
 
 
 LEADERS AND LAGGARDS
@@ -164,31 +177,19 @@ The following plot shows the 25 least aggressive hitter-seasons in this dataset:
 
 ```{r}
 
-plate_discipline_overall <- savant_data %>%
-  group_by(playerid, batter_name, game_year, lastYear, wrc_plus) %>%
-  summarize(num_swings = n(),
-            horiz_disc = round(mad(px_in), 3),
-            vertical_disc = round(mad(pz_in), 3)) %>%
-  mutate(discipline_sq_in = horiz_disc * vertical_disc,
-         aggression_factor = discipline_sq_in / num_swings * 100) %>%
-  filter(num_swings >= 200) %>%    #this is about 1/6 of a full season, to reduce survivor bias
-  arrange(aggression_factor) %>%
-  ungroup()
-
-
 least_aggressive <- plate_discipline_overall %>%
   mutate(wrc_plus = round(wrc_plus, 0),
          aggression_factor = round(aggression_factor, 1)) %>%
   dplyr::select(Name = batter_name, Season = game_year, `wRC+` = wrc_plus, `Aggression Factor` = aggression_factor) %>%
   unite(name_season, Name, Season, sep = ", ") %>%
-  head(25)
+  head(15)
 
 ggplot(least_aggressive, aes(reorder(name_season, -`Aggression Factor`), `Aggression Factor`)) + geom_bar(stat="identity", fill="#8e001c") + 
   coord_flip() + fgt + labs(x="") + ggtitle("Least Aggressive Hitter-Seasons, 2015 - 2017")
 
 ```
 
-These are some very good hitter-seasons. The cohort includes Josh Donaldson's 2015 MVP campaign; overall, the mean wRC+ of this cohort is a stellar 129. Seeing Votto on this list helps validate the metric's worth, matching our perception of him as one of the most patient hitters in baseball.
+Seeing Votto at the top of the list validates that we're on the right track. There are other good hitter-seasons on there as well. The mean wRC+ of this group is a whopping 133. 
 
 And now the most aggressive hitters in this dataset:
 ```{r}
@@ -197,31 +198,30 @@ most_aggressive <- plate_discipline_overall %>%
          aggression_factor = round(aggression_factor, 1)) %>%
   dplyr::select(Name = batter_name, Season = game_year, `wRC+` = wrc_plus, `Aggression Factor` = aggression_factor) %>%
   unite(name_season, Name, Season, sep = ", ") %>%
-  tail(25)
+  tail(15)
 
 ggplot(most_aggressive, aes(reorder(name_season, -`Aggression Factor`), `Aggression Factor`)) + geom_bar(stat="identity", fill="#8e001c") + 
   coord_flip() + fgt + labs(x="") + ggtitle("Most Aggressive Hitter-Seasons, 2015 - 2017")
 ```
 
-These hitters are not so notable. Despite a few standout campaigns like Corey Seager's 174 wRC+ in 27 games in 2015, the mean wRC+ for these hitter-seasons is just 84.
+These hitter-seasons aren't so notable. The mean wRC+ of this group is just 91.
 
 Looking at these two graphs, you might conclude that Aggression Factor correlates with offense. And you'd be right. The following scatterplot and parabola of best-fit show that the more aggressive a hitter becomes, the more his offense drops:
 
 ```{r}
 ggplot(plate_discipline_overall, aes(aggression_factor, wrc_plus)) + geom_point(color="#8e001c") + 
-  geom_smooth(method = "lm", formula = y ~ poly(x, 2)) +
+  geom_smooth(method = "lm") +
   labs(x="Aggression Factor", y="wRC+") + 
   ggtitle("It Pays to be Patient at the Plate") + fgt
 
-aggression_factor_model <- lm(plate_discipline_overall$wrc_plus ~ 
-                                   poly(plate_discipline_overall$aggression_factor, 2))
+aggression_factor_model <- lm(plate_discipline_overall$wrc_plus ~ plate_discipline_overall$aggression_factor)
 summary(aggression_factor_model)
+
 ```
 
-A polynomial model of wRC+ = 96.16 + (170.6 * AF^2) - (425 * AF), with p < 2.2e-16, best fits this data. The R^2 of .21 indicates AF explains 21% of the variation in a hitter's wRC+. That's quite a large effect for just one metric to have on a hitter's offense.
+The equation wRC+ = 126.5 - (2.8 * AF), with p < 2.2e-16, fits this data well. The R^2 of .129 indicates that AF explains 13% of the variation in a hitter's wRC+. That's quite a large effect for just one metric to have on a hitter's offense. Also note that the sample size thins out drastically as the AF increases. Players with an AF above 15 tend to not get much playing time. The big exception -- the player whose season is at the upper-right of the graph? That's Gary Sanchez in 2016. He swung at everything (AF of 19.7) yet crushed the ball (wRC+ of 170).
 
 I also broke this dataset into deciles, where Decile 1 contains the least aggressive hitters (AF's from 4.2 to 5.9) and Decile 10 contains the most aggressive hitters (AF's from 22.6 to 41.5), and computed the mean wRC+ in each decile. The results align with common sense: as hitters get more aggressive, their offensive output declines. 
-
 ```{r}
 
 plate_discipline_deciles <- plate_discipline_overall %>%
@@ -232,14 +232,17 @@ plate_discipline_deciles <- plate_discipline_overall %>%
             to_disc = max(aggression_factor),
             mean_wrc_plus = mean(wrc_plus))
 
-
 ggplot(plate_discipline_deciles, aes(reorder(as.character(decile), decile), mean_wrc_plus)) +
   geom_bar(stat="identity", fill="#8e001c") + labs(x="Decile (1 = Low Aggression, 10 = High Aggression)", y="Mean wRC+") + fgt
 ```
 
+The trend holds up. An increase in aggression is associated with decreased offensive performance.
+
 OVER TIME
 
-The following boxplot shows how hitters' AF's have changed over time:
+Given the upward trend in strikeouts, news outlets today focus on players' lack of plate discipline. "Hitters are swinging for the fences" trumpets a headline in the Portland Press Herald [http://www.pressherald.com/2017/09/17/on-baseball-with-strikeout-stigma-gone-hitters-are-swinging-for-the-fences/]. In December, Rian Watt at FiveThirtyEight wrote [https://fivethirtyeight.com/features/pitchers-wont-throw-strikes-so-batters-are-getting-better-at-hitting-bad-pitches/] that today's hitters are "channeling their inner Vladimir Guerrero". And former pitcher Al Leiter noted that "you don't see a two-strike approach anymore." [https://www.nytimes.com/2017/09/19/sports/baseball/home-runs-record-single-season.html]      
+
+These statements are correct. At least since 2015 hitters have expanded the strike zone more and more. The following ridgeline plot shows how hitters' AF's have changed over time:
 ```{r}
 ggplot(plate_discipline_overall, aes(as.character(game_year),
                                      aggression_factor)) + geom_boxplot() + coord_flip() + 
@@ -251,36 +254,14 @@ ggplot(plate_discipline_overall, aes(y=as.character(game_year), x=aggression_fac
 
 ```
 
-I see two trends in this graph:
-- Since 2017, the peak of the AF curve has moved to the right, indicating that the typical hitter today is more aggressive than the typical hitter in 2015. The median AF in 2015 was 9.3; today it's 9.7. That's a small change but it becomes noticeable when expressed over hundreds of hitters in a season.
-- Since 2017, the maximum tolerable aggression has declined. The most aggressive hitter in 2015 (Brett Wallace) had an AF of 38.3; the most aggressive hitter in 2017 (JaCoby Jones) has an AF of 38.8. In between, Steven Moya had an AF of 41.5 in 2016.
-
-Collectively, the graph tells me that GM's and managers are selecting hitters who are more aggressive -- to a point. There is such a thing as too much aggression. As a result, hitters are becoming more similar to each other. The inter-quartile range in AF has shrunk from 8.3 in 2015 to 8.25 in 2017 (although it did expand to 8.9 in 2016). 
-
-Individual hitters also become more and less aggressive over time. The following graph shows how a change in AF relates to a change in wRC+:
-
-```{r}
-ggplot(year_to_year_changes_2017, aes(disc_diff, wrc_diff)) + geom_point(color="#8e001c") +
-  geom_smooth(method="lm") + labs(x="YoY Change in Aggression Factor", y="YoY Change in wRC+") +
-  ggtitle("Year-over-Year, Expanding the Zone is Associated with a Decrease in Offense") + fgt
-
-
-yoy_discipline_model <- lm (year_to_year_changes_2017$wrc_diff ~ year_to_year_changes_2017$disc_diff)
-summary(yoy_discipline_model)
-
-```
-
-The results of this graph fit what we've seen so far. An increase in aggression is associated with a decrease in wRC+. The effect is there but small: an R^2 of .06 indicates that a change in AF explains 6% of the variance of the change in wRC+.
-
-The following players have decreased their aggression the most since 2015:
-
-```{r}
-#
-```
+Aggressive hitters are taking over baseball:
+- Since 2017, the peak of the AF curve has moved to the right, in the direction of increased aggression. This means the typical player in 2017 is more aggressive than the typical player in 2015.
+- After the peak, the shallower downward slope in 2017 indicates players with an AF in the 8 - 12 range are getting more playing time than they used to. 
+- Hitters are becoming more similar to each other. After noticing the 2017 graph seemed more bunched together than the one in 2016, I computed the interquartile range for each year. 2017's IQR or 4.09 is less than 2015's IQR of 4.34, indicating less variety among hitters' tendencies. 
 
 ### BASE-OUT STATES
 
-Statcase also gives us the base-out state when a hitter's batting. I used this information to see which base-out states induce the most aggression in hitters. The results should not surprise you:
+Statcast also gives us the base-out state when a hitter's batting. I used this information to see which base-out states induce the most aggression in hitters. The results should not surprise you:
 
 ```{r}
 
@@ -297,70 +278,92 @@ plate_discipline_by_base_out_states <- savant_data %>%
 
 ggplot(plate_discipline_by_base_out_states, aes(x=runners_on_base, y=as.character(outs_when_up))) +
          geom_point(aes(color=aggression_factor, size=aggression_factor)) +
-  ggtitle("Hitters are Most Aggressive when a Runner's on Third Base") +
+  ggtitle("Hitter Aggression by Base-Out State, 2015 - 2017") +
   labs(x="Runners On Base (Y = Runner, N = No Runner)", y="Outs") +
   guides(color=guide_legend(), size = guide_legend()) +
   scale_color_gradient(low="green", high = "red") + fgt
 
 ```
 
-Is there a runner on third? Then generally speaking, a hitter will swing at a wider variety of pitches than they would if the bases are empty. Hitters are particularly aggressive when there's a runner on third and no outs, while they're less aggressive if there's also a runner on second or first. I attribute the latter to wanting to stay out of the double play; that's why hitters are less aggressive with the bases loaded than they are with a single runner on third base.
+Hitters become more aggressive as their teammates reach base. In particular, hitters expand the zone wildly when there's only a runner on third and no outs. In a first-and-third situation though, hitters are less aggressive, perhaps because they want to avoid a double play.  
 
-But some control their aggression better than others. By taking the ratio of AF when there's a runner on third to the AF when there isn't, we can understand who gets jumpiest when they have an RBI chance standing 90 feet from scoring. The average player gets nearly 10x as aggressive in this situation, in terms of the horizontal and vertical location of a pitch they'll swing at. Who is the calmest in these situations:
 
 ```{r}
-# which players change their approach the most from runner-not-on-third to runner-on-third (when there are 0 outs)
+
+aggression_change_by_outs <- plate_discipline_by_base_out_states %>%
+  group_by(runners_on_base) %>%
+  arrange(outs_when_up) %>%
+  mutate(change_in_aggression_from_prev_out = aggression_factor - lag(aggression_factor))
+
+
+```
+
+Scan the chart from the bottom up. Hitters become less aggressive as the outs pile up. Aggression drops rapidly when there's only a runner on third and no outs becomes one out. Conversely, aggression drops slowly if there are runners on second and third.
+
+WHO'S CALMEST UNDER PRESSURE?
+
+Some hitters control their aggression better than others. By taking the ratio of hitters' AFs in the four most aggressive base states (NYY, YYY, NNY, and YNY) to their AF in the four least aggressive base states (YYN, NYN, YNN, NNN), regardless of the number of outs, we can understand who remains calm under pressure and who gets jumpy when there are RBIs to be had.
+
+```{r}
 
 player_aggression_relative <- savant_data %>%
-  mutate(runner_on_third = ifelse(runners_on_base %in% c("NNY", "NYY", "YNY", "YYY"), "Y", "N")) %>%
-  group_by(playerid, batter_name, lastYear, runner_on_third) %>%
+  mutate(is_high_aggression = ifelse(runners_on_base %in% c("NYY", "YYY", "NNY", "YNY"), "Y", "N")) %>%
+  group_by(playerid, batter_name, lastYear, is_high_aggression) %>%
   summarize(num_swings = n(),
             horiz_disc = round(mad(px_in), 3),
             vertical_disc = round(mad(pz_in), 3),
             discipline_sq_in = horiz_disc * vertical_disc,
             aggression_factor = discipline_sq_in / num_swings * 100) %>%
-  filter(num_swings >= 50) %>%   #want players who've swung at least 50 times in both situations
+  filter(num_swings >= 50) %>%   #want players who've swung at least 50 times in a season in both situations
   group_by(playerid, batter_name, lastYear) %>%
-  arrange(runner_on_third) %>%
-  mutate(aggression_multiplier_when_runner_on_third = aggression_factor / lag(aggression_factor)) %>%
+  arrange(is_high_aggression) %>%   #sorts from N to Y
+  mutate(aggression_multiplier = aggression_factor / lag(aggression_factor)) %>%
   filter(lastYear == 2017,
-         !is.na(aggression_multiplier_when_runner_on_third)) %>%
-  arrange(desc(aggression_multiplier_when_runner_on_third)) %>%
+         !is.na(aggression_multiplier)) %>%
+  arrange(desc(aggression_multiplier)) %>%
   ungroup()
+```
 
+
+The average player gets nearly 10x as aggressive in this situation, in terms of the horizontal and vertical location of a pitch they'll swing at. 
+
+Who's the calmest when given a chance to knock a runner in?
+
+```{r}
+# which players change their approach the most from runner-not-on-third to runner-on-third (when there are 0 outs)
 
 #the least
 player_aggression_relative %>%
-  dplyr::select(batter_name, aggression_multiplier_when_runner_on_third) %>%
+  dplyr::select(batter_name, aggression_multiplier) %>%
   tail(15) %>%
-  ggplot(aes(reorder(batter_name, aggression_multiplier_when_runner_on_third),
-             aggression_multiplier_when_runner_on_third)) +
-  geom_bar(stat="identity", fill="#8e001c") + coord_flip() + labs(x="", y="AF Multiplier when Runner on Third") + 
-  fgt + ggtitle("Hitters Who Change their Approach the Least with a Runner on Third")
+  ggplot(aes(reorder(batter_name, -aggression_multiplier),
+             aggression_multiplier)) +
+  geom_bar(stat="identity", fill="#8e001c") + coord_flip() + labs(x="", y="AF Multiplier") + 
+  fgt + ggtitle("Hitters Who Change their Approach the Least\n in a Typical High-Aggression Spot")
 
-
-
-#mean(player_aggression_relative$aggression_multiplier_when_runner_on_third)
+mean(player_aggression_relative$aggression_multiplier)
 
 ```
 
-Raul Mondesi, Curt Casali, and John Hicks are as cool as cucumbers when there's a man on third. We can't say that about the following list of hitters, who exhibit a large increase in aggression when hitting with a man on third:
+Raul Mondesi, Curt Casali, and Tony Wolters are as cool as cucumbers when there's a man on third. They become more aggressive than usual, but only by a factor of about 5. That's about half the average increase of 10. 
+
+We can't say that about the following list of hitters:
 
 ```{r}
 player_aggression_relative %>%
-  dplyr::select(batter_name, aggression_multiplier_when_runner_on_third) %>%
+  dplyr::select(batter_name, aggression_multiplier) %>%
   head(15) %>%
-  ggplot(aes(reorder(batter_name, aggression_multiplier_when_runner_on_third),
-             aggression_multiplier_when_runner_on_third)) +
+  ggplot(aes(reorder(batter_name, aggression_multiplier),
+             aggression_multiplier)) +
   geom_bar(stat="identity", fill="#8e001c") + coord_flip() + labs(x="", y="AF Multiplier when Runner on Third") +
-  fgt + ggtitle("Hitters Who Change their Approach the Most with a Runner on Third")
+  fgt + ggtitle("Hitters Who Change their Approach the Most\n in a Typical High-Aggression Spot")
 ```
 
-Manuel Margot, Tyler Collins, and Travis Jankowski get jumpier than a long-tailed cat in a room full of rocking chairs when they see a runner on third. Know who else does? The best player in baseball. Mike Trout always looks so calm and collected, doesn't he? Never bats an eye under pressure? Well now we can see what's going through his head when he has a chance to knock a man in from third. He'll expand the strike zone considerably.
+Manuel Margot, Tyler Collins, and Travis Jankowski get jumpier than a long-tailed cat in a room full of rocking chairs when they see a runner on third. Know who else does? The best player in baseball. Mike Trout always looks so calm and collected, doesn't he? He never seems to get rattled. Well now we can see what's going through his head when he has a chance to knock a man in from third. He'll expand the strike zone considerably.
 
 CONCLUSION
 
-
+*** What's my callback ??? ***
 
 
 
@@ -414,13 +417,7 @@ I defined aggression as the median absolute deviation (MAD) along the horizontal
 
 
 
-year_to_year_changes_2017 <- plate_discipline_overall %>%
-  group_by(playerid) %>%
-  arrange(game_year) %>%
-  mutate(disc_diff = aggression_factor - lag(aggression_factor),
-         wrc_diff = wrc_plus - lag(wrc_plus)) %>%
-  filter(!is.na(disc_diff)) %>%
-  arrange(disc_diff)
+
 
 
 
