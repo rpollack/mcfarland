@@ -82,60 +82,79 @@ fg_info <- fg_db %>%
 ### Compute barrel data from Gameday data + Bill Petti's calculation
 
 ```{r}
-savant_data_clean <- savant_data %>%
-  #compute batting team & fielding team
-  mutate(batting_team = ifelse(inning_top_bottom == "N", home_team, away_team),
-         fielding_team = ifelse(batting_team == away_team, home_team, away_team),
-         
-         #convert numbers to numeric, leaving 'null' values as NA
-
-         launch_speed = as.numeric(launch_speed),
-         hit_distance_sc = as.numeric(hit_distance_sc),
-         launch_angle = as.numeric(launch_angle),
-         plate_x = as.numeric(plate_x),
-         plate_z = as.numeric(plate_z),
-         spray_angle = round(tan((hc_x - 125.42)/ (198.27-hc_y)) * 180/pi*.75, 1),
-         
-         #from bill petti
-         barrel = ifelse(launch_angle <= 50 & launch_speed >= 98 & launch_speed * 1.5 - launch_angle >= 11 &
-                           launch_speed + launch_angle >= 124, 1, 0),
-        
-         #assign correct wOBA value to walks & HBP
-         xwoba = ifelse(events == "walk", 0.69,
-                        ifelse(events == "hit_by_pitch", 0.72, xwoba)))
-
-barrel_data_seasonal <- savant_data_clean %>%
-  group_by(PlayerId, Name, game_year, PA, stand) %>%
-  summarize(num_barrels = sum(barrel, na.rm = TRUE)) %>%
-  mutate(barrel_rate = num_barrels / PA)
-
-barrel_data_totals <- barrel_data_seasonal %>%
-  group_by(PlayerId, Name) %>%
-  summarize(barrels = sum(num_barrels),
-            PA = sum(PA)) %>%
-  filter(PA >= 2)
+# savant_data_clean <- savant_data %>%
+#   #compute batting team & fielding team
+#   mutate(batting_team = ifelse(inning_top_bottom == "N", home_team, away_team),
+#          fielding_team = ifelse(batting_team == away_team, home_team, away_team),
+#          
+#          #convert numbers to numeric, leaving 'null' values as NA
+# 
+#          launch_speed = as.numeric(launch_speed),
+#          hit_distance_sc = as.numeric(hit_distance_sc),
+#          launch_angle = as.numeric(launch_angle),
+#          plate_x = as.numeric(plate_x),
+#          plate_z = as.numeric(plate_z),
+#          spray_angle = round(tan((hc_x - 125.42)/ (198.27-hc_y)) * 180/pi*.75, 1),
+#          
+#          #from bill petti
+#          barrel = ifelse(launch_angle <= 50 & launch_speed >= 98 & launch_speed * 1.5 - launch_angle >= 11 &
+#                            launch_speed + launch_angle >= 124, 1, 0),
+#         
+#          #assign correct wOBA value to walks & HBP
+#          xwoba = ifelse(events == "walk", 0.69,
+#                         ifelse(events == "hit_by_pitch", 0.72, xwoba)))
+# 
+# barrel_data_seasonal <- savant_data_clean %>%
+#   group_by(PlayerId, Name, game_year, PA, stand) %>%
+#   summarize(num_barrels = sum(barrel, na.rm = TRUE)) %>%
+#   mutate(barrel_rate = num_barrels / PA)
+# 
+# barrel_data_totals <- barrel_data_seasonal %>%
+#   group_by(PlayerId, Name) %>%
+#   summarize(barrels = sum(num_barrels),
+#             PA = sum(PA)) %>%
+#   filter(PA >= 2)
 
 ```
 
 ### Read barrel data from Baseball Savant data files
 ```{r}
+
+rookie_hitters_2017 <- read_csv("rookies-2017.csv") %>%
+  filter(To == 2017) %>%
+  filter(Name %in% fg_info$Name)
+
 barrels_2015 <- suppressMessages(read_csv("~/Downloads/barrels - 2015.csv")) %>%
-  mutate(Season = 2015)
+  mutate(Season = 2015) %>%
+  dplyr::select(Player, Barrels, Season)
+
 barrels_2016 <- suppressMessages(read_csv("~/Downloads/barrels - 2016.csv")) %>%
-  mutate(Season = 2016)
-barrels_2017 <- suppressMessages(read_csv("~/Downloads/barrels - 2017.csv")) %>%
-  mutate(Season = 2017)
+  mutate(Season = 2016) %>%
+  dplyr::select(Player, Barrels, Season)
+
+barrels_2017 <- suppressMessages(read_csv("~/Downloads/barrels - Sheet4 (1).csv")) %>%
+  mutate(Season = 2017) %>%
+  dplyr::select(Player, Barrels, Season)
 
 barrels_seasonal <- bind_rows(barrels_2015, barrels_2016, barrels_2017) %>%
-  dplyr::select(Player, Barrels, Season) %>%
+  #dplyr::select(Player, Barrels, Season) %>%
   inner_join(fg_info, by=c("Player" = "Name", "Season"))
 
 barrels_combined <- barrels_seasonal %>%
   group_by(Player, lastYear) %>%
   summarize(barrels = sum(Barrels),
             PA = sum(PA)) %>%
+  mutate(barrels_per_pa = barrels / PA) %>%
   filter(PA >= 3) %>%
-  dplyr::select(Name = Player, lastYear, barrels, PA)
+  dplyr::select(Name = Player, lastYear, barrels, PA, barrels_per_pa)
+
+barrels_combined_2017_only <- barrels_combined %>%
+  filter(lastYear == 2017,
+         PA >= 525) %>%
+  arrange(desc(barrels_per_pa))
+
+ggplot(barrels_combined_2017_only %>% head(25), aes(reorder(Name, barrels_per_pa), barrels_per_pa)) +
+  geom_bar(stat="identity") + coord_flip()
 ```
 
 
@@ -165,7 +184,11 @@ barrels_accounting_for_pa <- barrels_combined %>%
          high_credible = qbeta(.975, alpha1, beta1)) %>%
   filter(lastYear == 2017) %>%  #all players are used to compute priors, but plot & rank only active players
   mutate(percentile_mlb_barrel_rate_rank = round(percent_rank(est_barrel_rate) * 100, 1)) %>%
+  #select(-lastYear) %>%
   arrange(desc(est_barrel_rate))
+
+barrels_accounting_for_pa_rookies_only <- barrels_accounting_for_pa %>%
+  inner_join(rookies_2017, by="Name")
 
 ```
 
@@ -185,8 +208,15 @@ barrel_rate_priors <- crossing(x = seq(0, .15, .001), PA = c(10, 100, 1000)) %>%
 
 #plot prior distributions
 ggplot(barrel_rate_priors, aes(x, density, color = PA, group = PA)) +
-  geom_line(group=1) + labs(x="Barrel Rate", y="Prior Density") + xlim(-.1, .2) + fgt +
+  geom_line(group=1) + labs(x="Estimated Barrel Rate", y="Prior Density") + xlim(-.1, .2) + fgt +
   ggtitle("More PA = Increased Probability of Higher Barrel Rate")
+
+
+ggplot(barrels_accounting_for_pa_rookies_only %>% head(25), aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
+  labs(y="", x="Estimated Barrels / PA with 95% Credible Interval") +
+  ggtitle("Estimated Barrel Rate Leaders, 2017 Rookies: Top 25") + fgt
 
 # plot barrel rate leaders & laggards based on expected rate. also show credible intervals
 ggplot(barrels_accounting_for_pa %>% head(25), aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
@@ -201,13 +231,89 @@ ggplot(barrels_accounting_for_pa %>% tail(25), aes(est_barrel_rate, reorder(Name
   labs(y="", x="Estimated Barrels / PA, with 95% Credible Interval") +
   ggtitle("Estimated Barrel Rate Laggards, 2017: Bottom 25") + fgt
 
-# mancini_plt <- ggplot(barrels_accounting_for_pa %>% filter(percentile_mlb_barrel_rate_rank > 96), 
-#        aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
-#   geom_point() +
-#   geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
-#   labs(y="", x="Estimated Barrels / PA with 95% Credible Interval") +
-#   ggtitle("Estimated Barrel Rates 2015 – 2017, Top 5% of MLB Players") + fgt
-# mancini_plt
+ggplot(barrels_accounting_for_pa %>% filter(Name %in%
+                                              c("Miguel Andujar", "Aaron Judge")),
+       aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
+  labs(y="", x="Estimated Barrels / PA, with 95% Credible Interval") +
+  ggtitle("Estimated Barrel Rates of Andujar & Judge") + fgt
+
+```
+
+
+### andujar vs. judge
+
+```{r}
+
+# andujar only
+ggplot() + geom_histogram(binwidth = 0.009, aes(y=..density..)) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 0.9624399, shape2 = 78.46836),
+                lwd=1.5,
+                aes(color = "Prior Expectation")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 2.96244, shape2 = 84.46836),
+                lwd=1.5,
+                aes(color = "Posterior Distribution")) +
+  xlim(-.1, .2) + labs(x="Barrel Rate") + 
+  ggtitle("Miguel Andujar's Barrel Rate: Expectations vs. Reality") +
+  scale_color_brewer(palette="Set1", direction = -1) +
+  labs(color = "Distributions") + fgt
+
+andujar_sim <- as_tibble(rbeta(10000, 2.96244, 84.46836))
+andujar_expected_barrel_rate <- ((2 + 0.9624399) - 1) / ((8 + 0.9624399 + 78.46836) - 2)
+andujar_expected_barrel_rate
+
+sprintf("andujar 95% credible interval: %s", quantile(judge_sim$value, c(.025, .975))
+)
+
+judge_barrel_sim <- as_tibble(rbeta, 10000, 95.13189, 757.2989)
+judge_expected_barrel_rate <- ((92 + 3.131891) - 1) / ((773 + 3.131891 + 76.29891) - 2)
+judge_expected_barrel_rate
+
+
+```
+#judge only
+
+```{r}
+##compare miguel andujar & aaron judge
+#andujar: 2.96244, 84.46836
+#judge: 95.13189 757.2989
+ggplot() + geom_histogram(binwidth = 0.009, aes(y=..density..)) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 2.96244, shape2 = 84.46836),
+                lwd=1.5,
+                aes(color = "Miguel Andujar")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 95.13189, shape2 = 757.2989),
+                lwd=1.5,
+                aes(color="Aaron Judge")) +
+  xlim(0, .2) + labs(x="Barrel Rate") + 
+  ggtitle("Estimated Barrel Rates for Two 2017 Rookies") +
+  scale_color_brewer(palette="Set1", direction = -1) +
+  labs(color = "Posterior Distributions") + fgt
+
+
+#with 95% credible intervals
+ggplot() + geom_histogram(binwidth = 0.009, aes(y=..density..)) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 2.96244, shape2 = 84.46836),
+                lwd=1.5,
+                aes(color = "Miguel Andujar")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 95.13189, shape2 = 757.2989),
+                lwd=1.5,
+                aes(color="Aaron Judge")) +
+  xlim(0, .2) + labs(x="Barrel Rate") + 
+  ggtitle("Estimated Barrel Rates for Two 2017 Rookies") +
+  scale_color_brewer(palette="Set1", direction = -1) +
+  labs(color = "Posterior Distributions") + fgt +
+  geom_errorbarh(aes(x=.11, xmin = 0.09135663, xmax = 0.1335703, y = -3), height = 3.5, color = "blue",
+                 lwd=1) +
+  geom_errorbarh(aes(x=.11, xmin = 0.007027024, xmax = 0.08044076, y = -3), height = 3.5, color = "red",
+                 lwd=1)
+
 
 ```
 
