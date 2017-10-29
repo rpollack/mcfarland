@@ -1,0 +1,336 @@
+```{r}
+library(tidyverse)
+library(stringr)
+library(plotly)
+library(RMySQL)
+library(broom)
+library(lubridate)
+library(gamlss)
+
+fgt = theme(
+  panel.background = element_rect(color = "lightgrey", fill = "white"),
+  axis.title = element_text(family = "Lato"),
+  axis.text = element_text(family = "Lato"),
+  legend.title = element_text(family = "Lato"),
+  legend.text = element_text(family = "Lato"),
+  legend.background = element_rect(fill = "white"),
+  legend.key = element_rect(fill = "white"),
+  plot.title = element_text(family = "Lato"),
+  panel.grid.major = element_line(size = .1, color = "lightgrey"),
+  panel.grid.minor = element_line(size = 0),
+  #strip.background = element_rect(fill = "#50ae26"),
+  strip.text = element_text(family="Lato")
+  )
+
+fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"), 
+                            host = Sys.getenv("FG_HOST"), 
+                            user = Sys.getenv("FG_USER"),
+                            password = Sys.getenv("FG_PW"))
+```
+
+
+```{r}
+fg_info <- fg_db %>%
+  tbl("player_info") %>%
+  dplyr::select(PlayerId, FirstName, LastName, LastGame) %>%
+  collect(n=Inf) %>%
+  unite(batter_name, FirstName, LastName, sep = " ")
+
+sb_info_career <- fg_db %>%
+  tbl("stats_batting") %>%
+  filter(Type == -1) %>%
+  dplyr::select(playerid, SB, CS) %>%
+  collect(n=Inf) %>%
+  inner_join(fg_info, by=c("playerid" = "PlayerId")) %>%
+  mutate(attempts = CS + SB,
+         sb_perc = SB / attempts) %>%
+  filter(!is.na(sb_perc)) %>%
+  dplyr::select(playerid, batter_name, SB, attempts, sb_perc) %>%
+  arrange(desc(sb_perc))
+
+sb_info_seasons <- fg_db %>%
+  tbl("stats_batting") %>%
+  filter(Type == 0) %>%
+  dplyr::select(playerid, Season, SB, CS) %>%
+  collect(n=Inf) %>%
+  inner_join(fg_info, by=c("playerid" = "PlayerId")) %>%
+  mutate(attempts = CS + SB,
+         sb_perc = SB / attempts,
+         decade = Season %/% 10 * 10) %>%
+  filter(!is.na(sb_perc)) %>%
+  dplyr::select(playerid, batter_name, Season, decade, SB, attempts, sb_perc) %>%
+  arrange(desc(sb_perc))
+
+
+```
+
+
+
+# fit beta-binom model to each player-season
+
+```{r}
+fit <- gamlss(cbind(SB, attempts - SB) ~ ns(Season, 5),
+              data = sb_info_seasons,
+              family = BB(mu.link = "identity"))
+
+td <- tidy(fit)
+
+mu <- fitted(fit, parameter = "mu")
+sigma <- fitted(fit, parameter="sigma")
+
+eb_sb <- sb_info_seasons %>%
+  ungroup() %>%
+  mutate(mu = mu,
+         alpha0 = mu / sigma,
+         beta0 = (1 - mu) / sigma,
+         alpha1 = alpha0 + SB,
+         beta1 = beta0 + attempts - SB,
+         est_sb_rate = alpha1 / (alpha1 + beta1),
+         low_credible = qbeta(.025, alpha1, beta1), 
+         high_credible = qbeta(.975, alpha1, beta1)) %>%
+  mutate(name_season = paste(batter_name, Season, sep = " ")) %>%
+  arrange(desc(est_sb_rate))
+
+ggplot(eb_sb %>% head(25), aes(est_sb_rate, reorder(name_season, est_sb_rate))) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
+  labs(y="", x="Estimated SB Success Rate with 95% Credible Interval") +
+  ggtitle("Best Basestealing Seasons Since 1900") + fgt
+```
+
+
+# tally estimated career SB success rates
+
+```{r}
+eb_sb_career <- eb_sb %>%
+  group_by(playerid, batter_name) %>%
+  summarize(alpha1_sum = sum(alpha1),
+            beta1_sum = sum(beta1)) %>%
+  mutate(est_sb_rate = alpha1_sum / (alpha1_sum + beta1_sum),
+         low_credible = qbeta(.025, alpha1_sum, beta1_sum), 
+         high_credible = qbeta(.975, alpha1_sum, beta1_sum)) %>%
+  arrange(desc(est_sb_rate))
+
+ggplot(eb_sb_career %>% head(25), aes(est_sb_rate, reorder(batter_name, est_sb_rate))) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
+  labs(y="", x="Estimated Careers SB Success Rate with 95% Credible Interval") +
+  ggtitle("Modern Basestealers are Much Better than their Predecessors") + fgt
+  
+
+```
+
+Tim Raines vs. Rickey Henderson
+
+SB Success rate often mentioned in Raines' HOF case.
+Compared a lot to Henderson.
+And Also mentioned a lot in Beltran's case.
+
+Vince Coleman, Maury Wills, Lou Brock
+
+(find quotes for each)
+
+These guys all get mentioned as the best basestealers of all time. In particular, Raines' 84.7% success rate was a key plank in his HOF case. It's mentioned on his HOF plaque, and when you visit his website on the HOF, it leads with: "Tim Raines finished his big league career as the most successful base stealer – ranked by percentage – in MLB history." (https://baseballhall.org/hof/raines-tim)
+
+But is he really the best basestealer of all time? He did seal 808 bases in 954 attempts, but Rickey Henderson stole 1,406 in 1,741 attempts for an 80.7% success rate. 
+
+Meanwhile, what of Carlos Beltran? Beltran seemingly has a no-doubt HOF case with his home run total and postseason performance. He also has 312 stolen bases at an 86.4% success rate, easily higher than Raines'. But what to make of the fact that he has nearly 500 fewer raw stolen bases than Raines? 
+
+What's a baseball writer to do? How do you compare Raines' 808 stolen bases at an 84.7% success rate to Beltran's 312 stolen bases at a 86.4% clip? Who's the better basestealer? And for what matter, what about other stolden base legends such as Rickey Henderson, Maury Wills, and Lou Brock?
+
+
+The following plot illustrates the difficulty of deciding between players with widely disparate stolen base totals and success rates:
+```{r}
+comparables <- sb_info_career %>%
+  filter(batter_name %in% c("Tim Raines", "Lou Brock", "Carlos Beltran", "Rickey Henderson",
+                            "Maury Wills")) %>%
+  arrange(desc(sb_perc))
+
+ggplot(comparables, aes(SB, sb_perc, color=batter_name)) +
+  geom_point() + labs(x="Stolen Bases", y="Success Rate") + fgt
+
+
+```
+
+
+
+
+
+
+Pop quiz, hotshot. It's the top of the ninth inning of Game 7 of the World Series and your team is up by 30 runs. Your lumbering slugger has just reached first base and you're struck by a sudden thought: "I'm in no danger of losing this game. Why not do something nice for America? Why not plug in a pinch runner here and have him steal a base? After all, everyone in America deserves a free taco [https://www.tacobell.com/stealabase/rules]."
+
+Wanting to maximize your chances of a swiped bag, you look to your bench to see whom to put in the game. Your gaze rests on two guys: Rickey Henderson and Tim Raines. Henderson, you immediately think, is the guy. With 1,406 stolen bases in his career, he can no doubt deliver some quasi-Mexican goodness for the nation at large.
+
+But then a new thought pops into your head. Sure, Henderson has 33% more stolen bases than the next-highest total (Lou Brock with 938). But Raines was no slouch himself. In fact, you somehow recall in the span of a nanosecond as your next hitter walks to the plate, his success rate is 84.6%, noticeably higher than Henderson's 80.7% success rate.
+
+The hamster wheel of your mind continues ceaselessly. Sure, Raines has a higher success rate. But Henderson attempted 1,741 swipes whereas Raines tried only 954 times. How can I effectively compare between the two?
+
+Fret not, hypothetical major-league manager who's somehow in a parallel universe where all this could happen. I'm here to help you understand whom the better basestealer is. The answer lies in empirical Bayesian analysis.
+
+A typical approach to this problem would be to say "Both guys played long enough careers, therefore, let's say Raines has the higher success rate and be done with it." But as mentioned above, this approach ignores the large disparity in sample size. Further, going simply by observed success rates fails to regress to the mean. Modern baseball analysis recognizes that on-field results can fool the eye. This is true over not only short samples, but also long careers like those of the men we're discussing.  
+We can solve both problems by doing empirical Bayesian analysis. This will give us probability curves of each player's true-talent success rate. We can then compare these curves to one another to understand how likely it is that one thief is more successful than the other. Then we can make our choice and hope America gets some tacos out of it.
+
+PRIORS
+
+The first step in empirical Bayesian analysis is estimating a prior. Before doing any analysis, what would we guess this player's success rate is? In this case it helps to understand that success rates vary wildly throughout history:
+
+```{r}
+#stolen base success rates fluctuate by decade
+sb_info_seasons %>%
+  filter(decade >= 1910) %>%
+  ggplot(aes(x=as.character(decade), y=sb_perc)) + geom_boxplot() + 
+  ggtitle("Distributions of Stolen Base Success Rates over Time") +
+  labs(x="Decade", y="SB Success Rate") + fgt
+```
+
+This sample includes every player-season season with at least one attempt. Luis Sojo's one attempt in 2001 (which succeeded, by the way) is right alongside Rickey Henderson's 172 attempts in 1982. Ditto Ty Cobb's 134 attempts in 1915. They're all here.
+
+We can see that the 1950's was a low-water mark for success rate. Managers and coaches ran their players wild, seemingly not caring if the attempt was successful. The resulting median success rate of 50% would appall today's teams, who steal at a much higher rate of about 72%.
+
+This also means that in developing an effective prior, we have to account for the seasons in which they operated. If someone played in the 1950's, we'd expect that they would be worse at stealing than if they played in the 2010's. Over time, the success rate we observe on the field will swamp these prior beliefs, but we have to start somewhere.
+
+To develops priors for this analysis, I built a beta-binomial regression model that incorporates the season as a natural cubic spline with five degress of freedom. The spline captures the nonlinear trend seen in the boxplot above.
+
+#prior graph ... need to look into how to do this.
+```{r}
+sb_rate_priors <- crossing(x = seq(0, .90, .01), decade = c(1910, 1960, 2010)) %>%
+  mutate(density = dbeta(x, (mu_0 + mu_PA * log(PA)) / sigma,
+                         (1 - (mu_0 + mu_PA * log(PA))) / sigma)) %>%
+  mutate(PA = factor(PA))
+
+#plot prior distributions
+ggplot(barrel_rate_priors, aes(x, density, color = PA, group = PA)) +
+  geom_line(group=1) + labs(x="Estimated Barrel Rate", y="Prior Density") + xlim(-.1, .2) + fgt +
+  ggtitle("More PA = Increased Probability of Higher Barrel Rate")
+
+```
+
+LIKELIHOOD
+
+For each player-season, I combined the prior probabilities (computed using the model above) with their actual stolen-base success rates and summed the results across players' careers. The result is a set of probability density curves that show the estimated success rate for each player, given all the information we know about them over their entire careers.
+
+The following curves show our estimated success rates for the two Titans of Swipe, Rickey Henderson and Tim Raines:
+
+```{r}
+ggplot() + geom_histogram(binwidth = 0.001, aes(y=..density..)) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 1115.37212, shape2 = 314.30617),
+                lwd=1.5,
+                aes(color = "Tim Raines")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 1756.9623, shape2 = 524.5812),
+                lwd=1.5,
+                aes(color="Rickey Henderson")) +
+  xlim(.725, 0.85) + labs(x="Estimated SB Success Rate") + 
+  ggtitle("Comparing Two Stolen-Base Legends") +
+  scale_color_brewer(palette="Set1", direction = -1) +
+  labs(color = "Player") + fgt
+```
+
+Each point on the curve represents the probability density (y) of the player having a particular true-talent stolen base success rate (x). Each curve peaks at the player's most likely success rate. 
+
+Look at the red curve that belongs to Tim Raines. Despite an observed career success rate of 84.6%, the model thinks his true-talent success rate is about 78%. Why? Regression to the mean. We do it for modern metrics like BABIP and HR/FB. We must also do it for classic metrics like stolen base rate.
+
+Similarly, despite an observed success rate of 80.7% for Henderson, the model thinks his success rate is likely arounod 77%. Already we see that the gap between 77% and 78% is much closer than the gap between observed rates of 84.6% and 80.7%.
+
+Finally, note that Henderson's curve is both narrower and taller than Raines'. Remember that we have almost twice as many observations of Henderson as we do about Raines. More information means a smaller range of probable success rates; hence, a narrower curve. More information also means more confidence in our conclusions; hence, the taller peak.
+
+WHO'S THE BETTER THIEF?
+
+Remember our original predicament: America demands tacos, and we're in a position to deliver. Who gets the call?
+
+Looking at the graph above makes it hard to decide. Raines seems to have a higher success rate -- his curve peaks higher on the x-axis. But we have much less information about Raines than we do about Henderson. Additionally, the two curves seem to overlap an awful lot, meaning there is some chance these guys have an identical success rate. Whom do we choose? Or in Bayesian terms -- given the curves above, what is the probability that Raines' success rate is higher than Henderson's?
+
+We can answer this question with an A/B test, which for the sake of this article I'll call a Taco Maximization Algorithm. There are a number of ways to do this. I'll show two: simulating one million seasons for each player, and numerical integration. In the former method, 76.3% of Raines' seasons have better success rates than Henderson's. In the latter method, we arrive at 75.2%.
+
+These two values are close enough for our purposes that I'll average them to get 75.8%. That's how certain we are that Raines' true-talent success rate is higher than Henderson's. To help visualize this, I graphed a density cloud of the joint probabilities of their success rates with a dividing line between them. Note that about 3/4 of the cloud is on Raines' side.
+
+```{r}
+#simulation
+raines_sim <- rbeta(1e6, 1115.37212, 314.30617)
+henderson_sim <- rbeta(1e6, 1756.9623, 524.5812)
+mean(raines_sim > henderson_sim)
+#.764 chance raines' rate is greater than henderson's rate
+
+#integration
+x <- seq(.65, .90, .001)
+crossing(raines_x = x, henderson_x = x) %>%
+  mutate(raines_density = dbeta(raines_x, 1115.37212, 314.30617),
+         henderson_density = dbeta(henderson_x, 1756.9623, 524.5812),
+         joint = raines_density * henderson_density) %>%
+  ggplot(aes(raines_x, henderson_x, fill = joint)) +
+  geom_tile() +
+  geom_abline() +
+  scale_fill_gradient2(low = "white", high = "red") +
+  labs(x = "Raines SB Success Rate",
+       y = "Henderson SB Success Rate",
+       fill = "Joint density") +
+  #theme(legend.position = "none")
+  fgt +
+  ggtitle("Joint Distribution of SB Success Rates")
+
+d <- .001
+limits <- seq(.65, .90, d)
+sum(outer(limits, limits, function(x, y) {
+  (x > y) *
+    dbeta(x, 1115.37212, 314.30617) *
+    dbeta(y, 1756.9623, 524.5812) *
+    d ^ 2
+}))
+
+
+
+```
+
+PUT RAINES IN, COACH
+
+
+We have our answer. We take Raines off the bench and put him in the game, leaving Henderson to watch. The Man of Steal has the gaudy raw numbers, true, but we've shown that Rock is more likely to deliver free tacos to millions of Americans.
+
+POSTSCRIPT
+
+### MENTION LOU BROCK ### 
+
+
+
+
+
+Adding in the rest of our gang is easy, but to capture the lower success rates of Wills and Brock we have to change the x-axis a bit:
+
+```{r}
+ggplot() + geom_histogram(binwidth = 0.009, aes(y=..density..)) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 1115.37212, shape2 = 314.30617),
+                lwd=1.5,
+                aes(color = "Tim Raines")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 1756.9623, shape2 = 524.5812),
+                lwd=1.5,
+                aes(color="Rickey Henderson")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 579.8424, shape2 = 170.3489),
+                lwd=1.5,
+                aes(color="Carlos Beltran")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 765.2174, shape2 = 331.487),
+                lwd=1.5,
+                aes(color="Maury Wills")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 1170.9, shape2 = 463.2912),
+                lwd=1.5,
+                aes(color="Lou Brock")) +
+  xlim(0.65, 0.85) + labs(x="Estimated SB Success Rate") + 
+  ggtitle("Comparing Well-Known Basestealers Throughout History") +
+  scale_color_brewer(palette="Set1", direction = -1) +
+  labs(color = "Player") + fgt
+```
+
+
+WHO'S THE BETTER THIEF?
+
+A quick glance at the graph shows that Brock and Wills, despite plenty of press in their days, were nowhere near the master thives that Beltran, Henderson, and Raines are (and were). But how certain can we be? And even if we focus on the "Big Three", how can we decide between them? Remember our original question: who would you want on first base if you aboslutely, positively needed a swipe?
+
+We can find the answer with A/B testing, which identifies the probability that 
+
+
+
