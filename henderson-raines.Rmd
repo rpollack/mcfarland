@@ -187,7 +187,7 @@ This sample includes every player-season season with at least one attempt. Luis 
 
 We can see that the 1950's was a low-water mark for success rate. Managers and coaches ran their players wild, seemingly not caring if the attempt was successful. The resulting median success rate of 50% would appall today's teams, who steal at a much higher rate of about 72%.
 
-This also means that in developing an effective prior, we have to account for the seasons in which they operated. If someone played in the 1950's, we'd expect that they would be worse at stealing than if they played in the 2010's. Over time, the success rate we observe on the field will swamp these prior beliefs, but we have to start somewhere.
+This also means that in developing an effective prior, we have to account for the seasons in which they operated. A 72% success rate in 1956 is much rarer than a 72% success rate in 2015. This variance affects our pre-existing beliefs about each player's abilities. Over time, the success rates we observe on the field will swamp these prior beliefs, but we have to start somewhere.
 
 To develops priors for this analysis, I built a beta-binomial regression model that incorporates the season as a natural cubic spline with five degress of freedom. The spline captures the nonlinear trend seen in the boxplot above.
 
@@ -285,11 +285,13 @@ sum(outer(limits, limits, function(x, y) {
 PUT RAINES IN, COACH
 
 
-We have our answer. We take Raines off the bench and put him in the game, leaving Henderson to watch. The Man of Steal has the gaudy raw numbers, true, but we've shown that Rock is more likely to deliver free tacos to millions of Americans.
+We have our answer. We take Raines off the bench and put him in the game, leaving Henderson to watch. The Man of Steal has the gaudy raw numbers, true, but we've shown that Rock is more likely to deliver free tacos to millions of Americans. Conversely, if you work for Taco Bell, you'll want to put Henderson in.
 
-POSTSCRIPT
+THE OTHER GUYS
 
-### MENTION LOU BROCK ### 
+### MENTION LOU BROCK & TY COBB ### 
+Two guys sit between Henderson and Raines on the all-time stolen base leaderboards. I mentioned Brock above, but Ty Cobb is in third place with 892 swipes. Would we perhaps prefer one of them to the Expos Hall of Famer?
+
 
 
 
