@@ -138,32 +138,12 @@ barrels_2017 <- suppressMessages(read_csv("~/Downloads/barrels - Sheet4 (1).csv"
 
 barrels_seasonal <- bind_rows(barrels_2015, barrels_2016, barrels_2017) %>%
   #dplyr::select(Player, Barrels, Season) %>%
-  inner_join(fg_info, by=c("Player" = "Name", "Season"))
+  inner_join(fg_info, by=c("Player" = "Name", "Season")) %>%
+  filter(PA >= 10)
 
-barrels_combined <- barrels_seasonal %>%
-  group_by(Player, lastYear) %>%
-  summarize(barrels = sum(Barrels),
-            PA = sum(PA)) %>%
-  mutate(barrels_per_pa = barrels / PA) %>%
-  filter(PA >= 3) %>%
-  dplyr::select(Name = Player, lastYear, barrels, PA, barrels_per_pa)
-
-barrels_combined_2017_only <- barrels_combined %>%
-  filter(lastYear == 2017,
-         PA >= 525) %>%
-  arrange(desc(barrels_per_pa))
-
-ggplot(barrels_combined_2017_only %>% head(25), aes(reorder(Name, barrels_per_pa), barrels_per_pa)) +
-  geom_bar(stat="identity") + coord_flip()
-```
-
-
-### fit beta-binomial regression using maximum-likelihood
-allow PA to influence priors. this gives more weight to players with more plate appearances. 
-
-```{r}
-fit <- gamlss(cbind(barrels, PA - barrels) ~ log(PA),
-              data = barrels_combined,
+#model barrel rate for each season, depending on PA, for players with at least 10 PA in a season
+fit <- gamlss(cbind(Barrels, PA - Barrels) ~ log(PA),
+              data = barrels_seasonal,
               family = BB(mu.link = "identity"))
 
 td <- tidy(fit)
@@ -171,24 +151,56 @@ td <- tidy(fit)
 mu <- fitted(fit, parameter = "mu")
 sigma <- fitted(fit, parameter="sigma")
 
-barrels_accounting_for_pa <- barrels_combined %>%
+#model best barrel rate seasons
+eb_barrels <- barrels_seasonal %>%
   ungroup() %>%
-  dplyr::select(Name, barrels, PA, lastYear) %>%
   mutate(mu = mu,
          alpha0 = mu / sigma,
          beta0 = (1 - mu) / sigma,
-         alpha1 = alpha0 + barrels,
-         beta1 = beta0 + PA - barrels,
+         alpha1 = alpha0 + Barrels,
+         beta1 = beta0 + PA - Barrels,
          est_barrel_rate = alpha1 / (alpha1 + beta1),
          low_credible = qbeta(.025, alpha1, beta1), 
          high_credible = qbeta(.975, alpha1, beta1)) %>%
-  filter(lastYear == 2017) %>%  #all players are used to compute priors, but plot & rank only active players
-  mutate(percentile_mlb_barrel_rate_rank = round(percent_rank(est_barrel_rate) * 100, 1)) %>%
-  #select(-lastYear) %>%
+  mutate(name_season = paste(Player, Season, sep = " ")) %>%
   arrange(desc(est_barrel_rate))
 
-barrels_accounting_for_pa_rookies_only <- barrels_accounting_for_pa %>%
-  inner_join(rookies_2017, by="Name")
+#graph best barrel rate seasons
+ggplot(eb_barrels %>% head(25), aes(est_barrel_rate, reorder(name_season, est_barrel_rate))) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
+  labs(y="", x="Estimated Barrels / PA with 95% Credible Interval") +
+  ggtitle("Best Barrel Rate Seasons") + fgt
+
+
+
+#sum over career
+eb_barrels_career <- eb_barrels %>%
+  group_by(Player) %>%
+  summarize(alpha1_sum = sum(alpha1),
+            beta1_sum = sum(beta1)) %>%
+  mutate(est_barrel_rate = alpha1_sum / (alpha1_sum + beta1_sum),
+         low_credible = qbeta(.025, alpha1_sum, beta1_sum), 
+         high_credible = qbeta(.975, alpha1_sum, beta1_sum)) %>%
+  arrange(desc(est_barrel_rate))
+
+#2017 rookies only
+eb_barrels_2017_rookies <- eb_barrels_career %>%
+  inner_join(rookies_2017, by=c("Player" = "Name"))
+  
+#plot 2017 rookies only
+ggplot(eb_barrels_2017_rookies %>% head(25), aes(est_barrel_rate, reorder(Player, est_barrel_rate))) +
+  geom_point() + geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
+  labs(y="", x="Estimated Barrels / PA with 95% Credible Interval") +
+  ggtitle("Best Career Barrel Rates, 2017 Rookies") + fgt
+
+#plot all active players 2015 - 2017
+ggplot(eb_barrels_career %>% head(25), aes(est_barrel_rate, reorder(Player, est_barrel_rate))) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
+  labs(y="", x="Estimated Barrels / PA with 95% Credible Interval") +
+  ggtitle("Barrel Rate Leaders, 2015 - 2017") + fgt
+
 
 ```
 
@@ -209,27 +221,38 @@ barrel_rate_priors <- crossing(x = seq(0, .15, .001), PA = c(10, 100, 1000)) %>%
 #plot prior distributions
 ggplot(barrel_rate_priors, aes(x, density, color = PA, group = PA)) +
   geom_line(group=1) + labs(x="Estimated Barrel Rate", y="Prior Density") + xlim(-.1, .2) + fgt +
-  ggtitle("More PA = Increased Probability of Higher Barrel Rate")
+  ggtitle("More PA = Increased Probability of Higher Barrel Rate") +
+  ggsave("barrel-rate-priors.png")
 
 
 ggplot(barrels_accounting_for_pa_rookies_only %>% head(25), aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
   geom_point() +
   geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
   labs(y="", x="Estimated Barrels / PA with 95% Credible Interval") +
-  ggtitle("Estimated Barrel Rate Leaders, 2017 Rookies: Top 25") + fgt
+  ggtitle("Estimated Barrel Rate Leaders, 2017 Rookies: Top 25") + fgt +
+  ggsave("barrel-rate-leaders-rookies.png")
+
+ggplot(barrels_accounting_for_pa_rookies_only %>% tail(25), aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
+  labs(y="", x="Estimated Barrels / PA with 95% Credible Interval") +
+  ggtitle("Estimated Barrel Rate Laggards, 2017 Rookies: Top 25") + fgt +
+  ggsave("barrel-rate-laggards-rookies.png")
 
 # plot barrel rate leaders & laggards based on expected rate. also show credible intervals
 ggplot(barrels_accounting_for_pa %>% head(25), aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
   geom_point() +
   geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
   labs(y="", x="Estimated Barrels / PA with 95% Credible Interval") +
-  ggtitle("Estimated Barrel Rate Leaders, 2017: Top 25") + fgt
+  ggtitle("Estimated Barrel Rate Leaders, 2017: Top 25") + fgt +
+  ggsave("barrel-rate-leaders.png")
 
 ggplot(barrels_accounting_for_pa %>% tail(25), aes(est_barrel_rate, reorder(Name, est_barrel_rate))) +
   geom_point() +
   geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
   labs(y="", x="Estimated Barrels / PA, with 95% Credible Interval") +
-  ggtitle("Estimated Barrel Rate Laggards, 2017: Bottom 25") + fgt
+  ggtitle("Estimated Barrel Rate Laggards, 2017: Bottom 25") + fgt +
+  ggsave("barrel-rate-laggards.png")
 
 ggplot(barrels_accounting_for_pa %>% filter(Name %in%
                                               c("Miguel Andujar", "Aaron Judge")),
@@ -237,10 +260,73 @@ ggplot(barrels_accounting_for_pa %>% filter(Name %in%
   geom_point() +
   geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
   labs(y="", x="Estimated Barrels / PA, with 95% Credible Interval") +
-  ggtitle("Estimated Barrel Rates of Andujar & Judge") + fgt
+  ggtitle("Estimated Barrel Rates of Andujar & Judge") + fgt +
+  ggsave("andujar-judge-errorbars.png")
+
+
 
 ```
 
+stanton vs. judge
+
+```{r}
+
+#plot both
+ggplot() + geom_histogram(binwidth = 0.009, aes(y=..density..)) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 168.4402, 1390.991),
+                lwd=1.5,
+                aes(color = "Giancarlo Stanton")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 95.13189, shape2 = 757.2989),
+                lwd=1.5,
+                aes(color="Aaron Judge")) +
+  xlim(0, .2) + labs(x="Barrel Rate") + 
+  ggtitle("Barrel Rate Derby: Giancarlo Stanton vs. Aaron Judge") +
+  scale_color_brewer(palette="Set1", direction = -1) +
+  labs(color = "Posterior Distributions") + fgt +
+  ggsave("stanton-judge-posterior.png",  width=9.92, height=6.19, units="in")
+
+
+judge_sim <- rbeta(1e6, 95.13189 ,757.2989)
+stanton_sim <- rbeta(1e6, 168.4402, 1390.991)
+mean(judge_sim > stanton_sim)
+#60% chance judge' rate is greater than stanton's rate
+
+#integration
+x <- seq(.08, .15, .001)
+crossing(judge_x = x, stanton_x = x) %>%
+  mutate(judge_density = dbeta(judge_x, 95.13189, 757.2989),
+         stanton_density = dbeta(stanton_x, 168.4402, 1390.991),
+         joint = judge_density * stanton_density) %>%
+  ggplot(aes(judge_x, stanton_x, fill = joint)) +
+  geom_tile() +
+  geom_abline() +
+  scale_fill_gradient2(low = "white", high = "red") +
+  labs(x = "Judge Barrel Rate",
+       y = "Stanton Barrel Rate",
+       fill = "Joint density") +
+  #theme(legend.position = "none")
+  fgt +
+  ggtitle("Joint Distribution of Barrel Rates") +
+  ggsave("joint-distro-stanton-judge.png", width=9.92, height=6.19, units="in")
+
+d <- .001
+limits <- seq(.01, .15, d)
+sum(outer(limits, limits, function(x, y) {
+  (x > y) *
+    dbeta(x, 95.13189 ,757.2989) *
+    dbeta(y, 168.4402, 1390.991) *
+    d ^ 2
+}))
+```
+
+
+DO JUDGE V. BELLINGER NEXT
+
+```{r}
+
+```
 
 ### andujar vs. judge
 
@@ -259,14 +345,14 @@ ggplot() + geom_histogram(binwidth = 0.009, aes(y=..density..)) +
   xlim(-.1, .2) + labs(x="Barrel Rate") + 
   ggtitle("Miguel Andujar's Barrel Rate: Expectations vs. Reality") +
   scale_color_brewer(palette="Set1", direction = -1) +
-  labs(color = "Distributions") + fgt
+  labs(color = "Distributions") + fgt +
+  ggsave("andujar-prior-posterior.png")
 
 andujar_sim <- as_tibble(rbeta(10000, 2.96244, 84.46836))
 andujar_expected_barrel_rate <- ((2 + 0.9624399) - 1) / ((8 + 0.9624399 + 78.46836) - 2)
 andujar_expected_barrel_rate
 
-sprintf("andujar 95% credible interval: %s", quantile(judge_sim$value, c(.025, .975))
-)
+
 
 judge_barrel_sim <- as_tibble(rbeta, 10000, 95.13189, 757.2989)
 judge_expected_barrel_rate <- ((92 + 3.131891) - 1) / ((773 + 3.131891 + 76.29891) - 2)
@@ -292,7 +378,8 @@ ggplot() + geom_histogram(binwidth = 0.009, aes(y=..density..)) +
   xlim(0, .2) + labs(x="Barrel Rate") + 
   ggtitle("Estimated Barrel Rates for Two 2017 Rookies") +
   scale_color_brewer(palette="Set1", direction = -1) +
-  labs(color = "Posterior Distributions") + fgt
+  labs(color = "Posterior Distributions") + fgt +
+  ggsave("andujar-judge-posterior.png")
 
 
 #with 95% credible intervals
@@ -312,7 +399,8 @@ ggplot() + geom_histogram(binwidth = 0.009, aes(y=..density..)) +
   geom_errorbarh(aes(x=.11, xmin = 0.09135663, xmax = 0.1335703, y = -3), height = 3.5, color = "blue",
                  lwd=1) +
   geom_errorbarh(aes(x=.11, xmin = 0.007027024, xmax = 0.08044076, y = -3), height = 3.5, color = "red",
-                 lwd=1)
+                 lwd=1) +
+  ggsave("andujar-judge-posterior-credible.png")
 
 
 ```
