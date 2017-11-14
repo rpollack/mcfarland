@@ -69,7 +69,9 @@ sb_info_seasons <- fg_db %>%
 # fit beta-binom model to each player-season
 
 ```{r}
-fit <- gamlss(cbind(SB, attempts - SB) ~ ns(Season, 5),
+
+#model sb%, allowing the number of attempts to according to the year of the season as well as the number of attempts
+fit <- gamlss(cbind(SB, attempts - SB) ~ ns(Season, 5) * log(attempts),
               data = sb_info_seasons,
               family = BB(mu.link = "identity"))
 
@@ -96,6 +98,8 @@ ggplot(eb_sb %>% head(25), aes(est_sb_rate, reorder(name_season, est_sb_rate))) 
   geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
   labs(y="", x="Estimated SB Success Rate with 95% Credible Interval") +
   ggtitle("Best Basestealing Seasons Since 1900") + fgt
+
+
 ```
 
 
@@ -156,6 +160,17 @@ ggplot(comparables, aes(SB, sb_perc, color=batter_name)) +
 
 
 
+### NEED TO RE-WRITE THIS WHOLE THING WITH A NEW ANGLE: WHEN YOU ACCOUNT FOR THE FACT THAT MANAGERS LET GOOD BASESTEALERS MAKE MORE ATTEMPTS, AND THAT THE NUMBER OF ATTEMPTS FLUCTUATES OVER TIME, THE MODEL SHOWS THAT HENDERSON IS THE BETTER BASESTEALER
+
+## Players who were sent more often, or who had the green light and chose to go more often, we should assume are better basestealers. Otherwise they wouldln't get sent so much, or the manager would take away their green light.
+
+## And as you can see the attempts varied throughout the decades ... so we need to change our prior expecation, based on attempts, each year.  
+
+## We can do this with an interaction term in the model ... 
+
+### may actually need to adjust the model based not on attempts but attempt RATE: attempts / opportunities, where opportunities = # of times on 1st or 2nd base with the next base empty.
+# IS THIS DATA ANWYWHERE?? SB opportunities for 2013 are here: https://www.baseball-reference.com/leagues/MLB/2013-baserunning-batting.shtml
+
 
 Pop quiz, hotshot. It's the top of the ninth inning of Game 7 of the World Series and your team is up by 30 runs. Your lumbering slugger has just reached first base and you're struck by a sudden thought: "I'm in no danger of losing this game. Why not do something nice for America? Why not plug in a pinch runner here and have him steal a base? After all, everyone in America deserves a free taco [https://www.tacobell.com/stealabase/rules]."
 
@@ -181,6 +196,13 @@ sb_info_seasons %>%
   ggplot(aes(x=as.character(decade), y=sb_perc)) + geom_boxplot() + 
   ggtitle("Distributions of Stolen Base Success Rates over Time") +
   labs(x="Decade", y="SB Success Rate") + fgt
+
+sb_info_seasons %>%
+  filter(decade >= 1910) %>%
+  ggplot(aes(x=as.character(decade), y=attempts)) + geom_boxplot() + 
+  ggtitle("Distributions of Stolen Base Attempts over Time") +
+  labs(x="Decade", y="SB Success Rate") + fgt
+
 ```
 
 This sample includes every player-season season with at least one attempt. Luis Sojo's one attempt in 2001 (which succeeded, by the way) is right alongside Rickey Henderson's 172 attempts in 1982. Ditto Ty Cobb's 134 attempts in 1915. They're all here.
@@ -214,16 +236,16 @@ The following curves show our estimated success rates for the two Titans of Swip
 ```{r}
 ggplot() + geom_histogram(binwidth = 0.001, aes(y=..density..)) +
   stat_function(fun = dbeta,
-                args=list(shape1 = 1115.37212, shape2 = 314.30617),
+                args=list(shape1 = 1656.5270, shape2 = 510.82565),
                 lwd=1.5,
                 aes(color = "Tim Raines")) +
   stat_function(fun = dbeta,
-                args=list(shape1 = 1756.9623, shape2 = 524.5812),
+                args=list(shape1 = 2463.8002, shape2 = 656.0096),
                 lwd=1.5,
                 aes(color="Rickey Henderson")) +
   xlim(.725, 0.85) + labs(x="Estimated SB Success Rate") + 
   ggtitle("Comparing Two Stolen-Base Legends") +
-  scale_color_brewer(palette="Set1", direction = -1) +
+  scale_color_brewer(palette="Set1") +
   labs(color = "Player") + fgt
 ```
 
@@ -247,16 +269,16 @@ These two values are close enough for our purposes that I'll average them to get
 
 ```{r}
 #simulation
-raines_sim <- rbeta(1e6, 1115.37212, 314.30617)
-henderson_sim <- rbeta(1e6, 1756.9623, 524.5812)
-mean(raines_sim > henderson_sim)
-#.764 chance raines' rate is greater than henderson's rate
+raines_sim <- rbeta(1e6, 1656.5270, 510.82565)
+henderson_sim <- rbeta(1e6, 2463.8002, 656.0096)
+mean(henderson_sim > raines_sim)
+#98.5% chance Henderson has the higher rate
 
 #integration
-x <- seq(.65, .90, .001)
+x <- seq(.70, .90, .001)
 crossing(raines_x = x, henderson_x = x) %>%
-  mutate(raines_density = dbeta(raines_x, 1115.37212, 314.30617),
-         henderson_density = dbeta(henderson_x, 1756.9623, 524.5812),
+  mutate(raines_density = dbeta(raines_x, 1656.5270, 510.82565),
+         henderson_density = dbeta(henderson_x, 2463.8002, 656.0096),
          joint = raines_density * henderson_density) %>%
   ggplot(aes(raines_x, henderson_x, fill = joint)) +
   geom_tile() +
@@ -267,14 +289,15 @@ crossing(raines_x = x, henderson_x = x) %>%
        fill = "Joint density") +
   #theme(legend.position = "none")
   fgt +
-  ggtitle("Joint Distribution of SB Success Rates")
+  ggtitle("Joint Distribution of SB Success Rates") +
+  ggsave("joint-distro-henderson-raines.png", width=9.92, height=6.19, units="in")
 
 d <- .001
-limits <- seq(.65, .90, d)
+limits <- seq(.70, .90, d)
 sum(outer(limits, limits, function(x, y) {
   (x > y) *
-    dbeta(x, 1115.37212, 314.30617) *
-    dbeta(y, 1756.9623, 524.5812) *
+    dbeta(x, 1656.5270, 510.82565) *
+    dbeta(y, 2463.8002, 656.0096) *
     d ^ 2
 }))
 
@@ -282,10 +305,73 @@ sum(outer(limits, limits, function(x, y) {
 
 ```
 
+BUT YOU KNOW WHO'S EVEN BETTER? 
+
+```{r}
+ggplot() + geom_histogram(binwidth = 0.001, aes(y=..density..)) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 1656.5270, shape2 = 510.82565),
+                lwd=1.5,
+                aes(color = "Tim Raines")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 2463.8002, shape2 = 656.0096),
+                lwd=1.5,
+                aes(color="Rickey Henderson")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 1264.18421, shape2 = 326.64451),
+                lwd=1.5,
+                aes(color="Vince Coleman")) +
+  xlim(.725, 0.85) + labs(x="Estimated SB Success Rate") + 
+  ggtitle("Comparing Two Stolen-Base Legends ... to Vince Coleman") +
+  scale_color_brewer(palette="Set1") +
+  labs(color = "Player") + fgt
+```
+
+```{r}
+### coleman vs. henderson
+#simulation
+coleman_sim <- rbeta(1e6, 1264.18421, 326.64451)
+henderson_sim <- rbeta(1e6, 2463.8002, 656.0096)
+mean(coleman_sim > henderson_sim)
+#65%% chance Coleman has the higher rate
+
+#integration
+x <- seq(.70, .90, .001)
+crossing(coleman_x = x, henderson_x = x) %>%
+  mutate(coleman_density = dbeta(coleman_x, 2463.8002, 656.0096),
+         henderson_density = dbeta(henderson_x, 2463.8002, 656.0096),
+         joint = coleman_density * henderson_density) %>%
+  ggplot(aes(coleman_x, henderson_x, fill = joint)) +
+  geom_tile() +
+  geom_abline() +
+  scale_fill_gradient2(low = "white", high = "red") +
+  labs(x = "Coleman SB Success Rate",
+       y = "Henderson SB Success Rate",
+       fill = "Joint density") +
+  #theme(legend.position = "none")
+  fgt +
+  ggtitle("Joint Distribution of SB Success Rates") +
+  ggsave("joint-distro-henderson-coleman.png", width=9.92, height=6.19, units="in")
+
+```
+
+d <- .001
+limits <- seq(.70, .90, d)
+sum(outer(limits, limits, function(x, y) {
+  (x > y) *
+    dbeta(x, 1656.5270, 510.82565) *
+    dbeta(y, 2463.8002, 656.0096) *
+    d ^ 2
+}))
+
+
 PUT RAINES IN, COACH
 
 
 We have our answer. We take Raines off the bench and put him in the game, leaving Henderson to watch. The Man of Steal has the gaudy raw numbers, true, but we've shown that Rock is more likely to deliver free tacos to millions of Americans. Conversely, if you work for Taco Bell, you'll want to put Henderson in.
+
+
+
 
 THE OTHER GUYS
 
