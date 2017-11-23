@@ -35,12 +35,7 @@ fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"),
 
 ```{r}
 
-pitcher_info <- fg_db %>%
-  tbl("stats_pitching") %>%
-  filter(Type == 0) %>%
-  dplyr::select(PlayerId, G) %>%
-  collect(n=Inf) %>%
-  group_by(PlayerId)
+
 
 batter_info <- fg_db %>%
   tbl("stats_batting") %>%
@@ -49,11 +44,12 @@ batter_info <- fg_db %>%
   collect(n=Inf)
 
 
-  
+#get seasonal batting/fielding WAR for position players
 seasonal_war <- fg_db %>%
   tbl("player_info") %>%
-  dplyr::select(PlayerId, FirstName, LastName, LastGame) %>%
+  dplyr::select(PlayerId, FirstName, LastName, LastGame, Position) %>%
   collect(n=Inf) %>%
+  filter(!str_detect(Position, "P")) %>%
   unite(Name, FirstName, LastName, sep = " ") %>%
   mutate(last_year = year(ymd(LastGame))) %>%
   dplyr::select(PlayerId, Name, last_year) %>%
