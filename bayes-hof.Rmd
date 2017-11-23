@@ -66,7 +66,9 @@ names(hof_players)[3] <- "Years"
 hof_players <- hof_players %>%
   filter(`Inducted As` == "Player") %>%
   dplyr::select(Name) %>%
-  mutate(HOF = "Yes")
+  mutate(HOF = "Yes",
+         Name = str_replace(Name, "Ken Griffey", "Ken Griffey Jr."))
+  
 ```
 
 # For each player, for each age, find cumulative WAR through that age
@@ -169,23 +171,8 @@ bayes_df <- inner_join(war_through_age, war_age_combinations, by=c("Age", "cumul
   mutate(p_e_b = num_hof_players / num_players_in_hof,
          p_b = num_all_players / num_hof_eligible_players,
          prob_hof = round(((p_hof * p_e_b) / p_b) * 100, 1)) %>%
-  dplyr::select(PlayerId, Name, prob_hof, everything(), -WAR, -HOF)
+  dplyr::select(PlayerId, Name, cumulative_war, Age, prob_hof, everything(), -WAR, -HOF)
 
-
-  
-  
-
-# number of distinct HOF'ers who had that war total through that age
-hof_p_e <- bayes_df %>%
-  filter(HOF == "Yes") %>%
-  
-
-
-
-
-%>%
-  mutate(p_e_b = ifelse(HOF == "Yes",
-                        )
   
 ```
 
