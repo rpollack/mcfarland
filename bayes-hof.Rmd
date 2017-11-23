@@ -115,7 +115,8 @@ hof_eligible_players <- war_through_age %>%
   filter(last_year <= current_year - 5)
 
 prob_war_thru_age <- function(age, war){
-  #number of players (all-time HOF eligible and HOF inductees) who, at age X or younger, have accumulated Y +/- 2 WAR
+  #number of players (all-time HOF eligible and HOF inductees) who, at age X or younger, 
+  #have accumulated Y +/- 2 WAR
   
   war_lower_bound <- war - 2
   war_upper_bound <- war + 2
@@ -157,9 +158,9 @@ war_age_combinations <- war_through_age %>%
   dplyr::select(Age, cumulative_war) %>%
   expand(nesting(Age, cumulative_war)) %>%
   mutate(num_players = prob_war_thru_age(Age, cumulative_war)) %>%
-  separate(num_players, c("num_all_players_who_meet_criteria", 
+  separate(num_players, c("num_eligible_players_who_meet_criteria", 
                           "num_hof_players_who_meet_criteria"), sep = " ") %>%
-  mutate(num_all_players_who_meet_criteria = as.numeric(num_all_players_who_meet_criteria),
+  mutate(num_eligible_players_who_meet_criteria = as.numeric(num_eligible_players_who_meet_criteria),
          num_hof_players_who_meet_criteria = as.numeric(num_hof_players_who_meet_criteria))
 
 bayes_df <- inner_join(war_through_age, war_age_combinations, by=c("Age", "cumulative_war")) %>%
@@ -167,10 +168,13 @@ bayes_df <- inner_join(war_through_age, war_age_combinations, by=c("Age", "cumul
   group_by(PlayerId, Name) %>%
   filter(Age == max(Age)) %>%
   mutate(p_e_b = num_hof_players_who_meet_criteria / num_players_in_hof,
-         p_e = num_all_players_who_meet_criteria / num_hof_eligible_players,
+         p_e = num_eligible_players_who_meet_criteria / num_hof_eligible_players,
          prob_hof = round(((p_hof * p_e_b) / p_e) * 100, 1)) %>%
   dplyr::select(PlayerId, Name, cumulative_war, Age, prob_hof, everything(), -WAR, -HOF) %>%
   arrange(desc(prob_hof))
+
+active_players <- bayes_df %>%
+  filter(last_year == 2017)
 
   
 ```
