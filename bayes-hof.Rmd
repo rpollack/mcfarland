@@ -35,19 +35,29 @@ fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"),
 
 ```{r}
 
+pitcher_info <- fg_db %>%
+  tbl("stats_pitching") %>%
+  filter(Type == 0) %>%
+  dplyr::select(PlayerId, G) %>%
+  collect(n=Inf) %>%
+  group_by(PlayerId)
+
 batter_info <- fg_db %>%
   tbl("stats_batting") %>%
   filter(Type == 0) %>%
   dplyr::select(playerid, WAR = ValueW, Age) %>%
   collect(n=Inf)
 
+
+  
 seasonal_war <- fg_db %>%
   tbl("player_info") %>%
-  dplyr::select(PlayerId, FirstName, LastName) %>%
+  dplyr::select(PlayerId, FirstName, LastName, LastGame) %>%
   collect(n=Inf) %>%
   unite(Name, FirstName, LastName, sep = " ") %>%
-  dplyr::select(PlayerId, Name) %>%
-  inner_join(batter_info, by=c("PlayerId" = "playerid"))
+  mutate(last_year = year(ymd(LastGame))) %>%
+  dplyr::select(PlayerId, Name, last_year) %>%
+  inner_join(batter_info, by=c("PlayerId" = "playerid")) 
 
 ```
 
@@ -79,14 +89,16 @@ hof_players <- hof_players %>%
 #round up cumulative WAR totals to speed up computations later
 
 war_through_age <- seasonal_war %>%
-  group_by(PlayerId, Name) %>%
+  group_by(PlayerId, Name, last_year) %>%
   arrange(Age) %>%
   mutate(cumulative_war = ceiling(cumsum(WAR))) %>%
   left_join(hof_players, by="Name") %>%
   replace_na(list(HOF= "No"))
 
 #find the number of HOF-eligible players
+current_year = 2017
 num_hof_eligible_players <- seasonal_war %>% 
+  filter(last_year <= current_year - 5) %>%
   distinct(PlayerId) %>% 
   nrow()
 
@@ -97,15 +109,18 @@ num_players_in_hof <- hof_players %>%
 
 #probability of any eligible player making the HOF
 p_hof <- num_hof_players / num_hof_eligible_players
-  
+
+hof_eligible_players <- war_through_age %>%
+  ungroup() %>%
+  filter(last_year <= current_year - 5)
+
 prob_war_thru_age <- function(age, war){
-  #number of players (all-time and HOF inductees) who, at age X or younger, have accumulated Y +/- 2 WAR
+  #number of players (all-time HOF eligible and HOF inductees) who, at age X or younger, have accumulated Y +/- 2 WAR
   
   war_lower_bound <- war - 2
   war_upper_bound <- war + 2
 
-  matching_players <- war_through_age %>%
-    ungroup() %>%
+  matching_players <- hof_eligible_players %>%
     dplyr::select(PlayerId, Age, HOF, cumulative_war) %>%
     filter(Age <= age,
            cumulative_war >= war_lower_bound,
@@ -130,28 +145,10 @@ prob_war_thru_age <- Vectorize(prob_war_thru_age)
 
 # compute Bayesian parameters
 
-p(b|e) = p(b) * p(e|b) / p(e)
-p(hof | war thru age) = (p(hof) * p(accumulated that WAR thru age | hof)) / p(will accumulate WAR thru age)
 
-=====
-
-for each age & WAR combination:
-  find the probability that HOF'ers had that war total (+/- 2 WAR) thru that age
-  find the probability that any player had that WAR total (+/- 2 WAR) thru that age
-
-
-should i return a data frame of:
-age | war | probability of a player hitting this WAR total at this age?
 ```{r}
 
 #round all war values up to the nearest integer, to speed things up. ceiling()
-
-#for each age/war combination, how many HOF'ers had that WAR total through that age?
-#for each age/war combination, how many of ALL PLAYERS had that WAR total through that age?
-#same question, different DF ... or just do it for all players, and sum differently whether that player's in the HOF
-
-#get all age/WAR combinations and feed that into the probability function. dividie that number by both the number of HOF players and the total number of eligible players. 
-
 
 #for each age/cumulative war combination, find the number of players (HOF & non-HOF) who achieved that total,
 # plus or minus 2 WAR, at that age or younger
@@ -160,18 +157,20 @@ war_age_combinations <- war_through_age %>%
   dplyr::select(Age, cumulative_war) %>%
   expand(nesting(Age, cumulative_war)) %>%
   mutate(num_players = prob_war_thru_age(Age, cumulative_war)) %>%
-  separate(num_players, c("num_all_players", "num_hof_players"), sep = " ") %>%
-  mutate(num_all_players = as.numeric(num_all_players),
-         num_hof_players = as.numeric(num_hof_players))
+  separate(num_players, c("num_all_players_who_meet_criteria", 
+                          "num_hof_players_who_meet_criteria"), sep = " ") %>%
+  mutate(num_all_players_who_meet_criteria = as.numeric(num_all_players_who_meet_criteria),
+         num_hof_players_who_meet_criteria = as.numeric(num_hof_players_who_meet_criteria))
 
 bayes_df <- inner_join(war_through_age, war_age_combinations, by=c("Age", "cumulative_war")) %>%
   filter(HOF == "No") %>%    #no need to do this analysis for HOF inductees
   group_by(PlayerId, Name) %>%
   filter(Age == max(Age)) %>%
-  mutate(p_e_b = num_hof_players / num_players_in_hof,
-         p_b = num_all_players / num_hof_eligible_players,
-         prob_hof = round(((p_hof * p_e_b) / p_b) * 100, 1)) %>%
-  dplyr::select(PlayerId, Name, cumulative_war, Age, prob_hof, everything(), -WAR, -HOF)
+  mutate(p_e_b = num_hof_players_who_meet_criteria / num_players_in_hof,
+         p_e = num_all_players_who_meet_criteria / num_hof_eligible_players,
+         prob_hof = round(((p_hof * p_e_b) / p_e) * 100, 1)) %>%
+  dplyr::select(PlayerId, Name, cumulative_war, Age, prob_hof, everything(), -WAR, -HOF) %>%
+  arrange(desc(prob_hof))
 
   
 ```
