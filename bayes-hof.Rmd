@@ -97,7 +97,8 @@ hof_players <- hof_players %>%
   mutate(birth_year = as.numeric(str_extract(Years, "^[0-9]{4}"))) %>%
   dplyr::select(Name, birth_year) %>%
   mutate(HOF = "Yes",
-         Name = str_replace(Name, "Ken Griffey", "Ken Griffey Jr."))
+         Name = str_replace(Name, "Ken Griffey", "Ken Griffey Jr."),
+         birth_year = ifelse(Name == "Frankie Frisch", 1898, birth_year))
   
 ```
 
