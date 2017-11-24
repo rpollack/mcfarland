@@ -143,8 +143,7 @@ prob_war_thru_age <- function(age, war, position){
     dplyr::select(PlayerId, Age, HOF, cumulative_war, Position) %>%
     filter(Age <= age,
            Position == position,
-           cumulative_war >= war_lower_bound,
-           cumulative_war <= war_upper_bound) %>%
+           cumulative_war >= war_lower_bound) %>%
     distinct(PlayerId, HOF)
   
   num_players_at_position <- matching_players %>%
@@ -166,8 +165,8 @@ prob_war_thru_age <- Vectorize(prob_war_thru_age)
 
 #round all war values up to the nearest integer, to speed things up. ceiling()
 
-#for each age/cumulative war combination, find the number of players (HOF & non-HOF) who achieved that total,
-# plus or minus 2 WAR, at that age or younger
+#for each age/cumulative war combination, find the number of players (HOF & non-HOF) who achieved at least that total,
+# (allowing for a 2 WAR difference) at that age or younger
 war_age_combinations <- war_through_age %>%
   ungroup() %>%
   dplyr::select(Age, cumulative_war, Position) %>%
