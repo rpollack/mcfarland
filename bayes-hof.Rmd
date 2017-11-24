@@ -27,6 +27,32 @@ fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"),
                             user = Sys.getenv("FG_USER"),
                             password = Sys.getenv("FG_PW"))
 
+prob_war_thru_age <- function(age, war, position){
+  #number of players (all-time HOF eligible and HOF inductees) who, at age X or younger, 
+  #have accumulated Y +/- 2 WAR at that position
+  
+  war_lower_bound <- war - 2
+  war_upper_bound <- war + 2
+
+  matching_players <- hof_eligible_players %>%
+    dplyr::select(PlayerId, Age, HOF, cumulative_war, Position) %>%
+    filter(Age <= age,
+           Position == position,
+           cumulative_war >= war_lower_bound,
+           cumulative_war <= war_upper_bound) %>%
+    distinct(PlayerId, HOF)
+  
+  num_players_at_position <- matching_players %>%
+    nrow()
+  
+  num_hof_players_at_position <- matching_players %>%
+    filter(HOF == "Yes") %>%
+    nrow()
+  
+  result <- sprintf("%d %d", num_players_at_position, num_hof_players_at_position)
+  return(result)
+}
+prob_war_thru_age <- Vectorize(prob_war_thru_age)
 
 ```
 
@@ -50,15 +76,12 @@ seasonal_war <- fg_db %>%
   filter(!str_detect(Position, "P")) %>%
   unite(Name, FirstName, LastName, sep = " ") %>%
   mutate(last_year = year(ymd(LastGame)),
-         Position = str_extract(Position, "^.{1,2}")) %>%   #extract primary position from dataset
+         Position = str_extract(Position, "^(C|1B|2B|3B|SS|OF|DH)")) %>%   #extract primary position from dataset
   dplyr::select(PlayerId, Name, last_year, Position) %>%
   inner_join(batter_info, by=c("PlayerId" = "playerid")) 
 
-```
+# Get list of players in the HOF (who were voted in as players)
 
-## Get list of players in the HOF (who were voted in as players)
-
-```{r}
 hof_url <- "https://www.baseball-reference.com/awards/hof.shtml"
 
 hof_players <- read_html(hof_url) %>%
@@ -119,34 +142,6 @@ hof_probabilities_by_position <- war_through_age %>%
 hof_eligible_players <- war_through_age %>%
   ungroup() %>%
   filter(last_year <= current_year - 5)
-
-prob_war_thru_age <- function(age, war, position){
-  #number of players (all-time HOF eligible and HOF inductees) who, at age X or younger, 
-  #have accumulated Y +/- 2 WAR at that position
-  
-  war_lower_bound <- war - 2
-  war_upper_bound <- war + 2
-
-  matching_players <- hof_eligible_players %>%
-    dplyr::select(PlayerId, Age, HOF, cumulative_war, Position) %>%
-    filter(Age <= age,
-           Position == position,
-           cumulative_war >= war_lower_bound,
-           cumulative_war <= war_upper_bound) %>%
-    distinct(PlayerId, HOF)
-  
-  num_players_at_position <- matching_players %>%
-    nrow()
-  
-  num_hof_players_at_position <- matching_players %>%
-    filter(HOF == "Yes") %>%
-    nrow()
-  
-  result <- sprintf("%d %d", num_players_at_position, num_hof_players_at_position)
-  return(result)
-}
-prob_war_thru_age <- Vectorize(prob_war_thru_age)
-
 
 ```
 
