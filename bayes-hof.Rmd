@@ -180,8 +180,7 @@ war_age_combinations <- war_through_age %>%
 
 bayes_hof <- inner_join(war_through_age, war_age_combinations, by=c("Age", "cumulative_war", "Position")) %>%
   inner_join(hof_probabilities_by_position, by="Position") %>%
-  filter(HOF == "No",              #no need to do this analysis for HOF inductees
-         Position != "DH") %>%     #there are no DH's in HOF so their probability is Inf
+  filter(HOF == "No") %>%              #no need to do this analysis for HOF inductees
   group_by(PlayerId, Name) %>%
   filter(Age == max(Age)) %>%
   mutate(p_b = p_hof_at_position,
