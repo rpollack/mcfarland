@@ -71,13 +71,14 @@ batter_info <- fg_db %>%
 #get seasonal batting/fielding WAR for position players
 seasonal_war <- fg_db %>%
   tbl("player_info") %>%
-  dplyr::select(PlayerId, FirstName, LastName, LastGame, Position) %>%
+  dplyr::select(PlayerId, FirstName, LastName, BirthDate, LastGame, Position) %>%
   collect(n=Inf) %>%
   filter(!str_detect(Position, "P")) %>%
   unite(Name, FirstName, LastName, sep = " ") %>%
   mutate(last_year = year(ymd(LastGame)),
-         Position = str_extract(Position, "^(C|1B|2B|3B|SS|OF|DH)")) %>%   #extract primary position from dataset
-  dplyr::select(PlayerId, Name, last_year, Position) %>%
+         Position = str_extract(Position, "^(C|1B|2B|3B|SS|OF|DH)"),    #extract primary position from dataset
+         birth_year = year(ymd(BirthDate))) %>%   
+  dplyr::select(PlayerId, Name, birth_year, last_year, Position) %>%
   inner_join(batter_info, by=c("PlayerId" = "playerid")) 
 
 # Get list of players in the HOF (who were voted in as players)
@@ -93,7 +94,8 @@ names(hof_players)[3] <- "Years"
 
 hof_players <- hof_players %>%
   filter(`Inducted As` == "Player") %>%
-  dplyr::select(Name) %>%
+  mutate(birth_year = as.numeric(str_extract(Years, "^[0-9]{4}"))) %>%
+  dplyr::select(Name, birth_year) %>%
   mutate(HOF = "Yes",
          Name = str_replace(Name, "Ken Griffey", "Ken Griffey Jr."))
   
@@ -113,7 +115,7 @@ war_through_age <- seasonal_war %>%
   group_by(PlayerId, Name, last_year, Position) %>%
   arrange(Age) %>%
   mutate(cumulative_war = ceiling(cumsum(WAR))) %>%
-  left_join(hof_players, by="Name") %>%
+  left_join(hof_players, by=c("Name", "birth_year")) %>% #joining by birth year prevents mis-identifying players w/same name
   replace_na(list(HOF= "No"))
 
 #find the number of HOF-eligible players
