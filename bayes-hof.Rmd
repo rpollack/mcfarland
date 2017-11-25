@@ -27,8 +27,6 @@ fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"),
                             user = Sys.getenv("FG_USER"),
                             password = Sys.getenv("FG_PW"))
 
-
-
 ```
 
 
@@ -94,18 +92,6 @@ war_through_age <- seasonal_war %>%
   left_join(hof_players, by=c("Name", "birth_year")) %>% #joining by birth year prevents mis-identifying players w/same name
   replace_na(list(HOF= "No"))
 
-#find the number of HOF-eligible players
-
-# num_hof_eligible_players <- seasonal_war %>% 
-#   filter(last_year <= current_year - 5) %>%
-#   distinct(PlayerId) %>% 
-#   nrow()
-
-#find number of HOF players
-# num_players_in_hof <- hof_players %>%
-#   distinct(Name) %>%
-#   nrow()
-
 #compute HOF & non-HOF totals and probabilities at each position
 current_year = 2017
 hof_probabilities_by_position <- war_through_age %>% 
@@ -162,8 +148,6 @@ prob_war_thru_age <- Vectorize(prob_war_thru_age)
 # compute Bayesian parameters
 
 ```{r}
-
-#round all war values up to the nearest integer, to speed things up. ceiling()
 
 #for each age/cumulative war combination, find the number of players (HOF & non-HOF) who achieved at least that total,
 # (allowing for a 2 WAR difference) at that age or younger
