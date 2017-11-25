@@ -5,7 +5,7 @@ library(plotly)
 library(RMySQL)
 library(broom)
 library(lubridate)
-library(gamlss)
+library(lazyeval)
 
 fgt = theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
@@ -98,10 +98,6 @@ hof_players <- hof_players %>%
 
 
 ```{r}
-
-
-
-
 #compute HOF & non-HOF totals and probabilities at each position
 current_year = 2017
 hof_probabilities_by_position <- war_through_age_batters %>% 
@@ -123,9 +119,6 @@ hof_probabilities_by_position <- war_through_age_batters %>%
          total_eligible_players_at_position = hof_at_position + non_hof_at_position,
          p_hof_at_position = hof_at_position / total_eligible_players_at_position)
 
-#for computing totals, compare players to only those who have retired 5 years ago or earlier.
-
-
 prob_war_thru_age <- function(age, war, position){
   #number of players (all-time HOF eligible and HOF inductees) who, at age X or younger, 
   #have accumulated at least (Y-2) WAR at that position. only look at players who retired 5 years ago or earlier
@@ -133,7 +126,6 @@ prob_war_thru_age <- function(age, war, position){
   war_lower_bound <- war - 2
 
   matching_players <- hof_eligible_players %>%
-    dplyr::select(PlayerId, Age, HOF, cumulative_war, Position) %>%
     filter(Age <= age,
            Position == position,
            cumulative_war >= war_lower_bound) %>%
@@ -155,9 +147,6 @@ prob_war_thru_age <- Vectorize(prob_war_thru_age)
 # compute Bayesian parameters
 
 ```{r}
-
-
-
 #for each player-season, compute their total WAR through the age they were that season
 #also mark which players are in HOF
 #round up cumulative WAR totals to speed up computations later
@@ -199,8 +188,6 @@ bayes_hof_hitting <- inner_join(war_through_age_batters, war_age_combinations, b
   arrange(desc(prob_hof))
 ```
 
-```{r}
 
-```
 
 
