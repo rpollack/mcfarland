@@ -33,14 +33,14 @@ fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"),
 # Get Player Data
 
 ```{r}
-
+#get seasonal pitching WAR for players
 pitcher_stats <- fg_db %>%
   tbl("stats_pitching") %>%
   filter(Type == 0) %>%
   dplyr::select(PlayerId, WAR = ValueW, Age) %>%
   collect(n=Inf)
 
-#get seasonal batting/fielding WAR for position players
+#get seasonal batting/fielding WAR for players
 batter_stats <- fg_db %>%
   tbl("stats_batting") %>%
   filter(Type == 0) %>%
@@ -87,9 +87,6 @@ seasonal_war <- player_info %>%
   replace_na(list(HOF= "No"))
 
 ```
-
-
-# For each player, for each age, find cumulative WAR through that age
 
 
 
@@ -160,7 +157,7 @@ hof_eligible_players <- war_through_age %>%
 #for each age/cumulative war combination, find the number of players (HOF & non-HOF) who achieved at least that total,
 # (allowing for a 2 WAR difference) at that age or younger
 # then use totals to compute Bayesian parameters & finally the probability of that player reaching HOF
-war_age_combinations_hitting <- war_through_age %>%
+war_age_combinations <- war_through_age %>%
   ungroup() %>%
   dplyr::select(Age, cumulative_war, Position) %>%
   expand(nesting(Age, cumulative_war, Position)) %>%
