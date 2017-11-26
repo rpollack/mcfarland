@@ -34,42 +34,23 @@ fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"),
 
 ```{r}
 
-pitcher_info <- fg_db %>%
+pitcher_stats <- fg_db %>%
   tbl("stats_pitching") %>%
   filter(Type == 0) %>%
   dplyr::select(PlayerId, WAR = ValueW, Age) %>%
   collect(n=Inf)
 
-batter_info <- fg_db %>%
+#get seasonal batting/fielding WAR for position players
+batter_stats <- fg_db %>%
   tbl("stats_batting") %>%
   filter(Type == 0) %>%
-  dplyr::select(playerid, WAR = ValueW, Age) %>%
+  dplyr::select(PlayerId = playerid, WAR = ValueW, Age) %>%
   collect(n=Inf)
 
-
-#get seasonal batting/fielding WAR for position players
-seasonal_war <- fg_db %>%
+player_info <- fg_db %>%
   tbl("player_info") %>%
   dplyr::select(PlayerId, FirstName, LastName, BirthDate, LastGame, Position) %>%
   collect(n=Inf)
-  
-batters <- seasonal_war %>%
-  filter(!str_detect(Position, "P")) %>%
-  unite(Name, FirstName, LastName, sep = " ") %>%
-  mutate(last_year = year(ymd(LastGame)),
-         Position = str_extract(Position, "^(C|1B|2B|3B|SS|OF|DH)"),    #extract primary position from dataset
-         birth_year = year(ymd(BirthDate))) %>%   
-  dplyr::select(PlayerId, Name, birth_year, last_year, Position) %>%
-  inner_join(batter_info, by=c("PlayerId" = "playerid")) 
-
-pitchers <- seasonal_war %>%
-  filter(str_detect(Position, "P")) %>%
-  unite(Name, FirstName, LastName, sep = " ") %>%
-  mutate(last_year = year(ymd(LastGame)),
-         Position = str_extract(Position, "^P"),    #extract primary position from dataset
-         birth_year = year(ymd(BirthDate))) %>%   
-  dplyr::select(PlayerId, Name, birth_year, last_year, Position) %>%
-  inner_join(pitcher_info, by="PlayerId") 
 
 # Get list of players in the HOF (who were voted in as players)
 
@@ -89,7 +70,22 @@ hof_players <- hof_players %>%
   mutate(HOF = "Yes",
          Name = str_replace(Name, "Ken Griffey", "Ken Griffey Jr."),
          birth_year = ifelse(Name == "Frankie Frisch", 1898, birth_year))
-  
+
+#combine batting & pitching WAR for all player-seasons    
+seasonal_war <- player_info %>%
+  unite(Name, FirstName, LastName, sep = " ") %>%
+  mutate(last_year = year(ymd(LastGame)),
+         Position = str_extract(Position, "^(P|C|1B|2B|3B|SS|OF|DH)"),    #extract primary position from dataset
+         birth_year = year(ymd(BirthDate))) %>%   
+  dplyr::select(PlayerId, Name, birth_year, last_year, Position) %>%
+  full_join(batter_stats, by="PlayerId") %>%
+  full_join(pitcher_stats, by=c("PlayerId", "Age"), suffix=c("_bat", "_pitch")) %>% 
+  replace_na(list(WAR_bat = 0, WAR_pitch = 0)) %>%
+  mutate(WAR = WAR_bat + WAR_pitch) %>%
+  dplyr::select(-WAR_bat, -WAR_pitch) %>%
+  left_join(hof_players, by=c("Name", "birth_year")) %>% #joining by birth year prevents mis-identifying players w/same name
+  replace_na(list(HOF= "No"))
+
 ```
 
 
@@ -98,27 +94,6 @@ hof_players <- hof_players %>%
 
 
 ```{r}
-#compute HOF & non-HOF totals and probabilities at each position
-current_year = 2017
-hof_probabilities_by_position <- war_through_age_batters %>% 
-  ungroup() %>% 
-  filter(last_year <= current_year - 5) %>%
-  distinct(PlayerId, HOF, Position) %>%
-  count(HOF, Position) %>% 
-  spread(HOF, n) %>%
-  dplyr::select(Position, non_hof_at_position = No, hof_at_position = Yes) %>%
-  
-  #replace computed totals with totals from HOF website: https://baseballhall.org/hall-of-famers/hall-of-famers-by-position
-  mutate(hof_at_position = ifelse(Position == "1B", 23,
-                                  ifelse(Position == "2B", 21,
-                                         ifelse(Position == "3B", 16,
-                                                ifelse(Position == "SS", 24,
-                                                       ifelse(Position == "C", 18,
-                                                              ifelse(Position == "OF", 70,
-                                                                     ifelse(Position == "DH", 0, hof_at_position))))))),
-         total_eligible_players_at_position = hof_at_position + non_hof_at_position,
-         p_hof_at_position = hof_at_position / total_eligible_players_at_position)
-
 prob_war_thru_age <- function(age, war, position){
   #number of players (all-time HOF eligible and HOF inductees) who, at age X or younger, 
   #have accumulated at least (Y-2) WAR at that position. only look at players who retired 5 years ago or earlier
@@ -147,15 +122,35 @@ prob_war_thru_age <- Vectorize(prob_war_thru_age)
 # compute Bayesian parameters
 
 ```{r}
+#compute HOF & non-HOF totals and probabilities at each position
+current_year = 2017
+hof_probabilities_by_position <- war_through_age_batters %>% 
+  ungroup() %>% 
+  filter(last_year <= current_year - 5) %>%
+  distinct(PlayerId, HOF, Position) %>%
+  count(HOF, Position) %>% 
+  spread(HOF, n) %>%
+  dplyr::select(Position, non_hof_at_position = No, hof_at_position = Yes) %>%
+  
+  #replace computed totals with totals from HOF website: https://baseballhall.org/hall-of-famers/hall-of-famers-by-position
+  mutate(hof_at_position = ifelse(Position == "1B", 23,
+                                  ifelse(Position == "2B", 21,
+                                         ifelse(Position == "3B", 16,
+                                                ifelse(Position == "SS", 24,
+                                                       ifelse(Position == "C", 18,
+                                                              ifelse(Position == "OF", 70,
+                                                                     ifelse(Position == "DH", 0,
+                                                                            ifelse(Position == "P", 77, hof_at_position)))))))),
+         total_eligible_players_at_position = hof_at_position + non_hof_at_position,
+         p_hof_at_position = hof_at_position / total_eligible_players_at_position)
+
 #for each player-season, compute their total WAR through the age they were that season
 #also mark which players are in HOF
 #round up cumulative WAR totals to speed up computations later
-war_through_age_batters <- batters %>%
+war_through_age_batters <- seasonal_war %>%
   group_by(PlayerId, Name, last_year, Position) %>%
   arrange(Age) %>%
-  mutate(cumulative_war = ceiling(cumsum(WAR))) %>%
-  left_join(hof_players, by=c("Name", "birth_year")) %>% #joining by birth year prevents mis-identifying players w/same name
-  replace_na(list(HOF= "No"))
+  mutate(cumulative_war = ceiling(cumsum(WAR)))
 
 #find only HOF eligible players 
 hof_eligible_players <- war_through_age_batters %>%
@@ -175,9 +170,10 @@ war_age_combinations_hitting <- war_through_age_batters %>%
   mutate(num_eligible_players_who_meet_criteria = as.numeric(num_eligible_players_who_meet_criteria),
          num_hof_players_who_meet_criteria = as.numeric(num_hof_players_who_meet_criteria))
 
-bayes_hof_hitting <- inner_join(war_through_age_batters, war_age_combinations, by=c("Age", "cumulative_war", "Position")) %>%
+bayes_hof_hitting <- inner_join(war_through_age_batters, war_age_combinations, 
+                                by=c("Age", "cumulative_war", "Position")) %>%
   inner_join(hof_probabilities_by_position, by="Position") %>%
-  filter(HOF == "No") %>%              #no need to do this analysis for HOF inductees
+  filter(HOF == "No") %>%              #don't do this analysis for HOF inductees
   group_by(PlayerId, Name) %>%
   filter(Age == max(Age)) %>%
   mutate(p_b = p_hof_at_position,
