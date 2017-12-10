@@ -6,6 +6,7 @@ library(RMySQL)
 library(broom)
 library(lubridate)
 library(lazyeval)
+library(rvest)
 
 fgt = theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
@@ -95,7 +96,7 @@ prob_war_thru_age <- function(age, war, position){
   #number of players (all-time HOF eligible and HOF inductees) who, at age X or younger, 
   #have accumulated at least (Y-2) WAR at that position. only look at players who retired 5 years ago or earlier
   
-  war_lower_bound <- war - 2
+  war_lower_bound <- war
 
   matching_players <- hof_eligible_players %>%
     filter(Age <= age,
@@ -119,6 +120,15 @@ prob_war_thru_age <- Vectorize(prob_war_thru_age)
 # compute Bayesian parameters
 
 ```{r}
+
+#for each player-season, compute their total WAR through the age they were that season
+#also mark which players are in HOF
+#round up cumulative WAR totals to speed up computations later
+war_through_age <- seasonal_war %>%
+  group_by(PlayerId, Name, last_year, Position) %>%
+  arrange(Age) %>%
+  mutate(cumulative_war = round(cumsum(WAR), 1))
+
 #compute HOF & non-HOF totals and probabilities at each position
 current_year = 2017
 hof_probabilities_by_position <- war_through_age %>% 
@@ -141,13 +151,6 @@ hof_probabilities_by_position <- war_through_age %>%
          total_eligible_players_at_position = hof_at_position + non_hof_at_position,
          p_hof_at_position = hof_at_position / total_eligible_players_at_position)
 
-#for each player-season, compute their total WAR through the age they were that season
-#also mark which players are in HOF
-#round up cumulative WAR totals to speed up computations later
-war_through_age <- seasonal_war %>%
-  group_by(PlayerId, Name, last_year, Position) %>%
-  arrange(Age) %>%
-  mutate(cumulative_war = ceiling(cumsum(WAR)))
 
 #find only HOF eligible players 
 hof_eligible_players <- war_through_age %>%
@@ -177,7 +180,8 @@ bayes_hof <- inner_join(war_through_age, war_age_combinations,
          p_e_b = num_hof_players_who_meet_criteria / hof_at_position,
          p_e = num_eligible_players_who_meet_criteria / total_eligible_players_at_position,
          prob_hof = round(((p_b * p_e_b) / p_e) * 100, 1)) %>%
-  dplyr::select(PlayerId, Name, Position, cumulative_war, Age, prob_hof, everything(), -WAR, -HOF) %>%
+  dplyr::select(PlayerId, Name, Position, cumulative_war, Age, prob_hof, everything(), -WAR, 
+                -HOF, -birth_year, -last_year, -p_hof_at_position) %>%
   arrange(desc(prob_hof))
 ```
 
