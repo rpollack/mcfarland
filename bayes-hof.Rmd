@@ -158,7 +158,7 @@ hof_eligible_players <- war_through_age %>%
   filter(last_year <= current_year - 5)
 
 #for each age/cumulative war combination, find the number of players (HOF & non-HOF) who achieved at least that total,
-# (allowing for a 2 WAR difference) at that age or younger
+# at that age or younger
 # then use totals to compute Bayesian parameters & finally the probability of that player reaching HOF
 war_age_combinations <- war_through_age %>%
   ungroup() %>%
