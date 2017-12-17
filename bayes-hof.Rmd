@@ -69,6 +69,8 @@ hof_players <- hof_players %>%
   mutate(birth_year = as.numeric(str_extract(Years, "^[0-9]{4}"))) %>%
   dplyr::select(Name, birth_year) %>%
   mutate(HOF = "Yes",
+         
+         #correct some discrepancies
          Name = str_replace(Name, "Ken Griffey", "Ken Griffey Jr."),
          birth_year = ifelse(Name == "Frankie Frisch", 1898, birth_year))
 
@@ -85,7 +87,10 @@ seasonal_war <- player_info %>%
   mutate(WAR = WAR_bat + WAR_pitch) %>%
   dplyr::select(-WAR_bat, -WAR_pitch) %>%
   left_join(hof_players, by=c("Name", "birth_year")) %>% #joining by birth year prevents mis-identifying players w/same name
-  replace_na(list(HOF= "No"))
+  replace_na(list(HOF= "No")) %>%
+  
+  #jack morris and alan trammell got voted in on 12.10.2017. forcing HOF to Yes here until BB-Ref reflects this
+  mutate(HOF = ifelse(Name %in% c("Jack Morris", "Alan Trammell"), "Yes", HOF))
 
 ```
 
@@ -96,12 +101,10 @@ prob_war_thru_age <- function(age, war, position){
   #number of players (all-time HOF eligible and HOF inductees) who, at age X or younger, 
   #have accumulated at least (Y-2) WAR at that position. only look at players who retired 5 years ago or earlier
   
-  war_lower_bound <- war
-
   matching_players <- hof_eligible_players %>%
     filter(Age <= age,
            Position == position,
-           cumulative_war >= war_lower_bound) %>%
+           cumulative_war >= war) %>%
     distinct(PlayerId, HOF)
   
   num_players_at_position <- matching_players %>%
@@ -143,11 +146,11 @@ hof_probabilities_by_position <- war_through_age %>%
   mutate(hof_at_position = ifelse(Position == "1B", 23,
                                   ifelse(Position == "2B", 21,
                                          ifelse(Position == "3B", 16,
-                                                ifelse(Position == "SS", 24,
+                                                ifelse(Position == "SS", 25,
                                                        ifelse(Position == "C", 18,
                                                               ifelse(Position == "OF", 70,
                                                                      ifelse(Position == "DH", 0,
-                                                                            ifelse(Position == "P", 77, hof_at_position)))))))),
+                                                                            ifelse(Position == "P", 78, hof_at_position)))))))),
          total_eligible_players_at_position = hof_at_position + non_hof_at_position,
          p_hof_at_position = hof_at_position / total_eligible_players_at_position)
 
