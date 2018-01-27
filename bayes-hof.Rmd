@@ -95,7 +95,8 @@ seasonal_war <- player_info %>%
 seager_match <- hof_eligible_players %>%
     filter(Age == 23,
            Position == "SS",
-           cumulative_war >= 14.6) %>%
+           cumulative_war >= 10.1,
+           cumulative_war <= 19.1) %>%
     distinct(PlayerId, Name, cumulative_war, HOF)
   
   seager_num_players_at_position <- seager_match %>%
@@ -195,7 +196,7 @@ war_age_combinations <- war_through_age %>%
          num_hof_players_who_meet_criteria = as.numeric(num_hof_players_who_meet_criteria))
 
 bayes_hof <- inner_join(war_through_age, war_age_combinations, 
-                                by=c("Age", "cumulative_war", "Position")) %>%
+                                by=c("Age", "cumulative_war", "Position", "war_floor", "war_ceiling")) %>%
   inner_join(hof_probabilities_by_position, by="Position") %>%
   filter(HOF == "No") %>%              #don't do this analysis for HOF inductees
   group_by(PlayerId, Name) %>%
@@ -204,19 +205,12 @@ bayes_hof <- inner_join(war_through_age, war_age_combinations,
          p_e_b = num_hof_players_who_meet_criteria / hof_at_position,
          p_e = num_eligible_players_who_meet_criteria / total_eligible_players_at_position,
          prob_hof = round(((p_b * p_e_b) / p_e) * 100, 1)) %>%
-  dplyr::select(PlayerId, Name, Position, last_year, cumulative_war, Age, prob_hof, everything(), -WAR, 
+  dplyr::select(PlayerId, Name, prob_hof, Position, cumulative_war, Age, prob_hof, last_year, everything(), -WAR, 
                 -HOF, -birth_year, -p_hof_at_position) %>%
   arrange(desc(prob_hof)) 
 ```
 
 ```{r}
-
-votto_examples <- war_through_age %>%
-  filter(Position == "1B",
-         Age <= 33,
-         cumulative_war >= 53.4)
-
-
 
 
 top_5_by_position <- bayes_hof %>%
@@ -257,7 +251,9 @@ pet_causes <- bayes_hof %>%
                      "Curt Schilling",
                      "Mike Mussina",
                      "Ted Simmons",
-                     "Bobby Grich") |
+                     "Bobby Grich",
+                     "Andruw Jones",
+                     "Johan Santana") |
            PlayerId == 642) %>%
   arrange(desc(prob_hof))
 
