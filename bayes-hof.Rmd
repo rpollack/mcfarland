@@ -144,14 +144,15 @@ prob_war_thru_age <- Vectorize(prob_war_thru_age)
 
 #for each player-season, compute their total WAR through the age they were that season
 #also mark which players are in HOF
-#round up cumulative WAR totals to speed up computations later
 war_through_age <- seasonal_war %>%
   group_by(PlayerId, Name, last_year, Position) %>%
   arrange(Age) %>%
   mutate(cumulative_war = round(cumsum(WAR), 1),
-         num_seasons = n(),
-         war_ceiling = cumulative_war + (2 * num_seasons),
-         war_floor = cumulative_war - (2 * num_seasons))
+         num_seasons = seq(n()),
+         war_ceiling = cumulative_war + (1.5 * num_seasons),
+         war_floor = cumulative_war - (1.5 * num_seasons))
+
+#last change to possibly make: instead of 
 
 #compute HOF & non-HOF totals and probabilities at each position
 current_year = 2017
