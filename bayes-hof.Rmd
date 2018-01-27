@@ -87,22 +87,38 @@ seasonal_war <- player_info %>%
   mutate(WAR = WAR_bat + WAR_pitch) %>%
   dplyr::select(-WAR_bat, -WAR_pitch) %>%
   left_join(hof_players, by=c("Name", "birth_year")) %>% #joining by birth year prevents mis-identifying players w/same name
-  replace_na(list(HOF= "No")) %>%
-  
-  #jack morris and alan trammell got voted in on 12.10.2017. forcing HOF to Yes here until BB-Ref reflects this
-  mutate(HOF = ifelse(Name %in% c("Jack Morris", "Alan Trammell"), "Yes", HOF))
+  replace_na(list(HOF= "No"))
 
 ```
 
+```{r}
+seager_match <- hof_eligible_players %>%
+    filter(Age == 23,
+           Position == "SS",
+           cumulative_war >= 14.6) %>%
+    distinct(PlayerId, Name, cumulative_war, HOF)
+  
+  seager_num_players_at_position <- seager_match %>%
+    nrow()
+  
+  seager_num_hof_players_at_position <- seager_match %>%
+    filter(HOF == "Yes") %>%
+    nrow()
 
+  
+seager_match
+seager_num_hof_players_at_position
+seager_num_players_at_position
+  
+```
 
 ```{r}
 prob_war_thru_age <- function(age, war, position){
-  #number of players (all-time HOF eligible and HOF inductees) who, at age X or younger, 
-  #have accumulated at least (Y-2) WAR at that position. only look at players who retired 5 years ago or earlier
+  #number of players (all-time HOF eligible and HOF inductees) who, at age X, 
+  #have accumulated at least Y WAR at that position. only look at players who retired 5 years ago or earlier
   
   matching_players <- hof_eligible_players %>%
-    filter(Age <= age,
+    filter(Age == age,
            Position == position,
            cumulative_war >= war) %>%
     distinct(PlayerId, HOF)
@@ -143,14 +159,14 @@ hof_probabilities_by_position <- war_through_age %>%
   dplyr::select(Position, non_hof_at_position = No, hof_at_position = Yes) %>%
   
   #replace computed totals with totals from HOF website: https://baseballhall.org/hall-of-famers/hall-of-famers-by-position
-  mutate(hof_at_position = ifelse(Position == "1B", 23,
+  mutate(hof_at_position = ifelse(Position == "1B", 24,
                                   ifelse(Position == "2B", 21,
-                                         ifelse(Position == "3B", 16,
+                                         ifelse(Position == "3B", 17,
                                                 ifelse(Position == "SS", 25,
                                                        ifelse(Position == "C", 18,
-                                                              ifelse(Position == "OF", 70,
+                                                              ifelse(Position == "OF", 71,
                                                                      ifelse(Position == "DH", 0,
-                                                                            ifelse(Position == "P", 78, hof_at_position)))))))),
+                                                                            ifelse(Position == "P", 79, hof_at_position)))))))),
          total_eligible_players_at_position = hof_at_position + non_hof_at_position,
          p_hof_at_position = hof_at_position / total_eligible_players_at_position)
 
@@ -183,9 +199,69 @@ bayes_hof <- inner_join(war_through_age, war_age_combinations,
          p_e_b = num_hof_players_who_meet_criteria / hof_at_position,
          p_e = num_eligible_players_who_meet_criteria / total_eligible_players_at_position,
          prob_hof = round(((p_b * p_e_b) / p_e) * 100, 1)) %>%
-  dplyr::select(PlayerId, Name, Position, cumulative_war, Age, prob_hof, everything(), -WAR, 
-                -HOF, -birth_year, -last_year, -p_hof_at_position) %>%
+  dplyr::select(PlayerId, Name, Position, last_year, cumulative_war, Age, prob_hof, everything(), -WAR, 
+                -HOF, -birth_year, -p_hof_at_position) %>%
   arrange(desc(prob_hof))
+```
+
+```{r}
+
+votto_examples <- war_through_age %>%
+  filter(Position == "1B",
+         Age <= 33,
+         cumulative_war >= 53.4)
+
+
+
+
+top_10_by_position <- bayes_hof %>%
+  group_by(Position) %>%
+  arrange(desc(prob_hof)) %>%
+  filter(row_number() <= 10) %>%
+  arrange(Position, desc(prob_hof))
+
+top_10_active_players <- bayes_hof %>%
+  filter(last_year == 2017) %>%
+  arrange(desc(prob_hof)) %>%
+  head(10)
+
+top_10_20s_hof <- bayes_hof %>%
+  filter(Age >= 20,
+         Age <= 29,
+         last_year == 2017) %>%
+  arrange(desc(prob_hof)) %>%
+  head(10)
+
+top_10_30s_hof <- bayes_hof %>%
+  filter(Age >= 30,
+         Age <= 39,
+         last_year == 2017) %>%
+  arrange(desc(prob_hof)) %>%
+  head(10)
+
+top_10_inactive <- bayes_hof %>%
+  filter(last_year < 2017) %>%
+  arrange(desc(prob_hof)) %>%
+  head(10)
+
+pet_causes <- bayes_hof %>%
+  filter(Name %in% c("Kenny Lofton",
+                     "Jim Edmonds", 
+                     "Lou Whitaker",
+                     "Larry Walker",
+                     "Curt Schilling",
+                     "Mike Mussina",
+                     "Ted Simmons",
+                     "Bobby Grich") |
+           PlayerId == 642) %>%
+  arrange(desc(prob_hof))
+
+
+albies_comparables <- war_through_age %>%
+  filter(Position == "2B",
+         Age <= 20,
+         cumulative_war >= 1.9)
+
 ```
 
 
