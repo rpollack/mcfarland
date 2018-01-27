@@ -201,7 +201,8 @@ bayes_hof <- inner_join(war_through_age, war_age_combinations,
          prob_hof = round(((p_b * p_e_b) / p_e) * 100, 1)) %>%
   dplyr::select(PlayerId, Name, Position, last_year, cumulative_war, Age, prob_hof, everything(), -WAR, 
                 -HOF, -birth_year, -p_hof_at_position) %>%
-  arrange(desc(prob_hof))
+  arrange(desc(prob_hof)) %>%
+  filter(last_year == current_year)
 ```
 
 ```{r}
