@@ -91,27 +91,6 @@ seasonal_war <- player_info %>%
 
 ```
 
-```{r}
-seager_match <- hof_eligible_players %>%
-    filter(Age == 23,
-           Position == "SS",
-           cumulative_war >= 10.1,
-           cumulative_war <= 19.1) %>%
-    distinct(PlayerId, Name, cumulative_war, HOF)
-  
-  seager_num_players_at_position <- seager_match %>%
-    nrow()
-  
-  seager_num_hof_players_at_position <- seager_match %>%
-    filter(HOF == "Yes") %>%
-    nrow()
-
-  
-seager_match
-seager_num_hof_players_at_position
-seager_num_players_at_position
-  
-```
 
 ```{r}
 prob_war_thru_age <- function(age, war, position, floor, ceiling){
@@ -205,15 +184,26 @@ bayes_hof <- inner_join(war_through_age, war_age_combinations,
          p_e_b = num_hof_players_who_meet_criteria / hof_at_position,
          p_e = num_eligible_players_who_meet_criteria / total_eligible_players_at_position,
          prob_hof = round(((p_b * p_e_b) / p_e) * 100, 1)) %>%
-  dplyr::select(PlayerId, Name, prob_hof, Position, cumulative_war, Age, prob_hof, last_year, everything(), -WAR, 
+  dplyr::select(PlayerId, Name, prob_hof, cumulative_war, Age, Position, last_year, everything(), -WAR, 
                 -HOF, -birth_year, -p_hof_at_position) %>%
   arrange(desc(prob_hof)) 
+
+full_list <- bayes_hof %>% 
+  ungroup() %>%
+  filter(Position != "DH",
+         !Name %in% c("Aaron Sanchez", "Chris Perez")) %>%
+  dplyr::select(Name, `HOF Chance (%)` = prob_hof, WAR = cumulative_war, Age, Position) %>%
+  write_csv("full-list.csv")
 ```
+
+
+### Exploration
 
 ```{r}
 
 
 top_5_by_position <- bayes_hof %>%
+  filter(Position != "DH", last_year == 2017, Name != "Carlos Beltran") %>%
   group_by(Position) %>%
   arrange(desc(prob_hof)) %>%
   filter(row_number() <= 5) %>%
@@ -238,6 +228,12 @@ top_10_30s_hof <- bayes_hof %>%
   arrange(desc(prob_hof)) %>%
   head(10)
 
+hof_40s <- bayes_hof %>%
+  filter(Age > 39,
+         last_year == 2017) %>%
+  arrange(desc(prob_hof)) %>%
+  head(10)
+
 top_10_inactive <- bayes_hof %>%
   filter(last_year < 2017) %>%
   arrange(desc(prob_hof)) %>%
@@ -247,13 +243,12 @@ pet_causes <- bayes_hof %>%
   filter(Name %in% c("Kenny Lofton",
                      "Jim Edmonds", 
                      "Lou Whitaker",
-                     "Larry Walker",
-                     "Curt Schilling",
-                     "Mike Mussina",
                      "Ted Simmons",
                      "Bobby Grich",
-                     "Andruw Jones",
-                     "Johan Santana") |
+                     "Jim Fregosi",
+                     "Dick Allen",
+                     "John Olerud",
+                     ) | 
            PlayerId == 642) %>%
   arrange(desc(prob_hof))
 
