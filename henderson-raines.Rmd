@@ -36,42 +36,95 @@ fg_info <- fg_db %>%
   collect(n=Inf) %>%
   unite(batter_name, FirstName, LastName, sep = " ")
 
-sb_info_career <- fg_db %>%
-  tbl("stats_batting") %>%
-  filter(Type == -1) %>%
-  dplyr::select(playerid, SB, CS) %>%
-  collect(n=Inf) %>%
-  inner_join(fg_info, by=c("playerid" = "PlayerId")) %>%
-  mutate(attempts = CS + SB,
-         sb_perc = SB / attempts) %>%
-  filter(!is.na(sb_perc)) %>%
-  dplyr::select(playerid, batter_name, SB, attempts, sb_perc) %>%
-  arrange(desc(sb_perc))
+# get data for SB opportunities from 1974 onward
+steal_opportunities <- fg_db %>%
+  tbl("wpa_log") %>%
+  dplyr::select(GameDate, PlayerId, PlayDesc, contains("BId"), contains("BReplace")) %>%
+  collect(n=Inf)
+
+#find sb opportunities. using the l*Id and *BReplace fields accounts for when the player was inserted as a pinch runner
+
+#caught stealings' are not represented in the data ... for example Keon Broxton on 9-22-2015 was caught, but no opp
+steal_opportunities_processed <- steal_opportunities %>%
+  dplyr::select(-BatterSubId, -PitcherSubId) %>%
+  mutate(Season = year(GameDate),
+         sb_opportunity = ifelse(
+           (`1BId` == PlayerId & is.na(`2BId`)) |
+             (`l1BId` == PlayerId & is.na(`l2BId`)) |
+             #if there is an entry in 1BReplace, the PlayerID was a pinch runner. give them an opp if the next base is empty
+             (`1BReplace` != 0 & is.na(`l2BId`)) |
+             (`2BId` == PlayerId & is.na(`3BId`)) |
+             (`l2BId` == PlayerId & is.na(`l3BId`)) |
+             (`2BReplace` != 0 & is.na(`l3BId`)),
+           1, 0)) %>%
+  replace_na(sb_opportunity, replace=list(sb_opportunity = 0)) %>%
+  group_by(PlayerId, Season) %>%
+  summarize(sb_opportunities = sum(sb_opportunity))
+  
+
+# 
+# sb_info_career <- fg_db %>%
+#   tbl("stats_batting") %>%
+#   filter(Type == -1) %>%
+#   dplyr::select(playerid, SB, CS, singles = `1B`, BB) %>%
+#   collect(n=Inf) %>%
+#   inner_join(fg_info, by=c("playerid" = "PlayerId")) %>%
+#   mutate(attempts = CS + SB,
+#          sb_perc = SB / attempts,
+#          opportunities = singles + BB,
+#          attempts_per_opp = attempts /opportunities) %>%
+#   filter(!is.na(sb_perc)) %>%
+#   dplyr::select(playerid, batter_name, SB, attempts, opportunities, attempts_per_opp, sb_perc) %>%
+#   arrange(desc(sb_perc))
 
 sb_info_seasons <- fg_db %>%
   tbl("stats_batting") %>%
-  filter(Type == 0) %>%
+  filter(Type == 0,
+         Season > 1930) %>%
   dplyr::select(playerid, Season, SB, CS) %>%
   collect(n=Inf) %>%
   inner_join(fg_info, by=c("playerid" = "PlayerId")) %>%
   mutate(attempts = CS + SB,
          sb_perc = SB / attempts,
          decade = Season %/% 10 * 10) %>%
-  filter(!is.na(sb_perc)) %>%
-  dplyr::select(playerid, batter_name, Season, decade, SB, attempts, sb_perc) %>%
+  filter(!is.na(sb_perc)) %>%  
+  dplyr::select(playerid, batter_name, Season, decade, SB, attempts, 
+                sb_perc) %>%
   arrange(desc(sb_perc))
 
+
+#filtering out seasons of 100% is that OK???
 
 ```
 
 
 
+```{r}
+ggplot(sb_info_seasons, aes(decade, attempts, group = decade)) + geom_boxplot() +
+  stat_function(fun = dbeta,
+                args = list(shape1 = -63.82752, shape2 = 56.79295))
+
+```
+
+
+# test a couple different splines to see which one produces the best fit. it looks like ns(Season, 2) is decent.
+helpful explanation of knots and splines: https://stats.stackexchange.com/questions/7316/setting-knots-in-natural-cubic-splines-in-r
+
+```{r}
+degrees <- 2
+spline_model_seasons <- lm(cbind(sb_info_seasons$SB, sb_info_seasons$attempts - sb_info_seasons$SB) ~
+                             ns(sb_info_seasons$Season, degrees))
+plot(predict(spline_model_seasons))
+
+```
+
 # fit beta-binom model to each player-season
+
 
 ```{r}
 
 #model sb%, allowing the number of attempts to according to the year of the season as well as the number of attempts
-fit <- gamlss(cbind(SB, attempts - SB) ~ ns(Season, 5) * log(attempts),
+fit <- gamlss(cbind(SB, attempts - SB) ~ ns(Season, 2) + log(attempts),
               data = sb_info_seasons,
               family = BB(mu.link = "identity"))
 
@@ -99,13 +152,6 @@ ggplot(eb_sb %>% head(25), aes(est_sb_rate, reorder(name_season, est_sb_rate))) 
   labs(y="", x="Estimated SB Success Rate with 95% Credible Interval") +
   ggtitle("Best Basestealing Seasons Since 1900") + fgt
 
-
-```
-
-
-# tally estimated career SB success rates
-
-```{r}
 eb_sb_career <- eb_sb %>%
   group_by(playerid, batter_name) %>%
   summarize(alpha1_sum = sum(alpha1),
@@ -118,13 +164,110 @@ eb_sb_career <- eb_sb %>%
 ggplot(eb_sb_career %>% head(25), aes(est_sb_rate, reorder(batter_name, est_sb_rate))) +
   geom_point() +
   geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
-  labs(y="", x="Estimated Careers SB Success Rate with 95% Credible Interval") +
-  ggtitle("Modern Basestealers are Much Better than their Predecessors") + fgt
+  labs(y="", x="Estimated Career SB Success Rate with 95% Credible Interval") +
+  ggtitle("Best Basestealers") + fgt
+
+```
+
+
+
+# tim raines, 1992, using # attempts
+
+```{r}
+ggplot() + geom_histogram(binwidth = 0.009, aes(y=..density..)) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 50.67265, shape2 = 16.40566),
+                lwd=1.5,
+                aes(color = "Prior Expectation")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 95.67265, shape2 = 22.40566),
+                lwd=1.5,
+                aes(color="Posterior Distribution")) + 
+  xlim(0.5, 1) + labs(x="Estimated SB Success Rate") + 
+  ggtitle("Estimated SB% (Tim Raines, 1992)") +
+  scale_color_brewer(palette="Set1", direction = -1) +
+  labs(color = "Distribution") + fgt
+```
+
+# tim raines, 1992, using attempts/opps
+
+
+```{r}
+ggplot() + geom_histogram(binwidth = 0.009, aes(y=..density..)) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 41.83717, shape2 = 16.210641),
+                lwd=1.5,
+                aes(color = "Prior Expectation")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 86.83717, shape2 = 22.210641),
+                lwd=1.5,
+                aes(color="Posterior Distribution")) + 
+  xlim(0.5, 1) + labs(x="Estimated SB Success Rate") + 
+  ggtitle("Estimated SB% (Tim Raines, 1992)") +
+  scale_color_brewer(palette="Set1", direction = -1) +
+  labs(color = "Distribution") + fgt
   
 
 ```
 
-Tim Raines vs. Rickey Henderson
+
+The Best Basestealer in MLB History
+
+- for a long time rickey henderson was considered the greatest basestealer in history.
+- then tim raines' name started bubbling up, probably due to his HOF candidacy.
+- people
+- 
+
+
+
+
+
+
+
+
+
+
+
+- intro, about the stolen base, lost art, etc.
+- for a long time rickey henderson was the gold standard because he had a high Sb TOTAL.. then, as sb SUCCESS RATE became more influential, tim raines and his high total got more attention.
+- indeed raines success rate beats Rickey's. but Rickey has lots more steals. how to compare?
+- introduce empirical bayesian analysis
+- this solves other problems, such as regression to the mean. lets us get at true talent 
+- if the ultimate aim of an SB attempt is to succeed, then we should favor a high success rate over a high raw total of SB's.
+- with this in mind: who had the better success rate? raines or henderson?
+-- methodology
+--- model prior expectation based on two factors:
+---- season. see how sb success rate fluctuates across MLB history (graph). 
+---- higher success rates are more commonplace today, so a successful steal today tells us less about your basestealing abilities than a successful steal in 1956. the model captures this information.
+---- # attempts. managers and coaches control how often a player is allowed to run. players with more SB attempts should be considered, overall, better basestealers. we can account for this in our model.
+--- combine prior expectations with on-field results.
+--- combine season totals for an entire career
+-- resuls
+--- two probability distributions, one for henderson and one for raines. each shows their estimated success rate, based on their estimate season success rates, which in turn are a mixture of the season, the # of attempts, and their on-field results.
+--- looks like, despite raines' higher career success rate, henderson is the better basestealer. we give him credit for 
+--- a/b test henderson and raines
+--- conclusion: henderson likely is indeed the better basestealer.
+-- A NEW CHALLENGER ENTERS THE ARENA ...
+--- go thru coleman
+--- end with graph of all 3
+-- anyone else?
+--- show graph of other prolific basestealers, incl. Barry Bonds, who was a better basestealer than many people remember
+--- despite adding more players into the mix, 
+--- graphs like these get crowded, so we collapse them into charts like this:
+---- show graph
+----- dot is estimated true-talent rate, bars show the range in which we're 95% certain the true talent lies
+----- notice the range is shorter for people who have more attempts, because we have more information about them
+--- one more thing
+---- since bayesian analysis allows us to compare players together regardless of their # of SB attempts, and since graphs like the ones above allow us to show many players easily, why not look at a top-25 list of all-time?
+---- show graph
+---- when we do this we see two modern-day players at the top: billy hamilton you'd expect, but i'd bet you didn't think bradley zimmer was a great base thief. you should; he was 18-for-19 this past year.
+---- then coleman
+-- conclusion ...
+
+
+
+
+Tim Raines vs. Rickey Henderson (NEED A BETTER HEADING)
 
 SB Success rate often mentioned in Raines' HOF case.
 Compared a lot to Henderson.
@@ -134,9 +277,25 @@ Vince Coleman, Maury Wills, Lou Brock
 
 (find quotes for each)
 
-These guys all get mentioned as the best basestealers of all time. In particular, Raines' 84.7% success rate was a key plank in his HOF case. It's mentioned on his HOF plaque, and when you visit his website on the HOF, it leads with: "Tim Raines finished his big league career as the most successful base stealer – ranked by percentage – in MLB history." (https://baseballhall.org/hof/raines-tim)
+These guys all get mentioned as the best basestealers of all time. In particular, Raines' 84.7% success rate was a key plank in his HOF case. It's mentioned on his HOF plaque, and when you visit his website on the HOF, it leads with:
 
-But is he really the best basestealer of all time? He did seal 808 bases in 954 attempts, but Rickey Henderson stole 1,406 in 1,741 attempts for an 80.7% success rate. 
+
+====
+
+
+"Tim Raines finished his big league career as the most successful base stealer – ranked by percentage – in MLB history." (https://baseballhall.org/hof/raines-tim)
+
+So reads the Hall of Fame's website entry for Raines. 
+
+It's pretty easy to look at the MLB records and verify this claim. Raines' 84.7% success rate is indeed higher than anyone else in MLB history, at least when you look at players who played a long time. The man to whom Raines was and is most often compared, Rickey Henderson, stole nearly 1,000 more bases but was successful only 80.7% of the time.
+
+But just looking at on-field results has a few problems:
+- It compares players with different sample sizes. Henderson attempted over 1,000 more steals than Raines did. [...]
+- It doesn't account for different eras of basestealing. This is less of a problem in comparing Raines and Henderson to each other, but the website specifically compares Raines to all players in MLB history. 
+- 
+
+
+But is he really the "most successful basestealer of all time? He did seal 808 bases in 954 attempts. Rickey Henderson stole 1,406 in 1,741 attempts for an 80.7% success rate.
 
 Meanwhile, what of Carlos Beltran? Beltran seemingly has a no-doubt HOF case with his home run total and postseason performance. He also has 312 stolen bases at an 86.4% success rate, easily higher than Raines'. But what to make of the fact that he has nearly 500 fewer raw stolen bases than Raines? 
 
@@ -193,21 +352,22 @@ The first step in empirical Bayesian analysis is estimating a prior. Before doin
 #stolen base success rates fluctuate by decade
 sb_info_seasons %>%
   filter(decade >= 1910) %>%
-  ggplot(aes(x=as.character(decade), y=sb_perc)) + geom_boxplot() + 
-  ggtitle("Distributions of Stolen Base Success Rates over Time") +
-  labs(x="Decade", y="SB Success Rate") + fgt
+  ggplot(aes(x=as.character(decade), y=attempts_per_100_opps)) + geom_boxplot() + 
+  ggtitle("Distributions of Stolen Base Attempts per Opportunity Success Rates over Time") +
+  labs(x="Decade", y="SB Success Rate") + fgt +
+  scale_y_continuous(formatter="log10")
 
-sb_info_seasons %>%
-  filter(decade >= 1910) %>%
-  ggplot(aes(x=as.character(decade), y=attempts)) + geom_boxplot() + 
-  ggtitle("Distributions of Stolen Base Attempts over Time") +
-  labs(x="Decade", y="SB Success Rate") + fgt
+# sb_info_seasons %>%
+#   filter(decade >= 1910) %>%
+#   ggplot(aes(x=as.character(decade), y=attempts)) + geom_boxplot() + 
+#   ggtitle("Distributions of Stolen Base Attempts over Time") +
+#   labs(x="Decade", y="SB Success Rate") + fgt
 
 ```
 
 This sample includes every player-season season with at least one attempt. Luis Sojo's one attempt in 2001 (which succeeded, by the way) is right alongside Rickey Henderson's 172 attempts in 1982. Ditto Ty Cobb's 134 attempts in 1915. They're all here.
 
-We can see that the 1950's was a low-water mark for success rate. Managers and coaches ran their players wild, seemingly not caring if the attempt was successful. The resulting median success rate of 50% would appall today's teams, who steal at a much higher rate of about 72%.
+The 1950's was a low-water mark for success rate. Managers and coaches ran their players wild, seemingly not caring if the attempt was successful. The resulting median success rate of 50% would appall today's teams, who steal at a much higher rate of about 72%.
 
 This also means that in developing an effective prior, we have to account for the seasons in which they operated. A 72% success rate in 1956 is much rarer than a 72% success rate in 2015. This variance affects our pre-existing beliefs about each player's abilities. Over time, the success rates we observe on the field will swamp these prior beliefs, but we have to start somewhere.
 
@@ -234,13 +394,34 @@ For each player-season, I combined the prior probabilities (computed using the m
 The following curves show our estimated success rates for the two Titans of Swipe, Rickey Henderson and Tim Raines:
 
 ```{r}
+
+coleman_list <- eb_sb_career %>% 
+  ungroup() %>% 
+  filter(playerid == 1002433) %>% 
+  dplyr::select(alpha1_sum, beta1_sum) %>% 
+  as.list()
+ 
+coleman_alpha <- as.numeric(coleman_list[1])
+coleman_beta <- as.numeric(coleman_list[2]) 
+
+henderson_list <- eb_sb_career %>% 
+  ungroup() %>% 
+  filter(playerid == 194) %>% 
+  dplyr::select(alpha1_sum, beta1_sum) %>% 
+  as.list()
+ 
+henderson_alpha <- as.numeric(henderson_list[1])
+henderson_beta <- as.numeric(henderson_list[2]) 
+
+
+
 ggplot() + geom_histogram(binwidth = 0.001, aes(y=..density..)) +
   stat_function(fun = dbeta,
-                args=list(shape1 = 1656.5270, shape2 = 510.82565),
+                args=list(shape1 = coleman_alpha, shape2 = coleman_beta),
                 lwd=1.5,
-                aes(color = "Tim Raines")) +
+                aes(color = "Vince Coleman")) +
   stat_function(fun = dbeta,
-                args=list(shape1 = 2463.8002, shape2 = 656.0096),
+                args=list(shape1 = henderson_alpha, shape2 = henderson_beta),
                 lwd=1.5,
                 aes(color="Rickey Henderson")) +
   xlim(.725, 0.85) + labs(x="Estimated SB Success Rate") + 
@@ -269,38 +450,51 @@ These two values are close enough for our purposes that I'll average them to get
 
 ```{r}
 #simulation
-raines_sim <- rbeta(1e6, 1656.5270, 510.82565)
-henderson_sim <- rbeta(1e6, 2463.8002, 656.0096)
-mean(henderson_sim > raines_sim)
-#98.5% chance Henderson has the higher rate
+coleman_sim <- rbeta(1e6, coleman_alpha, coleman_beta)
+henderson_sim <- rbeta(1e6, henderson_alpha, henderson_beta)
+mean(coleman_sim > henderson_sim)
+# 70% chance coleman is the better basestealer than henderson
+```
 
+```{r}
 #integration
-x <- seq(.70, .90, .001)
-crossing(raines_x = x, henderson_x = x) %>%
-  mutate(raines_density = dbeta(raines_x, 1656.5270, 510.82565),
-         henderson_density = dbeta(henderson_x, 2463.8002, 656.0096),
-         joint = raines_density * henderson_density) %>%
-  ggplot(aes(raines_x, henderson_x, fill = joint)) +
+x <- seq(.75, .85, .001)
+crossing(coleman_x = x, henderson_x = x) %>%
+  mutate(coleman_density = dbeta(coleman_x, coleman_alpha, coleman_beta),
+         henderson_density = dbeta(henderson_x, henderson_alpha, henderson_beta),
+         joint = coleman_density * henderson_density) %>%
+  ggplot(aes(coleman_x, henderson_x, fill = joint)) +
   geom_tile() +
   geom_abline() +
   scale_fill_gradient2(low = "white", high = "red") +
-  labs(x = "Raines SB Success Rate",
+  labs(x = "Coleman SB Success Rate",
        y = "Henderson SB Success Rate",
        fill = "Joint density") +
   #theme(legend.position = "none")
   fgt +
-  ggtitle("Joint Distribution of SB Success Rates") +
-  ggsave("joint-distro-henderson-raines.png", width=9.92, height=6.19, units="in")
+  ggtitle("Joint Distribution of SB Success Rates")
 
 d <- .001
-limits <- seq(.70, .90, d)
+limits <- seq(.75, .95, d)
 sum(outer(limits, limits, function(x, y) {
   (x > y) *
-    dbeta(x, 1656.5270, 510.82565) *
-    dbeta(y, 2463.8002, 656.0096) *
+    dbeta(x, coleman_alpha, coleman_beta) *
+    dbeta(y, henderson_alpha, henderson_beta) *
     d ^ 2
 }))
 
+# 
+# ggplot() + geom_histogram(binwidth = 0.001, aes(y=..density..)) +
+#   stat_function(fun = dbeta,
+#                 args=list(shape1 = 1324.05237, shape2 = 347.83823),
+#                 lwd=1.5,
+#                 aes(color = "Vince Coleman")) +
+#   stat_function(fun = dbeta,
+#                 args=list(shape1 = 2582.395, shape2 = 706.2933),
+#                 lwd=1.5,
+#                 aes(color="Rickey Henderson")) +
+#   xlim(.725, 0.85) + labs(x="Estimated SB Success Rate") + 
+#   ggtitle("Comparing Two Stolen-Base Legends") +
 
 
 ```
@@ -325,6 +519,8 @@ ggplot() + geom_histogram(binwidth = 0.001, aes(y=..density..)) +
   ggtitle("Comparing Two Stolen-Base Legends ... to Vince Coleman") +
   scale_color_brewer(palette="Set1") +
   labs(color = "Player") + fgt
+
+
 ```
 
 ```{r}
@@ -388,13 +584,17 @@ Adding in the rest of our gang is easy, but to capture the lower success rates o
 ```{r}
 ggplot() + geom_histogram(binwidth = 0.009, aes(y=..density..)) +
   stat_function(fun = dbeta,
-                args=list(shape1 = 1115.37212, shape2 = 314.30617),
+                args=list(shape1 = 1656.5270, shape2 = 510.82565),
                 lwd=1.5,
                 aes(color = "Tim Raines")) +
   stat_function(fun = dbeta,
-                args=list(shape1 = 1756.9623, shape2 = 524.5812),
+                args=list(shape1 = 2463.8002, shape2 = 656.0096),
                 lwd=1.5,
                 aes(color="Rickey Henderson")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 1264.18421, shape2 = 326.64451),
+                lwd=1.5,
+                aes(color="Vince Coleman")) +
   stat_function(fun = dbeta,
                 args=list(shape1 = 579.8424, shape2 = 170.3489),
                 lwd=1.5,
@@ -407,6 +607,14 @@ ggplot() + geom_histogram(binwidth = 0.009, aes(y=..density..)) +
                 args=list(shape1 = 1170.9, shape2 = 463.2912),
                 lwd=1.5,
                 aes(color="Lou Brock")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 1338.481, shape2 = 474.719),
+                lwd=1.5,
+                aes(color="Barry Bonds")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 464.14794, shape2 = 107.61402),
+                lwd=1.5,
+                aes(color="Billy Hamilton")) +
   xlim(0.65, 0.85) + labs(x="Estimated SB Success Rate") + 
   ggtitle("Comparing Well-Known Basestealers Throughout History") +
   scale_color_brewer(palette="Set1", direction = -1) +
