@@ -102,6 +102,9 @@ sb_info_seasons <- fg_db %>%
 ```{r}
 ggplot(sb_info_seasons, aes(decade, sb_perc, group = decade)) + geom_boxplot()
 
+ggplot(sb_info_seasons, aes(decade, attempts, group = decade)) + geom_boxplot()
+
+
 ```
 
 
@@ -173,17 +176,33 @@ ggplot(eb_sb_career %>% head(25), aes(est_sb_rate, reorder(batter_name, est_sb_r
 
 #prior graph ... need to look into how to do this.
 ```{r}
-sb_rate_priors <- crossing(x = seq(0, .90, .01), decade = c(1910, 1960, 2010)) %>%
-  mutate(density = dbeta(x, (mu_0 + mu_PA * log(PA)) / sigma,
-                         (1 - (mu_0 + mu_PA * log(PA))) / sigma)) %>%
-  mutate(PA = factor(PA))
+plot_gamlss_fit <- function(f) {
+  sb_info_seasons %>%
+    distinct() %>%
+    mutate(attempts = 50) %>%
+    augment(f, newdata = .) %>%
+    rename(mu = .fitted) %>%
+    mutate(sigma = fitted(fit, "sigma")[1],
+           alpha0 = mu / sigma,
+           beta0 = (1 - mu) / sigma,
+           conf_low = qbeta(.025, alpha0, beta0),
+           conf_high = qbeta(.975, alpha0, beta0)) %>%
+    ggplot(aes(Season, mu, color = attempts, group = attempts)) +
+    geom_line() +
+    geom_ribbon(aes(ymin = conf_low, ymax = conf_high), linetype = 2, alpha = .1) +
+    labs(x = "Year",
+         y = "Prior distribution (median + 95% quantiles)") +
+    ggtitle("Prior SB% Expectations of a 50-attempt Season") +
+    theme(legend.position="none") +
+    fgt
+}
+plot_gamlss_fit(fit)
 
-#plot prior distributions
-ggplot(barrel_rate_priors, aes(x, density, color = PA, group = PA)) +
-  geom_line(group=1) + labs(x="Estimated Barrel Rate", y="Prior Density") + xlim(-.1, .2) + fgt +
-  ggtitle("More PA = Increased Probability of Higher Barrel Rate")
 
 ```
+
+50 attempts means a lot more now than it does in 1950. back then, everyone was running wild. today, stolen bases have plummeted ... if you see a guy attempting 50 steals, you can assume he's a really good basestealer.
+
 
 LIKELIHOOD
 
@@ -210,8 +229,6 @@ henderson_list <- eb_sb_career %>%
  
 henderson_alpha <- as.numeric(henderson_list[1])
 henderson_beta <- as.numeric(henderson_list[2]) 
-
-
 
 ggplot() + geom_histogram(binwidth = 0.001, aes(y=..density..)) +
   stat_function(fun = dbeta,
