@@ -5,13 +5,27 @@
 library(tidyverse)
 library(lubridate)
 library(rvest)
+library(ggrepel)
+
+fgt = theme(
+  panel.background = element_rect(color = "lightgrey", fill = "white"),
+  axis.title = element_text(family = "Lato"),
+  axis.text = element_text(family = "Lato"),
+  legend.title = element_text(family = "Lato"),
+  legend.text = element_text(family = "Lato"),
+  legend.background = element_rect(fill = "white"),
+  legend.key = element_rect(fill = "white"),
+  plot.title = element_text(family = "Lato"),
+  panel.grid.major = element_line(size = .1, color = "lightgrey"),
+  panel.grid.minor = element_line(size = 0),
+  strip.background = element_rect(fill = "#50ae26"),
+  strip.text = element_text(color="white", family="Lato")
+  )
+
 
 ```
 
 ```{r}
-current_year <- 2017
-years <- tibble(year = 2015:current_year)
-
 get_free_agents <- function(year){
   url <- paste0("https://www.baseball-reference.com/leagues/MLB/", year, "-free-agents.shtml")
 
@@ -21,46 +35,58 @@ signed_fas <- url %>%
   html_table(header = TRUE) %>%
   .[[length(.)]]
 }
+
+fake_month_convert <- function(date){
+  foo <- month(date)
+  return(foo)
+}
+
 ```
+
+### get data
 
 ```{r}
+current_year <- 2017
+years <- tibble(year = 1998:current_year)
+
 all_fa_signings <- years %>%
   group_by(year) %>%
-  do(get_free_agents(.$year))
-# 
-# all_teams_payroll <- teamAbbr %>% 
-#   group_by(Tm) %>%
-#   do(getPayrolls(.$Tm, .$team_name)) %>%
+  do(get_free_agents(.$year)) %>%
+  dplyr::select(name = Name, offseason = year, age = Age, sign_date = Date, three_year_war = `WAR3`)
 
 ```
 
-url <- "https://www.baseball-reference.com/leagues/MLB/2015-free-agents.shtml"
+### clean data
+
+```{r}
+
+# Guillermo Rodriguez
+# 2009
+# 32
+# 2010-00-00
+# -0.1
+# HE'S FUCKING UP MY SHIT
 
 
-unsigned_batters <- url %>%
-  read_html() %>%
-  html_nodes(xpath = "//*[@id='div_fa_batting']/table[1]") %>%
-  html_table(header = TRUE) %>%
-  .[[length(.)]] %>%
-  View()
 
 
-all_fa_signings <- years 
-
-all_teams_payroll <- teamAbbr %>% 
-  group_by(Tm) %>%
-  do(getPayrolls(.$Tm, .$team_name)) %>%
-
-# getPayrolls <- function(Tm, team_name) {
-#   url <- paste0("http://www.baseball-reference.com/teams/", Tm, "/", team_name, "-salaries-and-contracts.shtml")
-#   tms <- url %>%
-#     read_html() %>%
-#     html_nodes("table") %>%
-#     .[[length(.)]] %>%
-#     html_table(header=TRUE)
-#   
-#   if (!"2021" %in% names(tms)) {
-#     tms$`2021` <- NA
-#   }
+all_fa_signings %>%
+  ungroup() %>%
+  
+  #remove spurious transaction w/no valid date attached
+  filter(name != "Guillermo Rodriguez") %>%
+  mutate(sign_month = month(sign_date, label = TRUE),
+         
+         #re-order the months based on when we perceive the start of FA season to be
+         sign_month_f = factor(sign_month, levels=c("Oct", "Nov", "Dec", "Jan", "Feb",
+                                                    "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep"))) %>%
+  filter(sign_month_f %in% c("Oct", "Nov", "Dec", "Jan")) %>%
+  mutate(offseason = as.character(offseason)) %>%
+  group_by(offseason, sign_month_f) %>%
+  summarize(num_signings = n()) %>%
+  ggplot(aes( x = sign_month_f, y = num_signings, group = offseason, color=offseason)) +
+  geom_point() +
+  geom_line() +
+  labs(x="", y="Number of Free Agent Signings") + fgt
 
 ```
