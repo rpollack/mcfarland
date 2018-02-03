@@ -1,0 +1,66 @@
+
+
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(rvest)
+
+```
+
+```{r}
+current_year <- 2017
+years <- tibble(year = 2015:current_year)
+
+get_free_agents <- function(year){
+  url <- paste0("https://www.baseball-reference.com/leagues/MLB/", year, "-free-agents.shtml")
+
+signed_fas <- url %>%
+  read_html() %>%
+  html_nodes(xpath = "//*[@id='fa_signings']") %>%
+  html_table(header = TRUE) %>%
+  .[[length(.)]]
+}
+```
+
+```{r}
+all_fa_signings <- years %>%
+  group_by(year) %>%
+  do(get_free_agents(.$year))
+# 
+# all_teams_payroll <- teamAbbr %>% 
+#   group_by(Tm) %>%
+#   do(getPayrolls(.$Tm, .$team_name)) %>%
+
+```
+
+url <- "https://www.baseball-reference.com/leagues/MLB/2015-free-agents.shtml"
+
+
+unsigned_batters <- url %>%
+  read_html() %>%
+  html_nodes(xpath = "//*[@id='div_fa_batting']/table[1]") %>%
+  html_table(header = TRUE) %>%
+  .[[length(.)]] %>%
+  View()
+
+
+all_fa_signings <- years 
+
+all_teams_payroll <- teamAbbr %>% 
+  group_by(Tm) %>%
+  do(getPayrolls(.$Tm, .$team_name)) %>%
+
+# getPayrolls <- function(Tm, team_name) {
+#   url <- paste0("http://www.baseball-reference.com/teams/", Tm, "/", team_name, "-salaries-and-contracts.shtml")
+#   tms <- url %>%
+#     read_html() %>%
+#     html_nodes("table") %>%
+#     .[[length(.)]] %>%
+#     html_table(header=TRUE)
+#   
+#   if (!"2021" %in% names(tms)) {
+#     tms$`2021` <- NA
+#   }
+
+```
