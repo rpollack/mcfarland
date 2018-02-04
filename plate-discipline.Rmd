@@ -6,6 +6,7 @@ library(stringr)
 library(plotly)
 library(RMySQL)
 library(broom)
+library(lubridate)
 library(ggjoy)
 
 fgt = theme(
@@ -99,10 +100,33 @@ plate_discipline_overall <- savant_data %>%
             horiz_disc = round(mad(px_in), 3),
             vertical_disc = round(mad(pz_in), 3)) %>%
   mutate(discipline_sq_in = horiz_disc * vertical_disc,
-         aggression_factor = discipline_sq_in / num_swings * 100) %>%
-  filter(num_swings >= 400) %>%    #avg. hitter has 700 swings this is about 1/6 of a full season, to reduce survivor bias
-  arrange(aggression_factor) %>%
+         
+         #calculate size of zone per 100 swings
+         aggression_factor = discipline_sq_in / (num_swings / 100)) %>%
+  filter(num_swings >= 400) %>%
+  
+  group_by(game_year) %>%  #normalize to year, 100 = average
+  mutate(lg_af = mean(aggression_factor)) %>%
+  group_by(playerid, batter_name, game_year, lastYear, wrc_plus) %>%
+  mutate(af_plus = round(aggression_factor / lg_af * 100, 0)) %>%
+  arrange(af_plus) %>%
   ungroup()
+
+
+plate_discipline_annual <- savant_data %>%
+  group_by(batter_name) %>%
+  summarize(num_swings = n(),
+            horiz_disc = round(mad(px_in), 3),
+            vertical_disc = round(mad(pz_in), 3)) %>%
+  mutate(discipline_sq_in = horiz_disc * vertical_disc,
+         aggression_factor = discipline_sq_in / (num_swings / 3), #divide by 3 since we're looking at 3 seasons
+         lg_af = mean(aggression_factor),
+         af_plus = round(aggression_factor / lg_af * 100, 3)) %>%
+  arrange(af_plus) %>%
+  filter(num_swings >= 1200) %>%
+  arrange(aggression_factor)
+  
+  
 ```
 
 
@@ -119,6 +143,8 @@ INTRO
 - Set the tone
 
 
+
+"Get a good pitch to hit." That's been the language of post-game interviews since as long as I can remember. 
 
 Earlier this year I introduced a way of analyzing hitters' plate coverage; that is, their ability to put a wide variety of balls in play. I found the distribution of horizontal and vertical coordinates that players connected with pitches on. When multiplied together, these measurements formed a box, the size of which demonstrated hitters' abilities to hit a ball fair. Larger boxes indicated more plate coverage; smaller boxes indicated less plate coverage.
 
@@ -168,8 +194,7 @@ ggplot(savant_data %>%
   labs(x="Horizontal Pitch Location (in.)", y="Vertical Pitch Location (in.)")
 ```
 
-Perez is the more aggressive hitter by far.
-
+Perez is the more aggressive hitter by far. And for those who are surprised by Chris Taylor's offensive line this year (Houston Mitchell at the Los Angeles Times called [http://www.latimes.com/sports/dodgers/la-sp-dodgers-dugout-first-half-20170714-story.html] Taylor's offense "unexpected"), you can see that he's quite selective at the plate. 
 
 LEADERS AND LAGGARDS
 
@@ -189,7 +214,7 @@ ggplot(least_aggressive, aes(reorder(name_season, -`Aggression Factor`), `Aggres
 
 ```
 
-Seeing Votto at the top of the list validates that we're on the right track. There are other good hitter-seasons on there as well. The mean wRC+ of this group is a whopping 133. 
+Seeing Votto at the top of the list validates that we're on the right track. You'll notice that the other hitter-seasons on this list are quite good: mean wRC+ of this group is a whopping 133.
 
 And now the most aggressive hitters in this dataset:
 ```{r}
@@ -233,14 +258,15 @@ plate_discipline_deciles <- plate_discipline_overall %>%
             mean_wrc_plus = mean(wrc_plus))
 
 ggplot(plate_discipline_deciles, aes(reorder(as.character(decile), decile), mean_wrc_plus)) +
-  geom_bar(stat="identity", fill="#8e001c") + labs(x="Decile (1 = Low Aggression, 10 = High Aggression)", y="Mean wRC+") + fgt
+  geom_bar(stat="identity", fill="#8e001c") + labs(x="Decile (1 = Low Aggression, 10 = High Aggression)", y="Mean wRC+") + fgt +
+  ggtitle("wRC+ by Aggression Factor Decile")
 ```
 
 The trend holds up. An increase in aggression is associated with decreased offensive performance.
 
 OVER TIME
 
-Given the upward trend in strikeouts, news outlets today focus on players' lack of plate discipline. "Hitters are swinging for the fences" trumpets a headline in the Portland Press Herald [http://www.pressherald.com/2017/09/17/on-baseball-with-strikeout-stigma-gone-hitters-are-swinging-for-the-fences/]. In December, Rian Watt at FiveThirtyEight wrote [https://fivethirtyeight.com/features/pitchers-wont-throw-strikes-so-batters-are-getting-better-at-hitting-bad-pitches/] that today's hitters are "channeling their inner Vladimir Guerrero". And former pitcher Al Leiter noted that "you don't see a two-strike approach anymore." [https://www.nytimes.com/2017/09/19/sports/baseball/home-runs-record-single-season.html]      
+Given the upward trend in strikeouts, news outlets today focus on players' lack of plate discipline. "Hitters are swinging for the fences" trumpets a headline in the Portland Press Herald [http://www.pressherald.com/2017/09/17/on-baseball-with-strikeout-stigma-gone-hitters-are-swinging-for-the-fences/]. In December, Rian Watt at FiveThirtyEight wrote [https://fivethirtyeight.com/features/pitchers-wont-throw-strikes-so-batters-are-getting-better-at-hitting-bad-pitches/] that today's hitters are "channeling their inner Vladimir Guerrero". And former pitcher Al Leiter noted that "you don't see a two-strike approach anymore." []      
 
 These statements are correct. At least since 2015 hitters have expanded the strike zone more and more. The following ridgeline plot shows how hitters' AF's have changed over time:
 ```{r}
@@ -355,30 +381,28 @@ player_aggression_relative %>%
   head(15) %>%
   ggplot(aes(reorder(batter_name, aggression_multiplier),
              aggression_multiplier)) +
-  geom_bar(stat="identity", fill="#8e001c") + coord_flip() + labs(x="", y="AF Multiplier when Runner on Third") +
+  geom_bar(stat="identity", fill="#8e001c") + coord_flip() + labs(x="", y="AF Multiplier") +
   fgt + ggtitle("Hitters Who Change their Approach the Most\n in a Typical High-Aggression Spot")
 ```
 
 Manuel Margot, Tyler Collins, and Travis Jankowski get jumpier than a long-tailed cat in a room full of rocking chairs when they see a runner on third. Know who else does? The best player in baseball. Mike Trout always looks so calm and collected, doesn't he? He never seems to get rattled. Well now we can see what's going through his head when he has a chance to knock a man in from third. He'll expand the strike zone considerably.
 
+
+```{r}
+margot+
+```
+
 CONCLUSION
 
 *** What's my callback ??? ***
 
+Who is our modern-day Ted Williams?
+
+When it comes to analyzing plate discipline, we can do more than just look at Z-Swing% and O-Swing% ... 
 
 
 
 
-The following 
-```{r}
-
-  
-#players who change their approach the most with runners on 3rd
-player_aggression_relative %>%
-  dplyr::select(batter_name, aggression_multiplier_when_runner_on_third) %>%
-  head(25)
-
-```
 
 
 * * *
@@ -399,9 +423,56 @@ These changes aren't large by themselves but become noticeable when expressed by
 
 
 
+```{r}
+
+plate_discipline_overall <- savant_data %>%
+  group_by(playerid, batter_name, game_year, lastYear, wrc_plus) %>%
+  summarize(num_swings = n(),
+            horiz_disc = round(mad(px_in), 3),
+            vertical_disc = round(mad(pz_in), 3)) %>%
+  mutate(discipline_sq_in = horiz_disc * vertical_disc,
+         aggression_factor = discipline_sq_in / num_swings * 100) %>%
+  filter(num_swings >= 400) %>%    #avg. hitter has 700 swings this is about 1/6 of a full season, to reduce survivor bias
+  arrange(aggression_factor) %>%
+  ungroup()
+
+least_aggressive_batters <- savant_data %>%
+  group_by(batter_name) %>%
+  summarize(num_swings = n(),
+            horiz_disc = round(mad(px_in), 3),
+            vertical_disc = round(mad(pz_in), 3)) %>%
+  mutate(discipline_sq_in = horiz_disc * vertical_disc,
+         aggression_factor = discipline_sq_in / (num_swings / 100)) %>%
+  filter(num_swings >= 1200) %>%
+  arrange(aggression_factor) %>%
+  head(15)
+
+ggplot(least_aggressive_batters, aes(reorder(batter_name, -aggression_factor), aggression_factor)) + 
+  geom_bar(stat="identity",  fill="#8e001c") + fgt + coord_flip() + labs(x="", y="Aggression Factor") + 
+  ggtitle("Least Aggressive Hitters, 2015 - 2017")
 
 
 
+```
+
+
+
+
+```{r}
+savant_data %>%
+  group_by(batter_name) %>%
+  summarize(num_swings = n(),
+            horiz_disc = round(mad(px_in), 3),
+            vertical_disc = round(mad(pz_in), 3)) %>%
+  mutate(discipline_sq_in = horiz_disc * vertical_disc,
+         aggression_factor = discipline_sq_in / num_swings * 100) %>%
+  filter(num_swings >= 1200) %>%
+  arrange(aggression_factor) %>%
+  tail(15) %>%
+  ggplot(aes(reorder(batter_name, -aggression_factor), aggression_factor)) + geom_bar(stat="identity",  fill="#8e001c") +
+  fgt + coord_flip() + labs(x="", y="Aggression Factor") + ggtitle("Most Aggressive Hitters, 2015 - 2017")
+
+```
 
 
 
@@ -484,17 +555,23 @@ pitcher_plate_discipline_overall <- savant_data %>%
   summarize(num_swings = n(),
             horiz_disc = round(mad(px_in), 3),
             vertical_disc = round(mad(pz_in), 3)) %>%
+  
+  #compute af on a per-100-swings basis
   mutate(discipline_sq_in = horiz_disc * vertical_disc,
-         aggression_factor = discipline_sq_in / num_swings * 100) %>%
+         aggression_factor = discipline_sq_in / (num_swings / 100)) %>%
   filter(num_swings >= 200) %>%    #this is about 1/6 of a full season, to reduce survivor bias
   arrange(aggression_factor)
+
+ranks_2017 <- plate_discipline_overall %>%
+  filter(game_year == 2017) %>%
+  mutate(af_rank = percent_rank(aggression_factor) * 100)
 
 # it seems the best pitchers induce lots of swings IN the zone ... but somehow remain untouched.
 
 #correlate discipline_per_100 to xFIP-
 
 ggplot(savant_data %>% filter(game_year == 2017,
-                              pitcher %in% c("Max Scherzer", "Hisashi Iwakuma")),
+                              pitcher %in% c("Justin Verlander", "Brian Johnson")),
        aes(px_in, pz_in)) + geom_point() + facet_wrap(~pitcher) + 
   ggtitle("Swings Induced by Select Pitchers, 2017") + xlim(-20, 20) +ylim(0, 60)
 ```
