@@ -27,32 +27,78 @@ fgt = theme(
 ```
 
 ```{r}
-get_free_agents <- function(year){
-  url <- paste0("https://www.baseball-reference.com/leagues/MLB/", year, "-free-agents.shtml")
-
+get_free_agents <- function(url){
 signed_fas <- url %>%
   read_html() %>%
-  html_nodes(xpath = "//*[@id='fa_signings']") %>%
-  html_table(header = TRUE) %>%
-  .[[length(.)]]
+  html_node("table#fa_signings") %>%
+  html_table(header = TRUE)
 }
 
+get_unsigned_batters <- function(url){
+unsigned_bat <- url %>%
+  read_html() %>%
+  html_nodes(xpath = "//comment()") %>%
+  html_text() %>%
+  paste(collapse = '') %>%
+  read_html() %>%
+  html_node('table#fa_batting') %>%
+  html_table(header = TRUE)
+}
+
+get_unsigned_pitchers <- function(url) {
+unsigned_pit <- url %>%
+  read_html() %>%
+  html_nodes(xpath = "//comment()") %>%
+  html_text() %>%
+  paste(collapse = '') %>%
+  read_html() %>%
+  html_node('table#fa_pitching') %>%
+  html_table(header = TRUE)
+}
+
+
 ```
+
 
 ### get data
 
 ```{r}
+start_year <- 1988
 current_year <- 2017
-years <- tibble(year = 1988:current_year)
+years <- tibble(year = start_year:current_year) %>%
+  mutate(url = paste0("https://www.baseball-reference.com/leagues/MLB/", year, "-free-agents.shtml"))
 
-all_fa_signings <- years %>%
-  group_by(year) %>%
-  do(get_free_agents(.$year)) %>%
-  dplyr::select(name = Name, offseason = year, age = Age, sign_date = Date, three_year_war = `WAR3`) %>%
+fa_signings <- years %>%
+  group_by(url) %>%
+  do(get_free_agents(.$url)) %>%
+  mutate(offseason = str_extract(url, "[:digit:]{4}")) %>%
+  ungroup() %>%
+  dplyr::select(name = Name, offseason, age = Age, sign_date = Date, three_year_war = `WAR3`) %>%
+  mutate(sign_type = "signed") %>%
   arrange(sign_date)
 
-#check for invalid dates
-invalid_dates <- which( is.na( ymd(as.character(all_fa_signings$sign_date), tz="UTC") ) ) %>%
+unsigned_batters <- years %>%
+  group_by(url) %>%
+  do(get_unsigned_batters(.$url)) %>%
+  mutate(offseason = str_extract(url, "[:digit:]{4}")) %>%
+  ungroup() %>%
+  dplyr::select(name = Name, offseason, age = Age, three_year_war = `WAR3`) %>%
+  mutate(sign_type = "unsigned",
+         sign_date = NA_character_)
+
+unsigned_pitchers <- years %>%
+  group_by(url) %>%
+  do(get_unsigned_pitchers(.$url)) %>%
+  mutate(offseason = str_extract(url, "[:digit:]{4}")) %>%
+  ungroup() %>%
+  dplyr::select(name = Name, offseason, age = Age, three_year_war = `WAR3`) %>%
+  mutate(sign_type = "unsigned",
+         sign_date = NA_character_)
+
+
+
+#check for invalid dates that month() will fail to convert. handle them manually later
+invalid_dates <- which( is.na( ymd(as.character(fa_signings$sign_date), tz="UTC") ) ) %>%
   View()
 
 ```
@@ -62,7 +108,7 @@ invalid_dates <- which( is.na( ymd(as.character(all_fa_signings$sign_date), tz="
 ```{r}
 current_month <- "Feb"
 
-fa_signings_clean <- all_fa_signings %>%
+fa_signings_clean <- fa_signings %>%
   ungroup() %>%
   #remove transactions w/no valid date attached & for which I can't find info
   filter(name != "Guillermo Rodriguez",
@@ -71,34 +117,71 @@ fa_signings_clean <- all_fa_signings %>%
   #jay's sign date is missing but we only care abouth the month, so fake it
   mutate(sign_date = ifelse(name == "Jay Baller" & offseason == 1989, "1990-01-01", sign_date),
          offseason = as.character(offseason),
-         sign_month = month(sign_date, label = TRUE),
+         sign_month = (month(sign_date, label = TRUE)),
          
          #re-order the months based on when we perceive the start of FA season to be
-         sign_month_f = factor(sign_month, levels=c("Oct", "Nov", "Dec", "Jan", "Feb",
+         sign_month = factor(sign_month, levels=c("Oct", "Nov", "Dec", "Jan", "Feb",
                                                     "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep"))) %>%
   #omit partial months
-  filter(sign_month_f < current_month)
+  filter(sign_month < current_month)
 
+
+```
+
+```{r}
+# graph cumulative FA signings by month, for each year
 fa_signings_clean %>%
-  group_by(offseason, sign_month_f) %>%
+  group_by(offseason, sign_month) %>%
   summarize(num_signings = n()) %>%
   group_by(offseason) %>%
+  
+  #label interesting years only
   mutate(label = ifelse(offseason %in% c(1999, 2017, 2004, 2003, 2010, 2011,
-                                         1998, 1989, 1994, 1990, 1991, 1993) & sign_month_f == max(sign_month_f), 
+                                         1998, 1989, 1994, 1990, 1991, 1993) & 
+                          sign_month == max(sign_month), 
                         offseason, NA_character_)) %>%
-  arrange(offseason, sign_month_f) %>%
+  arrange(offseason, sign_month) %>%
   mutate(cumulative_signings = cumsum(num_signings)) %>%
-  ggplot(aes(x = sign_month_f, y = cumulative_signings, color=offseason, 
+  ggplot(aes(x = sign_month, y = cumulative_signings, color=offseason, 
              group = offseason, label = label)) +
   geom_point() + geom_line() +
   labs(x="", y="Cumulative FA Signings") +
-  ggtitle("2017 is the Slowest Offseason in 18 Years") +
+  ggtitle("2017 is the Slowest Offseason in the Past 18 Years") +
   geom_label_repel(aes(label=label),
                        nudge_x = 100,
                        na.rm = TRUE) +
   fgt +
   guides(color=guide_legend(ncol=2)) +
   annotate("text", label="Data from baseball-reference.com", x=3.5, y=1, size = 2.5)
+
+
+```
+
+```{r}
+
+# graph percentage unsigned FA's by month, for each year
+all_free_agents <- bind_rows(fa_signings_clean, unsigned_batters, unsigned_pitchers)
+
+all_free_agents %>% 
+  group_by(offseason) %>%
+  mutate(total_available_fas = n()) %>%  #get total available FA's in each offseason
+  filter(sign_type == "signed") %>%      #now we only need to know how many signed each month
+  group_by(offseason, sign_month, total_available_fas) %>%
+  summarize(num_signings = n()) %>%
+  group_by(offseason) %>%
+  arrange(offseason, sign_month) %>%
+  mutate(signed_perc = 100 * (cumsum(num_signings) / total_available_fas)) %>%
+  ggplot(aes(x = sign_month, y = signed_perc, color=offseason, 
+             group = offseason)) +
+  geom_point() + geom_line() +
+  labs(x="", y="Cumulative FA Signings (%)") +
+  ggtitle("2017 is the Slowest Offseason in the Past 18 Years") +
+  # geom_label_repel(aes(label=label),
+  #                      nudge_x = 100,
+  #                      na.rm = TRUE) +
+  fgt +
+  guides(color=guide_legend(ncol=2))
+  
 
 
 ```
