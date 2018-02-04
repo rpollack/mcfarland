@@ -30,8 +30,14 @@ fgt = theme(
 get_free_agents <- function(url){
 signed_fas <- url %>%
   read_html() %>%
-  html_node("table#fa_signings") %>%
-  html_table(header = TRUE)
+  html_node("table#fa_signings")
+
+# return empty tibble if no table was found
+tryCatch(html_table(signed_fas, header = TRUE),
+         error = function(e){
+           tibble()
+           }
+         )  
 }
 
 get_unsigned_batters <- function(url){
@@ -41,8 +47,14 @@ unsigned_bat <- url %>%
   html_text() %>%
   paste(collapse = '') %>%
   read_html() %>%
-  html_node('table#fa_batting') %>%
-  html_table(header = TRUE)
+  html_node('table#fa_batting') 
+
+# return empty tibble if no table was found
+tryCatch(html_table(unsigned_bat, header = TRUE),
+         error = function(e){
+           tibble()
+           }
+         )
 }
 
 get_unsigned_pitchers <- function(url) {
@@ -52,19 +64,25 @@ unsigned_pit <- url %>%
   html_text() %>%
   paste(collapse = '') %>%
   read_html() %>%
-  html_node('table#fa_pitching') %>%
-  html_table(header = TRUE)
+  html_node('table#fa_pitching')
+
+# return empty tibble if no table was found
+tryCatch(html_table(unsigned_pit, header = TRUE),
+         error = function(e){
+           tibble()
+           }
+         )
 }
-
-
 ```
 
 
 ### get data
 
 ```{r}
-start_year <- 1988
+start_year <- 1976
 current_year <- 2017
+
+
 years <- tibble(year = start_year:current_year) %>%
   mutate(url = paste0("https://www.baseball-reference.com/leagues/MLB/", year, "-free-agents.shtml"))
 
@@ -95,11 +113,9 @@ unsigned_pitchers <- years %>%
   mutate(sign_type = "unsigned",
          sign_date = NA_character_)
 
-
-
 #check for invalid dates that month() will fail to convert. handle them manually later
-invalid_dates <- which( is.na( ymd(as.character(fa_signings$sign_date), tz="UTC") ) ) %>%
-  View()
+invalid_dates <- which( is.na( ymd(as.character(fa_signings$sign_date), tz="UTC") ) )
+fa_signings %>% filter(row_number() %in% invalid_dates) %>% View()
 
 ```
 
@@ -111,11 +127,13 @@ current_month <- "Feb"
 fa_signings_clean <- fa_signings %>%
   ungroup() %>%
   #remove transactions w/no valid date attached & for which I can't find info
-  filter(name != "Guillermo Rodriguez",
-         name != "Steve Carter") %>%
+  filter(!name %in% c("Doug Gwosdz", "Kurt Kepshire", "Bill Scherrer", "Darryl Motley",
+                      "Steve Carter", "Guillermo Rodriguez")) %>%
   
-  #jay's sign date is missing but we only care abouth the month, so fake it
+  #some guys have missing sign days, but we care only about the month, so fake it
   mutate(sign_date = ifelse(name == "Jay Baller" & offseason == 1989, "1990-01-01", sign_date),
+         sign_date = ifelse(name == "Vic Rodriguez" & offseason == 1987, "1988-01-01", sign_date),
+         sign_date = ifelse(name == "Max Venable" & offseason == "1987", "1988-02-01", sign_date),
          offseason = as.character(offseason),
          sign_month = (month(sign_date, label = TRUE)),
          
@@ -131,6 +149,7 @@ fa_signings_clean <- fa_signings %>%
 ```{r}
 # graph cumulative FA signings by month, for each year
 fa_signings_clean %>%
+  filter(offseason >= 1998) %>%         #ensure roughly equal comparison among # of FA"s by comparing since last expansion
   group_by(offseason, sign_month) %>%
   summarize(num_signings = n()) %>%
   group_by(offseason) %>%
@@ -169,19 +188,21 @@ all_free_agents %>%
   group_by(offseason, sign_month, total_available_fas) %>%
   summarize(num_signings = n()) %>%
   group_by(offseason) %>%
+  mutate(label = ifelse(offseason %in% c(2017, 2003, 1994, 1976, 1985) & 
+                          sign_month == max(sign_month), 
+                        offseason, NA_character_)) %>%
   arrange(offseason, sign_month) %>%
   mutate(signed_perc = 100 * (cumsum(num_signings) / total_available_fas)) %>%
   ggplot(aes(x = sign_month, y = signed_perc, color=offseason, 
              group = offseason)) +
   geom_point() + geom_line() +
   labs(x="", y="Cumulative FA Signings (%)") +
-  ggtitle("2017 is the Slowest Offseason in the Past 18 Years") +
-  # geom_label_repel(aes(label=label),
-  #                      nudge_x = 100,
-  #                      na.rm = TRUE) +
+  ggtitle("2017 is the Slowest Offseason Ever (by Signing Percentage)") +
+  geom_label_repel(aes(label=label),
+                       nudge_x = 100,
+                       na.rm = TRUE) +
   fgt +
-  guides(color=guide_legend(ncol=2))
-  
-
+  guides(color=guide_legend(ncol=3)) +
+  annotate("text", label="Data from baseball-reference.com", x=3.5, y=1, size = 2.5)
 
 ```
