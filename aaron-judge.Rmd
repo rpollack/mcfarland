@@ -113,8 +113,8 @@ ggplot(hr_pa, aes(hr_pa)) + geom_histogram(binwidth = 0.009, aes(y=..density..))
 ```{r}
 #judge's current totals for PA with HR (successes) and PA w/o HR (failures)
 
-judge_hr <-  36
-judge_pa <- 493
+judge_hr <-  56
+judge_pa <- 773
 judge_pa_wo_hr <- judge_pa - judge_hr
 
 alpha1 = judge_hr + alpha0
