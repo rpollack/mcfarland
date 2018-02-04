@@ -6,6 +6,7 @@ library(tidyverse)
 library(lubridate)
 library(rvest)
 library(ggrepel)
+library(plotly)
 
 fgt = theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
@@ -36,57 +37,68 @@ signed_fas <- url %>%
   .[[length(.)]]
 }
 
-fake_month_convert <- function(date){
-  foo <- month(date)
-  return(foo)
-}
-
 ```
 
 ### get data
 
 ```{r}
 current_year <- 2017
-years <- tibble(year = 1998:current_year)
+years <- tibble(year = 1988:current_year)
 
 all_fa_signings <- years %>%
   group_by(year) %>%
   do(get_free_agents(.$year)) %>%
-  dplyr::select(name = Name, offseason = year, age = Age, sign_date = Date, three_year_war = `WAR3`)
+  dplyr::select(name = Name, offseason = year, age = Age, sign_date = Date, three_year_war = `WAR3`) %>%
+  arrange(sign_date)
+
+#check for invalid dates
+invalid_dates <- which( is.na( ymd(as.character(all_fa_signings$sign_date), tz="UTC") ) ) %>%
+  View()
 
 ```
 
 ### clean data
 
 ```{r}
+current_month <- "Feb"
 
-# Guillermo Rodriguez
-# 2009
-# 32
-# 2010-00-00
-# -0.1
-# HE'S FUCKING UP MY SHIT
-
-
-
-
-all_fa_signings %>%
+fa_signings_clean <- all_fa_signings %>%
   ungroup() %>%
+  #remove transactions w/no valid date attached & for which I can't find info
+  filter(name != "Guillermo Rodriguez",
+         name != "Steve Carter") %>%
   
-  #remove spurious transaction w/no valid date attached
-  filter(name != "Guillermo Rodriguez") %>%
-  mutate(sign_month = month(sign_date, label = TRUE),
+  #jay's sign date is missing but we only care abouth the month, so fake it
+  mutate(sign_date = ifelse(name == "Jay Baller" & offseason == 1989, "1990-01-01", sign_date),
+         offseason = as.character(offseason),
+         sign_month = month(sign_date, label = TRUE),
          
          #re-order the months based on when we perceive the start of FA season to be
          sign_month_f = factor(sign_month, levels=c("Oct", "Nov", "Dec", "Jan", "Feb",
                                                     "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep"))) %>%
-  filter(sign_month_f %in% c("Oct", "Nov", "Dec", "Jan")) %>%
-  mutate(offseason = as.character(offseason)) %>%
+  #omit partial months
+  filter(sign_month_f < current_month)
+
+fa_signings_clean %>%
   group_by(offseason, sign_month_f) %>%
   summarize(num_signings = n()) %>%
-  ggplot(aes( x = sign_month_f, y = num_signings, group = offseason, color=offseason)) +
-  geom_point() +
-  geom_line() +
-  labs(x="", y="Number of Free Agent Signings") + fgt
+  group_by(offseason) %>%
+  mutate(label = ifelse(offseason %in% c(1999, 2017, 2004, 2003, 2010, 2011,
+                                         1998, 1989, 1994, 1990, 1991, 1993) & sign_month_f == max(sign_month_f), 
+                        offseason, NA_character_)) %>%
+  arrange(offseason, sign_month_f) %>%
+  mutate(cumulative_signings = cumsum(num_signings)) %>%
+  ggplot(aes(x = sign_month_f, y = cumulative_signings, color=offseason, 
+             group = offseason, label = label)) +
+  geom_point() + geom_line() +
+  labs(x="", y="Cumulative FA Signings") +
+  ggtitle("2017 is the Slowest Offseason in 18 Years") +
+  geom_label_repel(aes(label=label),
+                       nudge_x = 100,
+                       na.rm = TRUE) +
+  fgt +
+  guides(color=guide_legend(ncol=2)) +
+  annotate("text", label="Data from baseball-reference.com", x=3.5, y=1, size = 2.5)
+
 
 ```
