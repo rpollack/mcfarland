@@ -191,8 +191,8 @@ plot_gamlss_fit <- function(f) {
     geom_line() +
     geom_ribbon(aes(ymin = conf_low, ymax = conf_high), linetype = 2, alpha = .1) +
     labs(x = "Year",
-         y = "Prior distribution (median + 95% quantiles)") +
-    ggtitle("Prior SB% Expectations of a 50-attempt Season") +
+         y = "Prior (SB%, Median + 95% Credible Interval)") +
+    ggtitle("SB% Prior Expectations, 50 Steal Attempts") +
     theme(legend.position="none") +
     fgt
 }
@@ -244,23 +244,7 @@ ggplot() + geom_histogram(binwidth = 0.001, aes(y=..density..)) +
   labs(color = "Player") + fgt
 ```
 
-Each point on the curve represents the probability density (y) of the player having a particular true-talent stolen base success rate (x). Each curve peaks at the player's most likely success rate. 
 
-Look at the red curve that belongs to Tim Raines. Despite an observed career success rate of 84.6%, the model thinks his true-talent success rate is about 78%. Why? Regression to the mean. We do it for modern metrics like BABIP and HR/FB. We must also do it for classic metrics like stolen base rate.
-
-Similarly, despite an observed success rate of 80.7% for Henderson, the model thinks his success rate is likely arounod 77%. Already we see that the gap between 77% and 78% is much closer than the gap between observed rates of 84.6% and 80.7%.
-
-Finally, note that Henderson's curve is both narrower and taller than Raines'. Remember that we have almost twice as many observations of Henderson as we do about Raines. More information means a smaller range of probable success rates; hence, a narrower curve. More information also means more confidence in our conclusions; hence, the taller peak.
-
-WHO'S THE BETTER THIEF?
-
-Remember our original predicament: America demands tacos, and we're in a position to deliver. Who gets the call?
-
-Looking at the graph above makes it hard to decide. Raines seems to have a higher success rate -- his curve peaks higher on the x-axis. But we have much less information about Raines than we do about Henderson. Additionally, the two curves seem to overlap an awful lot, meaning there is some chance these guys have an identical success rate. Whom do we choose? Or in Bayesian terms -- given the curves above, what is the probability that Raines' success rate is higher than Henderson's?
-
-We can answer this question with an A/B test, which for the sake of this article I'll call a Taco Maximization Algorithm. There are a number of ways to do this. I'll show two: simulating one million seasons for each player, and numerical integration. In the former method, 76.3% of Raines' seasons have better success rates than Henderson's. In the latter method, we arrive at 75.2%.
-
-These two values are close enough for our purposes that I'll average them to get 75.8%. That's how certain we are that Raines' true-talent success rate is higher than Henderson's. To help visualize this, I graphed a density cloud of the joint probabilities of their success rates with a dividing line between them. Note that about 3/4 of the cloud is on Raines' side.
 
 ```{r}
 #simulation
@@ -296,19 +280,6 @@ sum(outer(limits, limits, function(x, y) {
     dbeta(y, henderson_alpha, henderson_beta) *
     d ^ 2
 }))
-
-# 
-# ggplot() + geom_histogram(binwidth = 0.001, aes(y=..density..)) +
-#   stat_function(fun = dbeta,
-#                 args=list(shape1 = 1324.05237, shape2 = 347.83823),
-#                 lwd=1.5,
-#                 aes(color = "Vince Coleman")) +
-#   stat_function(fun = dbeta,
-#                 args=list(shape1 = 2582.395, shape2 = 706.2933),
-#                 lwd=1.5,
-#                 aes(color="Rickey Henderson")) +
-#   xlim(.725, 0.85) + labs(x="Estimated SB Success Rate") + 
-#   ggtitle("Comparing Two Stolen-Base Legends") +
 
 
 ```
@@ -350,18 +321,22 @@ ggplot() + geom_histogram(binwidth = 0.009, aes(y=..density..)) +
                 lwd=1.5,
                 aes(color="Billy Hamilton")) +
   xlim(0.65, 0.90) + labs(x="Estimated SB Success Rate") + 
-  ggtitle("Comparing Well-Known Basestealers Throughout History") + 
+  ggtitle("Estimated Success Rates of Well-Known Basestealers") + 
   labs(color = "Player") + fgt
 ```
 
-#top 25
+flattened ...
 
 ```{r}
-ggplot(eb_sb_career %>% head(25), aes(est_sb_rate, reorder(batter_name, est_sb_rate))) +
+ggplot(eb_sb_career %>% filter(batter_name %in% c("Barry Bonds", "Billy Hamilton",
+                                                  "Carlos Beltran", "Lou Brock",
+                                                  "Maury Wills", "Rickey Henderson",
+                                                  "Tim Raines", "Vince Coleman")),
+       aes(est_sb_rate, reorder(batter_name, est_sb_rate))) +
   geom_point() +
   geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
   labs(y="", x="Estimated Career SB Success Rate with 95% Credible Interval") +
-  ggtitle("Best Basestealers") + fgt
+  ggtitle("Estimated Success Rates of Well-Known Basestealers") + fgt
 ```
 
 
