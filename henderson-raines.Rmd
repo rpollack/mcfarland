@@ -81,14 +81,15 @@ sb_info_seasons <- fg_db %>%
   tbl("stats_batting") %>%
   filter(Type == 0,
          Season > 1930) %>%
-  dplyr::select(playerid, Season, SB, CS) %>%
+  dplyr::select(playerid, Season, Age, SB, CS) %>%
   collect(n=Inf) %>%
   inner_join(fg_info, by=c("playerid" = "PlayerId")) %>%
   mutate(attempts = CS + SB,
          sb_perc = SB / attempts,
-         decade = Season %/% 10 * 10) %>%
+         decade = Season %/% 10 * 10,
+         age_bracket = Age %/% 10 * 10) %>%
   filter(!is.na(sb_perc)) %>%  
-  dplyr::select(playerid, batter_name, Season, decade, SB, attempts, 
+  dplyr::select(playerid, batter_name, Age, age_bracket, Season, decade, SB, attempts, 
                 sb_perc) %>%
   arrange(desc(sb_perc))
 
@@ -100,9 +101,13 @@ sb_info_seasons <- fg_db %>%
 
 
 ```{r}
-ggplot(sb_info_seasons, aes(decade, sb_perc, group = decade)) + geom_boxplot()
+ggplot(sb_info_seasons, aes(decade, sb_perc, group = decade)) + geom_boxplot() +
+  fgt
 
-ggplot(sb_info_seasons, aes(decade, attempts, group = decade)) + geom_boxplot()
+ggplot(sb_info_seasons, aes(age_bracket, sb_perc, group = age_bracket)) + geom_boxplot() +
+  fgt
+
+# ggplot(sb_info_seasons, aes(decade, attempts, group = decade)) + geom_boxplot()
 
 
 ```
@@ -112,10 +117,16 @@ ggplot(sb_info_seasons, aes(decade, attempts, group = decade)) + geom_boxplot()
 helpful explanation of knots and splines: https://stats.stackexchange.com/questions/7316/setting-knots-in-natural-cubic-splines-in-r
 
 ```{r}
-degrees <- 4
+degrees <- 5
 spline_model_seasons <- lm(cbind(sb_info_seasons$SB, sb_info_seasons$attempts - sb_info_seasons$SB) ~
                              ns(sb_info_seasons$Season, degrees))
 plot(predict(spline_model_seasons))
+
+
+degrees_age <- 3
+spline_model_age <- lm(cbind(sb_info_seasons$SB, sb_info_seasons$attempts - sb_info_seasons$SB) ~
+                             ns(sb_info_seasons$Age, degrees_age))
+plot(predict(spline_model_age))
 
 ```
 
@@ -125,7 +136,7 @@ plot(predict(spline_model_seasons))
 ```{r}
 
 #model sb%, allowing the number of attempts to according to the year of the season as well as the number of attempts
-fit <- gamlss(cbind(SB, attempts - SB) ~ ns(Season, 4) * log(attempts),
+fit <- gamlss(cbind(SB, attempts - SB) ~ ns(Season, 5) * log(attempts) * Age,
               data = sb_info_seasons,
               family = BB(mu.link = "identity"))
 
@@ -171,6 +182,26 @@ ggplot(eb_sb_career %>% head(25), aes(est_sb_rate, reorder(batter_name, est_sb_r
 ```
 
 
+```{r}
+
+# plot histograms of seasons
+
+henderson_coleman <- eb_sb %>%
+  filter(batter_name %in% c("Vince Coleman", "Rickey Henderson"))
+
+henderson_coleman %>%
+  ggplot(aes(Season, est_sb_rate)) +
+  geom_bar(stat="identity") +
+  facet_grid(~batter_name) + 
+  fgt
+
+henderson_coleman %>%
+  group_by(batter_name) %>%
+  summarize(mean_eb_sb_perc = mean(est_sb_rate))
+
+```
+
+
 
 
 
@@ -179,7 +210,8 @@ ggplot(eb_sb_career %>% head(25), aes(est_sb_rate, reorder(batter_name, est_sb_r
 plot_gamlss_fit <- function(f) {
   sb_info_seasons %>%
     distinct() %>%
-    mutate(attempts = 50) %>%
+    mutate(attempts = 50,
+           Age = 27) %>%
     augment(f, newdata = .) %>%
     rename(mu = .fitted) %>%
     mutate(sigma = fitted(fit, "sigma")[1],
@@ -192,7 +224,7 @@ plot_gamlss_fit <- function(f) {
     geom_ribbon(aes(ymin = conf_low, ymax = conf_high), linetype = 2, alpha = .1) +
     labs(x = "Year",
          y = "Prior (SB%, Median + 95% Credible Interval)") +
-    ggtitle("SB% Prior Expectations, 50 Steal Attempts") +
+    ggtitle("SB% Prior Expectations, 50 Steal Attempts @ 27 Years Old") +
     theme(legend.position="none") +
     fgt
 }
@@ -201,7 +233,11 @@ plot_gamlss_fit(fit)
 
 ```
 
-50 attempts means a lot more now than it does in 1950. back then, everyone was running wild. today, stolen bases have plummeted ... if you see a guy attempting 50 steals, you can assume he's a really good basestealer.
+For a player in the 1950's who attempted 50 steals, you'd expect their success rate to be about 70%. In those days, everyone ran wild without considering sucecss that much. Contrast that to today, when stolen base attempts are rarer due to increased awareness of the importance of outs. In 2017, if you see a guy attempting 50 steals, you'd guess his success rate to be closer to 80%.
+
+
+
+50 attempts today tells you means a lot more now than it does in 1950. back then, everyone was running wild. today, stolen bases have plummeted ... if you see a guy attempting 50 steals, you can assume he's a really good basestealer.
 
 
 LIKELIHOOD
@@ -297,29 +333,21 @@ ggplot() + geom_histogram(binwidth = 0.009, aes(y=..density..)) +
                 lwd=1.5,
                 aes(color="Rickey Henderson")) +
   stat_function(fun = dbeta,
-                args=list(shape1 = 1791.8509, shape2 = 567.37504),
+                args=list(shape1 = 1796.56876, shape2 = 580.01119),
                 lwd=1.5,
                 aes(color = "Tim Raines")) +
   stat_function(fun = dbeta,
-                args=list(shape1 = 1114.685, shape2 = 396.045),
+                args=list(shape1 = 1123.084, shape2 = 401.8446),
                 lwd=1.5,
                 aes(color="Carlos Beltran")) +
   stat_function(fun = dbeta,
-                args=list(shape1 = 1216.077, shape2 = 472.1578),
+                args=list(shape1 = 1225.087, shape2 = 474.1915),
                 lwd=1.5,
                 aes(color="Maury Wills")) +
   stat_function(fun = dbeta,
-                args=list(shape1 = 1796.182, shape2 = 598.5485),
+                args=list(shape1 = 1818.548, shape2 = 590.381),
                 lwd=1.5,
-                aes(color="Lou Brock")) +
-  stat_function(fun = dbeta,
-                args=list(shape1 = 1470.755, shape2 = 525.5968),
-                lwd=1.5,
-                aes(color="Barry Bonds")) +
-  stat_function(fun = dbeta,
-                args=list(shape1 = 499.8613, shape2 = 115.5082),
-                lwd=1.5,
-                aes(color="Billy Hamilton")) +
+                aes(color="Lou Brock")) + 
   xlim(0.65, 0.90) + labs(x="Estimated SB Success Rate") + 
   ggtitle("Estimated Success Rates of Well-Known Basestealers") + 
   labs(color = "Player") + fgt
@@ -328,8 +356,7 @@ ggplot() + geom_histogram(binwidth = 0.009, aes(y=..density..)) +
 flattened ...
 
 ```{r}
-ggplot(eb_sb_career %>% filter(batter_name %in% c("Barry Bonds", "Billy Hamilton",
-                                                  "Carlos Beltran", "Lou Brock",
+ggplot(eb_sb_career %>% filter(batter_name %in% c("Carlos Beltran", "Lou Brock",
                                                   "Maury Wills", "Rickey Henderson",
                                                   "Tim Raines", "Vince Coleman")),
        aes(est_sb_rate, reorder(batter_name, est_sb_rate))) +
