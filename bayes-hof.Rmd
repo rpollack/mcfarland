@@ -100,24 +100,34 @@ prob_war_thru_age <- function(playerid, age, war, position, floor, ceiling){
   # also remove the player themselves from the analysis. otherwise if the player is eligible but not inducted (like Barry Bonds)
   # they're compared to themselves and that lowers their probability, since they are not HOF by definition
   
-  matching_players <- hof_eligible_players %>%
-    filter(PlayerId != playerid, 
-           Age == age,
-           Position == position,
-           cumulative_war <= ceiling,
-           cumulative_war >= floor) %>%
-    distinct(PlayerId, HOF)
+  print(playerid)
+
+  tryCatch(
+    hof_eligible_players %>%
+      filter(PlayerId != playerid, 
+             Age == age,
+             Position == position,
+             cumulative_war <= ceiling,
+             cumulative_war >= floor) %>%
+      distinct(PlayerId, HOF) %>%     # retain only one row for each matching player
+      count(HOF) %>%
+      spread(HOF, n) %>%
+      mutate(num_eligible_players_who_meet_criteria = No + Yes) %>%
+      dplyr::select(num_eligible_players_who_meet_criteria, num_hof_players_who_meet_criteria = Yes),
+    error = function(e){
+      data.frame(num_eligible_players_who_meet_criteria = 0,
+           num_hof_players_who_meet_criteria = 0)
+    }
+  )
+}  
   
-  num_players_at_position <- matching_players %>%
-    nrow()
+  # %>%
+#   mutate(num_eligible_players_who_meet_criteria = as.numeric(num_eligible_players_who_meet_criteria),
+#          num_hof_players_who_meet_criteria = as.numeric(num_hof_players_who_meet_criteria))
+
   
-  num_hof_players_at_position <- matching_players %>%
-    filter(HOF == "Yes") %>%
-    nrow()
-  
-  result <- sprintf("%d %d", num_players_at_position, num_hof_players_at_position)
-  return(result)
-}
+  #result <- sprintf("%d %d", num_players_at_position, num_hof_players_at_position)
+
 prob_war_thru_age <- Vectorize(prob_war_thru_age)
 ```
 
@@ -125,8 +135,9 @@ prob_war_thru_age <- Vectorize(prob_war_thru_age)
 
 ```{r}
 
-#for each player-season, compute their total WAR through the age they were that season
-#also mark which players are in HOF
+# for each player-season, compute their total WAR through the age they were that season
+# also mark which players are in HOF
+# finally, retain only the player's latest season, as that's all we're interested in analyzing
 war_through_age <- seasonal_war %>%
   group_by(PlayerId, Name, last_year, Position) %>%
   arrange(Age) %>%
@@ -134,6 +145,7 @@ war_through_age <- seasonal_war %>%
          num_seasons = seq(n()),
          war_ceiling = cumulative_war + (1.5 * num_seasons),
          war_floor = cumulative_war - (1.5 * num_seasons))
+
 
 #compute HOF & non-HOF totals and probabilities at each position
 current_year <- 2017
@@ -164,21 +176,24 @@ hof_eligible_players <- war_through_age %>%
   ungroup() %>%
   filter(last_year <= current_year - 6)
 
-#for each age/WAR range (floor to ceiling) combination, find the number of players (HOF & non-HOF) with WAR in that range.
+#for each player, find the number of players (HOF & non-HOF) with WAR in that range.
 # then use totals to compute Bayesian parameters & finally the probability of that player reaching HOF
+# focus on the latest seasons for non-HOF players
+
 war_age_combinations <- war_through_age %>%
+  filter(Age == max(Age),
+         HOF == "No") %>% 
   ungroup() %>%
+  head(1) %>%
   dplyr::select(PlayerId, Age, cumulative_war, Position, war_floor, war_ceiling) %>%
-  mutate(x = prob_war_thru_age(PlayerId, Age, cumulative_war, Position, war_floor, war_ceiling)) %>%
-  separate(x, c("num_eligible_players_who_meet_criteria", 
-                "num_hof_players_who_meet_criteria"), sep = " ") %>%
-  mutate(num_eligible_players_who_meet_criteria = as.numeric(num_eligible_players_who_meet_criteria),
-         num_hof_players_who_meet_criteria = as.numeric(num_hof_players_who_meet_criteria))
+  do(prob_war_thru_age(.$PlayerId, .$Age, .$cumulative_war, .$Position, .$war_floor, .$war_ceiling))
+
+# %>%
+#   mutate(num_eligible_players_who_meet_criteria = as.numeric(num_eligible_players_who_meet_criteria),
+#          num_hof_players_who_meet_criteria = as.numeric(num_hof_players_who_meet_criteria))
 
 bayes_hof <- war_through_age %>%
   group_by(PlayerId) %>%
-  filter(HOF == "No",           # don't analyze HOF players
-         Age == max(Age)) %>%  # analye only players' latest seasons
   ungroup() %>%
   
   #add data used to calculate bayesian parameters
