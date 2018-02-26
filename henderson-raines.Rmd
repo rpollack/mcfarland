@@ -185,18 +185,18 @@ ggplot(eb_sb_career %>% head(25), aes(est_sb_rate, reorder(batter_name, est_sb_r
 ```
 
 ```{r}
-# tim raines 1992
+# henderson 1992
 ggplot() + geom_histogram(binwidth = 0.009, aes(y=..density..)) +
   stat_function(fun = dbeta,
-                args=list(shape1 = 48.52588, shape2 = 15.51216),
+                args=list(shape1 = 49.25708, shape2 = 14.78096),
                 lwd=1.5,
-                aes(color="Prior Expectations")) +
+                aes(color="Prior Expectation")) +
    stat_function(fun = dbeta,
-                args=list(shape1 = 93.52588, shape2 = 21.51216),
+                args=list(shape1 = 97.25708, shape2 = 25.78096),
                 lwd=1.5,
                 aes(color="Posterior")) +
-  xlim(0.55, 0.95) + labs(x="Estimated SB Success Rate") + 
-  ggtitle("Tim Raines, 1992") + 
+  xlim(0.55, 0.95) + labs(x="Estimated SB%") + 
+  ggtitle("Rickey Henderson, 1992 (48 SB, 11 CS)") + 
   labs(color = "Distribution") + tht_theme
 
 ```
@@ -263,6 +263,21 @@ eb_sb %>%
 
 ```
 
+```{r}
+
+
+sb_info_seasons %>%
+  filter(batter_name %in% c("Rickey Henderson", "Vince Coleman")) %>%
+  ggplot(aes(Season, attempts, size=sb_perc, color=batter_name)) +
+  geom_point() + tht_theme + labs(y="Attempts", color="Player", size="SB%")
+
+sb_info_seasons %>%
+  filter(batter_name %in% c("Rickey Henderson", "Vince Coleman", "Tim Raines")) %>%
+  ggplot(aes(Season, attempts, size=sb_perc, color=batter_name)) +
+  geom_point() + tht_theme + labs(y="Attempts", color="Player", size="SB%")
+
+```
+
 
 
 
@@ -287,7 +302,7 @@ plot_gamlss_fit <- function(f) {
     labs(x = "Year",
          y = "Prior (SB%, Median + 95% Credible Interval)") +
     ggtitle("SB% Prior Expectations, 20 Steal Attempts in a Season") +
-    theme(legend.position="none") +
+    theme(legend.position="none") + xlim(1950, 2020) +
     tht_theme
 }
 plot_gamlss_fit(fit)
@@ -342,15 +357,15 @@ coleman_beta <- as.numeric(coleman_list[2])
 
 ggplot() + geom_histogram(binwidth = 0.001, aes(y=..density..)) +
   stat_function(fun = dbeta,
-                args=list(shape1 = raines_alpha, shape2 = raines_beta),
+                args=list(shape1 = coleman_alpha, shape2 = coleman_beta),
                 lwd=1.5,
-                aes(color = "Tim Raines")) +
+                aes(color="Vince Coleman")) +
   stat_function(fun = dbeta,
                 args=list(shape1 = henderson_alpha, shape2 = henderson_beta),
                 lwd=1.5,
                 aes(color="Rickey Henderson")) +
-  xlim(.70, 0.85) + labs(x="Estimated Career SB%") + 
-  ggtitle("Comparing Two Stolen-Base Legends") + 
+  xlim(.75, 0.825) + labs(x="Estimated Career SB%") + 
+  ggtitle("Estimated SB%, Rickey Henderson and Vince Coleman") + 
   labs(color = "Player") + tht_theme
 
 ggplot() + geom_histogram(binwidth = 0.001, aes(y=..density..)) +
@@ -429,7 +444,7 @@ crossing(coleman_x = x, henderson_x = x) %>%
   ggplot(aes(coleman_x, henderson_x, fill = joint)) +
   geom_tile() +
   geom_abline() +
-  scale_fill_gradient2(low = "white", high = "red") +
+  scale_fill_gradient2(low = "white", high = "#8e001c") +
   labs(x = "Coleman Estimated SB%",
        y = "Henderson Estimated SB%",
        fill = "Joint density") +
