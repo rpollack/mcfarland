@@ -428,6 +428,13 @@ warcels <- master_full %>%
          surplus_value_rank = round(percent_rank(controlled_surplus_value) * 100, 2)) %>%
   select(-Year) %>%
   arrange(desc(controlled_surplus_value))
+
+# save info for analysis next year
+warcels %>%
+  select(Name, Team, years_of_control, Position, war_under_control, salary_under_control,
+         controlled_surplus_value, absolute_surplus_value, surplus_value_rank) %>%
+  write_csv("warcels-2018.csv")
+
 ```
 
 
@@ -437,9 +444,7 @@ warcels <- master_full %>%
 warcels_2018 <-
   warcels %>% 
   group_by(Team) %>% 
-  summarize(total_controlled_surplus_value_2018 = sum(controlled_surplus_value)) %>%
-  write_csv("warcels-2018.csv")
-  
+  summarize(total_controlled_surplus_value_2018 = sum(controlled_surplus_value))
 
 #changes from 2017
 warcels_changes_2017_2018 <- read_csv("warcels-2017.csv") %>%
