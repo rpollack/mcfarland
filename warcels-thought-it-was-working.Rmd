@@ -1,0 +1,560 @@
+
+notes:
+* WAR projections are done using FG WAR & Warcels (link).
+* missing seasons are filled in with 1 WAR. this includes seasons prior to a player's debut as well as those #missed due to injury/ineffectiveness/whatever.
+* players are assigned to the current team they're on. free agents are not assigned to any team.
+* FA computations assume all options are picked up. e.g. starlin castro is given 4 years of control even #though he has three years remaining before his $16 team option in 2020.
+* for pre-arb years, minimum salary is used: $535k.
+* for arb players, MLBTR projections are used for 2017. for future arb years, including Arb-1's, 25%/40%/60% of FA salary is used to project.
+* for Arb-4 players, 80% of salary is used to project
+* for players with non-arb contracts, salary under control is computed as AAV of contract * number of years #of control
+* for position players, only offensive & defensive WAR is counted. for pitchers, only pitching WAR is counted.
+* players who are under contract for longer than 5 years are, for the purposes of this exercise, give 5 years of team control. this is because i only projected WAR out for 5 years. contracts that run more than 5 years contain only the first five years of the player's earnings.
+* players who haven't reached arbitration yet use the same calculations but with the minimum salary as their base. so Arb 1 would be assuming a raise from the min. salary, etc.
+
+
+Questions:
+
+- Win Now-iest team in Baseball
+- Worst contract in baseball (least surplus over next 5 years)
+- Most efficiently-spending teams over next 5 years
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(rvest)
+library(stringr)
+library(plotly)
+
+fgt = theme(
+  panel.background = element_rect(color = "lightgrey", fill = "white"),
+  axis.title = element_text(family = "Lato"),
+  axis.text = element_text(family = "Lato"),
+  legend.title = element_text(family = "Lato"),
+  legend.text = element_text(family = "Lato"),
+  legend.background = element_rect(fill = "white"),
+  legend.key = element_rect(fill = "white"),
+  plot.title = element_text(family = "Lato"),
+  panel.grid.major = element_line(size = .1, color = "lightgrey"),
+  panel.grid.minor = element_line(size = 0),
+  strip.background = element_rect(fill = "#50ae26"),
+  strip.text = element_text(color="white", family="Lato")
+  )
+
+fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"), 
+                            host = Sys.getenv("FG_HOST"), 
+                            user = Sys.getenv("FG_USER"),
+                            password = Sys.getenv("FG_PW"))
+```
+
+#Define functions to read payroll data from bb-ref.
+
+```{r}
+# shared by bill petti in FG slack chat on 11.25.2016
+# modified by ryan pollack on 1.3.2017 to get detailed payroll information 
+
+getTeamabbr <- function(year) {
+  team_tbl <- read_html(paste0("http://www.baseball-reference.com/leagues/MLB/", year, ".shtml"), stringsAsFactors=FALSE)
+  tms <- team_tbl %>%
+    html_nodes("table") %>%
+    .[[1]] %>%
+    html_table() %>%
+    select(Tm) %>%
+    filter(Tm != "LgAvg", 
+           Tm != "", 
+           Tm != "Tm")
+  tms$year <- year
+  return(tms)
+}
+
+getPayrolls <- function(Tm, team_name) {
+  url <- paste0("http://www.baseball-reference.com/teams/", Tm, "/", team_name, "-salaries-and-contracts.shtml")
+  tms <- url %>%
+    read_html() %>%
+    html_nodes("table") %>%
+    .[[length(.)]] %>%
+    html_table(header=TRUE)
+  
+  if (!"2022" %in% names(tms)) {
+    tms$`2022` <- NA
+  }
+  
+  next_year <- 2018
+  tms <- tms %>%
+    
+    #remove unused cells in the 'Name' column
+    filter(!Name %in% c("Name","","Arb Costs", "Arb Eligible", "Contract Options", 
+                        "Dollars Committed", "Other Costs", "Option Values", "Other Players", 
+                        "Payroll (no options)", "Payroll (options)", "Signed")) 
+  
+  #for each player, create multiple rows, one for each "Year", where "value" is either their salary that year, their arbitration status, or their FA status, or blank if the player won't be on the payroll.
+  #the 2017, 2018, 2019, etc. columns are the ones collapsed into the 'value' column. because those are left when the others are unselected (with a minus sign)).
+  tms_melt <- gather(tms, key = Year, value, -Name, -Age, -Yrs, -Acquired, -SrvTm, -Agent, -`Contract Status`)
+  tms_melt <- tms_melt %>%
+    mutate(value = ifelse(grepl("FA-\\*", value) == TRUE, "", value)) %>% #assume options won't happen
+    filter(value != "") %>%           #remove years where players aren't on a payroll                                   
+    mutate(Team = Tm)
+}
+```
+
+### Get data from FG DB
+
+```{r}
+
+this_year <- 2017
+next_year <- this_year + 1
+
+#player ID / Name data from FG. allows distinguishing b/w players with identical names
+fg_players <- fg_db %>%
+  tbl("player_info") %>%
+  select(PlayerId, FirstName, LastName, TeamId, BirthDate, BISPosition, Position) %>%
+  collect(n=Inf)
+
+#projected team for this/next year. allows merging between FG and baseball-reference datasets
+fg_projected_teams_batters <- fg_db %>% 
+  tbl('proj_batting') %>% 
+  filter(Type == "Steamer",
+         Season == this_year + 1) %>%
+  select(PlayerId, Team) %>%
+  collect(n=Inf)
+
+fg_projected_teams_pitchers <- fg_db %>% 
+  tbl('proj_pitching') %>% 
+  filter(Type == "Steamer",
+         Season == this_year + 1) %>%
+  select(PlayerId, Team) %>%
+  collect(n=Inf)
+
+#match team abbreviations to those of baseball reference, to allow merging b/w both datasets
+fg_projected_teams_all <- bind_rows(fg_projected_teams_batters, fg_projected_teams_pitchers) %>%
+  mutate(Team = ifelse(Team == "LAN", "LAD", Team),
+         Team = ifelse(Team == "SFN", "SFG", Team),
+         Team = ifelse(Team == "CHA", "CHW", Team),
+         Team = ifelse(Team == "NYA", "NYY", Team),
+         Team = ifelse(Team == "NYN", "NYM", Team),
+         Team = ifelse(Team == "SDN", "SDP", Team),
+         Team = ifelse(Team == "KCA", "KCR", Team),
+         Team = ifelse(Team == "CHN", "CHC", Team),
+         Team = ifelse(Team == "SLN", "STL", Team),
+         Team = ifelse(Team == "WAS", "WSN", Team),
+         Team = ifelse(Team == "TBA", "TAM", Team))
+
+#get batting/fielding stats for position players
+fg_bat <- fg_db %>%
+  tbl("stats_batting") %>%
+  filter(Type == 0) %>%     #get only full-season stats for each player
+  select(playerid, Season, ValueW) %>%
+  collect(n=Inf)
+
+fg_batters <- inner_join(fg_players, fg_bat, by=c("PlayerId" = "playerid")) %>%
+  filter(Position != "P",             #don't get batting WAR for pitchers
+         BISPosition != "SP",
+         BISPosition != "RP") %>%
+  select(PlayerId, FirstName, LastName, Season, BirthDate, ValueW, Position, TeamId)
+
+#get pitching stats for pitchers
+fg_pitch <- fg_db %>%
+  tbl("stats_pitching") %>%
+  filter(Type == 0) %>%
+  select(PlayerId, Season, TeamId, ValueW) %>%
+  collect(n=Inf)
+
+fg_pitchers <- inner_join(fg_players, fg_pitch, by="PlayerId") %>%
+  filter(BISPosition %in% c("SP", "RP")) %>% #don't get pitching WAR for position players
+  select(PlayerId, FirstName, LastName, Season, BirthDate, ValueW, Position = BISPosition, 
+         TeamId = TeamId.x)
+```
+
+### Combine gathered data into one frame and re-format some data
+
+```{r}
+all_players <- bind_rows(fg_batters, fg_pitchers)  %>%
+  inner_join(fg_projected_teams_all, by="PlayerId") %>%
+  select(-TeamId) %>%
+  mutate(FullName = sprintf("%s %s", FirstName, LastName),
+         birth_date = as.Date(as.POSIXct(BirthDate)),
+         birth_year = format(birth_date, "%Y"),
+         Team = ifelse(Team == "TAM", "TBR", Team)) %>%
+  select(PlayerId, Name = FullName, Season, Team, ValueW, birth_year, Position) %>%
+  group_by(PlayerId) %>%
+  arrange(desc(Season)) %>%
+  filter(row_number() <= 3)   # only need the most recent 3 years of each player, for projection purposes
+```
+
+### Figure out a rough relationship between WAR and Arb-1 salaries, for the purposes of estimating Arb-1 salaries for other players. This section only needs to be run once.
+
+```{r, echo=FALSE, eval=FALSE}
+
+find_cumulative_war_through_year <- function(name, year){
+  #search both batter & pitcher data frames for the player and return their cumulative
+  #fWAR through the given year. this tactic works because each player appears in only one data frame.
+  
+  fname <- str_split(name, " ", simplify = TRUE, n=2)[1]
+  lname <- str_split(name, " ", simplify = TRUE, n=2)[2]
+
+  batter_search <- fg_batters %>%
+    filter(FirstName == fname,
+           LastName == lname,
+           Season >= (year -4),   #restrict year floor to ensure we're getting the player we want
+           Season < year)
+  
+  pitcher_search <- fg_pitchers %>%
+    filter(FirstName == fname,
+           LastName == lname,
+           Season >= (year -4),
+           Season < year)
+  
+  search_space <- bind_rows(batter_search, pitcher_search)
+  
+  return(sum(search_space$ValueW))
+}
+find_cumulative_war_through_year <- Vectorize(find_cumulative_war_through_year)
+
+#arbitration data from MLBTR datafiles
+arb_2016 <- read_tsv("arbitration-2016.txt")
+arb_2016 <- arb_2016 %>%
+  select(Name, Team, SrvTm, SettledAmt) %>%
+  filter(SettledAmt != "Extension") %>%
+  mutate(Year = 2016)
+
+arb_2015 <- read_tsv("arbitration-2015.txt")
+arb_2015 <- arb_2015 %>%
+  select(Name, Team, SrvTm, SettledAmt) %>%
+  filter(SettledAmt != "Extension") %>%
+  mutate(Year = 2015)
+
+arb_2014 <- read_tsv("arbitration-2014.txt")
+arb_2014 <- arb_2014 %>%
+  select(Name, Team, SrvTm, SettledAmt) %>%
+  filter(SettledAmt != "Extension") %>%
+  mutate(Year = 2014)
+
+all_arb <- bind_rows(arb_2015, arb_2016, arb_2014) %>%
+  filter(SrvTm >= 2,
+         SrvTm <= 3.9) %>%  #make sure I catch first-year arbs only
+  select(-SrvTm)
+
+all_arb$SettledAmt <- gsub("\\$", "", all_arb$SettledAmt)
+all_arb$SettledAmt <- gsub("MM", "", all_arb$SettledAmt)
+all_arb$SettledAmt <- as.double(all_arb$SettledAmt)
+
+all_arb <- all_arb %>%
+  mutate(war_at_signing = find_cumulative_war_through_year(Name, Year),
+         predicted_arb = 1.36881 + (.26896 * war_at_signing))  #based on linear model of Arb-1 ~ WAR
+```
+
+### Project WAR each year for the next 5 years for each player
+Methodology: http://tangotiger.com/index.php/site/article/war-marcels-...-warcels
+
+```{r}
+projected_war <- all_players %>%
+  group_by(Name) %>%
+  arrange(Season) %>%
+  mutate(age_now = this_year - as.integer(birth_year),
+         age_next_year = age_now + 1, 
+         age_in_two_years = age_now + 2,
+         age_in_three_years = age_now + 3,
+         age_in_four_years = age_now + 4,
+         currentWAR = ifelse(is.na(ValueW) == FALSE, ValueW, 1),  #players w/o appearances in a season get 1 WAR for that year
+         war_last_year = ifelse(is.na(lag(ValueW)) == FALSE, lag(ValueW), 1),
+         war_two_years_ago = ifelse(is.na(lag(ValueW, 2)) == FALSE, lag(ValueW, 2), 1),
+         step1 = (0.6 * currentWAR) + (0.3 * war_last_year) + (0.1* war_two_years_ago),
+         step2 = 0.8 * step1,
+         war_next = round(ifelse(Position == "SP" | Position == "RP", step2 + ((26 - age_now) * 0.1),
+                                 step2 + ((30 - age_now) * 0.1)), 1),
+         war_in_two_years = round(ifelse(Position == "SP" | Position == "RP", war_next - 0.4,
+                                         war_next - 0.4 + ((30-age_next_year) * .08)), 1),
+         war_in_three_years = round(ifelse(Position == "SP" | Position == "RP", war_in_two_years - 0.4,
+                                           war_in_two_years - 0.4 + ((30-age_in_two_years) * .03)), 1),
+         war_in_four_years = round(ifelse(Position == "SP" | Position == "RP", war_in_three_years - 0.4, 
+                                          war_in_three_years - 0.4 + ((30-age_in_three_years) * .03)), 1),
+         war_in_five_years = round(ifelse(Position == "SP" | Position == "RP", war_in_four_years - 0.4,
+                                          war_in_four_years - 0.4 + ((30-age_in_four_years) * .03)), 1)) %>%
+  select(Name, Team, Position, Season, currentWAR, war_next, war_in_two_years, war_in_three_years, war_in_four_years, war_in_five_years)
+```
+  
+### Get payroll information
+
+```{r}
+teamAbbr <- getTeamabbr(2017)
+
+teamAbbr <- teamAbbr %>%
+  arrange(Tm) %>%
+  
+  #some mutations to construct valid URLs for baseball-reference
+  mutate(Tm = ifelse(Tm == "LAA", "ANA",
+                     ifelse(Tm =="MIA", "FLA",
+                            ifelse(Tm == "TBR", "TBD", Tm))),
+         team_name = c("arizona-diamondbacks", "atlanta-braves", "baltimore-orioles", "boston-red-sox",
+                       "chicago-cubs", "chicago-white-sox", "cincinnati-reds", "cleveland-indians",
+                       "colorado-rockies", "detroit-tigers", "houston-astros", "kansas-city-royals",
+                       "los-angeles-angels", "los-angeles-dodgers", "miami-marlins",
+                       "milwaukee-brewers", "minnesota-twins", "new-york-mets", "new-york-yankees",
+                       "oakland-athletics", "philadelphia-phillies", "pittsburgh-pirates",
+                       "san-diego-padres", "seattle-mariners", "san-francisco-giants", 
+                       "st-louis-cardinals", "tampa-bay-rays", "texas-rangers", "toronto-blue-jays",
+                       "washington-nationals"))
+
+all_teams_payroll <- teamAbbr %>% 
+  group_by(Tm) %>%
+  do(getPayrolls(.$Tm, .$team_name)) %>%
+  select(Team = Tm, Name, Age, Year, value) %>%
+  ungroup() %>%
+  
+  #put common abbreviations back in place
+  mutate(Team = ifelse(Team == "ANA", "LAA",
+                     ifelse(Team =="FLA", "MIA",
+                            ifelse(Team == "TBD", "TBR", Team))))
+```
+
+### Compute how long each player is under control for 
+
+```{r}
+next_year <- 2018
+control_information <- all_teams_payroll %>%
+  filter(value != "FA") %>%
+  group_by(Name, Team) %>%
+  mutate(years_before_arb_eligible = ifelse(value == "Arb-1", as.integer(Year) - next_year, 0)) %>%
+  summarize(years_of_control = ifelse(n() > 5, 5, n()),
+            years_before_arb_eligible = max(years_before_arb_eligible, na.rm = TRUE)) %>%
+  #clean up incorrect bb-ref information about some players
+  mutate(years_of_control = ifelse(Name == "Hyun Soo Kim", 1, years_of_control),
+         years_of_control = ifelse(Name == "Logan Ondrusek", 1, years_of_control),
+         years_of_control = ifelse(Name == "Yulieski Gurriel", 4, years_of_control),
+         years_of_control = ifelse(Name == "Jung Ho Kang", 2, years_of_control))
+
+#bb-ref sometimes puts 'Arb' (w/o the year). figure out which arb it is based on proximity to FA year.
+#a rare minority of players sign away arbitration.
+all_teams_payroll <- all_teams_payroll %>%
+  group_by(Name, Team) %>%
+  arrange(Name, Year) %>%
+  mutate(value = ifelse(value == "Arb", 
+                        ifelse(lead(value) == "FA", "Arb-3", value),
+                        value),
+         value = ifelse(value == "Arb", 
+                        ifelse(lead(value, 2) == "FA", "Arb-2", value),
+                        value),
+         value = ifelse(value == "Arb",
+                        ifelse(lead(value, 3) == "FA", "Arb-1", value),
+                        value)) %>%
+  filter(value != "FA")
+```
+
+### Calculate each player's WAR under control
+
+```{r}
+master <- inner_join(all_teams_payroll, control_information, by=c("Name", "Team")) %>%
+  inner_join(projected_war, by=c("Name", "Team")) %>%
+  mutate(war_under_control = round(ifelse(years_of_control == 1, war_next,
+                  ifelse(years_of_control == 2, war_next + war_in_two_years,
+                         ifelse(years_of_control == 3, war_next + war_in_two_years + war_in_three_years,
+                                ifelse(years_of_control == 4, war_next + war_in_two_years + 
+                                         war_in_three_years + war_in_four_years,
+                                       war_next + war_in_two_years + war_in_three_years + war_in_four_years +
+                                         war_in_five_years)))), 1),
+         
+         #Prince is getting a salary but will produce 0 WAR for the Rangers
+         war_under_control = ifelse(Name == "Prince Fielder", 0, war_under_control)) %>%
+  filter(Season == max(Season))
+```
+
+### Calculate each player's total salary under control
+
+```{r}
+payroll_info <- master %>%
+  group_by(Name, Team) %>%
+  arrange(Season) %>%
+  filter(row_number() <= years_of_control) %>%
+  ungroup() %>%
+
+  #some players show up in baseball-ref with missing salary info. fill this in.
+  mutate(value = ifelse(Name == "Kevin Gausman" & value == "signed", "$3.45M", value),
+         value = ifelse(Name == "Cesar Hernandez" & value == "signed", "$2.55M", value),
+         value = ifelse(Name == "Collin McHugh" & value == "signed", "$3.85M", value),
+         value = ifelse(Name == "David Phelps" & value == "Arb-2", "$4.6M", value),
+         value = ifelse(Name == "Marcus Stroman" & value == "signed", "$3.4M", value),
+         value = ifelse(Name == "Marwin Gonzalez" & value == "signed", "$3.725M", value),
+         value = ifelse(Name == "Michael Wacha" & value == "signed", "$2.775M", value),
+         value = ifelse(Name == "Taijuan Walker" & value == "signed", "$2.25M", value),
+         value = ifelse(Name == "Wilmer Flores" & value == "signed", "$2.2M", value),
+         value = ifelse(Name == "Jake Odorizzi" & value == "signed", "$4.1M", value),
+         
+         #Texas is paying only $9M annually for Prince
+         value = ifelse(Name == "Prince Fielder", "$9M", value)) %>%
+  
+  #get any explicit salaries, as well as pre-arb ones
+  mutate(value = ifelse(grepl("M", value), as.double(str_extract(value, "(?<=\\$)[:digit:]+\\.*[:digit:]*")), value),
+         value = ifelse(grepl("k", value), as.double(str_extract(value, "(?<=\\$)[:digit:]+")) / 1000, value),
+         value = ifelse(grepl("Pre-Arb", value), 0.535, value)) %>%
+  
+  
+  #project arb-1 salaries, then use that to project future arb years
+  mutate(value = ifelse(value == "Arb-1" & (years_before_arb_eligible == 1 | years_before_arb_eligible == 0), 1.36881 + (.26896 * (currentWAR + war_next)), 
+                        ifelse(value == "Arb-1" & years_before_arb_eligible == 2, 1.36881 + (.26896 * (currentWAR + war_next + war_in_two_years)),
+                               ifelse(value == "Arb-1" & years_before_arb_eligible == 3, 
+                                      1.36881 + (.26896 * (currentWAR + war_next + war_in_two_years + war_in_three_years)), value)))) %>%
+  arrange(Name, Team, Year) %>%
+  mutate(value = ifelse(value == "Arb-2", (as.double(lag(value)) / .25) * .4, value),
+         value = ifelse(value == "Arb-3", (as.double(lag(value)) / .4) * .6, value),
+         value = ifelse(value == "Arb-4", (as.double(lag(value)) / .6) * .7, value),
+         value = as.numeric(value)) %>%
+  group_by(Name, Team) %>%
+  summarize(salary_under_control = round(sum(value), 2))
+```
+
+### Compute surplus value for each player
+
+```{r}
+millions_per_war <- 9
+
+master_full <- master %>%
+  mutate(Position = ifelse(Position == "SP", "Rotation",
+                           ifelse(Position == "RP", "Bullpen", "Hitter"))) %>%
+  #select(Name, Team, Position, Year, years_of_control, war_under_control) %>%
+  inner_join(payroll_info, by = c("Name", "Team")) %>%
+  mutate(aav = round(salary_under_control / years_of_control, 1)) %>%
+  filter(war_under_control > 1 | aav > 5)
+
+
+# join back to master?
+
+warcels <- master_full %>%
+  group_by(Name, Team) %>%
+  filter(Year == max(Year)) %>%
+  mutate(controlled_surplus_value = round((millions_per_war * ((.05 * years_of_control) + 1)) * war_under_control -
+           salary_under_control, 1)) %>%
+  ungroup() %>%
+  mutate(absolute_surplus_value = abs(controlled_surplus_value),
+         surplus_value_rank = round(percent_rank(controlled_surplus_value) * 100, 2)) %>%
+  select(-Year) %>%
+  arrange(desc(controlled_surplus_value))
+```
+
+
+# overall controlled surplus value plot and 2017-2017
+
+```{r, echo = FALSE}
+warcels_2018 <-
+  warcels %>% 
+  group_by(Team) %>% 
+  summarize(total_controlled_surplus_value_2018 = sum(controlled_surplus_value)) %>%
+  write_csv("warcels-2018.csv")
+  
+
+#changes from 2017
+warcels_changes_2017_2018 <- read_csv("warcels-2017.csv") %>%
+  group_by(Team) %>%
+  summarize(total_controlled_surplus_value_2017 = sum(controlled_surplus_value)) %>%
+  inner_join(warcels_2018, by="Team") %>%
+  mutate(change_yoy = total_controlled_surplus_value_2018 - total_controlled_surplus_value_2017) %>%
+  arrange(desc(change_yoy))
+
+#2018 surplue value graph
+warcels_2018 %>%
+ggplot(aes(reorder(Team, total_controlled_surplus_value_2018), total_controlled_surplus_value_2018)) +
+  geom_col() + coord_flip() +
+  labs(x="", y="Controlled Surplus Value (Millions USD)") + 
+  ggtitle("Controlled Surplus Value, MLB Teams 2018–2022") + fgt
+
+#YoY change 2017 to 2018
+warcels_changes_2017_2018 %>%
+  ggplot(aes(reorder(Team, change_yoy), change_yoy)) +
+  geom_col() + coord_flip() +
+  labs(x="", y="Change in Controlled Surplus Value (Millions USD)") + 
+  ggtitle("Change in Controlled Surplus Value, MLB Teams 2017–2018") + fgt
+
+```
+
+
+```{r}
+war_timeline <- master_full %>%
+  ungroup() %>%
+  select(Name, Team, `2018` = war_next, `2019` = war_in_two_years, `2020` = war_in_three_years, 
+         `2021` = war_in_four_years, `2022` = war_in_five_years) %>%
+  gather(Year, player_WAR, contains("20")) %>% View()
+  group_by(Team, Year) %>% View()
+  summarize(WAR = sum(player_WAR) / 4) #divide by 4 because i goofed & each player has 4 entries for 1 year
+
+war_time_plt <- ggplot(war_timeline, aes(Year, WAR, color=Team, group=Team)) + geom_point() + geom_line() + fgt +
+  scale_color_manual(values = c("#A71930", "#002F5F", "#ED4C09",
+                               "#C60C30", "#003279", "#000000", "#C6011F", "#003366",
+                               "#000000", "#001742", "#072854", "#15317E", "#B71234",
+                               "#083C6B", "#000000", "#182B49", "#072754", "#002C77",
+                               "#1C2841", "#003831", "#BA0C2F", "#FDB829", "#002147",
+                               "#002147", "#F2552C", "#0C2C56", "#C41E3A", "#00285D",
+                               "#BD1021", "#003DA5", "#BA122B"))
+war_time_plt
+
+win_tbl <- war_timeline %>%
+  mutate(Wins = WAR + 53)
+
+
+
+ggplotly(war_time_plt)
+```
+
+
+### Look at surplus value per team for 2016-2017 FAs
+
+```{r}
+fa_warcels <- warcels %>%
+  filter(Name %in% c("Edwin Encarnacion", "Jose Bautista", "Kenley Jansen", "Justin Turner", "Yoenis Cespedes",
+                     "Aroldis Chapman", "Dexter Fowler", "Rich Hill", "Neil Walker", "Mark Melancon", 
+                     "Jeremy Hellickson", "Ivan Nova", "Ian Desmond", "Carlos Gomez", "Josh Reddick", 
+                     "Matt Holliday", "Mark Trumbo", "Edinson Volquez", "Carlos Beltran", "Matt Wieters",
+                     "Brett Cecil", "Michael Saunders", "Mike Napoli", "Jason Hammel", "Andrew Cashner", 
+                     "Wilson Ramos", "Greg Holland", "Luis Valbuena", "Kendrys Morales", "Brad Ziegler",
+                     "Sergio Romo", "Kohi Uehara", "Derek Holland", "Bartolo Colon", "Rajai Davis", "Joe Blanton",
+                     "Matt Joyce", "Colby Rasmus", "Brandon Moss", "Santiago Casilla", "Angel Pagan",
+                     "Chase Utley", "Doug Fister", "R.A. Dickey", "Steve Pearce", "Colby Lewis", "Jon Jay",
+                     "Pedro Alvarez", "Jonathan Papelbon", "Erick Aybar")) %>%
+  mutate(millions_per_win = salary_under_control / war_under_control)
+
+team_dollars_per_win <- fa_warcels %>%
+  group_by(Team) %>%
+  summarize(mean_millions_per_win = mean(millions_per_win))
+
+ggplot(team_dollars_per_win, aes(reorder(Team, mean_millions_per_win), mean_millions_per_win)) + geom_bar(stat="identity") + coord_flip() + labs(x="Team", y="Cost per Controlled Free-Agent Win, 2016-2017 offseason")
+
+```
+
+### Group WAR per Year by Team
+
+```{r}
+team_war <- warcels %>%
+  group_by(Team) %>%
+  summarize(total_war_under_control = sum(war_under_control),
+            total_years_of_control = sum(years_of_control),
+            avg_war_under_control_pear_year = total_war_under_control / total_years_of_control,
+            avg_years_of_control = mean(years_of_control))
+
+ggplot(data=team_war, aes(avg_years_of_control, avg_war_under_control_pear_year, label=Team)) + geom_point() + 
+  geom_text(aes(label=Team),hjust=0, vjust=0) + 
+  labs(x="avg. years of control (entire team; 5 max)") + 
+  ggtitle("MLB Team Control of WAR, 2018 - 2022")
+```
+
+### Group results by team & high-level position
+
+```{r}
+team_war_by_position <- warcels %>%
+  group_by(Team, Position) %>%
+  summarize(war_under_control_per_year = sum(war_under_control) / sum(years_of_control),
+            years_of_control = round(mean(years_of_control), 2),
+            salary_under_control = sum(salary_under_control),
+            surplus_value_under_control = sum(controlled_surplus_value))
+
+ggplot(data=team_war_by_position, aes(Team, war_under_control_per_year, fill=Position)) + geom_bar(stat="identity") + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + coord_flip()
+```
+
+### Plot teams' length of control vs. war per year they control
+
+```{r}
+ggplot(data=team_war_by_position %>% filter(Position == "Hitter"), aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (position players only; 5 max)") + ggtitle("Avg. Length of Control vs. WAR per year, Position Players")
+
+ggplot(data=team_war_by_position %>% filter(Position == "Rotation"), aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (rotation only; 5 max)") + ggtitle("Avg. Length of Control vs. WAR per year, Rotation")
+
+ggplot(data=team_war_by_position %>% filter(Position == "Bullpen"), aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (bullpen only; 5 max)") + ggtitle("Avg. Length of Control vs. WAR per Year, Bullpen")
+```
+
+
