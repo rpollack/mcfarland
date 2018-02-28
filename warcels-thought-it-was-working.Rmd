@@ -88,7 +88,7 @@ getPayrolls <- function(Tm, team_name) {
   tms_melt <- gather(tms, key = Year, salary, -Name, -Age, -Yrs, -Acquired, -SrvTm, -Agent, -`Contract Status`)
   tms_melt <- tms_melt %>%
     mutate(salary = ifelse(grepl("FA-\\*", salary) == TRUE, "", salary)) %>% #assume options won't happen
-    filter(!salary %in% c("", "FA")) %>%           #remove years where players aren't on a payroll                                   
+    filter(salary != "") %>%           #remove years where players aren't on a payroll                                   
     mutate(Team = Tm)
 }
 ```
@@ -321,38 +321,50 @@ all_teams_payroll <- teamAbbr %>%
                             ifelse(Team == "TBD", "TBR", Team))))
 ```
 
+```{r}
+
+# extract salary from payroll information
+# identify arb years that bb-ref didn't, so we can compute salary later
+# combine payroll info with projected WAR. the resulting DF has one row per player per year of control
+# FA's are omitted, as are years a player isn't under control
+
+# TODO: merge in super_two guys so we know to put their last Arb year as Arb 4, not Arb 3
+
+master_list <-
+  all_teams_payroll %>%
+  mutate(
+    Season = as.numeric(Year),
+    salary = ifelse(grepl("M", salary), as.double(str_extract(salary, "(?<=\\$)[:digit:]+\\.*[:digit:]*")), salary),
+    salary = ifelse(grepl("k", salary), as.double(str_extract(salary, "(?<=\\$)[:digit:]+")) / 1000, salary),
+    salary = ifelse(grepl("Pre-Arb", salary), 0.545, salary)) %>%
+  group_by(Name) %>%
+  arrange(Year) %>% 
+  mutate(  ## bb-ref sometimes puts in "Arb". figure out which arb year it is, based on proximity to FA year)
+      salary = ifelse(salary == "Arb" & lead(salary) == "FA",
+                      "Arb-3",
+                      salary),
+      salary = ifelse(salary == "Arb" & lead(salary, 2) == "FA",
+                      "Arb-2",
+                      salary),
+      salary = ifelse(salary == "Arb" & lead(salary, 3) == "FA",
+                      "Arb-1",
+                      salary)) %>%
+  filter(!salary %in% c("FA", "$0 [Arb-*]", 0)) %>%  # discard FA years and weird option years
+  inner_join(projected_war, by=c("Name", "Team", "Season")) %>%
+  dplyr::select(PlayerId, Name, Team, Position, Season, WAR = ValueW, Salary = salary)
+
+
+
+# TODO: use WAR to project arb salaries
+
+
+  
+
+```
+
 ### Compute how long each player is under control for 
 
-```{r}
-next_year <- 2018
-control_information <- all_teams_payroll %>%
-  filter(salary != "FA") %>%
-  group_by(Name, Team) %>%
-  mutate(years_before_arb_eligible = ifelse(salary == "Arb-1", as.integer(Year) - next_year, 0)) %>%
-  summarize(years_of_control = ifelse(n() > 5, 5, n()),
-            years_before_arb_eligible = max(years_before_arb_eligible, na.rm = TRUE)) %>%
-  #clean up incorrect bb-ref information about some players
-  mutate(years_of_control = ifelse(Name == "Hyun Soo Kim", 1, years_of_control),
-         years_of_control = ifelse(Name == "Logan Ondrusek", 1, years_of_control),
-         years_of_control = ifelse(Name == "Yulieski Gurriel", 4, years_of_control),
-         years_of_control = ifelse(Name == "Jung Ho Kang", 2, years_of_control))
 
-#bb-ref sometimes puts 'Arb' (w/o the year). figure out which arb it is based on proximity to FA year.
-#a rare minority of players sign away arbitration.
-all_teams_payroll <- all_teams_payroll %>%
-  group_by(Name, Team) %>%
-  arrange(Name, Year) %>%
-  mutate(salary = ifelse(salary == "Arb", 
-                        ifelse(lead(salary) == "FA", "Arb-3", salary),
-                        salary),
-         salary = ifelse(salary == "Arb", 
-                        ifelse(lead(salary, 2) == "FA", "Arb-2", salary),
-                        salary),
-         salary = ifelse(salary == "Arb",
-                        ifelse(lead(salary, 3) == "FA", "Arb-1", salary),
-                        salary)) %>%
-  filter(salary != "FA")
-```
 
 ### Calculate each player's WAR under control
 
@@ -397,9 +409,7 @@ payroll_info <- master %>%
          salary = ifelse(Name == "Prince Fielder", "$9M", salary)) %>%
   
   #get any explicit salaries, as well as pre-arb ones
-  mutate(salary = ifelse(grepl("M", salary), as.double(str_extract(salary, "(?<=\\$)[:digit:]+\\.*[:digit:]*")), salary),
-         salary = ifelse(grepl("k", salary), as.double(str_extract(salary, "(?<=\\$)[:digit:]+")) / 1000, salary),
-         salary = ifelse(grepl("Pre-Arb", salary), 0.535, salary)) %>%
+  mutate( %>%
   
   
   #project arb-1 salaries, then use that to project future arb years
