@@ -246,33 +246,49 @@ all_arb <- all_arb %>%
 ### Project WAR each year for the next 5 years for each player
 Methodology: http://tangotiger.com/index.php/site/article/war-marcels-...-warcels
 
+Ideal DF:
+PlayerId | Name | Team | Season | WAR | Salary | Surplus Value
+
 ```{r}
+
+# project five-year WAR for all players, then gather into tidy DF
+
 projected_war <- all_players %>%
-  group_by(Name) %>%
+  group_by(PlayerId, Name) %>%
   arrange(Season) %>%
   mutate(age_now = this_year - as.integer(birth_year),
          age_next_year = age_now + 1, 
          age_in_two_years = age_now + 2,
          age_in_three_years = age_now + 3,
          age_in_four_years = age_now + 4,
-         currentWAR = ifelse(is.na(ValueW) == FALSE, ValueW, 1),  #players w/o appearances in a season get 1 WAR for that year
-         war_last_year = ifelse(is.na(lag(ValueW)) == FALSE, lag(ValueW), 1),
-         war_two_years_ago = ifelse(is.na(lag(ValueW, 2)) == FALSE, lag(ValueW, 2), 1),
-         step1 = (0.6 * currentWAR) + (0.3 * war_last_year) + (0.1* war_two_years_ago),
+         `2017` = ifelse(is.na(ValueW) == FALSE, ValueW, 1),  #players w/o appearances in a season get 1 WAR for that year
+         `2016` = ifelse(is.na(lag(ValueW)) == FALSE, lag(ValueW), 1),
+         `2015` = ifelse(is.na(lag(ValueW, 2)) == FALSE, lag(ValueW, 2), 1)) %>%
+  filter(Season == 2017) %>%  # this row contains the projections for the next 5 years, which is all we want
+  mutate(step1 = (0.6 * `2017`) + (0.3 * `2016`) + (0.1 * `2015`),
          step2 = 0.8 * step1,
-         war_next = round(ifelse(Position == "SP" | Position == "RP", step2 + ((26 - age_now) * 0.1),
-                                 step2 + ((30 - age_now) * 0.1)), 1),
-         war_in_two_years = round(ifelse(Position == "SP" | Position == "RP", war_next - 0.4,
-                                         war_next - 0.4 + ((30-age_next_year) * .08)), 1),
-         war_in_three_years = round(ifelse(Position == "SP" | Position == "RP", war_in_two_years - 0.4,
-                                           war_in_two_years - 0.4 + ((30-age_in_two_years) * .03)), 1),
-         war_in_four_years = round(ifelse(Position == "SP" | Position == "RP", war_in_three_years - 0.4, 
-                                          war_in_three_years - 0.4 + ((30-age_in_three_years) * .03)), 1),
-         war_in_five_years = round(ifelse(Position == "SP" | Position == "RP", war_in_four_years - 0.4,
-                                          war_in_four_years - 0.4 + ((30-age_in_four_years) * .03)), 1)) %>%
-  select(Name, Team, Position, Season, currentWAR, war_next, war_in_two_years, war_in_three_years, war_in_four_years, war_in_five_years)
+         `2018` = round(ifelse(Position == "SP" | Position == "RP", 
+                               step2 + ((26 - age_now) * 0.1),
+                               step2 + ((30 - age_now) * 0.1)), 1),
+         `2019` = round(ifelse(Position == "SP" | Position == "RP", 
+                               `2018` - 0.4,
+                               `2018` - 0.4 + ((30-age_next_year) * .08)), 1),
+         `2020` = round(ifelse(Position == "SP" | Position == "RP", 
+                               `2019` - 0.4,
+                               `2019` - 0.4 + ((30-age_in_two_years) * .03)), 1),
+         `2021` = round(ifelse(Position == "SP" | Position == "RP",
+                               `2020` - 0.4,
+                               `2020` - 0.4 + ((30-age_in_three_years) * .03)), 1),
+         `2022` = round(ifelse(Position == "SP" | Position == "RP", 
+                               `2021` - 0.4,
+                               `2021` - 0.4 + ((30-age_in_four_years) * .03)), 1)) %>% 
+  dplyr::select(PlayerId, Name, Team, birth_year, Position, `2018`, `2019`, `2020`, `2021`, `2022`) %>%
+  gather(Season, ValueW, contains("20")) %>%
+  mutate(Season = as.integer(Season)) %>%
+  dplyr::select(PlayerId, Name, Season, Team, ValueW, birth_year, Position)
+
 ```
-  
+
 ### Get payroll information
 
 ```{r}
