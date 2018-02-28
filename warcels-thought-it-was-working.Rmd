@@ -328,6 +328,10 @@ all_teams_payroll <- teamAbbr %>%
 # combine payroll info with projected WAR. the resulting DF has one row per player per year of control
 # FA's are omitted, as are years a player isn't under control
 
+# TODO: guys like lance mccullers have no FA year listed so we don't know which arb years they're in. 
+## find them with this code: > master_list %>% filter(is.na(salary))
+# TODO: running the code below gives me an error. something about not being able to convert the 'salary' col to numeric.
+#  could be because there are NA's in the column? related to the previous issue?
 # TODO: merge in super_two guys so we know to put their last Arb year as Arb 4, not Arb 3
 
 master_list <-
@@ -351,15 +355,15 @@ master_list <-
                       salary)) %>%
   filter(!salary %in% c("FA", "$0 [Arb-*]", 0)) %>%  # discard FA years and weird option years
   inner_join(projected_war, by=c("Name", "Team", "Season")) %>%
-  dplyr::select(PlayerId, Name, Team, Position, Season, WAR = ValueW, Salary = salary)
-
-
-
-# TODO: use WAR to project arb salaries
-
-
+  dplyr::select(PlayerId, Name, Team, Position, Season, WAR = ValueW, Salary = salary) %>%
+  group_by(PlayerId, Name) %>%
+  arrange(Season) %>%
+  mutate( #project arb-1 salaries, then use that to project future arb years
+    Salary = ifelse(Salary == "Arb-1", 1.36881 + (.26896 * (cumsum(WAR))), Salary), # use linear model i computed elsewhere in this doc
+    Salary = ifelse(Salary == "Arb-2", (as.double(lag(Salary)) / .25) * .4, Salary),
+    Salary = ifelse(Salary == "Arb-3", (as.double(lag(Salary)) / .4) * .6, Salary),
+    Salary = ifelse(Salary == "Arb-4", (as.double(lag(Salary)) / .6) * .7, Salary))
   
-
 ```
 
 ### Compute how long each player is under control for 
@@ -412,16 +416,7 @@ payroll_info <- master %>%
   mutate( %>%
   
   
-  #project arb-1 salaries, then use that to project future arb years
-  mutate(salary = ifelse(salary == "Arb-1" & (years_before_arb_eligible == 1 | years_before_arb_eligible == 0), 1.36881 + (.26896 * (currentWAR + war_next)), 
-                        ifelse(salary == "Arb-1" & years_before_arb_eligible == 2, 1.36881 + (.26896 * (currentWAR + war_next + war_in_two_years)),
-                               ifelse(salary == "Arb-1" & years_before_arb_eligible == 3, 
-                                      1.36881 + (.26896 * (currentWAR + war_next + war_in_two_years + war_in_three_years)), salary)))) %>%
-  arrange(Name, Team, Year) %>%
-  mutate(salary = ifelse(salary == "Arb-2", (as.double(lag(salary)) / .25) * .4, salary),
-         salary = ifelse(salary == "Arb-3", (as.double(lag(salary)) / .4) * .6, salary),
-         salary = ifelse(salary == "Arb-4", (as.double(lag(salary)) / .6) * .7, salary),
-         salary = as.numeric(salary)) %>%
+  
   group_by(Name, Team) %>%
   summarize(salary_under_control = round(sum(salary), 2))
 ```
