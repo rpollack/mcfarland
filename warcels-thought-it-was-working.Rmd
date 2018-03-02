@@ -327,12 +327,10 @@ all_teams_payroll <- teamAbbr %>%
 # identify arb years that bb-ref didn't, so we can compute salary later
 # combine payroll info with projected WAR. the resulting DF has one row per player per year of control
 # FA's are omitted, as are years a player isn't under control
+# TODO: Account for inflation
+# TODO: Arb salaries seem high. Kris BRyant for $80M? in warcels 
 
-# TODO: guys like lance mccullers have no FA year listed so we don't know which arb years they're in. 
-## find them with this code: > master_list %>% filter(is.na(salary))
-# TODO: running the code below gives me an error. something about not being able to convert the 'salary' col to numeric.
-#  could be because there are NA's in the column? related to the previous issue?
-# TODO: merge in super_two guys so we know to put their last Arb year as Arb 4, not Arb 3
+millions_per_war <- 9
 
 master_list <-
   all_teams_payroll %>%
@@ -340,86 +338,126 @@ master_list <-
     Season = as.numeric(Year),
     salary = ifelse(grepl("M", salary), as.double(str_extract(salary, "(?<=\\$)[:digit:]+\\.*[:digit:]*")), salary),
     salary = ifelse(grepl("k", salary), as.double(str_extract(salary, "(?<=\\$)[:digit:]+")) / 1000, salary),
-    salary = ifelse(grepl("Pre-Arb", salary), 0.545, salary)) %>%
+    salary = ifelse(grepl("Pre-Arb", salary), 0.545, salary),
+    
+    # identify super two players (those w/4 years of arbitration)
+    super_two = ifelse(Name %in% c(
+      #2014 players: http://m.mlb.com/news/article/101257198/mlb-and-mlbpa-finalize-list-of-super-two-players/
+      "Collin Cowgill", "Anthony Bass", "Alex Presley", "Martin Maldonado", "Shane Robinson", "Hector Sanchez", "Zach Britton",
+      "Joe Wieland", "Vance Worley", "Jared Hughes", "Drew Smyly", "Louis Coleman", "Casy Fien", "Tommy Milone", "Kevin Gausman",
+      #2015 players: https://www.mlbtraderumors.com/2015/10/list-of-2016-super-two-qualifiers.html
+      "Dan Jennings", "George Kontos", "Justin Grimm", "Arodys Vizcaino", "Avisail Garcia", "Jurickson Profar", "Jedd Gyorko",
+      "Juan Lagares", "Didi Gregorius", "Erasmo Ramirez", "Chris Archer", "Nolan Arenado", "Will Smith", "Jean Machi", "Seth Maness",
+      "Scott Van Slyke", "David Lough", "Chris Hatcher", "Evan Scribner", "Nick Tepesch",
+      "Zach Putnam", "Chris Withrow", "Kole Calhoun", "Jeff Manship", "Anthony Rendon",
+      #2016 players: https://www.mlbtraderumors.com/2016/10/projected-super-two-cutoff-2016.html
+      "George Springer", "Danny Salazar", "Matt Shoemaker", "Sam Dyson", "Marcus Stroman", "David Peralta", "Rougned Odor",
+      "Kevin Kiermaier", "Brett Oberholtzer", "Ehire Adrianza",
+      #baseball-reference lists several players as arb-eligible 4 times despite no official word on their status. I'll trust BB-ref here.
+      "Addison Russell", "Cam Bedrosian", "Carlos Rodon", "Corey Knebel", "Felipe Rivero", "Hunter Strickland", "Kris Bryant",
+      "Maikel Franco", "Michael Lorenzen", "Mike Foltynewicz", "Odrisamer Despaigne", "Austin Hedges", "Carlos Estevez",
+      "Dario Alvarez", "Elias Diaz", "Jose Ramirez", "Justin Nicolino", "Mac Williamson", "Matt Boyd",
+      "Michael Fulmer", "Nick Goody", "Tim Adleman", "Tyler Naquin",
+      # 2017: https://www.mlbtraderumors.com/2017/10/projected-arbitration-salaries-for-2018.html
+      "Andrew Heaney", "J.C. Ramirez", "Lance McCullers", "Dominic Leone", "Mike Foltynewicz", "Cory Knebel", "Kris Bryant",
+      "Addison Russell", "Hunter Strickland", "Noah Syndergaard", "Matt Szczur", "Maikel Franco", "Felipe Rivero",
+      "Michael Lorenzen", "Zach Rosscup", "Yolmer Sanchez", "Chasen Shreve"),
+      TRUE, FALSE)) %>%
   group_by(Name) %>%
-  arrange(Year) %>% 
-  mutate(  ## bb-ref sometimes puts in "Arb". figure out which arb year it is, based on proximity to FA year)
-      salary = ifelse(salary == "Arb" & lead(salary) == "FA",
-                      "Arb-3",
-                      salary),
-      salary = ifelse(salary == "Arb" & lead(salary, 2) == "FA",
-                      "Arb-2",
-                      salary),
-      salary = ifelse(salary == "Arb" & lead(salary, 3) == "FA",
-                      "Arb-1",
-                      salary)) %>%
+  arrange(Year) %>%
+  mutate(
+    salary = ifelse(super_two & salary == "Arb",
+                    ifelse(lead(salary) == "FA",
+                           "Arb-4",
+                           ifelse(lead(salary, 2) == "FA",
+                                  "Arb-3",
+                                  ifelse(lead(salary, 3) == "FA",
+                                         "Arb-2",
+                                         ifelse(lead(salary, 4) == "FA", "Arb-1", salary)))),
+                    salary),
+    salary = ifelse(!super_two & salary == "Arb",
+                    ifelse(lead(salary) == "FA",
+                           "Arb-3",
+                           ifelse(lead(salary, 2) == "FA",
+                                  "Arb-2",
+                                  ifelse(lead(salary, 3) == "FA", 
+                                         "Arb-1", 
+                                         salary))),
+                    salary),
+    # not all players with "Arb" listed have an FA year attached. no way to know which Arb year it is. so force it based on spotrac data
+    # and occasionally bb-ref data
+    salary = ifelse(Name == "Blake Treinen" & Year == 2019, "Arb-2", salary),
+    salary = ifelse(Name == "Blake Treinen" & Year == 2020, "Arb-3", salary),
+    salary = ifelse(Name == "Chris Martin" & Year == 2021, "Arb-1", salary),
+    salary = ifelse(Name == "Chris Martin" & Year == 2022, "Arb-2", salary),
+    salary = ifelse(Name == "Ehire Adrianza" & Year == 2019, "Arb-2", salary),
+    salary = ifelse(Name == "Ehire Adrianza" & Year == 2020, "Arb-3", salary),
+    salary = ifelse(Name == "Erisbel Arruebarrena" & Year == 2021, "Arb-1", salary),
+    salary = ifelse(Name == "Erisbel Arruebarrena" & Year == 2022, "Arb-2", salary),
+    salary = ifelse(Name == "Hansel Robles" & Year == 2019, "Arb-2", salary),
+    salary = ifelse(Name == "Hansel Robles" & Year == 2020, "Arb-3", salary),
+    salary = ifelse(Name == "Jacob deGrom" & Year == 2019, "Arb-3", salary),
+    salary = ifelse(Name == "Jacob deGrom" & Year == 2020, "Arb-4", salary),
+    salary = ifelse(Name == "Jake Smolinski" & Year == 2019, "Arb-2", salary),
+    salary = ifelse(Name == "Jake Smolinski" & Year == 2020, "Arb-3", salary),
+    salary = ifelse(Name == "Jorge Soler" & Year == 2021, "FA", salary),  #spotrac 
+    salary = ifelse(Name == "Josh Phegley" & Year == 2019, "Arb-2", salary),
+    salary = ifelse(Name == "Josh Phegley" & Year == 2020, "Arb-3", salary),
+    salary = ifelse(Name == "Kendall Graveman" & Year == 2019, "Arb-2", salary),
+    salary = ifelse(Name == "Kendall Graveman" & Year == 2020, "Arb-3", salary),
+    salary = ifelse(Name == "Lance McCullers" & Year == 2019, "Arb-2", salary),
+    salary = ifelse(Name == "Lance McCullers" & Year == 2020, "Arb-3", salary),
+    salary = ifelse(Name == "Lance McCullers" & Year == 2021, "Arb-4", salary),
+    salary = ifelse(Name == "Marcus Semien" & Year == 2019, "Arb-2", salary),
+    salary = ifelse(Name == "Marcus Semien" & Year == 2020, "Arb-3", salary),
+    salary = ifelse(Name == "Miles Mikolas" & Year == 2020, "Arb-1", salary),
+    salary = ifelse(Name == "Miles Mikolas" & Year == 2021, "Arb-2", salary),
+    salary = ifelse(Name == "Miles Mikolas" & Year == 2022, "Arb-3", salary),
+    salary = ifelse(Name == "Noah Syndergaard" & Year == 2019, "Arb-2", salary),
+    salary = ifelse(Name == "Noah Syndergaard" & Year == 2020, "Arb-3", salary),
+    salary = ifelse(Name == "Robbie Grossman" & Year == 2019, "Arb-2", salary),
+    salary = ifelse(Name == "Robbie Grossman" & Year == 2020, "Arb-3", salary),
+    salary = ifelse(Name == "Rusney Castillo" & Year == 2021, "FA", salary),  #spotrac
+    salary = ifelse(Name == "Rusney Castillo" & Year == 2022, "FA", salary),  #spotrac
+    salary = ifelse(Name == "Trevor May" & Year == 2019, "Arb-2", salary),
+    salary = ifelse(Name == "Trevor May" & Year == 2020, "Arb-3", salary),
+    salary = ifelse(Name == "Yuli Gurriel" & Year == 2021, "FA", salary) #spotrac
+  ) %>%
   filter(!salary %in% c("FA", "$0 [Arb-*]", 0)) %>%  # discard FA years and weird option years
   inner_join(projected_war, by=c("Name", "Team", "Season")) %>%
   dplyr::select(PlayerId, Name, Team, Position, Season, WAR = ValueW, Salary = salary) %>%
   group_by(PlayerId, Name) %>%
-  arrange(Season) %>%
   mutate( #project arb-1 salaries, then use that to project future arb years
-    Salary = ifelse(Salary == "Arb-1", 1.36881 + (.26896 * (cumsum(WAR))), Salary), # use linear model i computed elsewhere in this doc
+    Salary = ifelse(Salary == "Arb-1", 1.36881 + (.26896 * (cumsum(WAR))), Salary)) %>% # use linear model i computed elsewhere in this doc
+  ungroup() %>%
+  arrange(PlayerId, Name, Season) %>%
+  mutate(
     Salary = ifelse(Salary == "Arb-2", (as.double(lag(Salary)) / .25) * .4, Salary),
     Salary = ifelse(Salary == "Arb-3", (as.double(lag(Salary)) / .4) * .6, Salary),
-    Salary = ifelse(Salary == "Arb-4", (as.double(lag(Salary)) / .6) * .7, Salary))
-  
+    Salary = ifelse(Salary == "Arb-4", (as.double(lag(Salary)) / .6) * .7, Salary),
+    Salary = as.numeric(Salary),
+    surplus_value = (millions_per_war * WAR) - Salary)
+
+#filter out players with less than 1 WAR under control or whose AAV is over $5 mil
+retain <- 
+  master_list %>%
+  group_by(PlayerId, Name, Team) %>%
+  summarize(
+    controlled_years = n(),
+    war_under_control = round(sum(WAR), 1),
+    salary_under_control = round(sum(Salary), 1),
+    surplue_value_under_control = war_under_control - salary_under_control,
+    aav = salary_under_control / controlled_years) %>%
+  filter(war_under_control > 0 | aav > 5)
+
+retain %>%
+  group_by(Team) %>%
+  summarize(total_surplue_value_under_control = sum(surplue_value_under_control)) %>%
+  ggplot(aes(Team, total_surplue_value_under_control)) + geom_col() + coord_flip() 
 ```
 
-### Compute how long each player is under control for 
+    
 
-
-
-### Calculate each player's WAR under control
-
-```{r}
-master <- inner_join(all_teams_payroll, control_information, by=c("Name", "Team")) %>%
-  inner_join(projected_war, by=c("Name", "Team")) %>%
-  mutate(war_under_control = round(ifelse(years_of_control == 1, war_next,
-                  ifelse(years_of_control == 2, war_next + war_in_two_years,
-                         ifelse(years_of_control == 3, war_next + war_in_two_years + war_in_three_years,
-                                ifelse(years_of_control == 4, war_next + war_in_two_years + 
-                                         war_in_three_years + war_in_four_years,
-                                       war_next + war_in_two_years + war_in_three_years + war_in_four_years +
-                                         war_in_five_years)))), 1),
-         
-         #Prince is getting a salary but will produce 0 WAR for the Rangers
-         war_under_control = ifelse(Name == "Prince Fielder", 0, war_under_control)) %>%
-  filter(Season == max(Season))
-```
-
-### Calculate each player's total salary under control
-
-```{r}
-payroll_info <- master %>%
-  group_by(Name, Team) %>%
-  arrange(Season) %>%
-  filter(row_number() <= years_of_control) %>%
-  ungroup() %>%
-
-  #some players show up in baseball-ref with missing salary info. fill this in.
-  mutate(salary = ifelse(Name == "Kevin Gausman" & salary == "signed", "$3.45M", salary),
-         salary = ifelse(Name == "Cesar Hernandez" & salary == "signed", "$2.55M", salary),
-         salary = ifelse(Name == "Collin McHugh" & salary == "signed", "$3.85M", salary),
-         salary = ifelse(Name == "David Phelps" & salary == "Arb-2", "$4.6M", salary),
-         salary = ifelse(Name == "Marcus Stroman" & salary == "signed", "$3.4M", salary),
-         salary = ifelse(Name == "Marwin Gonzalez" & salary == "signed", "$3.725M", salary),
-         salary = ifelse(Name == "Michael Wacha" & salary == "signed", "$2.775M", salary),
-         salary = ifelse(Name == "Taijuan Walker" & salary == "signed", "$2.25M", salary),
-         salary = ifelse(Name == "Wilmer Flores" & salary == "signed", "$2.2M", salary),
-         salary = ifelse(Name == "Jake Odorizzi" & salary == "signed", "$4.1M", salary),
-         
-         #Texas is paying only $9M annually for Prince
-         salary = ifelse(Name == "Prince Fielder", "$9M", salary)) %>%
-  
-  #get any explicit salaries, as well as pre-arb ones
-  mutate( %>%
-  
-  
-  
-  group_by(Name, Team) %>%
-  summarize(salary_under_control = round(sum(salary), 2))
-```
 
 ### Compute surplus salary for each player
 
@@ -517,30 +555,6 @@ win_tbl <- war_timeline %>%
 ggplotly(war_time_plt)
 ```
 
-
-### Look at surplus value per team for 2016-2017 FAs
-
-```{r}
-fa_warcels <- warcels %>%
-  filter(Name %in% c("Edwin Encarnacion", "Jose Bautista", "Kenley Jansen", "Justin Turner", "Yoenis Cespedes",
-                     "Aroldis Chapman", "Dexter Fowler", "Rich Hill", "Neil Walker", "Mark Melancon", 
-                     "Jeremy Hellickson", "Ivan Nova", "Ian Desmond", "Carlos Gomez", "Josh Reddick", 
-                     "Matt Holliday", "Mark Trumbo", "Edinson Volquez", "Carlos Beltran", "Matt Wieters",
-                     "Brett Cecil", "Michael Saunders", "Mike Napoli", "Jason Hammel", "Andrew Cashner", 
-                     "Wilson Ramos", "Greg Holland", "Luis Valbuena", "Kendrys Morales", "Brad Ziegler",
-                     "Sergio Romo", "Kohi Uehara", "Derek Holland", "Bartolo Colon", "Rajai Davis", "Joe Blanton",
-                     "Matt Joyce", "Colby Rasmus", "Brandon Moss", "Santiago Casilla", "Angel Pagan",
-                     "Chase Utley", "Doug Fister", "R.A. Dickey", "Steve Pearce", "Colby Lewis", "Jon Jay",
-                     "Pedro Alvarez", "Jonathan Papelbon", "Erick Aybar")) %>%
-  mutate(millions_per_win = salary_under_control / war_under_control)
-
-team_dollars_per_win <- fa_warcels %>%
-  group_by(Team) %>%
-  summarize(mean_millions_per_win = mean(millions_per_win))
-
-ggplot(team_dollars_per_win, aes(reorder(Team, mean_millions_per_win), mean_millions_per_win)) + geom_bar(stat="identity") + coord_flip() + labs(x="Team", y="Cost per Controlled Free-Agent Win, 2016-2017 offseason")
-
-```
 
 ### Group WAR per Year by Team
 
