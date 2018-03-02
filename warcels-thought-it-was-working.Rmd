@@ -438,8 +438,9 @@ master_list <-
     Salary = as.numeric(Salary),
     surplus_value = (millions_per_war * WAR) - Salary)
 
-#filter out players with less than 1 WAR under control or whose AAV is over $5 mil
-retain <- 
+#retain players with less than 0 WAR under control or whose AAV is over $5 mil.
+# these are the guys who will likely get playing time no matter what
+warcels <- 
   master_list %>%
   group_by(PlayerId, Name, Team) %>%
   summarize(
@@ -450,7 +451,7 @@ retain <-
     aav = salary_under_control / controlled_years) %>%
   filter(war_under_control > 0 | aav > 5)
 
-retain %>%
+warcels %>%
   group_by(Team) %>%
   summarize(total_surplue_value_under_control = sum(surplue_value_under_control)) %>%
   ggplot(aes(reorder(Team, total_surplue_value_under_control), total_surplue_value_under_control)) + geom_col() + coord_flip() +
@@ -458,34 +459,7 @@ retain %>%
 ```
 
     
-
-
-### Compute surplus salary for each player
-
 ```{r}
-millions_per_war <- 9
-
-master_full <- master %>%
-  mutate(Position = ifelse(Position == "SP", "Rotation",
-                           ifelse(Position == "RP", "Bullpen", "Hitter"))) %>%
-  #dplyr::select(Name, Team, Position, Year, years_of_control, war_under_control) %>%
-  inner_join(payroll_info, by = c("Name", "Team")) %>%
-  mutate(aav = round(salary_under_control / years_of_control, 1)) %>%
-  filter(war_under_control > 1 | aav > 5)
-
-
-# join back to master?
-
-warcels <- master_full %>%
-  group_by(Name, Team) %>%
-  filter(Year == max(Year)) %>%
-  mutate(controlled_surplus_value = round((millions_per_war * ((.05 * years_of_control) + 1)) * war_under_control -
-           salary_under_control, 1)) %>%
-  ungroup() %>%
-  mutate(absolute_surplus_value = abs(controlled_surplus_value),
-         surplus_value_rank = round(percent_rank(controlled_surplus_value) * 100, 2)) %>%
-  select(-Year) %>%
-  arrange(desc(controlled_surplus_value))
 
 # save info for analysis next year
 warcels %>%
