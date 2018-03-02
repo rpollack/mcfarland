@@ -446,14 +446,15 @@ retain <-
     controlled_years = n(),
     war_under_control = round(sum(WAR), 1),
     salary_under_control = round(sum(Salary), 1),
-    surplue_value_under_control = war_under_control - salary_under_control,
+    surplue_value_under_control = (millions_per_war * war_under_control) - salary_under_control,
     aav = salary_under_control / controlled_years) %>%
   filter(war_under_control > 0 | aav > 5)
 
 retain %>%
   group_by(Team) %>%
   summarize(total_surplue_value_under_control = sum(surplue_value_under_control)) %>%
-  ggplot(aes(Team, total_surplue_value_under_control)) + geom_col() + coord_flip() 
+  ggplot(aes(reorder(Team, total_surplue_value_under_control), total_surplue_value_under_control)) + geom_col() + coord_flip() +
+  fgt
 ```
 
     
