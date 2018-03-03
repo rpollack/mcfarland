@@ -299,15 +299,19 @@ teamAbbr <- teamAbbr %>%
   mutate(Tm = ifelse(Tm == "LAA", "ANA",
                      ifelse(Tm =="MIA", "FLA",
                             ifelse(Tm == "TBR", "TBD", Tm))),
-         team_name = c("arizona-diamondbacks", "atlanta-braves", "baltimore-orioles", "boston-red-sox",
-                       "chicago-cubs", "chicago-white-sox", "cincinnati-reds", "cleveland-indians",
-                       "colorado-rockies", "detroit-tigers", "houston-astros", "kansas-city-royals",
-                       "los-angeles-angels", "los-angeles-dodgers", "miami-marlins",
-                       "milwaukee-brewers", "minnesota-twins", "new-york-mets", "new-york-yankees",
-                       "oakland-athletics", "philadelphia-phillies", "pittsburgh-pirates",
-                       "san-diego-padres", "seattle-mariners", "san-francisco-giants", 
-                       "st-louis-cardinals", "tampa-bay-rays", "texas-rangers", "toronto-blue-jays",
-                       "washington-nationals"))
+         team_name = c("arizona-diamondbacks", "atlanta-braves", "baltimore-orioles", "boston-red-sox", "chicago-cubs",
+                       "chicago-white-sox", "cincinnati-reds", "cleveland-indians", "colorado-rockies", "detroit-tigers",
+                       "houston-astros", "kansas-city-royals", "los-angeles-angels", "los-angeles-dodgers", "miami-marlins",
+                       "milwaukee-brewers", "minnesota-twins", "new-york-mets", "new-york-yankees", "oakland-athletics",
+                       "philadelphia-phillies", "pittsburgh-pirates", "san-diego-padres", "seattle-mariners", "san-francisco-giants", 
+                       "st-louis-cardinals", "tampa-bay-rays", "texas-rangers", "toronto-blue-jays", "washington-nationals"),
+         team_color = c("#A71930", "#002F5F", "#ED4C09", "#C60C30", "#003279",
+                        "#000000", "#C6011F", "#003366", "#333366", "#001742",
+                        "#072854", "#15317E", "#B71234", "#083C6B", "#F9423A",
+                        "#182B49", "#072754", "#002C77", "#1C2841", "#003831",
+                        "#BA0C2F", "#FDB829", "#002147", "#005C5C", "#F2552C",
+                        "#C41E3A", "#9ECEEE", "#BD1021", "#003DA5", "#BA122B")
+         )
 
 all_teams_payroll <- teamAbbr %>% 
   group_by(Tm) %>%
@@ -340,7 +344,6 @@ all_teams_payroll <- teamAbbr %>%
 # combine payroll info with projected WAR. the resulting DF has one row per player per year of control
 # FA's are omitted, as are years a player isn't under control
 # TODO: Account for inflation
-# TODO: Arb salaries seem high. wade leblanc is crazy high
 
 millions_per_war <- 9
 
@@ -448,7 +451,7 @@ master_list <-
   inner_join(projected_war, by=c("Name", "Team", "Season")) %>%
   dplyr::select(PlayerId, Name, Team, Position, Season, WAR = ValueW, Salary = salary) %>%
   group_by(PlayerId, Name) %>%
-  mutate( #project arb-1 salaries, then use that to project future arb years
+  mutate( # handle type 3
     Salary = ifelse(Salary == "Arb-1", 1.36881 + (.26896 * (cumsum(WAR))), Salary)) %>% # use linear model i computed elsewhere in this doc
   ungroup() %>%
   arrange(PlayerId, Name, Season) %>%
@@ -484,6 +487,7 @@ master_list <-
 
 #retain players with more than 0 WAR under control or whose AAV is over $5 mil.
 # these are the guys who will likely get playing time no matter what
+# also add the team's primary color for graphing purposes
 warcels <- 
   master_list %>%
   group_by(PlayerId, Name, Team, Division) %>%
@@ -505,22 +509,28 @@ write_csv(warcels, "warcels-2018.csv")
 ### plot controlled surplus value by team
 
 ```{r}
+
+team_colors <- teamAbbr$team_color
+names(team_colors) <- factor(teamAbbr$Tm)
+head(team_colors)
+
 warcels_team_2018 <-
   warcels %>%
   group_by(Team) %>%
-  summarize(total_surplus_value_under_control = sum(surplus_value_under_control))
+  summarize(total_surplus_value_under_control = sum(surplus_value_under_control, na.rm = TRUE))
 
 warcels_team_2018 %>%
-  ggplot(aes(reorder(Team, total_surplus_value_under_control), total_surplus_value_under_control)) + geom_col() + 
+  ggplot(aes(reorder(Team, total_surplus_value_under_control), total_surplus_value_under_control), fill=Team) +
+  geom_col() + 
   coord_flip() +
-  fgt + 
-  scale_color_manual(values = c("#A71930", "#002F5F", "#ED4C09", "#C60C30", "#003279",
-                               "#000000", "#C6011F", "#003366", "#000000", "#001742",
-                               "#072854", "#15317E", "#B71234", "#083C6B", "#000000",
-                               "#182B49", "#072754", "#002C77", "#1C2841", "#003831",
-                               "#BA0C2F", "#FDB829", "#002147", "#002147", "#F2552C",
-                               "#0C2C56", "#C41E3A", "#00285D", "#BD1021", "#003DA5",
-                               "#BA122B"))
+  fgt +
+  scale_fill_manual(values = team_colors) + 
+  labs(x="", y="Controlled Surplus Value (USD Millions)") +
+  ggtitle("Controlled Surplus Value, 2018 - 2022")
+
+```
+
+```{r}
 
 #team timeline
 team_war_per_season <-
@@ -542,7 +552,7 @@ team_war_per_season %>%
                                "#1C2841", "#003831", "#BA0C2F", "#FDB829", "#002147",
                                "#002147", "#F2552C", "#0C2C56", "#C41E3A", "#00285D",
                                "#BD1021", "#003DA5", "#BA122B")) +
-  labs(y="Surplus Value Under Control")
+  labs(y="Surplus Value Under Control (USD Millions)")
   # geom_label_repel(aes(label=label),
   #                  nudge_x = 100,
   #                  na.rm = TRUE)
