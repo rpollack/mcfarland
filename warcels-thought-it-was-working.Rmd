@@ -325,6 +325,16 @@ all_teams_payroll <- teamAbbr %>%
 
 ```{r}
 
+# there are several types of salaries that need identifying.
+# 1. straight-up salary entries: pre-arb years and contract years (actual and estimated by MLBTR). these are easy.
+# for all other players, we need to identify their arb years, project Arb-1 salary, and project future arb salaries off that. 
+# 2. Some Arb years need identifying, because bb-ref just puts in "Arb" w/no indication of which year it is
+# 2a. we identify some of these by their proximity to the player's FA year & whether they're a super two player.
+# 2b. others can't be identified because the player's FA year is not in the dataset. have to input these manually.
+# 3. after all Arb years are identified, we can project Arb-1 salaries based on cumulative WAR.
+# 4. but, some players are labeled Arb-2 or Arb-3 salaries with no previous year's info to base a projection on.  
+# you can find #4 with the following code: all_teams_payroll %>% group_by(Name, Team) %>% arrange(Year) %>% filter(Year == min(Year), str_detect(salary, "^Arb-2") | str_detect(salary, "^Arb-3") | str_detect(salary, "^Arb-4"), !str_detect(salary, "M"), !str_detect(salary, "k"))
+
 # extract salary from payroll information
 # identify arb years that bb-ref didn't, so we can compute salary later
 # combine payroll info with projected WAR. the resulting DF has one row per player per year of control
@@ -336,7 +346,7 @@ millions_per_war <- 9
 
 master_list <-
   all_teams_payroll %>%
-  mutate(
+  mutate( #handle type 1
     Season = as.numeric(Year),
     salary = ifelse(grepl("M", salary), as.double(str_extract(salary, "(?<=\\$)[:digit:]+\\.*[:digit:]*")), salary),
     salary = ifelse(grepl("k", salary), as.double(str_extract(salary, "(?<=\\$)[:digit:]+")) / 1000, salary),
@@ -367,7 +377,7 @@ master_list <-
       TRUE, FALSE)) %>%
   group_by(Name) %>%
   arrange(Year) %>%
-  mutate(
+  mutate( #handle type 2a
     salary = ifelse(super_two & salary == "Arb",
                     ifelse(lead(salary) == "FA",
                            "Arb-4",
@@ -386,8 +396,7 @@ master_list <-
                                          "Arb-1", 
                                          salary))),
                     salary),
-    # not all players with "Arb" listed have an FA year attached. no way to know which Arb year it is. so force it based on spotrac data
-    # and occasionally bb-ref data
+    # handle type 2b
     salary = ifelse(Name == "Blake Treinen" & Year == 2019, "Arb-2", salary),
     salary = ifelse(Name == "Blake Treinen" & Year == 2020, "Arb-3", salary),
     salary = ifelse(Name == "Chris Martin" & Year == 2021, "Arb-1", salary),
@@ -423,7 +432,17 @@ master_list <-
     salary = ifelse(Name == "Rusney Castillo" & Year == 2022, "FA", salary),  #spotrac
     salary = ifelse(Name == "Trevor May" & Year == 2019, "Arb-2", salary),
     salary = ifelse(Name == "Trevor May" & Year == 2020, "Arb-3", salary),
-    salary = ifelse(Name == "Yuli Gurriel" & Year == 2021, "FA", salary) #spotrac
+    salary = ifelse(Name == "Yuli Gurriel" & Year == 2021, "FA", salary), #spotrac
+    
+    # handle type 4 if a player has guaranteed money. not all do; for example many are minor league FA's
+    salary = ifelse(Name == "Chris Carter" & Year == 2018, 1.75, salary), #spotrac
+    salary = ifelse(Name == "Carlos Torres" & Year == 2018, 1.5, salary),
+    salary = ifelse(Name == "Evan Scribner" & Year == 2018, 0.8, salary),
+    salary = ifelse(Name == "Kevin Siegrist" & Year == 2018, 1.5, salary),
+    salary = ifelse(Name == "Tommy Milone" & Year == 2018, 1.2, salary),
+    salary = ifelse(Name == "Vance Worley" & Year == 2018, 1.5, salary),
+    salary = ifelse(Name == "Wade LeBLanc" & Year == 2018, 1, salary)
+    
   ) %>%
   filter(!salary %in% c("FA", "$0 [Arb-*]", 0)) %>%  # discard FA years and weird option years
   inner_join(projected_war, by=c("Name", "Team", "Season")) %>%
@@ -463,7 +482,7 @@ master_list <-
   
                                                                                            
 
-#retain players with less than 0 WAR under control or whose AAV is over $5 mil.
+#retain players with more than 0 WAR under control or whose AAV is over $5 mil.
 # these are the guys who will likely get playing time no matter what
 warcels <- 
   master_list %>%
@@ -471,8 +490,8 @@ warcels <-
   summarize(
     controlled_years = n(),
     war_under_control = round(sum(WAR), 1),
-    salary_under_control = round(sum(Salary), 1),
-    surplus_value_under_control = sum(surplus_value),
+    salary_under_control = round(sum(Salary, na.rm = TRUE), 1),
+    surplus_value_under_control = sum(surplus_value, na.rm = TRUE),
     aav = salary_under_control / controlled_years) %>%
   filter(war_under_control > 0 | aav >= 3)
 
@@ -492,8 +511,16 @@ warcels_team_2018 <-
   summarize(total_surplus_value_under_control = sum(surplus_value_under_control))
 
 warcels_team_2018 %>%
-  ggplot(aes(reorder(Team, total_surplus_value_under_control), total_surplus_value_under_control)) + geom_col() + coord_flip() +
-  fgt
+  ggplot(aes(reorder(Team, total_surplus_value_under_control), total_surplus_value_under_control)) + geom_col() + 
+  coord_flip() +
+  fgt + 
+  scale_color_manual(values = c("#A71930", "#002F5F", "#ED4C09", "#C60C30", "#003279",
+                               "#000000", "#C6011F", "#003366", "#000000", "#001742",
+                               "#072854", "#15317E", "#B71234", "#083C6B", "#000000",
+                               "#182B49", "#072754", "#002C77", "#1C2841", "#003831",
+                               "#BA0C2F", "#FDB829", "#002147", "#002147", "#F2552C",
+                               "#0C2C56", "#C41E3A", "#00285D", "#BD1021", "#003DA5",
+                               "#BA122B"))
 
 #team timeline
 team_war_per_season <-
@@ -548,13 +575,15 @@ player_surplus_value_changes <-
 player_surplus_value_changes %>%
   head(25) %>%
   ggplot(aes(reorder(Name, surplus_value_change), surplus_value_change)) + geom_col() + coord_flip() + fgt +
-  labs(x="", y="Surplus Value Change (USD Millions)") + ggtitle("Largest Increases in Controlled Surplus Value\n2017-2021 Period to 2018-2022 Period")
+  labs(x="", y="Surplus Value Change (USD Millions)") + 
+  ggtitle("Largest Increases in Controlled Surplus Value\n2017-2021 Period to 2018-2022 Period")
 
 #largest surplus value decreases
 player_surplus_value_changes %>%
   tail(25) %>%
   ggplot(aes(reorder(Name, surplus_value_change), surplus_value_change)) + geom_col() + coord_flip() + fgt +
-  labs(x="", y="Surplus Value Change (USD Millions)") + ggtitle("Largest Decreases in Controlled Surplus Value\n2017-2021 Period to 2018-2022 Period")
+  labs(x="", y="Surplus Value Change (USD Millions)") + 
+  ggtitle("Largest Decreases in Controlled Surplus Value\n2017-2021 Period to 2018-2022 Period")
 
 ```
 
