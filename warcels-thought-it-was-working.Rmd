@@ -25,6 +25,8 @@ library(tidyverse)
 library(rvest)
 library(stringr)
 library(plotly)
+library(ggrepel)
+
 
 fgt = theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
@@ -328,7 +330,7 @@ all_teams_payroll <- teamAbbr %>%
 # combine payroll info with projected WAR. the resulting DF has one row per player per year of control
 # FA's are omitted, as are years a player isn't under control
 # TODO: Account for inflation
-# TODO: Arb salaries seem high. Kris BRyant for $80M? in warcels 
+# TODO: Arb salaries seem high. wade leblanc is crazy high
 
 millions_per_war <- 9
 
@@ -436,138 +438,141 @@ master_list <-
     Salary = ifelse(Salary == "Arb-3", (as.double(lag(Salary)) / .4) * .6, Salary),
     Salary = ifelse(Salary == "Arb-4", (as.double(lag(Salary)) / .6) * .7, Salary),
     Salary = as.numeric(Salary),
-    surplus_value = (millions_per_war * WAR) - Salary)
+    surplus_value = (millions_per_war * WAR) - Salary) %>%
+  ungroup() %>%
+  mutate(Division = ifelse(Team %in% c("BAL", "BOS", "NYY", "TBR", "TOR"),
+                           "AL East",
+                           ifelse(Team %in% c("CHW", "MIN", "CLE", "DET", "KCR"),
+                                              "AL Central",
+                                              ifelse(Team %in% c("HOU", "TEX", "LAA", "SEA", "OAK"),
+                                                                 "AL West",
+                                                                 ifelse(Team %in% c("WSN", "NYM", "PHI", "MIA", "ATL"),
+                                                                        "NL East",
+                                                                        ifelse(Team %in% c("CHC", "STL", "CIN", "PIT", "MIL"), 
+                                                                                           "NL Central",
+                                                                                           ifelse(Team %in% c("ARI", "LAD", "COL",
+                                                                                                              "SFG", "SDP"),
+                                                                                                  "NL West",
+                                                                                                  NA_character_)
+                                                                        )
+                                                                 )
+                                              )
+                           )
+  )
+  )
+  
+                                                                                           
 
 #retain players with less than 0 WAR under control or whose AAV is over $5 mil.
 # these are the guys who will likely get playing time no matter what
 warcels <- 
   master_list %>%
-  group_by(PlayerId, Name, Team) %>%
+  group_by(PlayerId, Name, Team, Division) %>%
   summarize(
     controlled_years = n(),
     war_under_control = round(sum(WAR), 1),
     salary_under_control = round(sum(Salary), 1),
-    surplue_value_under_control = (millions_per_war * war_under_control) - salary_under_control,
+    surplus_value_under_control = sum(surplus_value),
     aav = salary_under_control / controlled_years) %>%
-  filter(war_under_control > 0 | aav > 5)
+  filter(war_under_control > 0 | aav >= 3)
 
-warcels %>%
+# save to disk for future analysis
+write_csv(warcels, "warcels-2018.csv")
+```
+
+
+
+
+### plot controlled surplus value by team
+
+```{r}
+warcels_team_2018 <-
+  warcels %>%
   group_by(Team) %>%
-  summarize(total_surplue_value_under_control = sum(surplue_value_under_control)) %>%
-  ggplot(aes(reorder(Team, total_surplue_value_under_control), total_surplue_value_under_control)) + geom_col() + coord_flip() +
+  summarize(total_surplus_value_under_control = sum(surplus_value_under_control))
+
+warcels_team_2018 %>%
+  ggplot(aes(reorder(Team, total_surplus_value_under_control), total_surplus_value_under_control)) + geom_col() + coord_flip() +
   fgt
-```
 
-    
-```{r}
+#team timeline
+team_war_per_season <-
+  master_list %>%
+  group_by(Team, Division, Season) %>%
+  summarize(controlled_war = sum(WAR),
+            controlled_surplus_value = sum(surplus_value, na.rm = TRUE))
+  # mutate(label = ifelse(Team %in% c("NYY", "CLE", "HOU", "LAD", "CHC") &
+  #                         Season == max(Season),
+  #                       Team,
+  #                       NA_character_))
 
-# save info for analysis next year
-warcels %>%
-  dplyr::select(Name, Team, years_of_control, Position, war_under_control, salary_under_control,
-         controlled_surplus_value, absolute_surplus_value, surplus_value_rank) %>%
-  write_csv("warcels-2018.csv")
-
-```
-
-
-# overall controlled surplus value plot and 2017-2017
-
-```{r, echo = FALSE}
-warcels_2018 <-
-  warcels %>% 
-  group_by(Team) %>% 
-  summarize(total_controlled_surplus_value_2018 = sum(controlled_surplus_value))
-
-#changes from 2017
-warcels_changes_2017_2018 <- read_csv("warcels-2017.csv") %>%
-  group_by(Team) %>%
-  summarize(total_controlled_surplus_value_2017 = sum(controlled_surplus_value)) %>%
-  inner_join(warcels_2018, by="Team") %>%
-  mutate(change_yoy = total_controlled_surplus_value_2018 - total_controlled_surplus_value_2017) %>%
-  arrange(desc(change_yoy))
-
-#2018 surplue value graph
-warcels_2018 %>%
-ggplot(aes(reorder(Team, total_controlled_surplus_value_2018), total_controlled_surplus_value_2018)) +
-  geom_col() + coord_flip() +
-  labs(x="", y="Controlled Surplus Value (Millions USD)") + 
-  ggtitle("Controlled Surplus Value, MLB Teams 2018–2022") + fgt
-
-#YoY change 2017 to 2018
-warcels_changes_2017_2018 %>%
-  ggplot(aes(reorder(Team, change_yoy), change_yoy)) +
-  geom_col() + coord_flip() +
-  labs(x="", y="Change in Controlled Surplus Value (Millions USD)") + 
-  ggtitle("Change in Controlled Surplus Value, MLB Teams 2017–2018") + fgt
-
-```
-
-
-```{r}
-war_timeline <- master_full %>%
-  ungroup() %>%
-  dplyr::select(Name, Team, `2018` = war_next, `2019` = war_in_two_years, `2020` = war_in_three_years, 
-         `2021` = war_in_four_years, `2022` = war_in_five_years) %>%
-  gather(Year, player_WAR, contains("20")) %>% View()
-  group_by(Team, Year) %>% View()
-  summarize(WAR = sum(player_WAR) / 4) #divide by 4 because i goofed & each player has 4 entries for 1 year
-
-war_time_plt <- ggplot(war_timeline, aes(Year, WAR, color=Team, group=Team)) + geom_point() + geom_line() + fgt +
+team_war_per_season %>%
+  ggplot(aes(Season, controlled_surplus_value, group=Team, color=Team)) + geom_point() + geom_line() + fgt +
   scale_color_manual(values = c("#A71930", "#002F5F", "#ED4C09",
                                "#C60C30", "#003279", "#000000", "#C6011F", "#003366",
                                "#000000", "#001742", "#072854", "#15317E", "#B71234",
                                "#083C6B", "#000000", "#182B49", "#072754", "#002C77",
                                "#1C2841", "#003831", "#BA0C2F", "#FDB829", "#002147",
                                "#002147", "#F2552C", "#0C2C56", "#C41E3A", "#00285D",
-                               "#BD1021", "#003DA5", "#BA122B"))
-war_time_plt
+                               "#BD1021", "#003DA5", "#BA122B")) +
+  labs(y="Surplus Value Under Control")
+  # geom_label_repel(aes(label=label),
+  #                  nudge_x = 100,
+  #                  na.rm = TRUE)
 
-win_tbl <- war_timeline %>%
-  mutate(Wins = WAR + 53)
-
-
-
-ggplotly(war_time_plt)
 ```
 
 
-### Group WAR per Year by Team
+
+# overall controlled surplus value plot and 2017-2017
+
+```{r, echo = FALSE}
+#changes from 2017
+
+warcels_2017_2018 <- read_csv("warcels-2017.csv") %>%
+  dplyr::select(Name, Team, war_under_control, salary_under_control, surplus_value_under_control = controlled_surplus_value) %>%
+  inner_join(warcels, by="Name", suffix=c("_2017", "_2018"))
+
+```
 
 ```{r}
-team_war <- warcels %>%
+#player surplsu value changes 2017 - 2017
+player_surplus_value_changes <-
+  warcels_2017_2018 %>%
+  mutate(surplus_value_change = round(surplus_value_under_control_2018 - surplus_value_under_control_2017, 1)) %>%
+  dplyr::select(Name, war_under_control_2017, war_under_control_2018, salary_under_control_2017, salary_under_control_2018,
+         surplus_value_under_control_2017, surplus_value_under_control_2018, surplus_value_change) %>%
+  arrange(desc(surplus_value_change))
+
+#largest surplus value increases
+player_surplus_value_changes %>%
+  head(25) %>%
+  ggplot(aes(reorder(Name, surplus_value_change), surplus_value_change)) + geom_col() + coord_flip() + fgt +
+  labs(x="", y="Surplus Value Change (USD Millions)") + ggtitle("Largest Increases in Controlled Surplus Value\n2017-2021 Period to 2018-2022 Period")
+
+#largest surplus value decreases
+player_surplus_value_changes %>%
+  tail(25) %>%
+  ggplot(aes(reorder(Name, surplus_value_change), surplus_value_change)) + geom_col() + coord_flip() + fgt +
+  labs(x="", y="Surplus Value Change (USD Millions)") + ggtitle("Largest Decreases in Controlled Surplus Value\n2017-2021 Period to 2018-2022 Period")
+
+```
+
+### surplus value changes by team
+
+```{r}
+team_surplus_value_changes <-
+  read_csv("warcels-2017.csv") %>%
   group_by(Team) %>%
-  summarize(total_war_under_control = sum(war_under_control),
-            total_years_of_control = sum(years_of_control),
-            avg_war_under_control_pear_year = total_war_under_control / total_years_of_control,
-            avg_years_of_control = mean(years_of_control))
+  summarize(total_surplus_value_under_control = sum(controlled_surplus_value)) %>%
+  inner_join(warcels_team_2018, by="Team", suffix=c("_2017", "_2018")) %>%
+  mutate(surplus_value_change = total_surplus_value_under_control_2018 - total_surplus_value_under_control_2017)
 
-ggplot(data=team_war, aes(avg_years_of_control, avg_war_under_control_pear_year, label=Team)) + geom_point() + 
-  geom_text(aes(label=Team),hjust=0, vjust=0) + 
-  labs(x="avg. years of control (entire team; 5 max)") + 
-  ggtitle("MLB Team Control of WAR, 2018 - 2022")
+team_surplus_value_changes %>%
+  ggplot(aes(reorder(Team, surplus_value_change), surplus_value_change)) + geom_col() + fgt + coord_flip() + 
+  labs(x="", y="Surplus Value Change (USD Millions)") + ggtitle("MLB Team Surplus Value Changes, 2017-2021 Period to 2018-2022 Period")
+
 ```
 
-### Group results by team & high-level position
-
-```{r}
-team_war_by_position <- warcels %>%
-  group_by(Team, Position) %>%
-  summarize(war_under_control_per_year = sum(war_under_control) / sum(years_of_control),
-            years_of_control = round(mean(years_of_control), 2),
-            salary_under_control = sum(salary_under_control),
-            surplus_value_under_control = sum(controlled_surplus_value))
-
-ggplot(data=team_war_by_position, aes(Team, war_under_control_per_year, fill=Position)) + geom_bar(stat="identity") + theme(axis.text.x = element_text(angle = 90, hjust = 1)) + coord_flip()
-```
-
-### Plot teams' length of control vs. war per year they control
-
-```{r}
-ggplot(data=team_war_by_position %>% filter(Position == "Hitter"), aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (position players only; 5 max)") + ggtitle("Avg. Length of Control vs. WAR per year, Position Players")
-
-ggplot(data=team_war_by_position %>% filter(Position == "Rotation"), aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (rotation only; 5 max)") + ggtitle("Avg. Length of Control vs. WAR per year, Rotation")
-
-ggplot(data=team_war_by_position %>% filter(Position == "Bullpen"), aes(years_of_control, war_under_control_per_year, label=Team)) + geom_point() + geom_text(aes(label=Team),hjust=0, vjust=0) + labs(x="avg. years of control (bullpen only; 5 max)") + ggtitle("Avg. Length of Control vs. WAR per Year, Bullpen")
-```
 
 
