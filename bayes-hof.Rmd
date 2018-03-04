@@ -115,8 +115,8 @@ prob_war_thru_age <- function(playerid, age, war, position, floor, ceiling){
       mutate(num_eligible_players_who_meet_criteria = No + Yes) %>%
       dplyr::select(num_eligible_players_who_meet_criteria, num_hof_players_who_meet_criteria = Yes),
     error = function(e){
-      data.frame(num_eligible_players_who_meet_criteria = 0,
-           num_hof_players_who_meet_criteria = 0)
+      print("no one found")
+      tibble()
     }
   )
 }  
