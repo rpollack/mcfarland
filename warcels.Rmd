@@ -280,10 +280,10 @@ projected_war <- all_players %>%
          `2022` = round(ifelse(Position == "SP" | Position == "RP", 
                                `2021` - 0.4,
                                `2021` - 0.4 + ((30-age_in_four_years) * .03)), 1)) %>% 
-  dplyr::dplyr::select(PlayerId, Name, Team, birth_year, Position, `2018`, `2019`, `2020`, `2021`, `2022`) %>%
+  dplyr::select(PlayerId, Name, Team, birth_year, Position, `2018`, `2019`, `2020`, `2021`, `2022`) %>%
   gather(Season, ValueW, contains("20")) %>%
   mutate(Season = as.integer(Season)) %>%
-  dplyr::dplyr::select(PlayerId, Name, Season, Team, ValueW, birth_year, Position)
+  dplyr::select(PlayerId, Name, Season, Team, ValueW, birth_year, Position)
 
 ```
 
@@ -530,6 +530,7 @@ warcels_team_2018 %>%
 
 ```
 
+
 ```{r}
 
 #team timeline
@@ -544,7 +545,7 @@ team_war_per_season <-
   #                       NA_character_))
 
 team_war_per_season %>%
-  ggplot(aes(Season, controlled_surplus_value, group=Team, color=Team)) + geom_point() + geom_line() + fgt +
+  ggplot(aes(Season, controlled_war, group=Team, color=Team)) + geom_point() + geom_line() + fgt +
   scale_color_manual(values = c("#A71930", "#002F5F", "#ED4C09",
                                "#C60C30", "#003279", "#000000", "#C6011F", "#003366",
                                "#000000", "#001742", "#072854", "#15317E", "#B71234",
@@ -552,10 +553,23 @@ team_war_per_season %>%
                                "#1C2841", "#003831", "#BA0C2F", "#FDB829", "#002147",
                                "#002147", "#F2552C", "#0C2C56", "#C41E3A", "#00285D",
                                "#BD1021", "#003DA5", "#BA122B")) +
-  labs(y="Surplus Value Under Control (USD Millions)")
+  labs(y="Surplus Value Under Control (USD Millions)") + facet_wrap(~Division, ncol = 1)
   # geom_label_repel(aes(label=label),
   #                  nudge_x = 100,
   #                  na.rm = TRUE)
+
+
+warcels %>%
+  group_by(Team) %>%
+  summarize(num_players = n(),
+            controlled_years_per_player = sum(controlled_years) / num_players,
+            controlled_war_per_player_per_year = sum(war_under_control)/sum(controlled_years)/num_players) %>%
+  ggplot(aes(controlled_years_per_player, controlled_war_per_player_per_year, color=Team)) + geom_point() + fgt +
+  geom_label_repel(aes(label=Team),
+                       na.rm = TRUE) +
+  ggtitle("MLB Team Control over Talent, 2018 - 2022") +
+  labs(x="Controlled Years per Player", y="Controlled WAR per Player per Year", caption="Sources: Baseball Reference, FanGraphs, & Tom Tango")
+
 
 ```
 
