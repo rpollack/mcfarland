@@ -122,7 +122,7 @@ fa_signings %>% filter(row_number() %in% invalid_dates) %>% View()
 ### clean data
 
 ```{r}
-current_month <- "Feb"
+current_month <- "Mar"
 
 fa_signings_clean <- fa_signings %>%
   ungroup() %>%
@@ -155,8 +155,7 @@ fa_signings_clean %>%
   group_by(offseason) %>%
   
   #label interesting years only
-  mutate(label = ifelse(offseason %in% c(1999, 2017, 2004, 2003, 2010, 2011,
-                                         1998, 1989, 1994, 1990, 1991, 1993) & 
+  mutate(label = ifelse(offseason %in% c(1999, 2017, 2004, 2003, 1998, 1989, 1994, 1990, 1991, 1993) & 
                           sign_month == max(sign_month), 
                         offseason, NA_character_)) %>%
   arrange(offseason, sign_month) %>%
@@ -181,14 +180,14 @@ fa_signings_clean %>%
 # graph percentage unsigned FA's by month, for each year
 all_free_agents <- bind_rows(fa_signings_clean, unsigned_batters, unsigned_pitchers)
 
-all_free_agents %>% 
+cumulative_sign_plt <- all_free_agents %>% 
   group_by(offseason) %>%
   mutate(total_available_fas = n()) %>%  #get total available FA's in each offseason
   filter(sign_type == "signed") %>%      #now we only need to know how many signed each month
   group_by(offseason, sign_month, total_available_fas) %>%
   summarize(num_signings = n()) %>%
   group_by(offseason) %>%
-  mutate(label = ifelse(offseason %in% c(2017, 2003, 1994, 1976, 1985) & 
+  mutate(label = ifelse(offseason %in% c(2017, 1994) & 
                           sign_month == max(sign_month), 
                         offseason, NA_character_)) %>%
   arrange(offseason, sign_month) %>%
@@ -197,12 +196,16 @@ all_free_agents %>%
              group = offseason)) +
   geom_point() + geom_line() +
   labs(x="", y="Cumulative FA Signings (%)") +
-  ggtitle("2017 is the Slowest Offseason Ever (by Signing Percentage)") +
+  ggtitle("The 2017 Offseason has Picked up the Pace") +
   geom_label_repel(aes(label=label),
                        nudge_x = 100,
                        na.rm = TRUE) +
   fgt +
   guides(color=guide_legend(ncol=3)) +
   annotate("text", label="Data from baseball-reference.com", x=3.5, y=1, size = 2.5)
+
+cumulative_sign_plt
+
+#ggplotly(cumulative_sign_plt)
 
 ```
