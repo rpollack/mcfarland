@@ -539,11 +539,16 @@ team_war_per_season <-
                         NA_character_))
 
 team_war_per_season %>%
-  ggplot(aes(Season, controlled_war, group=Team, fill=Team)) + geom_point() + geom_line() + fgt +
-  labs(y="Surplus Value Under Control (USD Millions)") + facet_wrap(~Division, ncol = 2) +
-  scale_fill_manual(values = team_colors) +
+  ggplot(aes(Season, controlled_war, color=Team, fill=Team)) + geom_point() + geom_line() + fgt +
+  labs(y="WAR Under Control") + facet_wrap(~Division, ncol = 2) +
   geom_label_repel(aes(label=label),
-                   na.rm = TRUE)
+                   na.rm = TRUE,
+                   show.legend = FALSE,
+                   color="white",
+                   segment.color = "black") +
+  scale_color_manual(values = team_colors) +
+  scale_fill_manual(values = team_colors)
+  
 ```
 
 ### MLB Team Controle over Talent
@@ -562,7 +567,8 @@ warcels %>%
                    show.legend = FALSE,
                    color="white",
                    segment.color = "black") +
-  ggtitle("MLB Team Contention Windows, 2018 - 2022") + scale_color_manual(values = team_colors) +
+  ggtitle("MLB Team Contention Windows, 2018 - 2022") + 
+  scale_color_manual(values = team_colors) +
   scale_fill_manual(values = team_colors) +
   labs(x="Controlled Years / Player", y="Controlled Projected WAR / Year", 
        caption="Sources: Baseball Reference, FanGraphs, & Tom Tango") +
