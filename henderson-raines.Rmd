@@ -101,9 +101,35 @@ sb_info_seasons <- fg_db %>%
 
 
 ```{r}
-ggplot(sb_info_seasons %>% filter(Season >= 1950), aes(decade, sb_perc, group = decade)) + geom_boxplot() +
+
+
+sb_info_seasons %>%
+  filter(Season >= 1980) %>%
+  dplyr::select(Season, `Attempted Steals` = attempts, `SB%` = sb_perc) %>%
+  gather(attribute, value, -Season) %>%
+  group_by(Season, attribute) %>%
+  summarize(average = mean(value)) %>%
+  ggplot(aes(Season, average, group=attribute, color=attribute)) +
+  facet_wrap(~attribute, scales = "free_y") + 
+  geom_smooth(method = "loess", se = FALSE, linetype = 2, lwd = 0.5, color="black") +
+  geom_point() + geom_line() + fgt + labs(y="Per-Player Average") +
+  theme(legend.position = "none")
+
+```
+
+```{r}
+  
+  ggplot(aes(decade, attempts, group = decade)) + geom_boxplot() +
+  tht_theme + ggtitle("Stolen Base Attempts by Decade") + 
+  labs(x="", y="Stolen Base Attempts")
+
+sb_info_seasons %>%
+  filter(Season >= 1950) %>%
+  ggplot(aes(decade, sb_perc, group = decade)) + geom_boxplot() +
   tht_theme + ggtitle("Stolen Base Success Rates by Decade") + 
   labs(x="", y="SB%")
+
+
 
 sb_info_seasons %>%
   filter(Season >= 1980) %>%
@@ -254,12 +280,21 @@ sb_info_seasons %>%
 
 # estimated sb%
 eb_sb %>%
-  filter(batter_name %in% c("Rickey Henderson", "Vince Coleman")) %>%
+  filter(batter_name %in% c("Rickey Henderson", "Vince Coleman", "Tim Raines")) %>%
   ggplot(aes(Season, est_sb_rate)) +
   geom_point(color="#8e001c") + geom_line(color="#8e001c") + 
-  geom_smooth(method="lm", se=FALSE, color="black", linetype=2, lwd=0.5) +
+  geom_smooth(method="loess", se=FALSE, color="black", linetype=2, lwd=0.5) +
   facet_grid(~batter_name) + 
   tht_theme + labs(x="Season", y="Estimated SB%")
+
+# show how over/under-rated each player is
+inner_join(sb_info_seasons, eb_sb, by=c("playerid", "batter_name", "Season", "sb_perc")) %>%
+  filter(batter_name %in% c("Rickey Henderson", "Vince Coleman", "Tim Raines")) %>%
+  dplyr::select(batter_name, Season, sb_perc, est_sb_rate) %>%
+  mutate(`SB% - Estimated SB%` = sb_perc - est_sb_rate) %>%
+  ggplot(aes(Season, `SB% - Estimated SB%`)) + geom_col() + facet_grid(~batter_name) + tht_theme +
+  ggtitle("SB% Overperformance")
+
 
 ```
 
