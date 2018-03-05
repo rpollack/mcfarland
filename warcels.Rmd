@@ -554,20 +554,19 @@ warcels %>%
   group_by(Team) %>%
   summarize(num_players = n(),
             controlled_years_per_player = sum(controlled_years) / num_players,
-            controlled_war_per_player_per_year = sum(war_under_control)/sum(controlled_years)/num_players) %>%
-  ggplot(aes(controlled_years_per_player, controlled_war_per_player_per_year, color=Team, fill=Team)) + 
+            controlled_war_per_year = sum(war_under_control)/sum(controlled_years)) %>%
+  ggplot(aes(controlled_years_per_player, controlled_war_per_year, color=Team, fill=Team)) + 
   geom_point() + fgt + 
   geom_label_repel(aes(label=Team),
                    na.rm = TRUE,
                    show.legend = FALSE,
                    color="white",
                    segment.color = "black") +
-  ggtitle("MLB Team Control over Talent, 2018 - 2022") + scale_color_manual(values = team_colors) +
+  ggtitle("MLB Team Contention Windows, 2018 - 2022") + scale_color_manual(values = team_colors) +
   scale_fill_manual(values = team_colors) +
-  labs(x="Controlled Years per Player", y="Controlled WAR per Player per Year", 
-       caption="Sources: Baseball Reference, FanGraphs, & Tom Tango")
-
-
+  labs(x="Controlled Years / Player", y="Controlled Projected WAR / Year", 
+       caption="Sources: Baseball Reference, FanGraphs, & Tom Tango") +
+  theme(legend.position = "None")
 ```
 
 
