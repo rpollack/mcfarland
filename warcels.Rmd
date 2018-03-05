@@ -485,7 +485,7 @@ master_list <-
   
 #retain players with more than 0 WAR under control or whose AAV is over $5 mil.
 # these are the guys who will likely get playing time no matter what
-# also add the team's primary color for graphing purposes
+# this also removes the scrub relievers who shouldn't really be considered part of a team
 warcels <- 
   master_list %>%
   group_by(PlayerId, Name, Team, Division) %>%
@@ -517,7 +517,7 @@ warcels_team_2018 %>%
   coord_flip() +
   fgt +
   scale_fill_manual(values = team_colors) + 
-  labs(x="", y="Controlled Surplus Value (USD Millions)") +
+  labs(x="", y="Controlled Surplus Value (Millions USD)") +
   ggtitle("Controlled Surplus Value, 2018 - 2022")
 
 ```
@@ -583,7 +583,8 @@ warcels %>%
 #changes from 2017
 
 warcels_2017_2018 <- read_csv("warcels-2017.csv") %>%
-  dplyr::select(Name, Team, war_under_control, salary_under_control, surplus_value_under_control = controlled_surplus_value) %>%
+  dplyr::select(Name, Team, war_under_control, salary_under_control, 
+                surplus_value_under_control = controlled_surplus_value) %>%
   inner_join(warcels, by="Name", suffix=c("_2017", "_2018"))
 
 ```
@@ -595,20 +596,23 @@ player_surplus_value_changes <-
   mutate(surplus_value_change = round(surplus_value_under_control_2018 - surplus_value_under_control_2017, 1)) %>%
   dplyr::select(Name, war_under_control_2017, war_under_control_2018, salary_under_control_2017, salary_under_control_2018,
          surplus_value_under_control_2017, surplus_value_under_control_2018, surplus_value_change) %>%
+  
+  # jose ramirez has two rows in here; need to zero out one 
+  mutate(surplus_value_change = ifelse(Name == "Jose Ramirez" & surplus_value_change == 47.5, 0, surplus_value_change)) %>%
   arrange(desc(surplus_value_change))
 
 #largest surplus value increases
 player_surplus_value_changes %>%
-  head(25) %>%
+  head(10) %>%
   ggplot(aes(reorder(Name, surplus_value_change), surplus_value_change)) + geom_col() + coord_flip() + fgt +
-  labs(x="", y="Surplus Value Change (USD Millions)") + 
+  labs(x="", y="Surplus Value Change (Millions USD)") + 
   ggtitle("Largest Increases in Controlled Surplus Value\n2017-2021 Period to 2018-2022 Period")
 
 #largest surplus value decreases
 player_surplus_value_changes %>%
-  tail(25) %>%
+  tail(10) %>%
   ggplot(aes(reorder(Name, surplus_value_change), surplus_value_change)) + geom_col() + coord_flip() + fgt +
-  labs(x="", y="Surplus Value Change (USD Millions)") + 
+  labs(x="", y="Surplus Value Change (Millions USD)") + 
   ggtitle("Largest Decreases in Controlled Surplus Value\n2017-2021 Period to 2018-2022 Period")
 
 ```
@@ -625,7 +629,7 @@ team_surplus_value_changes <-
 
 team_surplus_value_changes %>%
   ggplot(aes(reorder(Team, surplus_value_change), surplus_value_change)) + geom_col() + fgt + coord_flip() + 
-  labs(x="", y="Surplus Value Change (USD Millions)") + ggtitle("MLB Team Surplus Value Changes, 2017-2021 Period to 2018-2022 Period")
+  labs(x="", y="Surplus Value Change (Millions USD)") + ggtitle("MLB Team Surplus Value Changes, 2017-2021 Period to 2018-2022 Period")
 
 ```
 
