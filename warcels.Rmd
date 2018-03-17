@@ -246,6 +246,7 @@ PlayerId | Name | Team | Season | WAR | Salary | Surplus Value
 ```{r}
 
 # project five-year WAR for all players, then gather into tidy DF
+# use WARcels methodology, detailed here: http://tangotiger.com/index.php/site/comments/war-marcels-warcels
 
 projected_war <- all_players %>%
   group_by(PlayerId, Name) %>%
