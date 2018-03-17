@@ -312,7 +312,6 @@ team_info <- tibble(
 # define color scale used in plots below
 team_colors <- team_info$team_color
 names(team_colors) <- factor(team_info$team_name)
-head(team_colors)
 
 ```
 
@@ -339,12 +338,6 @@ all_teams_payroll <- team_info %>%
 # 3. after all Arb years are identified, we can project Arb-1 salaries based on cumulative WAR.
 # 4. but, some players are labeled Arb-2 or Arb-3 salaries with no previous year's info to base a projection on.  
 # you can find #4 with the following code: all_teams_payroll %>% group_by(Name, Team) %>% arrange(Year) %>% filter(Year == min(Year), str_detect(salary, "^Arb-2") | str_detect(salary, "^Arb-3") | str_detect(salary, "^Arb-4"), !str_detect(salary, "M"), !str_detect(salary, "k"))
-
-# extract salary from payroll information
-# identify arb years that bb-ref didn't, so we can compute salary later
-# combine payroll info with projected WAR. the resulting DF has one row per player per year of control
-# FA's are omitted, as are years a player isn't under control
-# TODO: Account for inflation
 
 millions_per_war <- 9
 
@@ -445,8 +438,7 @@ master_list <-
     salary = ifelse(Name == "Kevin Siegrist" & Year == 2018, 1.5, salary),
     salary = ifelse(Name == "Tommy Milone" & Year == 2018, 1.2, salary),
     salary = ifelse(Name == "Vance Worley" & Year == 2018, 1.5, salary),
-    salary = ifelse(Name == "Wade LeBLanc" & Year == 2018, 1, salary)
-    
+    salary = ifelse(Name == "Wade LeBlanc" & Year == 2018, 1, salary)
   ) %>%
   filter(!salary %in% c("FA", "$0 [Arb-*]", 0)) %>%  # discard FA years and weird option years
   inner_join(projected_war, by=c("Name", "Team", "Season")) %>%
@@ -460,8 +452,8 @@ master_list <-
     Salary = ifelse(Salary == "Arb-2", (as.double(lag(Salary)) / .25) * .4, Salary),
     Salary = ifelse(Salary == "Arb-3", (as.double(lag(Salary)) / .4) * .6, Salary),
     Salary = ifelse(Salary == "Arb-4", (as.double(lag(Salary)) / .6) * .7, Salary),
-    Salary = as.numeric(Salary),
-    surplus_value = (millions_per_war * WAR) - Salary) %>%
+    Salary = as.numeric(Salary) * (1.0238^(Season - next_year)), # inflate salary by 2.38% annually
+    surplus_value = ((millions_per_war * (1.05^(Season - next_year))) * WAR) - Salary) %>% # inflate $/WAR by 5% annually
   ungroup() %>%
   mutate(Division = ifelse(Team %in% c("BAL", "BOS", "NYY", "TBR", "TOR"),
                            "AL East",
@@ -518,8 +510,8 @@ warcels_team_2018 %>%
   coord_flip() +
   fgt +
   scale_fill_manual(values = team_colors) + 
-  labs(x="", y="Controlled Surplus Value (Millions USD)") +
-  ggtitle("Controlled Surplus Value, 2018 - 2022")
+  labs(x="", y="Controlled Surplus Value (Millions USD)", caption="Sources: Baseball Reference, FanGraphs, & Tom Tango") +
+  ggtitle("Controlled Surplus Value, MLB Teams 2018 - 2022")
 
 ```
 
@@ -541,7 +533,7 @@ team_war_per_season <-
 
 team_war_per_season %>%
   ggplot(aes(Season, controlled_war, color=Team, fill=Team)) + geom_point() + geom_line() + fgt +
-  labs(y="WAR Under Control") + facet_wrap(~Division, ncol = 2) +
+  labs(y="WAR Under Control", caption="Sources: Baseball Reference, FanGraphs, & Tom Tango") + facet_wrap(~Division, ncol = 2) +
   geom_label_repel(aes(label=label),
                    na.rm = TRUE,
                    show.legend = FALSE,
@@ -571,7 +563,7 @@ warcels %>%
   ggtitle("MLB Team Contention Windows, 2018 - 2022") + 
   scale_color_manual(values = team_colors) +
   scale_fill_manual(values = team_colors) +
-  labs(x="Controlled Years / Player", y="Controlled Projected WAR / Year", 
+  labs(x="Controlled Years / Player", y="Controlled WAR / Year (Projected)", 
        caption="Sources: Baseball Reference, FanGraphs, & Tom Tango") +
   theme(legend.position = "None")
 ```
@@ -591,7 +583,7 @@ warcels_2017_2018 <- read_csv("warcels-2017.csv") %>%
 ```
 
 ```{r}
-#player surplsu value changes 2017 - 2017
+#player surplus value changes 2017 - 2017
 player_surplus_value_changes <-
   warcels_2017_2018 %>%
   mutate(surplus_value_change = round(surplus_value_under_control_2018 - surplus_value_under_control_2017, 1)) %>%
@@ -599,21 +591,21 @@ player_surplus_value_changes <-
          surplus_value_under_control_2017, surplus_value_under_control_2018, surplus_value_change) %>%
   
   # jose ramirez has two rows in here; need to zero out one 
-  mutate(surplus_value_change = ifelse(Name == "Jose Ramirez" & surplus_value_change == 47.5, 0, surplus_value_change)) %>%
+  mutate(surplus_value_change = ifelse(Name == "Jose Ramirez" & war_under_control_2017 == 2.0, 0, surplus_value_change)) %>%
   arrange(desc(surplus_value_change))
 
 #largest surplus value increases
 player_surplus_value_changes %>%
   head(10) %>%
   ggplot(aes(reorder(Name, surplus_value_change), surplus_value_change)) + geom_col() + coord_flip() + fgt +
-  labs(x="", y="Surplus Value Change (Millions USD)") + 
+  labs(x="", y="Surplus Value Change (Millions USD)", caption="Sources: Baseball Reference, FanGraphs, & Tom Tango") + 
   ggtitle("Largest Increases in Controlled Surplus Value\n2017-2021 Period to 2018-2022 Period")
 
 #largest surplus value decreases
 player_surplus_value_changes %>%
   tail(10) %>%
   ggplot(aes(reorder(Name, surplus_value_change), surplus_value_change)) + geom_col() + coord_flip() + fgt +
-  labs(x="", y="Surplus Value Change (Millions USD)") + 
+  labs(x="", y="Surplus Value Change (Millions USD)", caption="Sources: Baseball Reference, FanGraphs, & Tom Tango") + 
   ggtitle("Largest Decreases in Controlled Surplus Value\n2017-2021 Period to 2018-2022 Period")
 
 ```
@@ -630,7 +622,7 @@ team_surplus_value_changes <-
 
 team_surplus_value_changes %>%
   ggplot(aes(reorder(Team, surplus_value_change), surplus_value_change)) + geom_col() + fgt + coord_flip() + 
-  labs(x="", y="Surplus Value Change (Millions USD)") + ggtitle("MLB Team Surplus Value Changes, 2017-2021 Period to 2018-2022 Period")
+  labs(x="", y="Surplus Value Change (Millions USD)", caption="Sources: Baseball Reference, FanGraphs, & Tom Tango") + ggtitle("MLB Team Surplus Value Changes, 2017-2021 Period to 2018-2022 Period")
 
 ```
 
