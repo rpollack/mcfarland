@@ -288,6 +288,9 @@ projected_war <- all_players %>%
 
 ```{r}
 
+# tv household information from http://www.nielsen.com/content/dam/corporate/us/en/docs/solutions/measurement/television/2016-2017-nielsen-local-dma-ranks.pdf
+# I put Toronto at 3202930 because it's the average of chicago & philly markets.  
+
 team_info <- tibble(
   team_name = c("ARI", "ATL", "BAL", "BOS", "CHC",
                 "CHW", "CIN", "CLE", "COL", "DET",
@@ -306,7 +309,13 @@ team_info <- tibble(
                  "#072854", "#15317E", "#B71234", "#083C6B", "#F9423A",
                  "#182B49", "#072754", "#002C77", "#1C2841", "#003831",
                  "#BA0C2F", "#FDB829", "#002147", "#005C5C", "#F2552C",
-                 "#C41E3A", "#9ECEEE", "#BD1021", "#003DA5", "#BA122B")
+                 "#C41E3A", "#9ECEEE", "#BD1021", "#003DA5", "#BA122B"),
+  tv_households = c(1890100, 2412730, 1119480, 2424240, 3463060,
+                    3463060, 863800, 1498960, 1630380, 1853030,
+                    2450800, 919020, 5476830, 5476830, 1696330,
+                    895700, 1742530, 7348620, 7348620, 2488090,
+                    2942800, 1160220, 1065700, 1808530, 2488090,
+                    1215570, 1908590, 2713380, 3202930, 2476680)
   )
 
 # define color scale used in plots below
@@ -321,7 +330,7 @@ names(team_colors) <- factor(team_info$team_name)
 all_teams_payroll <- team_info %>% 
   group_by(team_name) %>%
   do(getPayrolls(.$team_name, .$team_url)) %>%
-  dplyr::select(Team = team_name, Name, Age, Year, salary) %>%
+  dplyr::select(Team = team_name, Name, Acquired, Age, Year, salary) %>%
   group_by(Name, Team) %>%
   top_n(-5, wt=Year) %>%  # take only up to the next 5 years because that's all we can project out with WARcels
   ungroup()
@@ -442,7 +451,7 @@ master_list <-
   ) %>%
   filter(!salary %in% c("FA", "$0 [Arb-*]", 0)) %>%  # discard FA years and weird option years
   inner_join(projected_war, by=c("Name", "Team", "Season")) %>%
-  dplyr::select(PlayerId, Name, Team, Position, Season, WAR = ValueW, Salary = salary) %>%
+  dplyr::select(PlayerId, Name, Team, Acquired, Position, Season, WAR = ValueW, Salary = salary) %>%
   group_by(PlayerId, Name) %>%
   mutate( # handle type 3
     Salary = ifelse(Salary == "Arb-1", 1.36881 + (.26896 * (cumsum(WAR))), Salary)) %>% # use linear model i computed elsewhere in this doc
@@ -452,7 +461,7 @@ master_list <-
     Salary = ifelse(Salary == "Arb-2", (as.double(lag(Salary)) / .25) * .4, Salary),
     Salary = ifelse(Salary == "Arb-3", (as.double(lag(Salary)) / .4) * .6, Salary),
     Salary = ifelse(Salary == "Arb-4", (as.double(lag(Salary)) / .6) * .7, Salary),
-    Salary = as.numeric(Salary) * (1.0238^(Season - next_year)), # inflate salary by 2.38% annually
+    Salary = as.numeric(Salary) * (1.022^(Season - next_year)), # inflate salary by 2.38% annually
     surplus_value = ((millions_per_war * (1.05^(Season - next_year))) * WAR) - Salary) %>% # inflate $/WAR by 5% annually
   ungroup() %>%
   mutate(Division = ifelse(Team %in% c("BAL", "BOS", "NYY", "TBR", "TOR"),
@@ -481,7 +490,7 @@ master_list <-
 # this also removes the scrub relievers who shouldn't really be considered part of a team
 warcels <- 
   master_list %>%
-  group_by(PlayerId, Name, Team, Division) %>%
+  group_by(PlayerId, Name, Team, Acquired,Division) %>%
   summarize(
     controlled_years = n(),
     war_under_control = round(sum(WAR), 1),
@@ -534,6 +543,50 @@ team_war_per_season <-
 team_war_per_season %>%
   ggplot(aes(Season, controlled_war, color=Team, fill=Team)) + geom_point() + geom_line() + fgt +
   labs(y="WAR Under Control", caption="Sources: Baseball Reference, FanGraphs, & Tom Tango") + facet_wrap(~Division, ncol = 2) +
+  ggtitle("Team Controlled WAR Per Season, 2018 - 2022") + 
+  geom_label_repel(aes(label=label),
+                   na.rm = TRUE,
+                   show.legend = FALSE,
+                   color="white",
+                   segment.color = "black") +
+  scale_color_manual(values = team_colors) +
+  scale_fill_manual(values = team_colors)
+
+team_war_per_season %>%
+  ggplot(aes(Season, controlled_surplus_value, color=Team, fill=Team)) + geom_point() + geom_line() + fgt +
+  labs(y="Surplus Value Under Control (Millions USD)", caption="Sources: Baseball Reference, FanGraphs, & Tom Tango") + 
+  facet_wrap(~Division, ncol = 2) +
+  ggtitle("Team Controlled Surplus Value Per Season, 2018 - 2022") + 
+  geom_label_repel(aes(label=label),
+                   na.rm = TRUE,
+                   show.legend = FALSE,
+                   color="white",
+                   segment.color = "black") +
+  scale_color_manual(values = team_colors) +
+  scale_fill_manual(values = team_colors)
+```
+
+### WAR graphs for a couple divisions
+
+```{r}
+team_war_per_season %>%
+  filter(Division == "NL Central") %>%
+  ggplot(aes(Season, controlled_war, color=Team, fill=Team)) + geom_point() + geom_line() +
+  labs(y="WAR Under Control", caption="Sources: Baseball Reference, FanGraphs, & Tom Tango") + 
+  ggtitle("NL Central Controlled WAR Per Season, 2018 - 2022") + 
+  geom_label_repel(aes(label=label),
+                   na.rm = TRUE,
+                   show.legend = FALSE,
+                   color="white",
+                   segment.color = "black") +
+  scale_color_manual(values = team_colors) +
+  scale_fill_manual(values = team_colors)
+
+team_war_per_season %>%
+  filter(Division == "AL Central") %>%
+  ggplot(aes(Season, controlled_war, color=Team, fill=Team)) + geom_point() + geom_line() +
+  labs(y="WAR Under Control", caption="Sources: Baseball Reference, FanGraphs, & Tom Tango") + 
+  ggtitle("AL Central Controlled WAR Per Season, 2018 - 2022") + 
   geom_label_repel(aes(label=label),
                    na.rm = TRUE,
                    show.legend = FALSE,
@@ -544,7 +597,10 @@ team_war_per_season %>%
   
 ```
 
-### MLB Team Controle over Talent
+### team controlled surplus value per season through 2022
+
+
+### MLB Team Control over Talent
 
 
 ```{r}
@@ -559,7 +615,8 @@ warcels %>%
                    na.rm = TRUE,
                    show.legend = FALSE,
                    color="white",
-                   segment.color = "black") +
+                   segment.color = "black",
+                   nudge_y = .1) +
   ggtitle("MLB Team Contention Windows, 2018 - 2022") + 
   scale_color_manual(values = team_colors) +
   scale_fill_manual(values = team_colors) +
@@ -568,11 +625,9 @@ warcels %>%
   theme(legend.position = "None")
 ```
 
-
-
 # overall controlled surplus value plot and 2017-2017
 
-```{r, echo = FALSE}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 #changes from 2017
 
 warcels_2017_2018 <- read_csv("warcels-2017.csv") %>%
@@ -604,7 +659,7 @@ player_surplus_value_changes %>%
 #largest surplus value decreases
 player_surplus_value_changes %>%
   tail(10) %>%
-  ggplot(aes(reorder(Name, surplus_value_change), surplus_value_change)) + geom_col() + coord_flip() + fgt +
+  ggplot(aes(reorder(Name, -surplus_value_change), surplus_value_change)) + geom_col() + coord_flip() + 
   labs(x="", y="Surplus Value Change (Millions USD)", caption="Sources: Baseball Reference, FanGraphs, & Tom Tango") + 
   ggtitle("Largest Decreases in Controlled Surplus Value\n2017-2021 Period to 2018-2022 Period")
 
@@ -612,7 +667,7 @@ player_surplus_value_changes %>%
 
 ### surplus value changes by team
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
 team_surplus_value_changes <-
   read_csv("warcels-2017.csv") %>%
   group_by(Team) %>%
@@ -623,6 +678,14 @@ team_surplus_value_changes <-
 team_surplus_value_changes %>%
   ggplot(aes(reorder(Team, surplus_value_change), surplus_value_change)) + geom_col() + fgt + coord_flip() + 
   labs(x="", y="Surplus Value Change (Millions USD)", caption="Sources: Baseball Reference, FanGraphs, & Tom Tango") + ggtitle("MLB Team Surplus Value Changes, 2017-2021 Period to 2018-2022 Period")
+
+team_surplus_value_changes %>%
+  arrange(desc(surplus_value_change)) %>%
+  tail(10) %>%
+  ggplot(aes(reorder(Team, -surplus_value_change), surplus_value_change)) + geom_col() + coord_flip() + 
+  labs(x="", y="Surplus Value Change (Millions USD)", caption="Sources: Baseball Reference, FanGraphs, & Tom Tango") + ggtitle("10 Largest Drops in Controlled Surplus Value\n2017-2021 Period to 2018-2022 Period")
+
+
 
 ```
 
