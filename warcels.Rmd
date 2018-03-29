@@ -485,19 +485,20 @@ master_list <-
   )
   )
   
-#retain players with more than 0 WAR under control or whose AAV is over $5 mil.
+#retain players with more than 0 WAR under control or whose AAV is over $3 mil.
 # these are the guys who will likely get playing time no matter what
 # this also removes the scrub relievers who shouldn't really be considered part of a team
 warcels <- 
   master_list %>%
-  group_by(PlayerId, Name, Team, Acquired,Division) %>%
+  group_by(PlayerId, Name, Team, Acquired, Division) %>%
   summarize(
     controlled_years = n(),
     war_under_control = round(sum(WAR), 1),
     salary_under_control = round(sum(Salary, na.rm = TRUE), 1),
     surplus_value_under_control = sum(surplus_value, na.rm = TRUE),
     aav = salary_under_control / controlled_years) %>%
-  filter(war_under_control > 0 | aav >= 3)
+  filter(war_under_control > 0 | aav >= 3)  %>%
+  mutate(war_per_year_of_control = round(war_under_control / controlled_years, 1))
 
 # save to disk for future analysis
 write_csv(warcels, "warcels-2018.csv")
@@ -541,7 +542,7 @@ team_war_per_season <-
                         NA_character_))
 
 team_war_per_season %>%
-  ggplot(aes(Season, controlled_war, color=Team, fill=Team)) + geom_point() + geom_line() + fgt +
+  ggplot(aes(Season, controlled_war, color=Team, fill=Team)) + geom_point() + geom_line() +
   labs(y="WAR Under Control", caption="Sources: Baseball Reference, FanGraphs, & Tom Tango") + facet_wrap(~Division, ncol = 2) +
   ggtitle("Team Controlled WAR Per Season, 2018 - 2022") + 
   geom_label_repel(aes(label=label),
@@ -608,20 +609,20 @@ warcels %>%
   group_by(Team) %>%
   summarize(num_players = n(),
             controlled_years_per_player = sum(controlled_years) / num_players,
-            controlled_war_per_year = sum(war_under_control)/sum(controlled_years)) %>%
+            controlled_war_per_year = mean(war_per_year_of_control)) %>%
   ggplot(aes(controlled_years_per_player, controlled_war_per_year, color=Team, fill=Team)) + 
-  geom_point() + fgt + 
+  geom_point() + 
   geom_label_repel(aes(label=Team),
                    na.rm = TRUE,
                    show.legend = FALSE,
                    color="white",
                    segment.color = "black",
                    nudge_y = .1) +
-  ggtitle("MLB Team Contention Windows, 2018 - 2022") + 
-  scale_color_manual(values = team_colors) +
+  ggtitle("MLB Team Outlook, 2018 – 2022") + 
+  scale_color_manual(values = team_colors) + fgt +
   scale_fill_manual(values = team_colors) +
-  labs(x="Controlled Years / Player", y="Controlled WAR / Year (Projected)", 
-       caption="Sources: Baseball Reference, FanGraphs, & Tom Tango") +
+  labs(x="Control of Average Player (Years)", y="Proj. WAR per Controlled Year of Average Player", 
+       caption="\nSources: Baseball Reference (Salary & Control), FanGraphs (WAR), Tom Tango (Projections)\nBy Ryan Pollack: ryanpollack.com") +
   theme(legend.position = "None")
 ```
 
