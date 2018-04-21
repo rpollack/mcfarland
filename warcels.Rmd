@@ -621,7 +621,7 @@ warcels %>%
   ggtitle("MLB Team Outlook, 2018 – 2022") + 
   scale_color_manual(values = team_colors) + fgt +
   scale_fill_manual(values = team_colors) +
-  labs(x="Control of Average Player (Years)", y="Proj. WAR per Controlled Year of Average Player", 
+  labs(x="Control of Average Player (Years)", y="Proj. WAR per Year of Average Player", 
        caption="\nSources: Baseball Reference (Salary & Control), FanGraphs (WAR), Tom Tango (Projections)\nBy Ryan Pollack: ryanpollack.com") +
   theme(legend.position = "None")
 ```
