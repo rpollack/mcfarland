@@ -26,6 +26,7 @@ library(rvest)
 library(stringr)
 library(plotly)
 library(ggrepel)
+library(scales)
 
 
 fgt = theme(
@@ -289,7 +290,10 @@ projected_war <- all_players %>%
 ```{r}
 
 # tv household information from http://www.nielsen.com/content/dam/corporate/us/en/docs/solutions/measurement/television/2016-2017-nielsen-local-dma-ranks.pdf
-# I put Toronto at 3202930 because it's the average of chicago & philly markets.  
+# i set toronto equal to philly because the population sizes are roughly the same per https://www.worldatlas.com/articles/largest-cities-in-north-america.html
+# markets with two teams are divided in two for both teams: new york, LA, chicago, SF/OAK; this models the fact that in each market you
+# generally pick a team and stick with it
+# 2018 payroll source: https://legacy.baseballprospectus.com/compensation/?cyear=2018&team=&pos=
 
 team_info <- tibble(
   team_name = c("ARI", "ATL", "BAL", "BOS", "CHC",
@@ -310,12 +314,18 @@ team_info <- tibble(
                  "#182B49", "#072754", "#002C77", "#1C2841", "#003831",
                  "#BA0C2F", "#FDB829", "#002147", "#005C5C", "#F2552C",
                  "#C41E3A", "#9ECEEE", "#BD1021", "#003DA5", "#BA122B"),
-  tv_households = c(1890100, 2412730, 1119480, 2424240, 3463060,
-                    3463060, 863800, 1498960, 1630380, 1853030,
-                    2450800, 919020, 5476830, 5476830, 1696330,
-                    895700, 1742530, 7348620, 7348620, 2488090,
-                    2942800, 1160220, 1065700, 1808530, 2488090,
-                    1215570, 1908590, 2713380, 3202930, 2476680)
+  tv_households = c(1890100, 2412730, 1119480, 2424240, 3463060/2,
+                    3463060/2, 863800, 1498960, 1630380, 1853030,
+                    2450800, 919020, 5476830/2, 5476830/2, 1696330,
+                    895700, 1742530, 7348620 /2, 7348620 /2, 2488090/2,
+                    2942800, 1160220, 1065700, 1808530, 2488090/2,
+                    1215570, 1908590, 2713380, 2942800, 2476680),
+  payroll_opening_day_2018 = c(131565116, 118284851, 148574615, 233200429, 183156139,
+                               71217000, 101357500, 134851566, 136953500, 125286000,
+                               160393900, 123233317, 166649999, 186220715, 99510143,
+                               90964571, 128713226, 150558844, 166111632, 65985833,
+                               95270301, 86340001, 94037733, 157903943, 200505278,
+                               159698667, 76007496, 133137626, 162037223, 180849056)
   )
 
 # define color scale used in plots below
@@ -687,6 +697,108 @@ team_surplus_value_changes %>%
   labs(x="", y="Surplus Value Change (Millions USD)", caption="Sources: Baseball Reference, FanGraphs, & Tom Tango") + ggtitle("10 Largest Drops in Controlled Surplus Value\n2017-2021 Period to 2018-2022 Period")
 
 
+
+```
+
+### 2018 controlled surplus value dollar per TV household
+
+```{r}
+warcels_team_2018 %>%
+  ggplot(aes(reorder(Team, total_surplus_value_under_control), total_surplus_value_under_control), 
+         color=Team, fill=Team) +
+  geom_col() + 
+  coord_flip() +
+  fgt +
+  scale_fill_manual(values = team_colors) + 
+  labs(x="", y="Controlled Surplus Value (Millions USD)", caption="Sources: Baseball Reference, FanGraphs, & Tom Tango") +
+  ggtitle("Controlled Surplus Value, MLB Teams 2018 - 2022")
+
+
+inner_join(warcels_team_2018, team_info, by=c("Team" = "team_name")) %>%
+  mutate(surplus_value_per_tv_household = total_surplus_value_under_control / (tv_households / 100000)) %>%
+  ggplot(aes(reorder(Team, surplus_value_per_tv_household), surplus_value_per_tv_household)) + geom_col() +
+  coord_flip() + labs(x="", y="Controlled Surplus Value per 100k TV Households in DMA (Millions USD)")
+
+
+# what does the graph above say? that the cle/mil surplus value is even stronger when you account for the team's tiny market size.
+# that's not the angle i'd hoped for ... i wanted something like, the yankees' surplus value is even more unfair because they're in a large
+# media market and as such are a very high-revenue team anyway. 
+
+inner_join(warcels_team_2018, team_info, by=c("Team" = "team_name")) %>%
+  mutate(tv_households_per_csv_dollar = tv_households / total_surplus_value_under_control) %>%
+  ggplot(aes(reorder(Team, tv_households_per_csv_dollar), tv_households_per_csv_dollar)) + geom_col() +
+  coord_flip() + labs(x="", y="TV Households per CSV Dollar") + scale_y_continuous(labels=comma)
+
+#THIS graph shows that BAL has a large population to be saddled with so little surplus value. this tell us the team is spending disproportionately to its market size
+
+# negative numbers don't make sense though. you can't have negative TV households. how to fix?
+
+
+
+ggplot(team_info, aes(reorder(team_name, tv_households), tv_households)) + geom_col() + coord_flip() +
+  labs(x="", y="TV Households in DMA") + scale_y_continuous(labels = comma) +
+  ggtitle("TV-Viewing Households in MLB Team Markets, 2016")
+
+
+# what am i trying to demonstrate here? 
+
+```
+
+```{r}
+
+team_data <-
+  inner_join(warcels_team_2018, team_info, by=c("Team" = "team_name")) %>%
+  ungroup()
+
+ggplot(team_data, aes(tv_households, total_surplus_value_under_control, color=Team, fill = Team)) + geom_point() + 
+  geom_label_repel(aes(label=Team),
+                   na.rm = TRUE,
+                   show.legend = FALSE,
+                   color="white",
+                   segment.color = "black") +
+  ggtitle("MLB Team Market Size* vs. Controlled Surplus Value**") + 
+  scale_color_manual(values = team_colors) + fgt +
+  scale_fill_manual(values = team_colors) +
+  scale_x_continuous(labels = comma) +
+  labs(x="TV-viewing Households in Designated Market Area", y="Controlled Surplus Value (Millions USD)",
+       caption="* 2016 - 2017, per Nielsen\n** 2018 - 2022") +
+  theme(legend.position = "None")
+
+
+ggplot(team_data, aes(tv_households, payroll_opening_day_2018, color=Team,
+                      fill = Team)) + geom_point() + 
+  geom_label_repel(aes(label=Team),
+                   na.rm = TRUE,
+                   show.legend = FALSE,
+                   color="white",
+                   segment.color = "black") +
+  ggtitle("MLB Team Market Size* vs. 2018 Opening Day Payroll**") + 
+  scale_color_manual(values = team_colors) + fgt +
+  scale_fill_manual(values = team_colors) +
+  scale_x_continuous(labels = comma) +
+  scale_y_continuous(labels = comma) +
+  labs(x="TV-viewing Households in Designated Market Area", y="2018 Opening Day Payroll (Millions USD) **",
+       caption="* 2016 - 2017, per Nielsen\n** Source: Baseball Prospectus Compentsaion") +
+  theme(legend.position = "none") +
+  geom_smooth(method = "lm")
+
+# rebuilding teams only
+team_data %>%
+  filter(Team %in% c("OAK", "CIN", "CHW", "SDP", "PHI", "ATL", "DET", "MIA", "TBR", "PIT", "MIL")) %>%
+  ggplot(aes(tv_households, payroll_opening_day_2018, fill = Team, color=Team,
+             size=total_surplus_value_under_control)) +
+  geom_point() +
+  scale_color_manual(values = team_colors) +
+  scale_fill_manual(values = team_colors) +
+  scale_x_continuous(labels = comma) +
+  scale_y_continuous(labels = comma) +
+  geom_label_repel(aes(label=Team),
+                   na.rm = TRUE,
+                   show.legend = FALSE,
+                   color="white",
+                   segment.color = "black") + fgt +
+  theme(legend.position = "none")
+# tampa bay should spend more ... 
 
 ```
 
