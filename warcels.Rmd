@@ -779,14 +779,53 @@ ggplot(team_data, aes(tv_households, payroll_opening_day_2018, color=Team,
   scale_y_continuous(labels = comma) +
   labs(x="TV-viewing Households in Designated Market Area", y="2018 Opening Day Payroll (Millions USD) **",
        caption="* 2016 - 2017, per Nielsen\n** Source: Baseball Prospectus Compentsaion") +
-  theme(legend.position = "none") +
-  geom_smooth(method = "lm")
+  theme(legend.position = "none") 
 
 # rebuilding teams only
 team_data %>%
   filter(Team %in% c("OAK", "CIN", "CHW", "SDP", "PHI", "ATL", "DET", "MIA", "TBR", "PIT", "MIL")) %>%
-  ggplot(aes(tv_households, payroll_opening_day_2018, fill = Team, color=Team,
-             size=total_surplus_value_under_control)) +
+  ggplot(aes(tv_households, payroll_opening_day_2018, fill = Team, color=Team)) +
+  geom_point() +
+  scale_color_manual(values = team_colors) +
+  scale_fill_manual(values = team_colors) +
+  scale_x_continuous(labels = comma) +
+  scale_y_continuous(labels = comma) +
+  geom_label_repel(aes(label=Team),
+                   na.rm = TRUE,
+                   show.legend = FALSE,
+                   color="white",
+                   segment.color = "black") + fgt +
+  theme(legend.position = "none") +
+  labs(x="TV-viewing Households in Designated Market Area", y="2018 Opening Day Payroll (Millions USD) **",
+       caption="* 2016 - 2017, per Nielsen\n** Source: Baseball Prospectus Compentsaion") +
+  theme(legend.position = "none")
+# tampa bay should spend more ... 
+
+#lowest payroll per market head (rebuilding teams only, lower is better):
+team_data %>%
+  filter(Team %in% c("OAK", "CIN", "CHW", "SDP", "PHI", "ATL", "DET", "MIA", "TBR", "PIT", "MIL")) %>%
+  mutate(payroll_2018_per_tv_household = payroll_opening_day_2018 / tv_households) %>%
+  arrange(payroll_2018_per_tv_household) %>%
+  View()
+
+#controlled SV of rebuilding teams (higher is better)
+team_data %>%
+  filter(Team %in% c("OAK", "CIN", "CHW", "SDP", "PHI", "ATL", "DET", "MIA", "TBR", "PIT", "MIL")) %>%
+  arrange(desc(total_surplus_value_under_control)) %>%
+  ggplot(aes(reorder(Team, total_surplus_value_under_control), total_surplus_value_under_control)) + geom_col() +
+  coord_flip() + fgt
+
+#controlled SV per market size (higher is better)
+team_data %>%
+  filter(Team %in% c("OAK", "CIN", "CHW", "SDP", "PHI", "ATL", "DET", "MIA", "TBR", "PIT", "MIL")) %>%
+  mutate(controlled_sv_per_tv_household = total_surplus_value_under_control / tv_households) %>%
+  arrange(desc(controlled_sv_per_tv_household)) %>%
+  View()
+
+#market size vs surplus value
+team_data %>%
+  filter(Team %in% c("OAK", "CIN", "CHW", "SDP", "PHI", "ATL", "DET", "MIA", "TBR", "PIT", "MIL")) %>%
+  ggplot(aes(tv_households, total_surplus_value_under_control, fill = Team, color=Team)) +
   geom_point() +
   scale_color_manual(values = team_colors) +
   scale_fill_manual(values = team_colors) +
@@ -798,7 +837,8 @@ team_data %>%
                    color="white",
                    segment.color = "black") + fgt +
   theme(legend.position = "none")
-# tampa bay should spend more ... 
+
+
 
 ```
 
