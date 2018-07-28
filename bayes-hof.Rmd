@@ -315,31 +315,23 @@ position | war_range | threshold_seasons | p_b | p_e_b | p_b | p_b_e
 
 ```{r}
 # for each position, count the nmber of HOF and non-HOF players who had a certain number of seasons in that WAR range
-# wrapped in a tryCatch because sometimes no one is in that range.
 prob_num_seasons_in_range <- function(position, war_floor, war_ceiling, num_seasons){
   
-  # need to get players' names out of it, too
-  tryCatch(
-     hof_eligible_players_seasonal %>%
-      filter(Position == position) %>%
-      mutate(season_in_war_range = if_else(WAR >= war_floor & WAR < war_ceiling, 1, 0)) %>%
-      group_by(PlayerId, Name, Position, HOF) %>%
-      summarize(num_seasons_in_range = sum(season_in_war_range)) %>%
-      filter(num_seasons_in_range == num_seasons) %>%
-      # print() %>%  #show us the players who meet the criteria
-      ungroup() %>%
-      count(HOF) %>% 
-      complete(HOF = c("Yes", "No"), fill = list(n=0)) %>% # account for situations zero HOF'ers or zero non HOF'ers
-      spread(HOF, n),
-    error = function(e){
-      print(e)
-      print("full data not available")
-      tibble()
-    }
-  )
+  hof_eligible_players_seasonal %>%
+    filter(Position == position) %>%
+    mutate(season_in_war_range = if_else(WAR >= war_floor & WAR < war_ceiling, 1, 0)) %>%
+    group_by(PlayerId, Name, Position, HOF) %>%
+    summarize(num_seasons_in_range = sum(season_in_war_range)) %>%
+    filter(num_seasons_in_range == num_seasons) %>%
+    # print() %>%  #show us the players who meet the criteria
+    ungroup() %>%
+    count(HOF) %>% 
+    complete(HOF = c("Yes", "No"), fill = list(n=0)) %>% # account for situations zero HOF'ers or zero non HOF'ers
+    spread(HOF, n) %>%
+    select(non_hof_who_meet_criteria = No, hof_who_meet_criteria = Yes) %>%
+    as_tibble() %>%
+    return()
 }
-
-prob_num_seasons_in_range <- Vectorize(prob_num_seasons_in_range)
 
 ```
 
@@ -393,17 +385,15 @@ base_hof_prob <- hof_probabilities_by_position %>%
 
 results <-
   df %>%
-  rowwise() %>%
-  mutate(non_hof_who_meet_criteria = prob_num_seasons_in_range(position, war_floor, 
-                                                               war_ceiling, num_seasons_to_analyze)[1],
-         hof_who_meet_criteria = prob_num_seasons_in_range(position, war_floor, 
-                                                               war_ceiling, num_seasons_to_analyze)[2],
-         total_who_meet_criteria = non_hof_who_meet_criteria + hof_who_meet_criteria) %>%
+  group_by(position, war_floor, war_ceiling, num_seasons_to_analyze) %>% 
+  do(prob_num_seasons_in_range(.$position, .$war_floor, .$war_ceiling, .$num_seasons_to_analyze)) %>%
+  mutate(total_who_meet_criteria = non_hof_who_meet_criteria + hof_who_meet_criteria) %>%
   inner_join(hof_probabilities_by_position, by=c("position" = "Position")) %>%
   mutate(p_b = p_hof_at_position,
          p_e_b = hof_who_meet_criteria / hof_at_position,
          p_e = total_who_meet_criteria / total_eligible_players_at_position,
          p_hof =  round(((p_b * p_e_b) / p_e) * 100, 1)) %>%
+  ungroup() %>%
   mutate(war_ceiling = war_ceiling - 0.1) %>%  #so we label the WAR ranges correctly
   unite(war_range, war_floor, war_ceiling, sep = " - ") %>%
   dplyr::select(position, war_range, num_seasons_to_analyze, p_hof, everything()) %>%
@@ -411,8 +401,6 @@ results <-
                                levels=c("0 - 1.9", "2 - 3.9", "4 - 5.9", "6 - 7.9", "8 - 9.9",
                                         "10 - 11.9", "12 - 13.9"))) %>%
   arrange(position, war_range, num_seasons_to_analyze, p_hof)
-
-View(results)
 
 ```
 
