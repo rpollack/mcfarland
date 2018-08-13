@@ -5,7 +5,7 @@ library(plotly)
 library(RMySQL)
 library(broom)
 library(lubridate)
-library(ggjoy)
+library(gamlss)
 
 fgt = theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
@@ -66,8 +66,7 @@ sb_info_seasons <- fg_db %>%
 
 
 
-
-
+# fit beta-binom model to each player-season
 
 ```{r}
 fit <- gamlss(cbind(SB, attempts - SB) ~ ns(Season, 5),
@@ -91,15 +90,18 @@ eb_sb <- sb_info_seasons %>%
          high_credible = qbeta(.975, alpha1, beta1)) %>%
   mutate(name_season = paste(batter_name, Season, sep = " ")) %>%
   arrange(desc(est_sb_rate))
-```
 
-```{r}
 ggplot(eb_sb %>% head(25), aes(est_sb_rate, reorder(name_season, est_sb_rate))) +
   geom_point() +
   geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
   labs(y="", x="Estimated SB Success Rate with 95% Credible Interval") +
   ggtitle("Best Basestealing Seasons Since 1900") + fgt
+```
 
+
+# tally estimated career SB success rates
+
+```{r}
 eb_sb_career <- eb_sb %>%
   group_by(playerid, batter_name) %>%
   summarize(alpha1_sum = sum(alpha1),
@@ -118,7 +120,7 @@ ggplot(eb_sb_career %>% head(25), aes(est_sb_rate, reorder(batter_name, est_sb_r
 
 ```
 
-Tim Raines vs. Rickey Henderson vs. Carlos Beltran
+Tim Raines vs. Rickey Henderson
 
 SB Success rate often mentioned in Raines' HOF case.
 Compared a lot to Henderson.
@@ -152,9 +154,9 @@ ggplot(comparables, aes(SB, sb_perc, color=batter_name)) +
 
 If you had to give the green light to one guy, whom would it be? Henderson has the most steals, but Raines and Beltran have higher success rates. How do you choose?
 
-A typical approach would set minimum thresholds for playing time or simply the number of attempts. This is a decent approach but leaves all sorts of information on the cutting room floor. If you set your threshold at, say, 1,000 attempts, you get to choose between only Henderson and Brock, as the other guys have fewer than 1,000 attempts. Want to reduce the threshold to 750? Then you get everyone except Beltran. But what if he's your guy?
+A typical approach would set minimum thresholds for playing time or simply the number of attempts. This tactic leaves all sorts of information on the cutting room floor. If you set your threshold at, say, 1,000 attempts, you get to choose between only Henderson and Brock, as the other guys have fewer than 1,000 attempts. Want to reduce the threshold to 750? Then you get everyone except Beltran. But what if he's your guy?
 
-Going by successs rate has another flaw. Modern baseball analysis incorporates the idea that what a player does on the field is only an approximation of his true talent. To get closer at that true talent, we have to regress our observations to the mean. Raw success rate is informative but leaves out influential effects such as luck and measurement error.
+Going by successs rate has another flaw. The success rates above incorporate not only true talent, which is what we're after, but also luck and measurement error. Modern baseball analysis incorporates the idea that what a player does on the field only approximates his true levle of talent. To remove luck and measurement error, we regress our observations to the mean. Simply looking at success rate doesn't do this. 
 
 We can solve both problems by doing empirical Bayesian analysis. This will give us probability curves for each players' stolen base success rates. We can then compare these curves to one another in a process called A/B testing to get the percentage chance that one curve is indeed higher than the other. Let's begin. 
 
@@ -165,15 +167,15 @@ The first step in empirical Bayesian analysis is estimating a prior. In this cas
 ```{r}
 #stolen base success rates fluctuate by decade
 sb_info_seasons %>%
-  filter(decade >= 1900) %>%
+  filter(decade >= 1910) %>%
   ggplot(aes(x=as.character(decade), y=sb_perc)) + geom_boxplot() + 
-  ggtitle("Stolen Base Success Rates over Time") +
+  ggtitle("Distributions of Stolen Base Success Rates over Time") +
   labs(x="Decade", y="SB Success Rate") + fgt
 ```
 
-This sample includes every player-season season with at least one attempt. So Luis Sojo's one attempt in 2001 (which succeeded, by the way) is right alongside Rickey Henderson's 172 attempts in 1982. Ditto Ty Cobb's 134 attempts in 1915. They're all here.
+This sample includes every player-season season with at least one attempt. Luis Sojo's one attempt in 2001 (which succeeded, by the way) is right alongside Rickey Henderson's 172 attempts in 1982. Ditto Ty Cobb's 134 attempts in 1915. They're all here.
 
-We can see that the 1950's was a low water mark for success rate. Managers and coaches seemingly ran without regard for success, resulting in a median success rate of about 50%. Contrast that to the 2010's where the success rates are much higher. This means that managers, coaches, and players are more cautious about whether to run and are more successful in deciding whether to swipe a bag. 
+We can see that the 1950's was a low-water mark for success rate. Managers and coaches ran their players wild, seemingly not caring if the attempt was successful. The resulting median success rate of 50% would appall today's teams, who steal at a much higher rate of about 72%.
 
 This also means that in comparing players' stolen base success rates across baseball history, we have to account for the seasons in which they operated. To do this I built a beta-binomial regression model that incorporated the season as a natural cubic spline with five degress of freedom. The spline captures the nonlinear trend seen in the boxplot above.
 
@@ -196,7 +198,7 @@ LIKELIHOOD
 For each player-season, I combined the prior probabilities (computed using the model above) with their actual stolen-base success rates and summed the results across players' careers. The result is a set of probability density curves that show the estimated success rate for each player. For example, the following curves show our estimated success rates for the two Titans of Swipe, Rickey Henderson and Tim Raines:
 
 ```{r}
-ggplot() + geom_histogram(binwidth = 0.009, aes(y=..density..)) +
+ggplot() + geom_histogram(binwidth = 0.001, aes(y=..density..)) +
   stat_function(fun = dbeta,
                 args=list(shape1 = 1115.37212, shape2 = 314.30617),
                 lwd=1.5,
@@ -211,17 +213,17 @@ ggplot() + geom_histogram(binwidth = 0.009, aes(y=..density..)) +
   labs(color = "Player") + fgt
 ```
 
-Each point on the curve represents the probability density (y) of the player having a particular true-talent stolen base success rate (x). The peak of the curve is the players' most likely rate. 
+Each point on the curve represents the probability density (y) of the player having a particular true-talent stolen base success rate (x). Each curve peaks at the player's most likely success rate. 
 
-Look at the red curve that belongs to Tim Raines. Despite an observed career success rate of 84.6%, the model thinks his true talent success rate is about 78%. Why? Regression to the mean. We do it for modern metrics like BABIP and HR/FB. We must also do it for classic metrics like stolen base success rate. The principles are the same: on-field observations are a mixture of true talent, luck, and measurement error. 
+Look at the red curve that belongs to Tim Raines. Despite an observed career success rate of 84.6%, the model thinks his true-talent success rate is about 78%. Why? Regression to the mean. We do it for modern metrics like BABIP and HR/FB. We must also do it for classic metrics like stolen base rate. The principles are the same: on-field observations are a mixture of true talent, luck, and measurement error. 
 
 Similarly, despite an observed success rate of 80.7% for Henderson, the model thinks his success rate is likely arounod 77%. Finally, note that Henderson's curve is both narrower and taller than Raines'. These characteristics reflect the fact that we have nearly twice as much information about Henderson's true talents than we do about Raines'. Rickey attempted 1,741 swipes whereas Raines attempted 954.
 
 WHO'S THE BETTER THIEF?
 
-Remember our original question. We have a runner on first and we need a bag stolen, and every player since 1900 is on our bench. Whom do we sent in to pinch run?
+Remember our original question. We have a runner on first and we need a bag stolen. Raines and Henderson are both on our bench. Whom do we send in?
 
-Just looking at the graph above makes it hard to decide. Raines seems to have a higher success rate -- his curve peaks higher on the x-axis. But we have much less information about Raines than we do about Henderson. Additionally, the two curves seem to overlap an awful lot. Whom do we choose? Or in Bayesian terms -- given the curves above, what is the probability that Raines' success rate is higher than Henderson's?
+Just looking at the graph above makes it hard to decide. Raines seems to have a higher success rate -- his curve peaks higher on the x-axis. But we have much less information about Raines than we do about Henderson. Additionally, the two curves seem to overlap an awful lot, meaning there is some chance the two players have an identical success rate. Whom do we choose? Or in Bayesian terms -- given the curves above, what is the probability that Raines' success rate is higher than Henderson's?
 
 We can answer this question with an A/B test. There are a number of ways to do this. I've chosen two: simulating one million seasons for each player, and numerical integration. In the former method, 76.3% of Raines' seasons have better success rates. In the latter method, we arrive at 75.2%.
 
@@ -264,10 +266,15 @@ sum(outer(limits, limits, function(x, y) {
 
 ```
 
-there's our answer. We take Raines off the bench and put him in the game, leaving Henderson to watch. The Man of Steal has the gaudy raw numbers, true, but we've shown that Rock is more likely to give us the stolen base we need.
+PUT RAINES IN, COACH
+
+
+We have our answer. We take Raines off the bench and put him in the game, leaving Henderson to watch. The Man of Steal has the gaudy raw numbers, true, but we've shown that Rock is more likely to give us the stolen base we need.
 
 
 THE REST OF THE GANG
+
+
 
 
 
