@@ -1,0 +1,207 @@
+```{r}
+library(tidyverse)
+library(stringr)
+library(plotly)
+library(RMySQL)
+library(broom)
+library(lubridate)
+library(lazyeval)
+library(rvest)
+library(naivebayes)
+
+fgt = theme(
+  panel.background = element_rect(color = "lightgrey", fill = "white"),
+  axis.title = element_text(family = "Lato"),
+  axis.text = element_text(family = "Lato"),
+  legend.title = element_text(family = "Lato"),
+  legend.text = element_text(family = "Lato"),
+  legend.background = element_rect(fill = "white"),
+  legend.key = element_rect(fill = "white"),
+  plot.title = element_text(family = "Lato"),
+  panel.grid.major = element_line(size = .1, color = "lightgrey"),
+  panel.grid.minor = element_line(size = 0),
+  #strip.background = element_rect(fill = "#50ae26"),
+  strip.text = element_text(family="Lato")
+  )
+
+fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"), 
+                            host = Sys.getenv("FG_HOST"), 
+                            user = Sys.getenv("FG_USER"),
+                            password = Sys.getenv("FG_PW"))
+
+```
+
+### get batted ball data
+
+```{r}
+
+mlbam_ids <- fg_db %>%
+  tbl("playerid_lookup") %>%
+  dplyr::select(playerid, mlbamid) %>%
+  collect(n=Inf)
+  
+
+player_info <- fg_db %>%
+  tbl("player_info") %>%
+  dplyr::select(playerid = PlayerId, FirstName, LastName) %>%
+  collect(n=Inf)
+
+player_speeds <- fg_db %>%
+  tbl("stats_batting") %>%
+  filter(Type == 0) %>%
+  select(playerid, Season, Spd) %>%
+  collect(n=Inf)
+
+batter_names <- inner_join(mlbam_ids, player_info, by="playerid") %>%
+  unite(batter_name, FirstName, LastName, sep = " ") %>%
+  filter(!is.na(mlbamid))
+
+#get data. home_team is important because it's the ballpark, so can use to adjust for park effects
+
+
+savant_data <- fg_db %>%
+  tbl("gd_savant_new") %>%
+  filter(events %in% c("home_run", "triple", "double", "single", "field_out"),
+         launch_speed != "null",
+         launch_angle != "null") %>%
+  dplyr::select(batter, pitcher, game_year, hc_x, hc_y, description, launch_speed, launch_angle, events, home_team, away_team) %>%
+  collect(n=Inf) %>%
+  mutate(launch_speed = as.numeric(launch_speed),
+         launch_angle = as.numeric(launch_angle),
+         spray_angle = tan((hc_x-125.42)/(198.27-hc_y))*180/pi*.75) %>%
+  inner_join(batter_names, by=c("batter" = "mlbamid")) %>%
+  inner_join(player_speeds, by =c("game_year" = "Season", "playerid")) %>%
+  filter(!is.na(spray_angle)) %>% # 1 row gets computed with a spray angle of NaN. remove it
+  mutate(events = factor(events),        #factorize data so RF model can be built
+         home_team = factor(home_team),
+         away_team = factor(away_team))
+
+```
+
+
+### split into training and test data
+
+```{r}
+sample_rows <- sample(nrow(savant_data), nrow(savant_data) * .75)
+
+training <- savant_data %>%
+  filter(row_number() %in% sample_rows)
+
+to_predict <- savant_data %>%
+  filter(!row_number() %in% sample_rows)
+
+
+```
+
+### train the model
+
+```{r}
+rf_model <- randomForest(events ~ 
+                           game_year +
+                           launch_speed + 
+                           launch_angle + 
+                           spray_angle +
+                           home_team +    # home team is proxy for park factor
+                           away_team +    # away team + year is proxy for defense quality
+                           Spd,
+                         data = training,
+                         ntree = 50,
+                         mtry = 2,
+                         importance=TRUE)
+
+varImpPlot(rf_model)
+
+```
+
+
+```{r}
+## predict using RF model
+results <- to_predict %>%
+  mutate(predicted_event = predict(rf_model, to_predict))
+
+mean(results$events == results$predicted_event, na.rm = TRUE)
+
+#  0.8050596 at 50 ntree and 2 mtry
+```
+
+xgboost
+
+```{r}
+xg_model <- xgboost(data = training, )
+
+```
+
+
+### rest of this is naive bayes
+
+```{r}
+
+#train model on 2015 and 2016 events
+bayes_model <- naive_bayes(events ~ launch_speed_bin + 
+                             launch_angle_bin + 
+                             home_team +
+                             Spd, 
+                           data = training,
+                           laplace = 5)
+
+#use model to predict 2017 events. use laplace correction to account for rare events
+# to see computed probabilities, use predict( ... , type = "prob")
+# the error 'subscript out of bounds' means there are values in the test dataset not present in the training dataset.
+# this happens when I add in player names
+model_predictions <- predict(bayes_model, to_predict) %>%
+  as_tibble() %>%
+  select(predicted_events = value)
+
+#add column of predicted events to 2017 actual data
+predictions <- to_predict %>%
+  bind_cols(model_predictions) %>%
+  mutate(correct_prediction = ifelse(events == predicted_events, 1, 0))
+
+#number of correct predictions overall
+mean(predictions$events == predictions$predicted_events)
+
+#72% is so close to the value of just predicting "out" for everyone that it's suspicious ... 
+
+#which batter has the most incorrect predictions?
+correct_percentage <- predictions %>%
+  group_by(playerid, batter_name) %>%
+  mutate(num_batted_balls = n()) %>%
+  group_by(playerid, batter_name, num_batted_balls) %>%
+  summarize(num_correct_predictions = sum(correct_prediction)) %>%
+  mutate(correct_percentage = 100 * (num_correct_predictions / num_batted_balls))
+
+#% correct predictions by batted ball type
+
+
+#break down accuracy of predictions by batted ball type, then compute how much you gain by using this model.
+total_events <- nrow(predictions)
+correct_predictions_batted_ball_type <- predictions %>%
+  group_by(events) %>%
+  mutate(num_events = n()) %>%
+  ungroup() %>%
+  mutate(event_percentage = 100 * (num_events / total_events)) %>%
+  group_by(events, num_events, event_percentage) %>%
+  summarize(num_correct_predictions = sum(correct_prediction)) %>%
+  mutate(correct_predict_percentage = 100 * (num_correct_predictions / num_events),
+         point_improvement_vs_guessing = correct_predict_percentage - event_percentage)
+
+
+```
+
+```{r}
+
+
+ggplot(correct_predictions_batted_ball_type, aes(reorder(events, -correct_predict_percentage),
+                                                 correct_predict_percentage)) +
+  geom_bar(stat = "identity") +
+  labs(x="Actual Batted Ball Result", y="% Correct Classifications") +
+  ggtitle("Triples are the Hardest Batted Ball to Classify Correctly")
+
+ggplot(correct_percentage, aes(num_batted_balls, correct_percentage)) + geom_point() +
+  labs(x="Number of batted balls (one dot = one player)", y="Percentage of correct classifications") +
+  ggtitle("Prediction Percentage Settles in at about 100 Batted Balls")
+
+#defending teams?
+
+```
+
