@@ -323,7 +323,7 @@ prob_num_seasons_in_range <- function(position, war_floor, war_ceiling, num_seas
     group_by(PlayerId, Name, Position, HOF) %>%
     summarize(num_seasons_in_range = sum(season_in_war_range)) %>%
     filter(num_seasons_in_range == num_seasons) %>%
-    # print() %>%  #show us the players who meet the criteria
+    print() %>%  #show us the players who meet the criteria
     ungroup() %>%
     count(HOF) %>% 
     complete(HOF = c("Yes", "No"), fill = list(n=0)) %>% # account for situations zero HOF'ers or zero non HOF'ers
@@ -375,8 +375,6 @@ df <- expand.grid(position = pos,
   mutate(position = as.character(position)) %>%
   as_tibble()
 
-
-
 # TODO: find a better way to list the players at each WAR range. 
 
 base_hof_prob <- hof_probabilities_by_position %>%
@@ -408,10 +406,12 @@ results <-
 
 ```{r, fig.height = 4, fig.width=4}
 results %>%
+  #filter(position == "OF") %>%
   ggplot(aes(x=num_seasons_to_analyze, y=p_hof, color=position)) + fgt + 
   geom_point() +
   facet_wrap(~war_range) +
-  scale_x_continuous(breaks = n)
+  scale_x_continuous(breaks = n) +
+  labs(x="Number of Seasons in WAR Range", y="HOF Probability (%)", title="HOF Probability by Number of Seasons in WAR Ranges", caption="Sources: FanGraphs, Baseball-Reference")
 
 ```
 
