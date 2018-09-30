@@ -20,12 +20,12 @@ fgt = theme(
   panel.grid.minor = element_line(size = 0),
   #strip.background = element_rect(fill = "#50ae26"),
   strip.text = element_text(family="Lato")
-  )
+)
 
 fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"), 
-                            host = Sys.getenv("FG_HOST"), 
-                            user = Sys.getenv("FG_USER"),
-                            password = Sys.getenv("FG_PW"))
+                          host = Sys.getenv("FG_HOST"), 
+                          user = Sys.getenv("FG_USER"),
+                          password = Sys.getenv("FG_PW"))
 
 TWILIO_SID <- Sys.getenv("TWILIO_SID")
 TWILIO_TOKEN <- Sys.getenv("TWILIO_TOKEN")
@@ -82,12 +82,12 @@ mvp_list <- read_csv("mlb season awards - MVP's.csv") %>%
                                        if_else(Season == 2017 & League == "AL", "Jose Altuve",
                                                player_name))),
          League = factor(League),
-         is_mvp = 1)
+         is_mvp = "Yes")
 
 master_df <- inner_join(player_stats, team_info, by=c("Season", "teamid")) %>%
   full_join(mvp_list, by=c("Season", "player_name", "League")) %>%
-  replace_na(list(is_mvp = 0)) %>%
-  filter(plate_appearances >= 3.1 * (team_games))  %>% # examine qualified players only
+  replace_na(list(is_mvp = "No")) %>%
+  filter(plate_appearances >= 2.93 * (team_games))  %>% # fewest PA/game who won the MVP was Stargell in 1979
   group_by(Season, League) %>%    
   arrange(desc(ops)) %>%   
   mutate(ops_rank_league = row_number()) %>%
@@ -103,33 +103,26 @@ master_df <- inner_join(player_stats, team_info, by=c("Season", "teamid")) %>%
   mutate(defense_rank_league = row_number()) %>%
   arrange(desc(plate_appearances)) %>%
   mutate(pa_rank_league = row_number()) %>%
-  ungroup
+  ungroup()
 
 ```
 
 ```{r}
 
-# TODO: remove guys who are PA-qualified but are, say, below 10th in OPS ranking. or something like that
-# there is no value in predicting these guys as they realistically have a 0% shot at MVP. they're getting small amounts
-# of consideration in the model, which is just not realistic.
-# perhaps cut off at 40th rank. 33rd is the max rank that anyone has ever had who won mvp ... Maury Wills, 1962
-# this can be seen with: train_df %>% filter(is_mvp == "Yes") %>% arrange(desc(ops_rank_league)) %>% View()
-# cutting off after 40th will remove 2,847 players
-
-
 # TODO: put in primary position based on fielding stats that year. having the split 1B/DH position isn't helpful
 # because most split positions go together
 
-set.seed(12)
+set.seed(4)
+
+# best seed so far: 4
 
 # remove informational paramters i don't want the model to look at
 # cross-validate model on data from 2017 and prior so we can apply it to 2018 data
 train_df <- master_df %>%
-  filter(Season != 2018) %>% # train & test on data prior to 2018
+  filter(Season != 2018,
+         Season >= 2007) %>% # train & test on data prior to 2018
   select(-playerid, -player_name, -teamid, -team_games, -ops, -home_runs, -rbi, -stolen_bases, -batting_average,
-         -defense, -plate_appearances, -League) %>%
-  mutate(is_mvp = if_else(is_mvp == 1, "Yes", "No"))
-  
+         -defense, -plate_appearances)
 
 control_parameters <- trainControl(method = "cv",
                                    number = 10,
@@ -195,8 +188,8 @@ mvp_prediction_al <-
   predict_al %>%
   bind_cols(predictions_al) %>%
   inner_join(master_df, by=c("Season", "Position", 
-                           "League", "team_PCT", "ops_rank_league", "defense_rank_league",
-                           "pa_rank_league")) %>%
+                             "League", "team_PCT", "ops_rank_league", "defense_rank_league",
+                             "pa_rank_league")) %>%
   select(playerid, player_name, League, prob_mvp, everything()) %>%
   select(-is_mvp) %>%
   arrange(desc(prob_mvp))
@@ -205,7 +198,7 @@ mvp_prediction_nl <-
   predict_nl %>%
   bind_cols(predictions_nl) %>%
   inner_join(master_df, by=c("Season", "Position", 
-                           "League", "team_PCT", "ops_rank_league", "pa_rank_league")) %>%
+                             "League", "team_PCT", "ops_rank_league", "pa_rank_league")) %>%
   select(playerid, player_name, League, prob_mvp, everything()) %>%
   select(-is_mvp) %>%
   arrange(desc(prob_mvp))
@@ -214,9 +207,31 @@ mvp_prediction_nl <-
 mvp_predictions <-
   bind_rows(mvp_prediction_al, mvp_prediction_nl)
 
-# distribution of mvp-worthy talent in each league
-ggplot(mvp_predictions, aes(x=1,y = prob_mvp)) + geom_boxplot() + facet_wrap(~League) +
-  coord_flip() + fgt
+# plot variable importance
+bind_cols(row.names(varImp(mvp_predictor)$importance) %>% 
+            as_tibble(), 
+          varImp(mvp_predictor)$importance %>% 
+            as_tibble()) %>%
+  filter(value != "PositionP") %>% # spurious data %>%
+  mutate(value = str_replace_all(value,
+                                 c("team_PCT" = "Team Winning Percentage",
+                                   "rbi_rank_league" = "RBI Rank",
+                                   "ops_rank_league" = "OPS Rank",
+                                   "sb_rank_league" = "SB Rank",
+                                   "avg_rank_league" = "AVG Rank",
+                                   "hr_rank_league" = "HR Rank",
+                                   "PositionOF" = "Is Outfielder?",
+                                   "PositionC" = "Is Catcher?",
+                                   "Position2B" = "Is Second Baseman?",
+                                   "PositionSS" = "Is Shortstop?",
+                                   "PositionDH" = "Is Designated Hitter?",
+                                   "Position3B" = "Is Third Baseman?",
+                                   "pa_rank_league" = "PA Rank",
+                                   "defense_rank_league" = "DEF Rank",
+                                   "LeagueNL" = "Is National League?"))) %>%
+  ggplot(aes(reorder(value, Overall), Overall)) + geom_col() + coord_flip() + fgt +
+  labs(x="", y="Relative Importance") + ggtitle("What Factors are Important in MVP Voting?")
+
 
 # top 10 contenders in each league
 mvp_predictions %>%
@@ -225,13 +240,6 @@ mvp_predictions %>%
   ggplot(aes(reorder(player_name, prob_mvp), prob_mvp)) + geom_col() + coord_flip() + 
   facet_wrap(~League, scales = "free") + fgt + labs(x="", y="MVP Probability (%)") +
   ggtitle(sprintf("Top 10 MVP Candidates per League: %s", season_to_test))
-
-# plot variable importance
-bind_cols(row.names(varImp(mvp_predictor)$importance) %>% as_tibble(), 
-          varImp(mvp_predictor)$importance %>% as_tibble()) %>%
-  ggplot(aes(reorder(value, Overall), Overall)) + geom_col() + coord_flip() + fgt +
-  labs(x="", y="Relative Importance") + ggtitle("What Factors are Important in MVP Voting?")
-
 
 
 ```
