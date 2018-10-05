@@ -84,8 +84,6 @@ fielding_info <- fg_db %>%
   filter(row_number() == 1) %>%
   select(Season, playerid, Position, games_in_field)
 
-
-
 # read in list of MVP's. this is from wikipedia so need to clean up some of the names to match FanGraphs
 # the if_else lines deal with players with accented characters in their names
 # also mark each player as mvp for when we join this DF to the main stats DF later
@@ -126,10 +124,10 @@ master_df <- inner_join(player_stats, team_info, by=c("Season", "teamid")) %>%
 
 ```
 
-```{r, message=FALSE}
+```{r, message=FALSE, echo=FALSE}
 
 
-set.seed(6)
+set.seed(4)
 
 # best seed so far: 4
 
@@ -141,7 +139,8 @@ train_df <- master_df %>%
   select(-playerid, -player_name, -teamid, -team_games, -ops, -home_runs, -rbi, -stolen_bases, -batting_average,
          -defense, -games_played, -games_in_field, -WAR)
 
-control_parameters <- trainControl(method = "cv",
+control_parameters <- trainControl(method = "repeatedcv",
+                                   repeats = 5,
                                    number = 10,
                                    search = "grid",
                                    allowParallel = TRUE,
@@ -164,7 +163,7 @@ mvp_predictor <- train(is_mvp ~ .,
                        tuneGrid = parameter_grid,
                        metric = "ROC")
 
-send_message(sprintf("MVP predictor model is finished training!"))
+send_message("MVP predictor model is finished training!")
 
 
 ```
@@ -172,6 +171,9 @@ send_message(sprintf("MVP predictor model is finished training!"))
 augment train data with predictions from model and evaluate
 
 ```{r}
+
+# TODO: Find the is_mvp/not_mvp cutoff that maximizes the F1 score
+
 master_with_predictions <-
   master_df %>% 
   filter(Season >= 2007,
@@ -182,14 +184,14 @@ master_with_predictions <-
 
 confusionMatrix(master_with_predictions$is_mvp, 
                 master_with_predictions$pred_mvp,
-                mode = "everything")
+                mode = "prec_recall")
 
 roc(master_with_predictions$is_mvp, 
                 as.numeric(master_with_predictions$pred_mvp))
 
 
-# AUC = 0.775. This is the probability that a random positive example will be ranked above a random negative example.
-
+# AUC = 0.749 This is the probability that a random positive example will be ranked above a random negative example.
+# F1: 0.645
 ```
 
 ```{r, message=FALSE}
