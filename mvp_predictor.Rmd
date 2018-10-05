@@ -40,7 +40,7 @@ send_message <- function(msg){
 
 get, clean, mutate, and join data
 
-```{r}
+```{r, message=FALSE}
 player_info <- fg_db %>%
   tbl("player_info") %>%
   filter(Position != "P") %>% #TODO: add pitchers in later
@@ -61,8 +61,9 @@ player_stats <- fg_db %>%
   tbl("stats_batting_master_pfx") %>%
   filter(Type == 0,
          Season >= 1931) %>%
-  select(playerid, Season, teamid, plate_appearances = PA, batting_average = AVG, 
-         home_runs = HR, rbi = RBI, ops = OPS, stolen_bases = SB, defense = Fielding, games_played = G) %>%
+  select(playerid, Season, teamid, batting_average = AVG, plate_appearances = PA,
+         home_runs = HR, rbi = RBI, ops = OPS, stolen_bases = SB, defense = Fielding, games_played = G,
+         WAR = ValueW) %>%
   collect(n=Inf) %>%
   inner_join(player_info, by="playerid") %>%
   select(playerid, player_name, everything())
@@ -117,14 +118,15 @@ master_df <- inner_join(player_stats, team_info, by=c("Season", "teamid")) %>%
   mutate(sb_rank_league = row_number()) %>%
   arrange(desc(defense)) %>%
   mutate(defense_rank_league = row_number()) %>%
-  arrange(desc(plate_appearances)) %>%
-  mutate(pa_rank_league = row_number()) %>%
+  arrange(desc(WAR)) %>%
+  mutate(war_rank_league = row_number()) %>%
   ungroup() %>%
-  mutate(Position = if_else(games_in_field <= .5 * games_played, "DH", Position))
+  mutate(Position = if_else(games_in_field <= .5 * games_played, "DH", Position)) %>%
+  select(-plate_appearances)
 
 ```
 
-```{r}
+```{r, message=FALSE}
 
 
 set.seed(6)
@@ -137,18 +139,17 @@ train_df <- master_df %>%
   filter(Season != 2018,
          Season >= 2007) %>% # train & test on data prior to 2018
   select(-playerid, -player_name, -teamid, -team_games, -ops, -home_runs, -rbi, -stolen_bases, -batting_average,
-         -defense, -plate_appearances, -games_played, -games_in_field)
+         -defense, -games_played, -games_in_field, -WAR)
 
-control_parameters <- trainControl(method = "repeatedcv",
+control_parameters <- trainControl(method = "cv",
                                    number = 10,
-                                   repeats = 5,
                                    search = "grid",
                                    allowParallel = TRUE,
                                    classProbs = TRUE,
                                    summaryFunction = twoClassSummary)
 
 parameter_grid <- expand.grid(
-  nrounds = 50, 
+  nrounds = c(50, 100, 150), 
   eta = c(0, .01, 0.1),
   max_depth = c(5, 10, 15, 20),
   gamma = c(0, 1, 2, 5),
@@ -163,13 +164,7 @@ mvp_predictor <- train(is_mvp ~ .,
                        tuneGrid = parameter_grid,
                        metric = "ROC")
 
-
-max_roc <- mvp_predictor$results$ROC %>% 
-  max()
-
-# msg <- sprintf("MVP predictor model is finished training!")
-
-send_message(sprintf("MVP predictor model is finished training! Max ROC: %s", max_roc))
+send_message(sprintf("MVP predictor model is finished training!", max_roc))
 
 
 ```
@@ -197,51 +192,24 @@ roc(master_with_predictions$is_mvp,
 
 ```
 
-```{r}
+```{r, message=FALSE}
 
 season_to_test <- 2018
 
 predict_df <- master_df %>%
   filter(Season == season_to_test) %>%
   select(-playerid, -player_name, -teamid, -team_games, -ops, -home_runs, -rbi, -batting_average, -is_mvp,
-         -defense, -plate_appearances, -games_played, -games_in_field)
+         -defense, -games_played, -games_in_field)
 
-predict_al <- predict_df %>%
-  filter(League == "AL")
-
-predict_nl <- predict_df %>%
-  filter(League == "NL")
-
-predictions_al <- predict(mvp_predictor, newdata = predict_al, type ="prob") %>%
+mvp_predictions <- predict(mvp_predictor, newdata = predict_df, type ="prob") %>%
   mutate(prob_mvp = round(100 * Yes, 2)) %>%
-  select(prob_mvp)
-
-predictions_nl <- predict(mvp_predictor, newdata = predict_nl, type ="prob") %>%
-  mutate(prob_mvp = round(100 * Yes, 2)) %>%
-  select(prob_mvp)
-
-mvp_prediction_al <-
-  predict_al %>%
-  bind_cols(predictions_al) %>%
-  inner_join(master_df, by=c("Season", "Position", 
-                             "League", "team_PCT", "ops_rank_league", "defense_rank_league",
-                             "pa_rank_league")) %>%
+  as_tibble() %>%
+  select(prob_mvp) %>%
+  bind_cols(predict_df) %>%
+  inner_join(master_df) %>%
   select(playerid, player_name, League, prob_mvp, everything()) %>%
   select(-is_mvp) %>%
   arrange(desc(prob_mvp))
-
-mvp_prediction_nl <-
-  predict_nl %>%
-  bind_cols(predictions_nl) %>%
-  inner_join(master_df, by=c("Season", "Position", 
-                             "League", "team_PCT", "ops_rank_league", "pa_rank_league")) %>%
-  select(playerid, player_name, League, prob_mvp, everything()) %>%
-  select(-is_mvp) %>%
-  arrange(desc(prob_mvp))
-
-#construct master DF
-mvp_predictions <-
-  bind_rows(mvp_prediction_al, mvp_prediction_nl)
 
 # plot variable importance
 bind_cols(row.names(varImp(mvp_predictor)$importance) %>% 
@@ -256,7 +224,9 @@ bind_cols(row.names(varImp(mvp_predictor)$importance) %>%
                                    "sb_rank_league" = "SB Rank",
                                    "avg_rank_league" = "AVG Rank",
                                    "hr_rank_league" = "HR Rank",
-                                   "PositionOF" = "Is Outfielder?",
+                                   "PositionCF" = "Is Center Fielder?",
+                                   "PositionLF" = "Is Left Fielder?",
+                                   "PositionRF" = "Is Right Fielder?",
                                    "PositionC" = "Is Catcher?",
                                    "Position2B" = "Is Second Baseman?",
                                    "PositionSS" = "Is Shortstop?",
@@ -264,7 +234,8 @@ bind_cols(row.names(varImp(mvp_predictor)$importance) %>%
                                    "Position3B" = "Is Third Baseman?",
                                    "pa_rank_league" = "PA Rank",
                                    "defense_rank_league" = "DEF Rank",
-                                   "LeagueNL" = "Is National League?"))) %>%
+                                   "LeagueNL" = "Is National League?",
+                                   "war_rank_league" = "WAR Rank"))) %>%
   ggplot(aes(reorder(value, Overall), Overall)) + geom_col() + coord_flip() + fgt +
   labs(x="", y="Relative Importance") + ggtitle("What Factors are Important in MVP Voting? (2007 - 2017)")
 
