@@ -164,7 +164,7 @@ mvp_predictor <- train(is_mvp ~ .,
                        tuneGrid = parameter_grid,
                        metric = "ROC")
 
-send_message(sprintf("MVP predictor model is finished training!", max_roc))
+send_message(sprintf("MVP predictor model is finished training!"))
 
 
 ```
