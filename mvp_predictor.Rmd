@@ -41,6 +41,11 @@ send_message <- function(msg){
 get, clean, mutate, and join data
 
 ```{r, message=FALSE}
+
+year_to_predict <- 2018
+data_min <- year_to_predict - 11
+data_max <- year_to_predict - 1
+
 player_info <- fg_db %>%
   tbl("player_info") %>%
   filter(Position != "P") %>% #TODO: add pitchers in later
@@ -50,7 +55,8 @@ player_info <- fg_db %>%
 
 team_info <- fg_db %>%
   tbl("season_team") %>%
-  filter(Season >= 1931) %>%   
+  filter(Season >= data_min,
+         Season <= year_to_predict) %>%   
   select(teamid = TeamId, Season, League, team_games = G, team_wins = W, team_losses = L) %>%
   collect(n=Inf) %>%
   mutate(team_PCT = team_wins / (team_wins + team_losses),
@@ -60,7 +66,8 @@ team_info <- fg_db %>%
 player_stats <- fg_db %>%
   tbl("stats_batting_master_pfx") %>%
   filter(Type == 0,
-         Season >= 1931) %>%
+         Season >= data_min,
+         Season <= year_to_predict) %>%
   select(playerid, Season, teamid, batting_average = AVG, plate_appearances = PA,
          home_runs = HR, rbi = RBI, ops = OPS, stolen_bases = SB, defense = Fielding, games_played = G,
          WAR = ValueW) %>%
@@ -72,7 +79,8 @@ player_stats <- fg_db %>%
 # identify DH's
 fielding_info <- fg_db %>%
   tbl("stats_fielding") %>%
-  filter(Season >= 1931,
+  filter(Season >= data_min,
+         Season <= year_to_predict,
          Position != "OF",      # omit these rows; they're totals of distinct LF/CF/RF playing time
          Position != "P",
          Type == 0) %>%  
@@ -134,8 +142,7 @@ set.seed(4)
 # remove informational paramters i don't want the model to look at
 # cross-validate model on data from 2017 and prior so we can apply it to 2018 data
 train_df <- master_df %>%
-  filter(Season != 2018,
-         Season >= 2007) %>% # train & test on data prior to 2018
+  filter(Season != year_to_predict) %>% # train & test on data prior to prediction year
   select(-playerid, -player_name, -teamid, -team_games, -ops, -home_runs, -rbi, -stolen_bases, -batting_average,
          -defense, -games_played, -games_in_field, -WAR)
 
@@ -168,38 +175,40 @@ send_message("MVP predictor model is finished training!")
 
 ```
 
-augment train data with predictions from model and evaluate
-
+evaluate model using "most likely MVP season" as "predicted MVP"
 ```{r}
 
-# TODO: Find the is_mvp/not_mvp cutoff that maximizes the F1 score
+# predict probability of MVP election for each player-season
+evaluation_prediction <-
+  master_df %>%
+  filter(Season != season_to_test) %>%
+  predict(mvp_predictor, newdata = ., type = "prob")
 
-master_with_predictions <-
+# within each season-league, find the MVP player-season with the highest probability. That is the predicted MVP
+eval_df <-
   master_df %>% 
-  filter(Season >= 2007,
-         Season < 2018) %>%
-  mutate(pred_mvp = predict(mvp_predictor, newdata = ., type="raw"),
+  filter(Season != season_to_test) %>% 
+  bind_cols(evaluation_prediction) %>%
+  group_by(Season, League) %>%
+  mutate(pred_mvp = if_else(Yes == max(Yes), "Yes", "No"),
          is_mvp = factor(is_mvp, levels = c("Yes", "No")),
          pred_mvp = factor(pred_mvp, levels=c("Yes", "No")))
 
-confusionMatrix(master_with_predictions$is_mvp, 
-                master_with_predictions$pred_mvp,
-                mode = "prec_recall")
+confusionMatrix(eval_df$is_mvp, 
+                eval_df$pred_mvp,
+                mode = "everything")
 
-roc(master_with_predictions$is_mvp, 
-                as.numeric(master_with_predictions$pred_mvp))
+roc(eval_df$is_mvp,
+    as.numeric(eval_df$pred_mvp))
 
-
-# AUC = 0.749 This is the probability that a random positive example will be ranked above a random negative example.
-# F1: 0.645
+# AUC = 0.8223 This is the probability that a random positive example will be ranked above a random negative example.
+# F1: 0.619
 ```
 
 ```{r, message=FALSE}
 
-season_to_test <- 2018
-
 predict_df <- master_df %>%
-  filter(Season == season_to_test) %>%
+  filter(Season == year_to_predict) %>%
   select(-playerid, -player_name, -teamid, -team_games, -ops, -home_runs, -rbi, -batting_average, -is_mvp,
          -defense, -games_played, -games_in_field)
 
@@ -247,7 +256,7 @@ mvp_predictions %>%
   filter(row_number() <= 10) %>%
   ggplot(aes(reorder(player_name, prob_mvp), prob_mvp)) + geom_col() + coord_flip() + 
   facet_wrap(~League, scales = "free") + fgt + labs(x="", y="Probability of Season Winning the MVP (%)") +
-  ggtitle(sprintf("Top 10 %s Player-Seasons with the Highest MVP Probabilities", season_to_test))
+  ggtitle(sprintf("Top 10 %s Player-Seasons with the Highest MVP Probabilities", year_to_predict))
 
 # these probabilities don't sum to 1 because they're framed as being focused on individual players. the question I'm answering here is not "who will win the MVP?" but "if a player had a season like this, what's the probability that player will win the MVP?"
 
