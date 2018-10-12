@@ -109,20 +109,35 @@ pitchers_2017_predicted <-
   pitchers_2017 %>%
   bind_cols(second_half_pitcher_predictions)
 
-# evaluate model by calculating the RMSE of model predictions
-rmse <- round(
-  RMSE(pitchers_2017_predicted$`2ndHalfK%`, pitchers_2017_predicted$`pred_2ndHalfK%`),
-  3)
 
-# graph predicted results against actual results to show goodness of fit
-pitchers_2017_predicted %>%
+
+# calculate actual values, predicted values, and residuals for model analysis purposes
+results <- pitchers_2017_predicted %>%
   select(Name,
          actual_second_half_k_rate = `2ndHalfK%`, 
          predicted_second_half_k_rate = `pred_2ndHalfK%`) %>%
+  mutate(residual = predicted_second_half_k_rate - actual_second_half_k_rate)
+
+# evaluate model by calculating the RMSE of model predictions
+rmse <- round(
+  RMSE(results$predicted_second_half_k_rate, results$actual_second_half_k_rate),
+  3)
+
+lm_fit <- lm(results$actual_second_half_k_rate ~ results$predicted_second_half_k_rate)
+r_squared <- > summary(lm_fit)$r.squared
+
+# TODO: calculate & show R^2 of actual ~ pred
+
+results %>%  
   ggplot(aes(predicted_second_half_k_rate, actual_second_half_k_rate)) + geom_point() + fgt +
   labs(x="Predicted Second-Half K%", y="Actual Second-Half K%", caption=sprintf("RMSE of model: %s", rmse)) +
   ggtitle("2017 Second-Half K%: Predicted Rates vs. Actual Rates") +
   xlim(0, 0.5) + ylim(0, 0.5) + geom_smooth(method="lm")
+
+# plot fitted vs. residuals to show bias
+# TODO: Put on common scale
+results %>%
+  ggplot(aes(predicted_second_half_k_rate, residual)) + geom_point()
 
 ```
 
