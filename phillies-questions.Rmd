@@ -1,0 +1,129 @@
+```{r}
+library(tidyverse)
+library(RMySQL)
+library(lubridate)
+library(xgboost)
+library(caret)
+library(twilio)
+
+fgt = theme(
+  panel.background = element_rect(color = "lightgrey", fill = "white"),
+  axis.title = element_text(family = "Lato"),
+  axis.text = element_text(family = "Lato"),
+  legend.title = element_text(family = "Lato"),
+  legend.text = element_text(family = "Lato"),
+  legend.background = element_rect(fill = "white"),
+  legend.key = element_rect(fill = "white"),
+  plot.title = element_text(family = "Lato"),
+  panel.grid.major = element_line(size = .1, color = "lightgrey"),
+  panel.grid.minor = element_line(size = 0),
+  # strip.background = element_rect(fill = "#8e001c"),
+  strip.text = element_text(family="Lato")
+)
+
+fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"), 
+                          host = Sys.getenv("FG_HOST"), 
+                          user = Sys.getenv("FG_USER"),
+                          password = Sys.getenv("FG_PW"))
+
+TWILIO_SID <- Sys.getenv("TWILIO_SID")
+TWILIO_TOKEN <- Sys.getenv("TWILIO_TOKEN")
+twilio_number <- Sys.getenv("twilio_number")
+
+send_message <- function(msg){
+  tw_send_message(from = twilio_number, to = "5123505107", body = msg)
+}
+
+
+```
+
+Get data
+
+```{r message=FALSE, include=FALSE}
+
+pitcher_data <- read_csv("~/Downloads/strikeouts.csv")
+
+# get throwing hand of pitchers
+pitchers_2017 <-
+  fg_db %>% 
+  tbl("player_info") %>% 
+  filter(PlayerId %in% pitcher_data$fangraphs_id) %>% 
+  select(PlayerId, Throws) %>% 
+  collect(n = Inf) %>%
+  inner_join(pitcher_data, by=c("PlayerId" = "fangraphs_id"))
+```
+
+Train model
+
+```{r}
+
+pitchers_2017_train <- 
+  pitchers_2017 %>% 
+  select(-PlayerId, -`2ndHalfIP`, -Name, -Team)
+
+# TODO: get K% for 3 years prior to 2017
+# TODO: remove player name? team? perhaps not relevant.
+
+# set seed for reprodicibility
+set.seed(2)
+
+# establish grid of tuning parameters for xgboost algorithm
+parameter_grid <- expand.grid(
+  nrounds = c(25, 50, 100), 
+  eta = c(0, .01, 0.1),
+  max_depth = c(5, 10, 15, 20),
+  gamma = c(0, 1, 2, 5),
+  colsample_bytree = c(0.1, 0.5, 0.9),
+  min_child_weight = c(0, 0.1),
+  subsample = c(0.1, 0.2, 0.5, 0.7))
+
+# establish k-fold cross-validation
+control_parameters <- trainControl(method = "cv",
+                                   number = 10,
+                                   search = "grid",
+                                   allowParallel = TRUE)
+
+#train model using methodology tuning parameters above
+second_half_k_predictor <- train(`2ndHalfK%` ~ .,
+                       data = pitchers_2017_train, 
+                       method = "xgbTree", 
+                       trControl = control_parameters,
+                       tuneGrid = parameter_grid,
+                       metric = "RMSE")
+
+send_message("2nd Half K% model is finished training!")
+
+```
+
+Predict second half K% using model and evaluate
+
+```{r}
+
+# predict second-half k% using model
+second_half_pitcher_predictions <-
+  predict(second_half_k_predictor, newdata = pitchers_2017_train) %>% 
+  as_tibble() %>%
+  select(`pred_2ndHalfK%` = value)
+
+# augment original dataset with predictions
+pitchers_2017_predicted <- 
+  pitchers_2017 %>%
+  bind_cols(second_half_pitcher_predictions)
+
+# evaluate model by calculating the RMSE of model predictions
+rmse <- round(
+  RMSE(pitchers_2017_predicted$`2ndHalfK%`, pitchers_2017_predicted$`pred_2ndHalfK%`),
+  3)
+
+# graph predicted results against actual results to show goodness of fit
+pitchers_2017_predicted %>%
+  select(Name,
+         actual_second_half_k_rate = `2ndHalfK%`, 
+         predicted_second_half_k_rate = `pred_2ndHalfK%`) %>%
+  ggplot(aes(predicted_second_half_k_rate, actual_second_half_k_rate)) + geom_point() + fgt +
+  labs(x="Predicted Second-Half K%", y="Actual Second-Half K%", caption=sprintf("RMSE of model: %s", rmse)) +
+  ggtitle("2017 Second-Half K%: Predicted Rates vs. Actual Rates") +
+  xlim(0, 0.5) + ylim(0, 0.5) + geom_smooth(method="lm")
+
+```
+
