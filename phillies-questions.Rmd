@@ -62,7 +62,6 @@ pitchers_2017_train <-
   select(-PlayerId, -`2ndHalfIP`, -Name, -Team)
 
 # TODO: get K% for 3 years prior to 2017
-# TODO: remove player name? team? perhaps not relevant.
 
 # set seed for reprodicibility
 set.seed(2)
@@ -85,11 +84,11 @@ control_parameters <- trainControl(method = "cv",
 
 #train model using methodology tuning parameters above
 second_half_k_predictor <- train(`2ndHalfK%` ~ .,
-                       data = pitchers_2017_train, 
-                       method = "xgbTree", 
-                       trControl = control_parameters,
-                       tuneGrid = parameter_grid,
-                       metric = "RMSE")
+                                 data = pitchers_2017_train,
+                                 method = "xgbTree",
+                                 trControl = control_parameters,
+                                 tuneGrid = parameter_grid,
+                                 metric = "RMSE")
 
 send_message("2nd Half K% model is finished training!")
 
@@ -99,7 +98,7 @@ Predict second half K% using model and evaluate
 
 ```{r}
 
-# predict second-half k% using model
+# predict second-half k% using model; transform to tibble for binding to original tibble; rename variable for clarity
 second_half_pitcher_predictions <-
   predict(second_half_k_predictor, newdata = pitchers_2017_train) %>% 
   as_tibble() %>%
