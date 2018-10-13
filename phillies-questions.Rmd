@@ -1,10 +1,8 @@
-```{r}
+```{r setup, include=FALSE}
 library(tidyverse)
-library(RMySQL)
-library(lubridate)
 library(xgboost)
 library(caret)
-library(twilio)
+
 
 fgt = theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
@@ -26,47 +24,40 @@ fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"),
                           user = Sys.getenv("FG_USER"),
                           password = Sys.getenv("FG_PW"))
 
-TWILIO_SID <- Sys.getenv("TWILIO_SID")
-TWILIO_TOKEN <- Sys.getenv("TWILIO_TOKEN")
-twilio_number <- Sys.getenv("twilio_number")
-
-send_message <- function(msg){
-  tw_send_message(from = twilio_number, to = "5123505107", body = msg)
-}
-
-
 ```
 
-Get data
+Get data. In addition to strikeout information, use 
 
-```{r message=FALSE, include=FALSE}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 
 pitcher_data <- read_csv("~/Downloads/strikeouts.csv")
 
 # get throwing hand of pitchers
-pitchers_2017 <-
-  fg_db %>% 
-  tbl("player_info") %>% 
-  filter(PlayerId %in% pitcher_data$fangraphs_id) %>% 
-  select(PlayerId, Throws) %>% 
-  collect(n = Inf) %>%
-  inner_join(pitcher_data, by=c("PlayerId" = "fangraphs_id"))
+
+pitcher_handedness <- read_csv("pitcher_handedness.csv")
+
+pitcher_data_2016 <- read_csv("2016-strikeout-rates.csv")
+
+pitchers_2017 <- inner_join(pitcher_data, pitcher_handedness, by=c("fangraphs_id" = "PlayerId")) %>%
+  inner_join(pitcher_data_2016, by=c("fangraphs_id" = "PlayerId"))
 ```
 
-Train model
+### Identify Optimal Parameters and Train the Model 
+The following code chunk creates a training dataset and then trains the model. I use the caret package to define a grid of tuning parameters for the xgboost algorithm and then perform 10-fold cross validation with each set of parameters to find the set that minimizes RMSE in the model results.
 
-```{r}
+For reproducability we set the random seed to 2.
 
+```{r train model, message=FALSE, include=FALSE}
+
+# create training dataset by removing unnecessary predictors
 pitchers_2017_train <- 
   pitchers_2017 %>% 
-  select(-PlayerId, -`2ndHalfIP`, -Name, -Team)
+  select(-fangraphs_id, -`2ndHalfIP`, -Name, -Team)
 
-# TODO: get K% for 3 years prior to 2017
+# set seed for reproducibility
+set.seed(6)
 
-# set seed for reprodicibility
-set.seed(2)
-
-# establish grid of tuning parameters for xgboost algorithm
+# establish grid of parameters for xgboost algorithm
 parameter_grid <- expand.grid(
   nrounds = c(25, 50, 100), 
   eta = c(0, .01, 0.1),
@@ -76,13 +67,13 @@ parameter_grid <- expand.grid(
   min_child_weight = c(0, 0.1),
   subsample = c(0.1, 0.2, 0.5, 0.7))
 
-# establish k-fold cross-validation
+# establish k-fold cross-validation and other tuning
 control_parameters <- trainControl(method = "cv",
                                    number = 10,
                                    search = "grid",
                                    allowParallel = TRUE)
 
-#train model using methodology tuning parameters above
+#find the besttrain model using methodology tuning parameters above
 second_half_k_predictor <- train(`2ndHalfK%` ~ .,
                                  data = pitchers_2017_train,
                                  method = "xgbTree",
@@ -90,15 +81,24 @@ second_half_k_predictor <- train(`2ndHalfK%` ~ .,
                                  tuneGrid = parameter_grid,
                                  metric = "RMSE")
 
-send_message("2nd Half K% model is finished training!")
-
 ```
 
-Predict second half K% using model and evaluate
+The xgboost model with the lowest RMSE has the following parameters:
+* nrounds = 50
+* max_depth = 5
+* eta = 0.1
+* gamma = 0
+* colsample_bytree = 0.9
+* min_child_weight = 0
+* subsample = 0.7
 
-```{r}
+The next code chunk uses the model to predict the second-half K% for each pitcher. It also calculates the RMSE between the observed and predicted second-half K%, fits a linear model to these observed and predicted values, and finds the R^2 of this linear model to assess how much of the variance in the observed K%. 
 
-# predict second-half k% using model; transform to tibble for binding to original tibble; rename variable for clarity
+```{r predict results}
+
+# predict second-half k% using model
+# transform to tibble for binding to original tibble
+# rename variable for clarity
 second_half_pitcher_predictions <-
   predict(second_half_k_predictor, newdata = pitchers_2017_train) %>% 
   as_tibble() %>%
@@ -109,35 +109,51 @@ pitchers_2017_predicted <-
   pitchers_2017 %>%
   bind_cols(second_half_pitcher_predictions)
 
-
-
 # calculate actual values, predicted values, and residuals for model analysis purposes
 results <- pitchers_2017_predicted %>%
   select(Name,
-         actual_second_half_k_rate = `2ndHalfK%`, 
-         predicted_second_half_k_rate = `pred_2ndHalfK%`) %>%
-  mutate(residual = predicted_second_half_k_rate - actual_second_half_k_rate)
+         predicted_second_half_k_rate = `pred_2ndHalfK%`,
+         actual_second_half_k_rate = `2ndHalfK%`) %>%
+  mutate(residual = actual_second_half_k_rate - predicted_second_half_k_rate)
 
-# evaluate model by calculating the RMSE of model predictions
+# calculate RMSE to assess model accuracy
 rmse <- round(
   RMSE(results$predicted_second_half_k_rate, results$actual_second_half_k_rate),
   3)
 
-lm_fit <- lm(results$actual_second_half_k_rate ~ results$predicted_second_half_k_rate)
-r_squared <- > summary(lm_fit)$r.squared
+# calculate R^2 to see how much variance the model explains
+model_fit <- lm(results$actual_second_half_k_rate ~ results$predicted_second_half_k_rate)
+r_squared <- round(summary(model_fit)$r.squared, 3)
+```
 
-# TODO: calculate & show R^2 of actual ~ pred
+The following table shows the predicted and actual second-half K% for each pitcher:
 
+```{r show results, echo=FALSE}
+results %>%
+  select(-residual)
+```
+
+We evaluate the model in a couple ways. First we plot the observed vs. predicted values and finding the R^2 of the fitted line:
+
+```{r plot results, echo=FALSE}
+
+# plot predicted vs. actual values
 results %>%  
   ggplot(aes(predicted_second_half_k_rate, actual_second_half_k_rate)) + geom_point() + fgt +
-  labs(x="Predicted Second-Half K%", y="Actual Second-Half K%", caption=sprintf("RMSE of model: %s", rmse)) +
+  labs(x="Predicted Second-Half K%", y="Actual Second-Half K%", caption = sprintf("R^2: %s", r_squared)) +
   ggtitle("2017 Second-Half K%: Predicted Rates vs. Actual Rates") +
   xlim(0, 0.5) + ylim(0, 0.5) + geom_smooth(method="lm")
+```
 
-# plot fitted vs. residuals to show bias
-# TODO: Put on common scale
+
+
+```{r plot residuals, echo=FALSE}
+# plot fitted vs. residuals to identify bias
 results %>%
-  ggplot(aes(predicted_second_half_k_rate, residual)) + geom_point()
+  ggplot(aes(predicted_second_half_k_rate, residual)) + geom_point() + fgt +
+  labs(x="Predicted Second-Half K%", y="Residual", caption = sprintf("RMSE: %s", rmse))+
+  ggtitle("2017 Second-Half K%: Predicted Rates vs. Residuals") +
+  xlim(0, .5)
 
 ```
 
