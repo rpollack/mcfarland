@@ -20,7 +20,18 @@ fgt = theme(
 
 ```
 
-# Get Data
+# Introduction
+
+## What is this Analysis?
+This project predicts second-half strikeout rates for a select group of pitchers.
+
+## Why is it Important?
+
+# Analysis
+
+The following code chunks get data, train a model, apply the model results, and evaluate the predictions made.
+
+## Get Data
 
 In addition to the information provided in strikeouts.csv, I found the following data useful:
 
@@ -43,7 +54,7 @@ pitchers_2017 <- inner_join(pitcher_data, pitcher_handedness, by=c("fangraphs_id
   inner_join(pitcher_data_2016, by=c("fangraphs_id" = "PlayerId"))
 ```
 
-### Identify Optimal Parameters and Train the Model 
+## Training the Model
 The following code chunk creates a training dataset and then trains the model. I use the caret package to define a grid of tuning parameters for the xgboost algorithm and then perform 10-fold cross validation with each set of parameters. The final model is the one that minimizes the RMSE of the predictions.
 
 ```{r train model, message=FALSE, include=FALSE}
@@ -79,19 +90,9 @@ second_half_k_predictor <- train(`2ndHalfK%` ~ .,
                                  trControl = control_parameters,
                                  tuneGrid = parameter_grid,
                                  metric = "RMSE")
-
 ```
 
-The xgboost model with the lowest RMSE has the following parameters:
-* nrounds = 50
-* max_depth = 5
-* eta = 0.1
-* gamma = 0
-* colsample_bytree = 0.9
-* min_child_weight = 0
-* subsample = 0.7
-
-# Make Predictions
+## Predicting Second-Half Strikeout Rates
 
 The next code chunk uses the model to predict the second-half K% for each pitcher. It also calculates the RMSE of the predictions and the R^2 of the best-fit line between the predicted and actual values. I'll use these values later to evaluate the model itself.
 
@@ -117,21 +118,18 @@ results <- pitchers_2017_predicted %>%
          actual_second_half_k_rate = `2ndHalfK%`) %>%
   mutate(residual = actual_second_half_k_rate - predicted_second_half_k_rate)
 
-# calculate RMSE to assess model accuracy
-rmse <- round(
-  RMSE(results$predicted_second_half_k_rate, results$actual_second_half_k_rate),
-  3)
 
-# calculate R^2 to see how much variance the model explains
-model_fit <- lm(results$actual_second_half_k_rate ~ results$predicted_second_half_k_rate)
-r_squared <- round(summary(model_fit)$r.squared, 3)
 ```
 
-# Model Evaluation
+## Evaluating Results
 
 I evaluate the model in two ways. The first way is to plot the predicted vs. actual values and see the R^2 of the line of best fit. The following plot shows this information:
 
 ```{r plot results, echo=FALSE}
+
+# calculate R^2 to see how much variance the model explains
+model_fit <- lm(results$actual_second_half_k_rate ~ results$predicted_second_half_k_rate)
+r_squared <- round(summary(model_fit)$r.squared, 3)
 
 # plot predicted vs. actual values
 results %>%  
@@ -141,9 +139,17 @@ results %>%
   xlim(0, 0.5) + ylim(0, 0.5) + geom_smooth(method="lm")
 ```
 
-The xgboost model explains 96% of the variance in the actual second-half K rates.
+The scatterplot shows the tight fit between the model's predicted results and the actual results. The R^2 of this fit shows that the model explains 96% of the variance in the actual second-half K rates.
+
+The next plot shows the predicted values vs. the residuals of each predicted value, as well as the RMSE of the predictions:
 
 ```{r plot residuals, echo=FALSE, fig.align='center'}
+
+# calculate RMSE
+rmse <- round(
+  RMSE(results$predicted_second_half_k_rate, results$actual_second_half_k_rate),
+  3)
+
 # plot fitted vs. residuals to identify bias
 results %>%
   ggplot(aes(predicted_second_half_k_rate, residual)) + geom_point() + fgt +
@@ -153,23 +159,18 @@ results %>%
 
 ```
 
-The residuals have some skew but not an unreasonable amount. The RMSE of the predictions is 0.015, or 1.5 percentage points of second-half strikeout rate, which strikes me as low.
+The plot shows some skew to the residuals, but not an unreasonable amount. The RMSE of the predictions is 0.015, or 1.5 percentage points of second-half strikeout rate.
 
 All models can be improved. But based on the 0.962 R^2, the reasonable-looking plot of the residuals, and the low RMSE of 0.015, this model is an excellent base from which to start making predictions. 
 
-# Applications
-
-Consider the following scenarios: 
-
-The front office wants to know which pitchers to target in mid-season trade talks. 
-
-
-
-The final code chunk creates a CSV file of predicted and actual second-half K rates for each pitcher. For brevity's sake the results are not included in this file.
+The final code chunk creates a CSV file of predicted and actual second-half K rates for each pitcher, for ease of distribution. It also saves the model itself to a file so it can be used to reproduce results later.
 
 ```{r show results, include=FALSE}
 results %>%
   select(-residual) %>%
   write_csv("k-rate-predictions.csv")
+
+# save model to a file so it can be used later.
+saveRDS(second_half_k_predictor, "phillies-k-rate-predictor.rds")
 ```
 
