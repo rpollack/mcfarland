@@ -3,7 +3,7 @@ library(tidyverse)
 library(xgboost)
 library(caret)
 
-
+# define plot aesthetics
 fgt = theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
   axis.title = element_text(family = "Lato"),
@@ -15,37 +15,36 @@ fgt = theme(
   plot.title = element_text(family = "Lato"),
   panel.grid.major = element_line(size = .1, color = "lightgrey"),
   panel.grid.minor = element_line(size = 0),
-  # strip.background = element_rect(fill = "#8e001c"),
   strip.text = element_text(family="Lato")
 )
 
-fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"), 
-                          host = Sys.getenv("FG_HOST"), 
-                          user = Sys.getenv("FG_USER"),
-                          password = Sys.getenv("FG_PW"))
-
 ```
 
-Get data. In addition to strikeout information, use 
+# Get Data
+
+In addition to the information provided in strikeouts.csv, I found the following data useful:
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 
+# get data from the first half of 2017
+# source: https://questionnaire-148920.appspot.com/qa/
 pitcher_data <- read_csv("~/Downloads/strikeouts.csv")
 
 # get throwing hand of pitchers
-
+# source: fangraphs
 pitcher_handedness <- read_csv("pitcher_handedness.csv")
 
+# get strikeout rates from 2016
+# source: fangraphs
 pitcher_data_2016 <- read_csv("2016-strikeout-rates.csv")
 
+# combine datasets into one tibble
 pitchers_2017 <- inner_join(pitcher_data, pitcher_handedness, by=c("fangraphs_id" = "PlayerId")) %>%
   inner_join(pitcher_data_2016, by=c("fangraphs_id" = "PlayerId"))
 ```
 
 ### Identify Optimal Parameters and Train the Model 
-The following code chunk creates a training dataset and then trains the model. I use the caret package to define a grid of tuning parameters for the xgboost algorithm and then perform 10-fold cross validation with each set of parameters to find the set that minimizes RMSE in the model results.
-
-For reproducability we set the random seed to 2.
+The following code chunk creates a training dataset and then trains the model. I use the caret package to define a grid of tuning parameters for the xgboost algorithm and then perform 10-fold cross validation with each set of parameters. The final model is the one that minimizes the RMSE of the predictions.
 
 ```{r train model, message=FALSE, include=FALSE}
 
@@ -92,7 +91,9 @@ The xgboost model with the lowest RMSE has the following parameters:
 * min_child_weight = 0
 * subsample = 0.7
 
-The next code chunk uses the model to predict the second-half K% for each pitcher. It also calculates the RMSE between the observed and predicted second-half K%, fits a linear model to these observed and predicted values, and finds the R^2 of this linear model to assess how much of the variance in the observed K%. 
+# Make Predictions
+
+The next code chunk uses the model to predict the second-half K% for each pitcher. It also calculates the RMSE of the predictions and the R^2 of the best-fit line between the predicted and actual values. I'll use these values later to evaluate the model itself.
 
 ```{r predict results}
 
@@ -126,14 +127,9 @@ model_fit <- lm(results$actual_second_half_k_rate ~ results$predicted_second_hal
 r_squared <- round(summary(model_fit)$r.squared, 3)
 ```
 
-The following table shows the predicted and actual second-half K% for each pitcher:
+# Model Evaluation
 
-```{r show results, echo=FALSE}
-results %>%
-  select(-residual)
-```
-
-We evaluate the model in a couple ways. First we plot the observed vs. predicted values and finding the R^2 of the fitted line:
+I evaluate the model in two ways. The first way is to plot the predicted vs. actual values and see the R^2 of the line of best fit. The following plot shows this information:
 
 ```{r plot results, echo=FALSE}
 
@@ -145,9 +141,9 @@ results %>%
   xlim(0, 0.5) + ylim(0, 0.5) + geom_smooth(method="lm")
 ```
 
+The xgboost model explains 96% of the variance in the actual second-half K rates.
 
-
-```{r plot residuals, echo=FALSE}
+```{r plot residuals, echo=FALSE, fig.align='center'}
 # plot fitted vs. residuals to identify bias
 results %>%
   ggplot(aes(predicted_second_half_k_rate, residual)) + geom_point() + fgt +
@@ -155,5 +151,25 @@ results %>%
   ggtitle("2017 Second-Half K%: Predicted Rates vs. Residuals") +
   xlim(0, .5)
 
+```
+
+The residuals have some skew but not an unreasonable amount. The RMSE of the predictions is 0.015, or 1.5 percentage points of second-half strikeout rate, which strikes me as low.
+
+All models can be improved. But based on the 0.962 R^2, the reasonable-looking plot of the residuals, and the low RMSE of 0.015, this model is an excellent base from which to start making predictions. 
+
+# Applications
+
+Consider the following scenarios: 
+
+The front office wants to know which pitchers to target in mid-season trade talks. 
+
+
+
+The final code chunk creates a CSV file of predicted and actual second-half K rates for each pitcher. For brevity's sake the results are not included in this file.
+
+```{r show results, include=FALSE}
+results %>%
+  select(-residual) %>%
+  write_csv("k-rate-predictions.csv")
 ```
 
