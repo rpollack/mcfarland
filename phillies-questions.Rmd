@@ -64,7 +64,7 @@ pitchers_2017_train <-
   pitchers_2017 %>% 
   select(-fangraphs_id, -`2ndHalfIP`, -Name, -Team)
 
-# set seed for reproducibility
+# set seed to reproduce the training/test splits used for cross validation
 set.seed(6)
 
 # establish grid of parameters for xgboost algorithm
@@ -134,9 +134,10 @@ r_squared <- round(summary(model_fit)$r.squared, 3)
 # plot predicted vs. actual values
 results %>%  
   ggplot(aes(predicted_second_half_k_rate, actual_second_half_k_rate)) + geom_point() + fgt +
-  labs(x="Predicted Second-Half K%", y="Actual Second-Half K%", caption = sprintf("R^2: %s", r_squared)) +
+  labs(x="Predicted Second-Half K%", y="Actual Second-Half K%") +
   ggtitle("2017 Second-Half K%: Predicted Rates vs. Actual Rates") +
-  xlim(0, 0.5) + ylim(0, 0.5) + geom_smooth(method="lm")
+  xlim(0, 0.5) + ylim(0, 0.5) + geom_smooth(method="lm") + 
+  geom_label(aes(x = 0.425, y = 0.35), label = sprintf("R^2: %s", r_squared))
 ```
 
 The scatterplot shows the tight fit between the model's predicted results and the actual results. The R^2 of this fit shows that the model explains 96% of the variance in the actual second-half K rates.
