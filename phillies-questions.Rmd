@@ -62,16 +62,21 @@ pitcher_data_2016 <- read_csv("2016-strikeout-rates.csv")
 # combine datasets into one tibble
 pitchers_2017 <- inner_join(pitcher_data, pitcher_handedness, by=c("fangraphs_id" = "PlayerId")) %>%
   inner_join(pitcher_data_2016, by=c("fangraphs_id" = "PlayerId"))
+
+# create training dataset by removing unnecessary features
+pitchers_2017_train <- 
+  pitchers_2017 %>% 
+  select(-fangraphs_id, -`2ndHalfIP`, -Name, -Team)
 ```
 
-## Select the Algorithm
+## Choose the Algorithm
 I chose the xgboost algorithm because of its reputation as a fast, accurate algorithm that handles collinearity well. This latter feature means I can focus less about which features to include and focus more on tuning the model.
 
 For example, in this dataset FB% and GB% are mutually exclusive and so are highly correlated (r= -0.92). With another algorithm I'd have to choose one or the other. The xgboost algorithm helps ensure I can include both without worrying about overfitting. 
 
 For reference, the following figure shows a correlation plot of all features I used:
 
-```{r correlation matrix, echo=TRUE, fig.align='center}
+```{r correlation matrix, echo=TRUE, fig.align='center'}
 
 # compute and display correlation matrix for features.
 # remove features we don't care about, compute its correlation matrix, add in row names, tidy, and plot
@@ -84,15 +89,13 @@ pitchers_2017_train %>%
               names() %>%
               as_tibble()) %>%
   select(metric = value, everything()) %>%
-  gather(other_metric, r, -metric) %>% View()
-  ggplot(aes(metric, other_metric, color=r, fill = r)) + geom_tile() +
+  gather(other_metric, r, -metric) %>%
+  ggplot(aes(metric, other_metric, color = r, fill = r)) + geom_tile() +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
   labs(x="", y="") + ggtitle("Correlation Matrix of Features")
 ```
 
 ## Tune and Train the Model
-I use the caret package to define a grid of tuning parameters for the xgboost algorithm and then perform 10-fold cross validation with each set of parameters. The final model is the one that minimizes the RMSE of the predictions.
-
 I used the caret package to tune and train the model iteratively. I defined a set of tuning parameters, performed 10-fold cross-validation for each combination of parameters, and selected the model that minimized the RMSE of the predictions. 
 
 This process is iterative in itself, but choosing the parameters for `parameter_grid` is iterative too. The `nrounds` and `max_depth` parameters affect the model the most, so I experiemented with several options for each. After each training run I evaluated the resulting model.
@@ -101,11 +104,6 @@ The code below shows the final tuning parameters I chose as well as the caret co
 
 
 ```{r train model, echo=TRUE, message=FALSE, warning=FALSE, cache=TRUE}
-
-# create training dataset by removing unnecessary features
-pitchers_2017_train <- 
-  pitchers_2017 %>% 
-  select(-fangraphs_id, -`2ndHalfIP`, -Name, -Team)
 
 # set seed to reproduce the training/test splits used for cross validation
 set.seed(6)
@@ -138,7 +136,6 @@ second_half_k_predictor <- train(`2ndHalfK%` ~ .,
 You can see the chosen parameters by running `second_half_k_predictor$bestTune`.
 
 ## Predict Second-Half Strikeout Rates
-
 The next code chunk uses the model to predict the second-half K% for each pitcher. 
 
 ```{r predict results, echo=TRUE, message=FALSE, warning=FALSE}
@@ -162,8 +159,6 @@ results <- pitchers_2017_predicted %>%
          predicted_second_half_k_rate = `pred_2ndHalfK%`,
          actual_second_half_k_rate = `2ndHalfK%`) %>%
   mutate(residual = actual_second_half_k_rate - predicted_second_half_k_rate)
-
-
 ```
 
 ## Evaluate Results
@@ -171,7 +166,6 @@ results <- pitchers_2017_predicted %>%
 I evaluate the model in two ways. I first plot the predicted vs. actual values, visually inspect the scatterplot, and see the R^2 of the line of best fit. The following plot shows this information:
 
 ```{r plot results, echo=TRUE, fig.align='center', message=FALSE, warning=FALSE, paged.print=FALSE}
-
 # calculate R^2 to see how much variance the model explains
 model_fit <- lm(results$actual_second_half_k_rate ~ results$predicted_second_half_k_rate)
 r_squared <- round(summary(model_fit)$r.squared, 3)
@@ -190,7 +184,6 @@ The scatterplot shows the tight fit between the model's predicted results and th
 The next plot shows the predicted values vs. the residuals of each predicted value, as well as the RMSE of the predictions:
 
 ```{r plot residuals, echo=TRUE, fig.align='center'}
-
 # calculate RMSE
 rmse <- round(
   RMSE(results$predicted_second_half_k_rate, results$actual_second_half_k_rate),
@@ -202,7 +195,6 @@ results %>%
   labs(x="Predicted Second-Half K%", y="Residual", caption = sprintf("RMSE: %s", rmse))+
   ggtitle("2017 Second-Half K%: Predicted Rates vs. Residuals") +
   xlim(0, .5)
-
 ```
 
 The plot shows some skew to the residuals, but not an unreasonable amount. The RMSE of the predictions is 0.015, or 1.5 percentage points of second-half strikeout rate.
