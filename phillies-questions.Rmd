@@ -1,4 +1,22 @@
-```{r setup, include=FALSE}
+# Introduction
+
+This project was prepared by Ryan Pollack in response to question #2 listed at https://questionnaire-148920.appspot.com/qa/. Contact Ryan at ryan9379@gmail.com or 512-350-5107.
+
+## What is this Analysis?
+This project predicts second-half strikeout rates for a select group of pitchers.
+
+## Why is it Important?
+
+Reasons.
+
+# Setup
+
+The following code sets up the libraries and ggplot themes used:
+
+```{r setup, echo = TRUE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+
+# load required libraries
 library(tidyverse)
 library(xgboost)
 library(caret)
@@ -20,33 +38,25 @@ fgt = theme(
 
 ```
 
-# Introduction
-
-## What is this Analysis?
-This project predicts second-half strikeout rates for a select group of pitchers.
-
-## Why is it Important?
-
 # Analysis
 
 The following code chunks get data, train a model, apply the model results, and evaluate the predictions made.
 
 ## Get Data
-
 In addition to the information provided in strikeouts.csv, I found the following data useful:
+* The throwing hand of the pitcher
+* The pitcher's 2016 full-season K%. Strikeout rate is among the most stable of pitching metrics. Adding this information improved the model's predictions.
 
-```{r message=FALSE, warning=FALSE, include=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 
 # get data from the first half of 2017
 # source: https://questionnaire-148920.appspot.com/qa/
 pitcher_data <- read_csv("~/Downloads/strikeouts.csv")
 
-# get throwing hand of pitchers
-# source: fangraphs
+# get throwing hand of pitchers. source: fangraphs
 pitcher_handedness <- read_csv("pitcher_handedness.csv")
 
-# get strikeout rates from 2016
-# source: fangraphs
+# get strikeout rates from 2016. source: fangraphs
 pitcher_data_2016 <- read_csv("2016-strikeout-rates.csv")
 
 # combine datasets into one tibble
@@ -54,12 +64,45 @@ pitchers_2017 <- inner_join(pitcher_data, pitcher_handedness, by=c("fangraphs_id
   inner_join(pitcher_data_2016, by=c("fangraphs_id" = "PlayerId"))
 ```
 
-## Training the Model
-The following code chunk creates a training dataset and then trains the model. I use the caret package to define a grid of tuning parameters for the xgboost algorithm and then perform 10-fold cross validation with each set of parameters. The final model is the one that minimizes the RMSE of the predictions.
+## Select the Algorithm
+I chose the xgboost algorithm because of its reputation as a fast, accurate algorithm that handles collinearity well. This latter feature means I can focus less about which features to include and focus more on tuning the model.
 
-```{r train model, message=FALSE, include=FALSE}
+For example, in this dataset FB% and GB% are mutually exclusive and so are highly correlated (r= -0.92). With another algorithm I'd have to choose one or the other. The xgboost algorithm helps ensure I can include both without worrying about overfitting. 
 
-# create training dataset by removing unnecessary predictors
+For reference, the following figure shows a correlation plot of all features I used:
+
+```{r correlation matrix, echo=TRUE, fig.align='center}
+
+# compute and display correlation matrix for features.
+# remove features we don't care about, compute its correlation matrix, add in row names, tidy, and plot
+pitchers_2017_train %>%
+  select(-Throws, -`2ndHalfK%`) %>%
+  cor() %>%
+  as_tibble() %>%
+  bind_cols(pitchers_2017_train %>% 
+              select(-Throws, -`2ndHalfK%`) %>%
+              names() %>%
+              as_tibble()) %>%
+  select(metric = value, everything()) %>%
+  gather(other_metric, r, -metric) %>% View()
+  ggplot(aes(metric, other_metric, color=r, fill = r)) + geom_tile() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
+  labs(x="", y="") + ggtitle("Correlation Matrix of Features")
+```
+
+## Tune and Train the Model
+I use the caret package to define a grid of tuning parameters for the xgboost algorithm and then perform 10-fold cross validation with each set of parameters. The final model is the one that minimizes the RMSE of the predictions.
+
+I used the caret package to tune and train the model iteratively. I defined a set of tuning parameters, performed 10-fold cross-validation for each combination of parameters, and selected the model that minimized the RMSE of the predictions. 
+
+This process is iterative in itself, but choosing the parameters for `parameter_grid` is iterative too. The `nrounds` and `max_depth` parameters affect the model the most, so I experiemented with several options for each. After each training run I evaluated the resulting model.
+
+The code below shows the final tuning parameters I chose as well as the caret code that performs the search. The random seed of 6 ensures this code produces the same results every time.
+
+
+```{r train model, echo=TRUE, message=FALSE, warning=FALSE, cache=TRUE}
+
+# create training dataset by removing unnecessary features
 pitchers_2017_train <- 
   pitchers_2017 %>% 
   select(-fangraphs_id, -`2ndHalfIP`, -Name, -Team)
@@ -77,13 +120,13 @@ parameter_grid <- expand.grid(
   min_child_weight = c(0, 0.1),
   subsample = c(0.1, 0.2, 0.5, 0.7))
 
-# establish k-fold cross-validation and other tuning
+# establish 10-fold cross-validation and other training characteristics
 control_parameters <- trainControl(method = "cv",
                                    number = 10,
                                    search = "grid",
                                    allowParallel = TRUE)
 
-#find the besttrain model using methodology tuning parameters above
+#find the best model using characteristics and tuning parameters above
 second_half_k_predictor <- train(`2ndHalfK%` ~ .,
                                  data = pitchers_2017_train,
                                  method = "xgbTree",
@@ -92,14 +135,16 @@ second_half_k_predictor <- train(`2ndHalfK%` ~ .,
                                  metric = "RMSE")
 ```
 
-## Predicting Second-Half Strikeout Rates
+You can see the chosen parameters by running `second_half_k_predictor$bestTune`.
 
-The next code chunk uses the model to predict the second-half K% for each pitcher. It also calculates the RMSE of the predictions and the R^2 of the best-fit line between the predicted and actual values. I'll use these values later to evaluate the model itself.
+## Predict Second-Half Strikeout Rates
 
-```{r predict results}
+The next code chunk uses the model to predict the second-half K% for each pitcher. 
+
+```{r predict results, echo=TRUE, message=FALSE, warning=FALSE}
 
 # predict second-half k% using model
-# transform to tibble for binding to original tibble
+# transform to tibble for binding to original dataset
 # rename variable for clarity
 second_half_pitcher_predictions <-
   predict(second_half_k_predictor, newdata = pitchers_2017_train) %>% 
@@ -121,11 +166,11 @@ results <- pitchers_2017_predicted %>%
 
 ```
 
-## Evaluating Results
+## Evaluate Results
 
-I evaluate the model in two ways. The first way is to plot the predicted vs. actual values and see the R^2 of the line of best fit. The following plot shows this information:
+I evaluate the model in two ways. I first plot the predicted vs. actual values, visually inspect the scatterplot, and see the R^2 of the line of best fit. The following plot shows this information:
 
-```{r plot results, echo=FALSE}
+```{r plot results, echo=TRUE, fig.align='center', message=FALSE, warning=FALSE, paged.print=FALSE}
 
 # calculate R^2 to see how much variance the model explains
 model_fit <- lm(results$actual_second_half_k_rate ~ results$predicted_second_half_k_rate)
@@ -144,7 +189,7 @@ The scatterplot shows the tight fit between the model's predicted results and th
 
 The next plot shows the predicted values vs. the residuals of each predicted value, as well as the RMSE of the predictions:
 
-```{r plot residuals, echo=FALSE, fig.align='center'}
+```{r plot residuals, echo=TRUE, fig.align='center'}
 
 # calculate RMSE
 rmse <- round(
@@ -162,16 +207,18 @@ results %>%
 
 The plot shows some skew to the residuals, but not an unreasonable amount. The RMSE of the predictions is 0.015, or 1.5 percentage points of second-half strikeout rate.
 
-All models can be improved. But based on the 0.962 R^2, the reasonable-looking plot of the residuals, and the low RMSE of 0.015, this model is an excellent base from which to start making predictions. 
-
 The final code chunk creates a CSV file of predicted and actual second-half K rates for each pitcher, for ease of distribution. It also saves the model itself to a file so it can be used to reproduce results later.
 
-```{r show results, include=FALSE}
+```{r show results, echo=TRUE, message=FALSE, warning=FALSE}
+# write results to CSV file for distribution. round predictions to 3 decimals for easier reading
 results %>%
   select(-residual) %>%
+  mutate(predicted_second_half_k_rate = round(predicted_second_half_k_rate, 3)) %>%
   write_csv("k-rate-predictions.csv")
 
 # save model to a file so it can be used later.
 saveRDS(second_half_k_predictor, "phillies-k-rate-predictor.rds")
 ```
 
+# Conclusion
+All models can be improved. But based on the 0.962 R^2, the reasonable-looking plot of the residuals, and the low RMSE of 0.015, this model is an excellent base from which to start making predictions. 
