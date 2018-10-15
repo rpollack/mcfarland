@@ -192,7 +192,7 @@ results %>%
   geom_abline(yintercept = 0, linetype = "dashed")
 ```
 
-Two lines are shown. The dashed reference line shows a hypothetical perfect match between all model predictions actual results. The blue smoothed line shows the actual match between the model's predictions and actual results.
+Two lines are shown. The dashed reference line shows a hypothetical perfect match between all predictions and actual results. The blue best-fit line shows the actual match between the model's predictions and actual results.
 
 Visual inspection shows that these lines are reasonably close together and that the actual points on the plot resemble a line. Therefore the R^2 of the best-fit line, 0.962, is an appropriate way to measure the explanatory power of the model.
 
