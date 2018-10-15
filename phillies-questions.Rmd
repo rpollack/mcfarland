@@ -174,7 +174,7 @@ results %>%
 
 ## Evaluate Results
 
-I evaluate the model in two ways. I first plot the predicted vs. actual values, visually inspect the scatterplot, and see the R^2 of the line of best fit. The following plot shows this information:
+I first plot the predicted vs. actual values, visually inspect the scatterplot, and see the R^2 of the line of best fit. The following plot shows this information:
 
 ```{r plot results, echo=TRUE, fig.align='center', message=FALSE, warning=FALSE, paged.print=FALSE}
 # calculate R^2 to see how much variance the model explains
@@ -187,12 +187,15 @@ results %>%
   labs(x="Predicted Second-Half K%", y="Actual Second-Half K%") +
   ggtitle("2017 Second-Half K%: Predicted Rates vs. Actual Rates") +
   xlim(0, 0.5) + ylim(0, 0.5) + geom_smooth(method="lm") + 
-  geom_label(aes(x = 0.425, y = 0.35), label = sprintf("R^2: %s", r_squared))
+  geom_label(aes(x = 0.375, y = 0.45), label = sprintf("R^2: %s", r_squared)) +
+  geom_abline(yintercept = 0, linetype = "dashed")
 ```
 
-The scatterplot shows the tight fit between the model's predicted results and the actual results. The R^2 of this fit shows that the model explains 96% of the variance in the actual second-half K rates.
+Two lines are shown: the dashed reference line shows a hypothetical perfect match between all model predictions and all actual results. The blue smoothed line shows the line of best fit between the model predictions and actual results.
 
-The next plot shows the predicted values vs. the residuals of each predicted value, as well as the RMSE of the predictions:
+Visual inspection shows that these lines are reasonably close together and that the actual points on the plot resemble a line. Therefore the R^2 of this best-fit line, 0.962, is an appropriate way to measure the relationship between model's predictions and the actual results.
+
+The next plot shows the predicted values vs. the residuals of each predicted value, as well as a dashed reference line and the RMSE of the predictions:
 
 ```{r plot residuals, echo=TRUE, fig.align='center'}
 # calculate RMSE
@@ -205,10 +208,12 @@ results %>%
   ggplot(aes(predicted_second_half_k_rate, residual)) + geom_point() + fgt +
   labs(x="Predicted Second-Half K%", y="Residual", caption = sprintf("RMSE: %s", rmse))+
   ggtitle("2017 Second-Half K%: Predicted Rates vs. Residuals") +
-  xlim(0, .5)
+  xlim(0, .5) + geom_hline(yintercept = 0, linetype = "dashed")
 ```
 
-The plot shows some skew to the residuals, but not an unreasonable amount. The RMSE of the predictions is 0.015, or 1.5 percentage points of second-half strikeout rate.
+The plot shows some skew to the residuals, but not an unreasonable amount. The bulk of the misses, and the larges ones, are negative, which means the model tends to over-predict second-half K%. GM's should consider this information in deciding whether to acquire, trade, or keep a pitcher. 
+
+The RMSE of the predictions is 0.015, or 1.5 percentage points of second-half strikeout rate.
 
 The final code chunk saves the model to a file so it can be used to reproduce results later.
 
