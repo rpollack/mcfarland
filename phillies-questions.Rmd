@@ -191,9 +191,9 @@ results %>%
   geom_abline(yintercept = 0, linetype = "dashed")
 ```
 
-Two lines are shown: the dashed reference line shows a hypothetical perfect match between all model predictions and all actual results. The blue smoothed line shows the line of best fit between the model predictions and actual results.
+Two lines are shown. The dashed reference line shows a hypothetical perfect match between all model predictions actual results. The blue smoothed line shows the actual match between the model's predictions and actual results.
 
-Visual inspection shows that these lines are reasonably close together and that the actual points on the plot resemble a line. Therefore the R^2 of this best-fit line, 0.962, is an appropriate way to measure the relationship between model's predictions and the actual results.
+Visual inspection shows that these lines are reasonably close together and that the actual points on the plot resemble a line. Therefore the R^2 of the best-fit line, 0.962, is an appropriate way to measure the relationship between model's predictions and the actual results.
 
 The next plot shows the predicted values vs. the residuals of each predicted value, as well as a dashed reference line and the RMSE of the predictions:
 
@@ -211,7 +211,7 @@ results %>%
   xlim(0, .5) + geom_hline(yintercept = 0, linetype = "dashed")
 ```
 
-The plot shows some skew to the residuals, but not an unreasonable amount. The bulk of the misses, and the larges ones, are negative, which means the model tends to over-predict second-half K%. GM's should consider this information in deciding whether to acquire, trade, or keep a pitcher. 
+The plot shows some skew to the residuals, but not an unreasonable amount. The bulk of the misses, and the largest ones, are negative, which means the model tends to over-predict second-half K%. GM's should consider this information in deciding whether to acquire, trade, or keep a pitcher based on the prediction.
 
 The RMSE of the predictions is 0.015, or 1.5 percentage points of second-half strikeout rate.
 
@@ -223,7 +223,7 @@ saveRDS(second_half_k_predictor, "phillies-k-rate-predictor.rds")
 ```
 
 # Areas for Improvement
-For a future project I would analyze more modeling types beyond xgboost. It could be that other types perform better. I'd also like to minimize the residuals and see them distributed more randomly. This might involve searching different tuning parameters or including more, or different kinds of, data points. Finally, I would like to incorporate probability distributions and credible intervals instead of point estimates. Seeing a distribution could convince a GM to move on a certain player in a way that a single estimate might not.
+For a future project I would analyze more modeling types besides xgboost. It could be that other types perform better. I'd also like to minimize the residuals and see them distributed more randomly. This might involve searching different tuning parameter spaces or including more, or different kinds of, data points. Finally, I'd like to incorporate probability distributions and credible intervals instead of point estimates. Seeing a distribution could convince a GM to move on a certain player in a way that a single estimate might not.
 
 # Conclusion
 All models can be improved. But based on the 0.962 R^2, the reasonable-looking plot of the residuals, and the low RMSE of 0.015, this model is an excellent base from which to start making predictions. 
