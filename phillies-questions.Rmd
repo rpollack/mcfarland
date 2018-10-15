@@ -1,19 +1,28 @@
-# Introduction
+---
+title: "Predicting K% in the Second Half of 2017"
+author: "Ryan Pollack"
+date: "October 2018"
+output: html_document
+---
 
-This project was prepared by Ryan Pollack in response to question #2 listed at https://questionnaire-148920.appspot.com/qa/. Contact Ryan at ryan9379@gmail.com or 512-350-5107.
+# What is this Analysis?
+This project predicts second-half strikeout rates for a select group of pitchers in 2017. It's in response to the questionnaire located at https://questionnaire-148920.appspot.com/qa/.
 
-## What is this Analysis?
-This project predicts second-half strikeout rates for a select group of pitchers.
+# Why is it Important?
+Going into the second half of each season, GM's have to decide whom to target in trade, whom to put onto their own trading block, and whom to keep on the roster. Predicting second-half strikeout rates can aid all of these decisions by identifying pitchers whom other teams undervalue and therefore should be sought in a trade. as well as pitchers whom other teams overvalue and therefore should be offered up in trade. Finally, predicting second-half strikeout rates can help GM's identify pitchers who are in a good position to help the team in the current season and therefore should be kept on the roster.
 
-## Why is it Important?
+# Success Metrics
+How will we know these predictions are successful? I'll evaluate the predictions in four ways: the scatterplot of predicted vs. actual values, the R^2 of the best-fit line on this scatterplot, the scatterplot of the predicted values vs. residuals, and the RMSE of the predicted vs. actual values.    
 
-Reasons.
+# Analysis
 
-# Setup
+The following sections are the R code that set up the analysis, get the data, train the model, predict results, and evaluate the predictions.
+
+## Setup
 
 The following code sets up the libraries and ggplot themes used:
 
-```{r setup, echo = TRUE}
+```{r setup, echo = TRUE, warning = FALSE, message = FALSE}
 knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 
 # load required libraries
@@ -38,14 +47,8 @@ fgt = theme(
 
 ```
 
-# Analysis
-
-The following code chunks get data, train a model, apply the model results, and evaluate the predictions made.
-
 ## Get Data
-In addition to the information provided in strikeouts.csv, I found the following data useful:
-* The throwing hand of the pitcher
-* The pitcher's 2016 full-season K%. Strikeout rate is among the most stable of pitching metrics. Adding this information improved the model's predictions.
+In addition to the data contained in strikeouts.csv, I incorporated the throwing hand of each pitcher. I also included the pitcher's strikeout rate in 2016. Strikeout rate is among the most stable of pitching metrics; it correlates year-to-year very well. Therefore it stands to reason that it would be informative in predicting a pitcher's K% in the second half of a season.
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 
@@ -72,14 +75,15 @@ pitchers_2017_train <-
 ## Choose the Algorithm
 I chose the xgboost algorithm because of its reputation as a fast, accurate algorithm that handles collinearity well. This latter feature means I can focus less about which features to include and focus more on tuning the model.
 
-For example, in this dataset FB% and GB% are mutually exclusive and so are highly correlated (r= -0.92). With another algorithm I'd have to choose one or the other. The xgboost algorithm helps ensure I can include both without worrying about overfitting. 
+For example, FB% and GB% are mutually exclusive and so are strongly correlated (r = -0.92). With another algorithm I'd have to choose one or the other. The xgboost algorithm helps ensure I can include both without worrying about overfitting. 
 
-For reference, the following figure shows a correlation plot of all features I used:
+For reference, the following figure shows a correlation plot of all features I used except for throwing hand:
 
 ```{r correlation matrix, echo=TRUE, fig.align='center'}
 
 # compute and display correlation matrix for features.
-# remove features we don't care about, compute its correlation matrix, add in row names, tidy, and plot
+# remove features we don't care about, compute its correlation matrix, add in row names because
+# converting the matrix to a tibble removes them, tidy, and plot
 pitchers_2017_train %>%
   select(-Throws, -`2ndHalfK%`) %>%
   cor() %>%
@@ -96,9 +100,9 @@ pitchers_2017_train %>%
 ```
 
 ## Tune and Train the Model
-I used the caret package to tune and train the model iteratively. I defined a set of tuning parameters, performed 10-fold cross-validation for each combination of parameters, and selected the model that minimized the RMSE of the predictions. 
+I used the caret package to tune and train the model. I defined a set of tuning parameters for the xgboost algorithm itself, performed 10-fold cross-validation for each combination of parameters, and selected the model that minimized the RMSE of the predictions. The caret package also handles encoding the categorical "Throws" feature. 
 
-This process is iterative in itself, but choosing the parameters for `parameter_grid` is iterative too. The `nrounds` and `max_depth` parameters affect the model the most, so I experiemented with several options for each. After each training run I evaluated the resulting model.
+This process is iterative in itself, but choosing the parameters for `parameter_grid` is iterative too. The `nrounds` (the number of decision trees to use) and `max_depth` (how deep each tree can go) parameters are important, so I experiemented with several option sets for each. After each training run I evaluated the resulting model in the same way I evaluate the final one below.
 
 The code below shows the final tuning parameters I chose as well as the caret code that performs the search. The random seed of 6 ensures this code produces the same results every time.
 
