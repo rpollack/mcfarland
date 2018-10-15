@@ -9,12 +9,12 @@ output: html_document
 This project predicts second-half strikeout rates for a select group of pitchers in 2017. It's in response to the questionnaire located at https://questionnaire-148920.appspot.com/qa/.
 
 # Why is it Important?
-Going into the second half of each season, GM's have to decide whom to target in trade, whom to put onto their own trading block, and whom to keep on the roster. Predicting second-half strikeout rates can aid all of these decisions by identifying pitchers whom other teams undervalue and therefore should be sought in a trade. as well as pitchers whom other teams overvalue and therefore should be offered up in trade. Finally, predicting second-half strikeout rates can help GM's identify pitchers who are in a good position to help the team in the current season and therefore should be kept on the roster.
+Going into the second half of each season, GM's have to decide whom to target in trade, whom to put onto their own trading block, and whom to keep on the roster. Predicting second-half strikeout rates can aid all of these decisions by identifying pitchers whom other teams might undervalue and therefore should be sought in a trade, whom other teams might overvalue and therefore should be offered up in trade, and who can help the current roster succeed.
 
 # Success Metrics
 How will we know these predictions are successful? I'll evaluate the predictions in four ways: the scatterplot of predicted vs. actual values, the R^2 of the best-fit line on this scatterplot, the scatterplot of the predicted values vs. residuals, and the RMSE of the predicted vs. actual values.
 
-I use RMSE instead of mean absolute error (MAE) because RMSE penalizes large errors more than MAE does. In the world of baseball where roster spots are limited, and especially in forecasting second-half results in order to drive trade decisions, large misses in predicted K% can have an outsize effect.
+This project uses RMSE instead of mean absolute error (MAE) because RMSE penalizes large errors more than MAE does. In the world of baseball where roster spots are limited, and especially in forecasting second-half results in order to drive trade decisions, large misses in predicted K% can have outsized effects.
 
 # Analysis
 The following sections are the R code that set up the analysis, get the data, train the model, predict results, and evaluate the predictions.
@@ -48,7 +48,7 @@ fgt = theme(
 ```
 
 ## Get Data
-In addition to the data contained in strikeouts.csv, I incorporated the throwing hand of each pitcher. So much of the batter/pitcher matchup involves platoon splits that I wanted to see if that information helped the model. I also included the pitcher's strikeout rate in 2016. Strikeout rate is among the most stable of pitching metrics; it correlates year-to-year very well. Therefore it stands to reason that it would be informative in predicting a pitcher's K% in the second half of a season.
+In addition to the data contained in strikeouts.csv, I incorporated the throwing hand of each pitcher. So much of batter/pitcher matchups involves platoon splits that I wanted to see if that information helped the model. I also included the pitcher's strikeout rate in 2016. Strikeout rate is among the most stable of pitching metrics; it correlates year-to-year very well, so I thought it might help second-half 2017 predictions. 
 
 Both additional datasets proved useful in constructing the model.
 
@@ -75,7 +75,7 @@ pitchers_2017_train <-
 ```
 
 ## Choose the Algorithm
-I chose the xgboost algorithm because of its reputation as a fast, accurate algorithm that handles collinearity well. This latter feature means I can focus less about which features to include and focus more on tuning the model.
+I chose the xgboost algorithm because of its reputation as a fast, accurate algorithm that handles collinearity well. This latter feature means I can focus less on which features to include and more on tuning the model and evaluating the results.
 
 For example, FB% and GB% are mutually exclusive and so are strongly correlated (r = -0.916 using Spearman correlation). With another algorithm I'd have to choose one or the other. The xgboost algorithm helps ensure I can include both without worrying about overfitting. 
 
@@ -102,11 +102,11 @@ pitchers_2017_train %>%
 ```
 
 ## Tune and Train the Model
-I used the caret package to tune and train the model. I defined a set of tuning parameters for the xgboost algorithm itself, performed 10-fold cross-validation for each combination of parameters, and selected the model that minimized the RMSE of the predictions. The caret package also handles encoding the categorical "Throws" feature. 
+I used the caret package to tune and train the xgboost model. I defined a set of tuning parameters for the xgboost algorithm itself, performed 10-fold cross-validation for each combination of parameters, and selected the model that minimized the RMSE of the predictions. The caret package also handles encoding the categorical "Throws" feature. 
 
 This process is iterative in itself, but choosing the parameters for `parameter_grid` is iterative too. The `nrounds` (the number of decision trees to use) and `max_depth` (how deep each tree can go) parameters are important, so I experiemented with several option sets for each. After each training run I evaluated the resulting model in the same way I evaluate the final one below.
 
-The code below shows the final tuning parameters I chose as well as the caret code that performs the search. The random seed of 6 ensures this code produces the same results every time.
+The code below shows the final tuning parameters I chose as well as the caret code that performs the search. The seed of 6 ensures this code produces the same results every time.
 
 ```{r train model, echo=TRUE, message=FALSE, warning=FALSE, cache=TRUE}
 
@@ -138,7 +138,7 @@ second_half_k_predictor <- train(`2ndHalfK%` ~ .,
                                  metric = "RMSE")
 ```
 
-You can see the chosen parameters by running `second_half_k_predictor$bestTune`.
+You can see the chosen xgboost parameters by running `second_half_k_predictor$bestTune`.
 
 ## Predict Second-Half Strikeout Rates
 Next I use the model to predict the second-half K% for each pitcher. The actual predictions are written to a .csv file for ease of distribution. The rest of this article focuses on evaluating the model itself.
@@ -148,6 +148,7 @@ Next I use the model to predict the second-half K% for each pitcher. The actual 
 # predict second-half k% using model
 # transform to tibble for binding to original dataset
 # rename variable for clarity
+# compute residuals
 second_half_pitcher_predictions <-
   predict(second_half_k_predictor, newdata = pitchers_2017_train) %>% 
   as_tibble() %>%
@@ -158,7 +159,7 @@ pitchers_2017_predicted <-
   pitchers_2017 %>%
   bind_cols(second_half_pitcher_predictions)
 
-# calculate actual values, predicted values, and residuals for model analysis purposes
+# select actual values, predicted values, and compute residuals for model analysis purposes
 results <- pitchers_2017_predicted %>%
   select(Name,
          predicted_second_half_k_rate = `pred_2ndHalfK%`,
@@ -169,7 +170,7 @@ results <- pitchers_2017_predicted %>%
 results %>%
   select(-residual) %>%
   mutate(predicted_second_half_k_rate = round(predicted_second_half_k_rate, 3)) %>%
-  write_csv("k-rate-predictions.csv")
+  write_csv("second-half-k-rate-predictions.csv")
 ```
 
 ## Evaluate Results
@@ -193,7 +194,7 @@ results %>%
 
 Two lines are shown. The dashed reference line shows a hypothetical perfect match between all model predictions actual results. The blue smoothed line shows the actual match between the model's predictions and actual results.
 
-Visual inspection shows that these lines are reasonably close together and that the actual points on the plot resemble a line. Therefore the R^2 of the best-fit line, 0.962, is an appropriate way to measure the relationship between model's predictions and the actual results.
+Visual inspection shows that these lines are reasonably close together and that the actual points on the plot resemble a line. Therefore the R^2 of the best-fit line, 0.962, is an appropriate way to measure the explanatory power of the model.
 
 The next plot shows the predicted values vs. the residuals of each predicted value, as well as a dashed reference line and the RMSE of the predictions:
 
@@ -213,7 +214,7 @@ results %>%
 
 The plot shows some skew to the residuals, but not an unreasonable amount. The bulk of the misses, and the largest ones, are negative, which means the model tends to over-predict second-half K%. GM's should consider this information in deciding whether to acquire, trade, or keep a pitcher based on the prediction.
 
-The RMSE of the predictions is 0.015, or 1.5 percentage points of second-half strikeout rate.
+The RMSE of the predictions is 0.015, or 1.5 percentage points of second-half strikeout rate. Out of all the models I generated, with all the dataset and tuning parameters combinations I tried, this value is the lowest.
 
 The final code chunk saves the model to a file so it can be used to reproduce results later.
 
@@ -223,7 +224,9 @@ saveRDS(second_half_k_predictor, "phillies-k-rate-predictor.rds")
 ```
 
 # Areas for Improvement
-For a future project I would analyze more modeling types besides xgboost. It could be that other types perform better. I'd also like to minimize the residuals and see them distributed more randomly. This might involve searching different tuning parameter spaces or including more, or different kinds of, data points. Finally, I'd like to incorporate probability distributions and credible intervals instead of point estimates. Seeing a distribution could convince a GM to move on a certain player in a way that a single estimate might not.
+For a future project I would analyze more modeling types besides xgboost. It could be that other types perform better. I'd also like to minimize the residuals and see them distributed more randomly. This might involve searching different tuning parameter spaces or including more, or different kinds of, data points. For example, knowing a team's second-half schedule could help predict future strikeout rates. Additionally, [park factors](https://www.fangraphs.com/guts.aspx?type=pf&teamid=0&season=2017) influence strikeout rates. 
+
+Finally, I'd like to incorporate probability distributions and credible intervals instead of point estimates. Seeing a distribution could convince a GM to move on a certain player in a way that a single estimate might not.
 
 # Conclusion
 All models can be improved. But based on the 0.962 R^2, the reasonable-looking plot of the residuals, and the low RMSE of 0.015, this model is an excellent base from which to start making predictions. 
