@@ -99,22 +99,20 @@ master_df <- inner_join(player_stats, team_info, by=c("Season", "teamid")) %>%
            is_reliever == 1 & IP >= 65) %>%
   group_by(Season, League) %>%
   arrange(desc(W)) %>%
-  mutate(w_rank = row_number()) %>%
+  mutate(win_rank = row_number()) %>%
   arrange(L) %>%
-  mutate(l_rank = row_number()) %>%
+  mutate(loss_rank = row_number()) %>%
   arrange(desc(IP)) %>%
   mutate(ip_rank = row_number()) %>%
-  arrange(desc(IP)) %>%
-  mutate(ip_rank = row_number()) %>%
-  arrange(desc(era)) %>%
+  arrange(era) %>%
   mutate(era_rank = row_number()) %>%
-  arrange(desc(fip)) %>%
+  arrange(fip) %>%
   mutate(fip_rank = row_number()) %>%
   arrange(desc(SO)) %>%
   mutate(so_rank = row_number()) %>%
   arrange(BB) %>%
   mutate(bb_rank = row_number()) %>%
-  arrange(desc(HR)) %>%
+  arrange(HR) %>%
   mutate(hr_rank = row_number()) %>%
   arrange(desc(fip_war)) %>%
   mutate(fip_war_rank = row_number()) %>%
@@ -132,7 +130,7 @@ master_df <- inner_join(player_stats, team_info, by=c("Season", "teamid")) %>%
 
 ```{r, message=FALSE, echo=FALSE}
 
-set.seed(3)
+set.seed(4)
 
 # remove informational paramters i don't want the model to look at
 # cross-validate model on data from 2017 and prior so we can apply it to 2018 data
