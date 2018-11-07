@@ -99,12 +99,11 @@ cy_list <- read_csv("~/Downloads/mlb season awards - Cy_yong.csv") %>%
 master_df <- inner_join(player_stats, team_info, by=c("Season", "teamid")) %>%
   full_join(cy_list, by=c("Season", "player_name", "League")) %>%
   replace_na(list(is_cy = "No")) %>%
-  filter((is_reliever == 0 & IP >= 155) |
-           is_reliever == 1 & IP >= 65) %>%
+  filter((is_reliever == 0 & IP >= 170) |
+           is_reliever == 1 & IP >= 70) %>%
   group_by(Season, League) %>%
   mutate(win_rank = min_rank(-W),
          loss_rank = min_rank(L),
-         ip_rank = min_rank(-IP),
          era_rank = min_rank(era),
          fip_rank = min_rank(fip),
          so_rank = min_rank(-SO),
@@ -115,13 +114,13 @@ master_df <- inner_join(player_stats, team_info, by=c("Season", "teamid")) %>%
          bb_rate_rank = min_rank(bb_rate),
          k_minus_bb_rank = min_rank(-k_minus_bb),
          hr_per_9_rank = min_rank(hr_per_9)) %>%
-  select(playerid, player_name, Season, League, is_reliever, team_PCT, is_cy, contains("_rank"))
+  select(playerid, player_name, Season, League, is_reliever, team_PCT, IP, is_cy, contains("_rank"))
   
 ```
 
 ```{r, message=FALSE, echo=FALSE}
 
-set.seed(5)
+set.seed(8)
 
 # remove informational paramters i don't want the model to look at
 # cross-validate model on data 10 years prior to the one we want to predict
@@ -131,8 +130,7 @@ train_df <- master_df %>%
   filter(Season != year_to_predict) %>% # train & test on data prior to prediction year
   select(-playerid, -player_name)
 
-control_parameters <- trainControl(method = "repeatedcv",
-                                   repeats = 5,
+control_parameters <- trainControl(method = "cv",
                                    number = 10,
                                    search = "grid",
                                    allowParallel = TRUE,
@@ -166,6 +164,7 @@ evaluate model using "most likely CY season" as "predicted CY". favor using prec
 evaluation_prediction <-
   master_df %>%
   filter(Season != year_to_predict) %>%
+  select(-playerid, -player_name, -is_cy) %>%
   predict(cy_predictor, newdata = ., type = "prob")
 
 # within each season-league, find the CY player-season with the highest probability. 
@@ -274,6 +273,21 @@ cy_predictions %>%
   ggtitle(sprintf("%s Player-Seasons with the Highest Cy Young Probabilities", year_to_predict))
 
 ```
+
+
+
+```{r}
+cy_predictions %>%
+  filter(player_name %in% c("Justin Verlander", "Blake Snell", "Corey Kluber")) %>%
+  select(-playerid, -League, -Season) %>%
+  select(player_name, is_reliever, team_PCT, IP, contains("rank"), prob_cy)
+
+cy_predictions %>%
+  filter(player_name %in% c("Max Scherzer", "Jacob deGrom", "Aaron Nola")) %>%
+  select(-playerid, -League, -Season) %>%
+  select(player_name, is_reliever, team_PCT, IP, contains("rank"), prob_cy)
+```
+
 
 for informational purposes, show the kind of data the model is trained on
 
