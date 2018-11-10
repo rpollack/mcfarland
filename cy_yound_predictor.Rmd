@@ -100,25 +100,25 @@ master_df <- inner_join(player_stats, team_info, by=c("Season", "teamid")) %>%
   replace_na(list(is_cy = "No")) %>%
   filter(IP >= 175) %>%      # filter this low to catch blake snell in 2018. lowest prior was Kershaw in 2014
   group_by(Season, League) %>%
-  mutate(win_rank = min_rank(-W),
-         loss_rank = min_rank(L),
-         era_rank = min_rank(era),
-         fip_rank = min_rank(fip),
-         so_rank = min_rank(-SO),
-         bb_rank = min_rank(BB),
-         hr_rank = min_rank(HR),
-         fip_war_rank = min_rank(-fip_war),
-         so_rate_rank = min_rank(-so_rate),
-         bb_rate_rank = min_rank(bb_rate),
-         k_minus_bb_rank = min_rank(-k_minus_bb),
-         hr_per_9_rank = min_rank(hr_per_9)) %>%
-  select(playerid, player_name, Season, League, team_PCT, IP, is_cy, contains("_rank"))
+  mutate(`Win Rank` = min_rank(-W),
+         `Loss Rank` = min_rank(L),
+         `ERA Rank` = min_rank(era),
+         `FIP Rank` = min_rank(fip),
+         `K Rank` = min_rank(-SO),
+         `BB Rank` = min_rank(BB),
+         `HR Rank` = min_rank(HR),
+         `fWAR Rank` = min_rank(-fip_war),
+         `K% Rank` = min_rank(-so_rate),
+         `BB% Rank` = min_rank(bb_rate),
+         `K-BB% Rank` = min_rank(-k_minus_bb),
+         `HR/9 Rank` = min_rank(hr_per_9)) %>%
+  select(playerid, player_name, Season, League, team_PCT, IP, is_cy, contains("Rank"))
   
 ```
 
 ```{r, message=FALSE, echo=FALSE}
 
-set.seed(2019)
+set.seed(9999999)
 
 # remove informational paramters i don't want the model to look at
 # cross-validate model on data 10 years prior to the one we want to predict
@@ -236,31 +236,12 @@ cy_predictions <- predict(cy_predictor, newdata = predict_df, type ="prob") %>%
   arrange(desc(prob_cy))
 
 # plot variable importance
-bind_cols(row.names(varImp(cy_predictor)$importance) %>%
-            as_tibble(),
-          varImp(cy_predictor)$importance %>%
-            as_tibble()) %>%
-  # mutate(value = str_replace_all(value,
-  #                                c("team_PCT" = "Team Winning Percentage",
-  #                                  "rbi_rank_league" = "RBI Rank",
-  #                                  "ops_rank_league" = "OPS Rank",
-  #                                  "sb_rank_league" = "SB Rank",
-  #                                  "avg_rank_league" = "AVG Rank",
-  #                                  "hr_rank_league" = "HR Rank",
-  #                                  "PositionCF" = "Is Center Fielder?",
-  #                                  "PositionLF" = "Is Left Fielder?",
-  #                                  "PositionRF" = "Is Right Fielder?",
-  #                                  "PositionC" = "Is Catcher?",
-  #                                  "Position2B" = "Is Second Baseman?",
-  #                                  "PositionSS" = "Is Shortstop?",
-  #                                  "PositionDH" = "Is Designated Hitter?",
-  #                                  "Position3B" = "Is Third Baseman?",
-  #                                  "pa_rank_league" = "PA Rank",
-  #                                  "defense_rank_league" = "DEF Rank",
-  #                                  "LeagueNL" = "Is National League?",
-  #                                  "war_rank_league" = "WAR Rank"))) %>%
+bind_cols(row.names(varImp(cy_predictor)$importance) %>% as_tibble(),
+          varImp(cy_predictor)$importance %>% as_tibble()) %>%
+  mutate(value = str_replace_all(value, "`", "")) %>%
   ggplot(aes(reorder(value, Overall), Overall)) + geom_col(fill="#8e001c") + coord_flip() + fgt +
-  labs(x="", y="Relative Importance") + ggtitle(sprintf("What Factors are Important in Cy Young Voting? (%s - %s)", data_min, data_max))
+  labs(x="", y="Relative Importance") + 
+  ggtitle(sprintf("What Factors are Important in Cy Young Voting? (%s - %s)", data_min, data_max))
 
 # top 10 contenders in each league
 cy_predictions %>%
