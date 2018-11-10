@@ -118,7 +118,7 @@ master_df <- inner_join(player_stats, team_info, by=c("Season", "teamid")) %>%
 
 ```{r, message=FALSE, echo=FALSE}
 
-set.seed(2012)
+set.seed(2019)
 
 # remove informational paramters i don't want the model to look at
 # cross-validate model on data 10 years prior to the one we want to predict
