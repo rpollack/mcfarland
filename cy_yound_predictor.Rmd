@@ -118,7 +118,7 @@ master_df <- inner_join(player_stats, team_info, by=c("Season", "teamid")) %>%
 
 ```{r, message=FALSE, echo=FALSE}
 
-set.seed(9999999)
+set.seed(12345)
 
 # remove informational paramters i don't want the model to look at
 # cross-validate model on data 10 years prior to the one we want to predict
@@ -128,8 +128,7 @@ train_df <- master_df %>%
   filter(Season != year_to_predict) %>% # train & test on data prior to prediction year
   select(-playerid, -player_name)
 
-control_parameters <- trainControl(method = "repeatedcv",
-                                   repeats = 5,
+control_parameters <- trainControl(method = "cv",
                                    number = 10,
                                    search = "grid",
                                    allowParallel = TRUE,
