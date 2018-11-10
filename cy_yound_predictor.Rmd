@@ -237,7 +237,8 @@ cy_predictions <- predict(cy_predictor, newdata = predict_df, type ="prob") %>%
 # plot variable importance
 bind_cols(row.names(varImp(cy_predictor)$importance) %>% as_tibble(),
           varImp(cy_predictor)$importance %>% as_tibble()) %>%
-  mutate(value = str_replace_all(value, "`", "")) %>%
+  mutate(value = str_replace_all(value, c("`" ="",
+                                          "team_PCT" = "Team Winning %"))) %>%
   ggplot(aes(reorder(value, Overall), Overall)) + geom_col(fill="#8e001c") + coord_flip() + fgt +
   labs(x="", y="Relative Importance") + 
   ggtitle(sprintf("What Factors are Important in Cy Young Voting? (%s - %s)", data_min, data_max))
