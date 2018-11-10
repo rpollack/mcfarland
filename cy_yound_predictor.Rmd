@@ -81,7 +81,8 @@ player_stats <- fg_db %>%
          bb_rate = BB / TBF,
          k_minus_bb = so_rate - bb_rate,
          hr_per_9 = HR / (IP /9),
-         pitcher_PCT = W / (W+L))
+         pitcher_PCT = W / (W+L)) %>%
+  filter(is_reliever == 0)
 
 # read list of Cy Young winners during the time period we're examining
 cy_list <- read_csv("~/Downloads/mlb season awards - Cy_yong.csv") %>%
@@ -92,15 +93,12 @@ cy_list <- read_csv("~/Downloads/mlb season awards - Cy_yong.csv") %>%
   mutate(is_cy = "Yes",
          League = factor(League))
 
-# TODO: relievers aren't judged against starters in wins and losses ... are they?
-# TODO: BB and SO should also be handled differently for relievers .. and HR too.
-# maybe eliminate all counting stats? maybe just eliminate them ... and keep the rate stats?
+
 
 master_df <- inner_join(player_stats, team_info, by=c("Season", "teamid")) %>%
   full_join(cy_list, by=c("Season", "player_name", "League")) %>%
   replace_na(list(is_cy = "No")) %>%
-  filter((is_reliever == 0 & IP >= 170) |
-           is_reliever == 1 & IP >= 70) %>%
+  filter(IP >= 175) %>%      # filter this low to catch blake snell in 2018. lowest prior was Kershaw in 2014
   group_by(Season, League) %>%
   mutate(win_rank = min_rank(-W),
          loss_rank = min_rank(L),
@@ -114,13 +112,13 @@ master_df <- inner_join(player_stats, team_info, by=c("Season", "teamid")) %>%
          bb_rate_rank = min_rank(bb_rate),
          k_minus_bb_rank = min_rank(-k_minus_bb),
          hr_per_9_rank = min_rank(hr_per_9)) %>%
-  select(playerid, player_name, Season, League, is_reliever, team_PCT, IP, is_cy, contains("_rank"))
+  select(playerid, player_name, Season, League, team_PCT, IP, is_cy, contains("_rank"))
   
 ```
 
 ```{r, message=FALSE, echo=FALSE}
 
-set.seed(8)
+set.seed(2012)
 
 # remove informational paramters i don't want the model to look at
 # cross-validate model on data 10 years prior to the one we want to predict
@@ -130,7 +128,8 @@ train_df <- master_df %>%
   filter(Season != year_to_predict) %>% # train & test on data prior to prediction year
   select(-playerid, -player_name)
 
-control_parameters <- trainControl(method = "cv",
+control_parameters <- trainControl(method = "repeatedcv",
+                                   repeats = 5,
                                    number = 10,
                                    search = "grid",
                                    allowParallel = TRUE,
@@ -138,7 +137,7 @@ control_parameters <- trainControl(method = "cv",
                                    summaryFunction = twoClassSummary)
 
 parameter_grid <- expand.grid(
-  nrounds = c(25, 50, 75), 
+  nrounds = c(50, 75, 100), 
   eta = c(0, .01, 0.1),
   max_depth = c(5, 10, 15, 20),
   gamma = c(0, 1, 2, 5),
@@ -280,28 +279,26 @@ cy_predictions %>%
 cy_predictions %>%
   filter(player_name %in% c("Justin Verlander", "Blake Snell", "Corey Kluber")) %>%
   select(-playerid, -League, -Season) %>%
-  select(player_name, is_reliever, team_PCT, IP, contains("rank"), prob_cy)
+  select(player_name, team_PCT, IP, contains("rank"), prob_cy)
 
 cy_predictions %>%
   filter(player_name %in% c("Max Scherzer", "Jacob deGrom", "Aaron Nola")) %>%
   select(-playerid, -League, -Season) %>%
-  select(player_name, is_reliever, team_PCT, IP, contains("rank"), prob_cy)
+  select(player_name, team_PCT, IP, contains("rank"), prob_cy)
 ```
 
 
-for informational purposes, show the kind of data the model is trained on
+for informational purposes, show some rows from the training dataset 
 
 ```{r}
 
 master_df %>%
+  select(player_name, Season, League, IP, team_PCT, contains("rank"), is_cy) %>%
   filter(Season != year_to_predict) %>%
   mutate(team_PCT = round(team_PCT, 3)) %>%
-  select(Player = player_name, League, Season, Position, `Team Winning Percentage` = team_PCT,
-         `RBI Rank` = rbi_rank_league, `OPS Rank` = ops_rank_league, `SB Rank` = sb_rank_league,
-         `AVG Rank` = avg_rank_league, `HR Rank` = hr_rank_league, `WAR Rank` = war_rank_league, 
-         `DEF Rank` = defense_rank_league) %>%
+  ungroup() %>%
   sample_n(5) %>%
-  write_csv("mvp_predictor_informational.csv")
+  write_csv("cy_predictor_informational.csv")
  
 
 ```
