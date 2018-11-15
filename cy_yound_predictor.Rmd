@@ -98,28 +98,37 @@ cy_list <- read_csv("~/Downloads/mlb season awards - Cy_yong.csv") %>%
 master_df <- inner_join(player_stats, team_info, by=c("Season", "teamid")) %>%
   full_join(cy_list, by=c("Season", "player_name", "League")) %>%
   replace_na(list(is_cy = "No")) %>%
-  filter(IP >= 175) %>%      # filter this low to catch blake snell in 2018. lowest prior was Kershaw in 2014
+  filter(IP >= 150) %>%      # filter this low to catch blake snell in 2018. lowest prior was Kershaw in 2014
   group_by(Season, League) %>%
-  mutate(`Win Rank` = min_rank(-W),
-         `Loss Rank` = min_rank(L),
-         `ERA Rank` = min_rank(era),
-         `FIP Rank` = min_rank(fip),
-         `K Rank` = min_rank(-SO),
-         `BB Rank` = min_rank(BB),
-         `HR Rank` = min_rank(HR),
-         `fWAR Rank` = min_rank(-fip_war),
-         `K% Rank` = min_rank(-so_rate),
-         `BB% Rank` = min_rank(bb_rate),
-         `K-BB% Rank` = min_rank(-k_minus_bb),
-         `HR/9 Rank` = min_rank(hr_per_9)) %>%
-  select(playerid, player_name, Season, League, team_PCT, IP, is_cy, contains("Rank"))
+  mutate(zWins = (W - mean(W)) / sd(W),
+         zLosses = (L - mean(L)) / sd(L),
+         zERA = (era - mean(era)) / sd(era),
+         zK = (SO - mean(SO)) / sd(SO),
+         zBB = (BB - mean(BB)) / sd(BB),
+         zHR = (HR - mean(HR)) / sd(HR),
+         zfWAR = (fip_war - mean(fip_war)) / sd(fip_war),
+         `zK%` = (so_rate - mean(so_rate)) / sd(so_rate),
+         `zBB%` = (bb_rate - mean(bb_rate)) / sd(bb_rate),
+         `zK-BB%` = (k_minus_bb - mean(k_minus_bb)) / sd(k_minus_bb),
+         `zHR/9` = (hr_per_9 - mean(hr_per_9)) / sd(hr_per_9)) %>%
+  # mutate(`Win Rank` = min_rank(-W),
+  #        `Loss Rank` = min_rank(L),
+  #        `ERA Rank` = min_rank(era),
+  #        `FIP Rank` = min_rank(fip),
+  #        `K Rank` = min_rank(-SO),
+  #        `BB Rank` = min_rank(BB),
+  #        `HR Rank` = min_rank(HR),
+  #        `fWAR Rank` = min_rank(-fip_war),
+  #        `K% Rank` = min_rank(-so_rate),
+  #        `BB% Rank` = min_rank(bb_rate),
+  #        `K-BB% Rank` = min_rank(-k_minus_bb),
+  #        `HR/9 Rank` = min_rank(hr_per_9)) %>%
+  select(playerid, player_name, Season, League, team_PCT, is_cy, contains("z")) %>%
+  mutate(is_cy = factor(is_cy, levels = c("Yes", "No"))) # define levels so prsummary function looks for the right thing
   
 ```
 
 ```{r, message=FALSE, echo=FALSE}
-
-set.seed(12345)
-
 # remove informational paramters i don't want the model to look at
 # cross-validate model on data 10 years prior to the one we want to predict
 #do 10-fold cross validation repeated 5 times
@@ -129,16 +138,16 @@ train_df <- master_df %>%
   select(-playerid, -player_name)
 
 control_parameters <- trainControl(method = "cv",
-                                   number = 10,
+                                   number = 5,
                                    search = "grid",
                                    allowParallel = TRUE,
                                    classProbs = TRUE,
-                                   summaryFunction = twoClassSummary)
+                                   summaryFunction = prSummary)
 
 parameter_grid <- expand.grid(
-  nrounds = c(50, 75, 100), 
+  nrounds = c(20, 30, 40, 50), 
   eta = c(0, .01, 0.1),
-  max_depth = c(5, 10, 15, 20),
+  max_depth = c(15, 20, 25, 30),
   gamma = c(0, 1, 2, 5),
   colsample_bytree = c(0.1, 0.5, 0.9),
   min_child_weight = c(0, 0.1),
@@ -149,7 +158,7 @@ cy_predictor <- train(is_cy ~ .,
                        method = "xgbTree", 
                        trControl = control_parameters,
                        tuneGrid = parameter_grid,
-                       metric = "ROC")
+                       metric = "AUC")
 
 send_message("Cy Young predictor model is finished training!")
 ```
@@ -238,7 +247,8 @@ cy_predictions <- predict(cy_predictor, newdata = predict_df, type ="prob") %>%
 bind_cols(row.names(varImp(cy_predictor)$importance) %>% as_tibble(),
           varImp(cy_predictor)$importance %>% as_tibble()) %>%
   mutate(value = str_replace_all(value, c("`" ="",
-                                          "team_PCT" = "Team Winning %"))) %>%
+                                          "team_PCT" = "Team Winning %",
+                                          "LeagueNL" = "League"))) %>%
   ggplot(aes(reorder(value, Overall), Overall)) + geom_col(fill="#8e001c") + coord_flip() + fgt +
   labs(x="", y="Relative Importance") + 
   ggtitle(sprintf("What Factors are Important in Cy Young Voting? (%s - %s)", data_min, data_max))
@@ -260,12 +270,12 @@ cy_predictions %>%
 cy_predictions %>%
   filter(player_name %in% c("Justin Verlander", "Blake Snell", "Corey Kluber")) %>%
   select(-playerid, -League, -Season) %>%
-  select(player_name, team_PCT, IP, contains("rank"), prob_cy)
+  select(player_name, team_PCT, contains("z"), prob_cy)
 
 cy_predictions %>%
   filter(player_name %in% c("Max Scherzer", "Jacob deGrom", "Aaron Nola")) %>%
   select(-playerid, -League, -Season) %>%
-  select(player_name, team_PCT, IP, contains("rank"), prob_cy)
+  select(player_name, team_PCT, contains("z"), prob_cy)
 ```
 
 
@@ -276,8 +286,9 @@ for informational purposes, show some rows from the training dataset
 master_df %>%
   select(player_name, Season, League, IP, team_PCT, contains("rank"), is_cy) %>%
   filter(Season != year_to_predict) %>%
-  mutate(team_PCT = round(team_PCT, 3)) %>%
+  mutate(`Team Winning %` = round(team_PCT, 3)) %>%
   ungroup() %>%
+  select(-team_PCT, -is_cy) %>%
   sample_n(5) %>%
   write_csv("cy_predictor_informational.csv")
  
