@@ -91,57 +91,67 @@ cy_list <- read_csv("~/Downloads/mlb season awards - Cy_yong.csv") %>%
   filter(Season >= data_min,
          Season <= year_to_predict) %>%
   mutate(is_cy = "Yes",
-         League = factor(League))
-
-
+         League = factor(League),
+         is_cy = factor(is_cy, levels = c("Yes", "No"))) # define levels so prsummary function looks for the right thing
 
 master_df <- inner_join(player_stats, team_info, by=c("Season", "teamid")) %>%
   full_join(cy_list, by=c("Season", "player_name", "League")) %>%
   replace_na(list(is_cy = "No")) %>%
-  filter(IP >= 150) %>%      # filter this low to catch blake snell in 2018. lowest prior was Kershaw in 2014
+  filter(IP >= 150) %>%      # filter this low to catch chris sale in 2018. 
   group_by(Season, League) %>%
   mutate(zWins = (W - mean(W)) / sd(W),
          zLosses = (L - mean(L)) / sd(L),
          zERA = (era - mean(era)) / sd(era),
          zK = (SO - mean(SO)) / sd(SO),
-   
          zfWAR = (fip_war - mean(fip_war)) / sd(fip_war),
          `zK%` = (so_rate - mean(so_rate)) / sd(so_rate),
          zIP = (IP - mean(IP) / sd(IP))) %>% 
-  
-  # mutate(`Win Rank` = min_rank(-W),
-  #        `Loss Rank` = min_rank(L),
-  #        `ERA Rank` = min_rank(era),
-  #        `FIP Rank` = min_rank(fip),
-  #        `K Rank` = min_rank(-SO),
-  #        `BB Rank` = min_rank(BB),
-  #        `HR Rank` = min_rank(HR),
-  #        `fWAR Rank` = min_rank(-fip_war),
-  #        `K% Rank` = min_rank(-so_rate),
-  #        `BB% Rank` = min_rank(bb_rate),
-  #        `K-BB% Rank` = min_rank(-k_minus_bb),
-  #        `HR/9 Rank` = min_rank(hr_per_9)) %>%
-  select(playerid, player_name, team_PCT, is_cy, contains("z")) %>%
-  mutate(is_cy = factor(is_cy, levels = c("Yes", "No"))) # define levels so prsummary function looks for the right thing
-  
+  select(playerid, player_name, team_PCT, is_cy, contains("z"))
+
 ```
 
-```{r, message=FALSE, echo=FALSE}
-# remove informational paramters i don't want the model to look at
-# cross-validate model on data 10 years prior to the one we want to predict
-#do 10-fold cross validation repeated 5 times
+create train and test data splits
 
-train_df <- master_df %>%
-  filter(Season != year_to_predict) %>% # train & test on data prior to prediction year
+```{r}
+# remove uninformative variables from master dataset, as well as info from the year we want to predict
+partition_df <- master_df %>%
+  filter(Season != year_to_predict) %>%
   select(-playerid, -player_name)
 
-control_parameters <- trainControl(method = "repeatedcv",
-                                   number = 5,
-                                   repeats = 5,
+# identify rows used to create test data partition
+# createDataPartition is stratified by default which helps ensure occurrence of is_cy matches reality
+test_df_rows <- createDataPartition(partition_df$is_cy, p = 0.25) %>%
+  as_tibble()
+
+# create test dataset to hold out of training
+test_df <- 
+  partition_df %>%
+  filter(row_number() %in% test_df_rows$Resample1)
+
+# create training dataset to be used for cross validation
+train_df <- 
+  partition_df %>%
+  filter(!row_number() %in% test_df_rows$Resample1)
+
+```
+
+train the model on the training dataset
+
+```{r, message=FALSE, echo=FALSE}
+# cross-validate model on data 10 years prior to the one we want to predict
+#do 10-fold cross validation repeated 5 times
+# use upsampling to help resolve class imbalance
+# train on 70% of the data
+# try 5 values for each parameter
+
+control_parameters <- trainControl(method = "cv",
+                                   number = 10,
                                    search = "grid",
                                    allowParallel = TRUE,
                                    classProbs = TRUE,
-                                   summaryFunction = prSummary)
+                                   summaryFunction = prSummary,
+                                   p = 0.7,
+                                   tuneLength = 5)
 
 parameter_grid <- expand.grid(
   nrounds = c(20, 30, 40, 50), 
@@ -156,33 +166,31 @@ cy_predictor <- train(is_cy ~ .,
                        data = train_df, 
                        method = "xgbTree", 
                        trControl = control_parameters,
-                       tuneGrid = parameter_grid,
+                       #tuneGrid = parameter_grid,
                        metric = "AUC")
 
 send_message("Cy Young predictor model is finished training!")
 ```
 
-evaluate model using "most likely CY season" as "predicted CY". favor using precision/recall/F1 over sens/spec/AUC due to strong class imbalance.
+evaluate model on the test dataset using "most likely Cy season" as "predicted CY". 
+
+favor using precision/recall/F1 over sens/spec/AUC due to strong class imbalance.
 
 ```{r}
 
 # predict probability of CY election for each player-season
-evaluation_prediction <-
-  master_df %>%
-  filter(Season != year_to_predict) %>%
-  select(-playerid, -player_name, -is_cy) %>%
-  predict(cy_predictor, newdata = ., type = "prob")
-
-# within each season-league, find the CY player-season with the highest probability. 
-# label this person as the predicted CY winner, for the purposes of evaluating the model's predictions
 eval_df <-
-  master_df %>% 
-  filter(Season != year_to_predict) %>% 
-  bind_cols(evaluation_prediction) %>%
+  test_df %>%
+  select(-is_cy) %>%
+  predict(cy_predictor, newdata = ., type = "prob") %>%
+  bind_cols(test_df) %>%
   group_by(Season, League) %>%
   mutate(pred_cy = if_else(Yes == max(Yes), "Yes", "No"),
          is_cy = factor(is_cy, levels = c("Yes", "No")),
          pred_cy = factor(pred_cy, levels=c("Yes", "No")))
+
+# within each season-league, find the CY player-season with the highest probability. 
+# label this person as the predicted CY winner, for the purposes of evaluating the model's predictions
 
 confusionMatrix(eval_df$is_cy, 
                 eval_df$pred_cy,
@@ -211,16 +219,16 @@ ggplot(y, aes(y$V1, y$V2))+
   ggtitle("Precision vs. Recall for Cy Young Predictor Model") 
 
 # show names of predicted winners vs. actual winners
-eval_df %>% 
-  filter(pred_cy == "Yes" | is_cy == "Yes") %>% 
-  arrange(Season, League) %>% 
-  select(Season, League, player_name, pred_cy, is_cy) %>%
-  mutate(predicted_cy = if_else(pred_cy == "Yes", player_name, ""),
-         actual_cy = if_else(is_cy == "Yes", player_name, "")) %>%
-  group_by(Season, League) %>%
-  summarize(`Predicted Cy Young Winner` = paste(predicted_cy, sep = "", collapse= ""),
-            `Actual Cy Young Winner` = paste(actual_cy, sep = "", collapse = "")) %>%
-  mutate(`Accurate?` = if_else(`Predicted Cy Young Winner` == `Actual Cy Young Winner`, "Yes", "No"))
+# eval_df %>% 
+#   filter(pred_cy == "Yes" | is_cy == "Yes") %>% 
+#   arrange(Season, League) %>% 
+#   select(Season, League, player_name, pred_cy, is_cy) %>%
+#   mutate(predicted_cy = if_else(pred_cy == "Yes", player_name, ""),
+#          actual_cy = if_else(is_cy == "Yes", player_name, "")) %>%
+#   group_by(Season, League) %>%
+#   summarize(`Predicted Cy Young Winner` = paste(predicted_cy, sep = "", collapse= ""),
+#             `Actual Cy Young Winner` = paste(actual_cy, sep = "", collapse = "")) %>%
+#   mutate(`Accurate?` = if_else(`Predicted Cy Young Winner` == `Actual Cy Young Winner`, "Yes", "No"))
 
 ```
 
