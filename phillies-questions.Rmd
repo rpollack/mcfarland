@@ -29,6 +29,7 @@ knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 library(tidyverse)
 library(xgboost)
 library(caret)
+library(broom)
 
 # define plot aesthetics
 fgt = theme(
@@ -48,7 +49,9 @@ fgt = theme(
 ```
 
 ## Get Data
-In addition to the data contained in strikeouts.csv, I incorporated the throwing hand of each pitcher. So much of batter/pitcher matchups involves platoon splits that I wanted to see if that information helped the model. I also included the pitcher's strikeout rate in 2016. Strikeout rate is among the most stable of pitching metrics; it correlates year-to-year very well, so I thought it might help second-half 2017 predictions. 
+I used all the data in strikeouts.csv except G, IP, GB%, FB%, and LD%. I found during the course of selecting and evaluating models that including these features reduced the predictive abilities of the models.
+
+In addition to the data that remained, I incorporated the throwing hand of each pitcher. So much of batter/pitcher matchups involves platoon splits that I wanted to see if that information helped the model. I also included the pitcher's strikeout rate in 2016. Strikeout rate is among the most stable of pitching metrics; it correlates year-to-year very well, so I thought it might help second-half 2017 predictions. 
 
 Both additional datasets proved useful in constructing the model.
 
@@ -56,7 +59,8 @@ Both additional datasets proved useful in constructing the model.
 
 # get data from the first half of 2017
 # source: https://questionnaire-148920.appspot.com/qa/
-pitcher_data <- read_csv("~/Downloads/strikeouts.csv")
+pitcher_data <- read_csv("~/Downloads/strikeouts.csv") %>%
+  select(-G, -IP, -`GB%`, -`FB%`, -`LD%`)
 
 # get throwing hand of pitchers. source: fangraphs
 pitcher_handedness <- read_csv("pitcher_handedness.csv")
@@ -67,166 +71,189 @@ pitcher_data_2016 <- read_csv("2016-strikeout-rates.csv")
 # combine datasets into one tibble
 pitchers_2017 <- inner_join(pitcher_data, pitcher_handedness, by=c("fangraphs_id" = "PlayerId")) %>%
   inner_join(pitcher_data_2016, by=c("fangraphs_id" = "PlayerId"))
-
-# create training dataset by removing unnecessary features
-pitchers_2017_train <- 
-  pitchers_2017 %>% 
-  select(-fangraphs_id, -`2ndHalfIP`, -Name, -Team)
 ```
 
-## Choose the Algorithm
-I chose the xgboost algorithm because of its reputation as a fast, accurate algorithm that handles collinearity well. This latter feature means I can focus less on which features to include and more on tuning the model and evaluating the results.
+## Create Training/Validation and Test Datasets
 
-For example, FB% and GB% are mutually exclusive and so are strongly correlated (r = -0.916 using Spearman correlation). With another algorithm I'd have to choose one or the other. The xgboost algorithm helps ensure I can include both without worrying about overfitting. 
+The following code removes unimportant variables from the dataset and defines 75% of it for training/validation and 25% of it for testing/model evaluation.
 
-For reference, the following figure shows a correlation plot of all features I used except for throwing hand:
+```{r create train/validate and test datasets }
+# create dataset from which test & validation/train splits will be made
 
-```{r correlation matrix, echo=TRUE, fig.align='center'}
+seed <- 23
 
-# compute and display correlation matrix for features.
-# remove features we don't care about, compute its correlation matrix, add in row names because
-# converting the matrix to a tibble removes them, tidy, and plot
-pitchers_2017_train %>%
-  select(-Throws, -`2ndHalfK%`) %>%
-  cor(method="spearman") %>%
-  as_tibble() %>%
-  bind_cols(pitchers_2017_train %>% 
-              select(-Throws, -`2ndHalfK%`) %>%
-              names() %>%
-              as_tibble()) %>%
-  select(metric = value, everything()) %>%
-  gather(other_metric, r, -metric) %>%
-  ggplot(aes(metric, other_metric, color = r, fill = r)) + geom_tile() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
-  labs(x="", y="", caption = "* Spearman") + ggtitle("Correlation* Matrix of Features")
-```
+set.seed(seed)
 
-## Tune and Train the Model
-I used the caret package to tune and train the xgboost model. I defined a set of tuning parameters for the xgboost algorithm itself, performed 10-fold cross-validation for each combination of parameters, and selected the model that minimized the RMSE of the predictions. The caret package also handles encoding the categorical "Throws" feature. 
-
-This process is iterative in itself, but choosing the parameters for `parameter_grid` is iterative too. The `nrounds` (the number of decision trees to use) and `max_depth` (how deep each tree can go) parameters are important, so I experiemented with several option sets for each. After each training run I evaluated the resulting model in the same way I evaluate the final one below.
-
-The code below shows the final tuning parameters I chose as well as the caret code that performs the search. The seed of 6 ensures this code produces the same results every time.
-
-```{r train model, echo=TRUE, message=FALSE, warning=FALSE, cache=TRUE}
-
-# set seed to reproduce the training/test splits used for cross validation
-set.seed(6)
-
-# establish grid of parameters for xgboost algorithm
-parameter_grid <- expand.grid(
-  nrounds = c(25, 50, 100), 
-  eta = c(0, .01, 0.1),
-  max_depth = c(5, 10, 15, 20),
-  gamma = c(0, 1, 2, 5),
-  colsample_bytree = c(0.1, 0.5, 0.9),
-  min_child_weight = c(0, 0.1),
-  subsample = c(0.1, 0.2, 0.5, 0.7))
-
-# establish 10-fold cross-validation and other training characteristics
-control_parameters <- trainControl(method = "cv",
-                                   number = 10,
-                                   search = "grid",
-                                   allowParallel = TRUE)
-
-#find the best model using characteristics and tuning parameters above
-second_half_k_predictor <- train(`2ndHalfK%` ~ .,
-                                 data = pitchers_2017_train,
-                                 method = "xgbTree",
-                                 trControl = control_parameters,
-                                 tuneGrid = parameter_grid,
-                                 metric = "RMSE")
-```
-
-You can see the chosen xgboost parameters by running `second_half_k_predictor$bestTune`.
-
-## Predict Second-Half Strikeout Rates
-Next I use the model to predict the second-half K% for each pitcher. The actual predictions are written to a .csv file for ease of distribution. The rest of this article focuses on evaluating the model itself.
-
-```{r predict results, echo=TRUE, message=FALSE, warning=FALSE}
-
-# predict second-half k% using model
-# transform to tibble for binding to original dataset
-# rename variable for clarity
-# compute residuals
-second_half_pitcher_predictions <-
-  predict(second_half_k_predictor, newdata = pitchers_2017_train) %>% 
-  as_tibble() %>%
-  select(`pred_2ndHalfK%` = value)
-
-# augment original dataset with predictions
-pitchers_2017_predicted <- 
+partition_df <-
   pitchers_2017 %>%
-  bind_cols(second_half_pitcher_predictions)
+  select(-Name, -Team, -fangraphs_id, -`2ndHalfIP`)
 
-# select actual values, predicted values, and compute residuals for model analysis purposes
-results <- pitchers_2017_predicted %>%
-  select(Name,
-         predicted_second_half_k_rate = `pred_2ndHalfK%`,
-         actual_second_half_k_rate = `2ndHalfK%`) %>%
-  mutate(residual = actual_second_half_k_rate - predicted_second_half_k_rate)
+# get rows to be used for test dataset: 25% of full dataset's rows
+test_df_rows <- 
+  createDataPartition(partition_df$`2ndHalfK%`, p = 0.25) %>%
+  as_tibble()
 
-# write results to CSV file for distribution. round predictions to 3 decimals for easier reading
-results %>%
-  select(-residual) %>%
-  mutate(predicted_second_half_k_rate = round(predicted_second_half_k_rate, 3)) %>%
-  write_csv("second-half-k-rate-predictions.csv")
+# create test dataset
+test_df <- 
+  partition_df %>%
+  filter(row_number() %in% test_df_rows$Resample1)
+
+# use remaining 75% of rows for training & validation
+train_df <- 
+  partition_df %>%
+  filter(!row_number() %in% test_df_rows$Resample1)
+
 ```
 
-## Evaluate Results
+## Model Training and Validation
 
-I first plot the predicted vs. actual values, visually inspect the scatterplot, and see the R^2 of the line of best fit. The following plot shows this information:
+I used the caret package with the training/validation dataset to find the optimal hypermarameters for xgboost, neural network, support vector machine, k nearest neighbors, and linear model types. Choosing a variety of nonlinear models, as well as a linear one, helps ensure we find the model that provides the best possible fit.
 
-```{r plot results, echo=TRUE, fig.align='center', message=FALSE, warning=FALSE, paged.print=FALSE}
-# calculate R^2 to see how much variance the model explains
-model_fit <- lm(results$actual_second_half_k_rate ~ results$predicted_second_half_k_rate)
-r_squared <- round(summary(model_fit)$r.squared, 3)
+I train and validate each model by using 10-fold cross-validation repeated 5 times. Each training/validation run attempts to minimize the RMSE metric of the resulting model.
 
-# plot predicted vs. actual values
-results %>%  
-  ggplot(aes(predicted_second_half_k_rate, actual_second_half_k_rate)) + geom_point() + fgt +
-  labs(x="Predicted Second-Half K%", y="Actual Second-Half K%") +
-  ggtitle("2017 Second-Half K%: Predicted Rates vs. Actual Rates") +
-  xlim(0, 0.5) + ylim(0, 0.5) + geom_smooth(method="lm") + 
-  geom_label(aes(x = 0.375, y = 0.45), label = sprintf("R^2: %s", r_squared)) +
-  geom_abline(yintercept = 0, linetype = "dashed")
+```{r train and validate models, message=FALSE, warning=FALSE, cache=TRUE, include=FALSE}
+
+# establish training characteristics
+control_parameters <- trainControl(method = "repeatedcv",
+                                   repeats = 5,
+                                   number = 10,
+                                   allowParallel = TRUE,
+                                   verboseIter = FALSE)
+
+# train all model types
+set.seed(seed)
+second_half_k_predictor_xgb <- train(`2ndHalfK%` ~ .,
+                                     data = train_df,
+                                     method = "xgbTree",
+                                     trControl = control_parameters,
+                                     metric = "RMSE")
+
+set.seed(seed)
+second_half_k_predictor_nnet <- train(`2ndHalfK%` ~ .,
+                                      data = train_df,
+                                      method = "nnet",
+                                      trControl = control_parameters,
+                                      metric = "RMSE")
+
+set.seed(seed)
+second_half_k_predictor_svm <- train(`2ndHalfK%` ~ .,
+                                     data = train_df,
+                                     method = "svmRadial",
+                                     trControl = control_parameters,
+                                     metric = "RMSE")
+
+set.seed(seed)
+second_half_k_predictor_knn <- train(`2ndHalfK%` ~ .,
+                                     data = train_df,
+                                     method = "knn",
+                                     trControl = control_parameters,
+                                     metric = "RMSE")
+
+set.seed(seed)
+second_half_k_predictor_lm <- train(`2ndHalfK%` ~ .,
+                                     data = train_df,
+                                     method = "glm",
+                                     trControl = control_parameters,
+                                     metric = "RMSE")
 ```
 
-Two lines are shown. The dashed reference line shows a hypothetical perfect match between all predictions and actual results. The blue best-fit line shows the actual match between the model's predictions and actual results.
+## Model Testing and Evaluation
 
-Visual inspection shows that these lines are reasonably close together and that the actual points on the plot resemble a line. Therefore the R^2 of the best-fit line, 0.962, is an appropriate way to measure the explanatory power of the model.
+The code below evaluates each model type by predicting the second-half K% in the test/out-of-sample dataset and displaying the success metrics I listed earlier in this report. 
 
-The next plot shows the predicted values vs. the residuals of each predicted value, as well as a dashed reference line and the RMSE of the predictions:
+```{r model testing and evaluation, echo=FALSE, message=FALSE, warning=FALSE}
 
-```{r plot residuals, echo=TRUE, fig.align='center'}
-# calculate RMSE
-rmse <- round(
-  RMSE(results$predicted_second_half_k_rate, results$actual_second_half_k_rate),
-  3)
+# using data held out from training and validation, predict second-half K% using each model type
+predictions_xgb <-
+  predict(second_half_k_predictor_xgb, newdata = test_df) %>% 
+  as_tibble() %>%
+  select(xgb = value)
 
-# plot fitted vs. residuals to identify bias
-results %>%
-  ggplot(aes(predicted_second_half_k_rate, residual)) + geom_point() + fgt +
-  labs(x="Predicted Second-Half K%", y="Residual", caption = sprintf("RMSE: %s", rmse))+
-  ggtitle("2017 Second-Half K%: Predicted Rates vs. Residuals") +
-  xlim(0, .5) + geom_hline(yintercept = 0, linetype = "dashed")
+predictions_nnet <-
+  predict(second_half_k_predictor_nnet, newdata = test_df) %>% 
+  as_tibble() %>%
+  select(nnet = V1)
+
+predictions_svm <-
+  predict(second_half_k_predictor_svm, newdata = test_df) %>% 
+  as_tibble() %>%
+  select(svm = value)
+
+predictions_knn <-
+  predict(second_half_k_predictor_knn, newdata = test_df) %>% 
+  as_tibble() %>%
+  select(knn = value)
+
+predictions_lm <-
+  predict(second_half_k_predictor_lm, newdata = test_df) %>% 
+  as_tibble() %>%
+  select(linear = value)
+
+# combine all models' predictions into one tibble, tidy, and compute residuals
+model_evaluation <- 
+  test_df %>%
+  bind_cols(predictions_xgb, predictions_knn, predictions_svm, predictions_nnet, predictions_lm) %>%
+  select(actual_second_half_k_rate = `2ndHalfK%`, xgb, svm, nnet, knn, linear) %>%
+  gather(model_type, prediction, -actual_second_half_k_rate) %>%
+  mutate(residual = actual_second_half_k_rate - prediction)
+
+# display scatterplots, lines of best-fit, graphs of residuals, R^2, and RMSE for each model type
+model_evaluation %>% 
+  ggplot(aes(actual_second_half_k_rate, prediction)) + geom_point() +
+  facet_wrap(vars(model_type)) + geom_smooth(method="lm") +
+  labs(x="Actual 2nd Half K%", y = "Predicted 2nd Half K%") + fgt + expand_limits(x=0,y=0) +
+  geom_abline(yintercept = 0, linetype = "dashed") + ggtitle("Best-fit Lines for Each Model Type", 
+                                                             subtitle = "Using out-of-sample data")
+
+model_evaluation %>% 
+  ggplot(aes(prediction, residual)) + geom_point() +
+  facet_wrap(vars(model_type)) + 
+  labs(x = "Predicted 2nd Half K%", y="Residual") + fgt +
+  ggtitle("Residual Plots for Each Model Type", subtitle = "Using out-of-sample data") +
+  geom_hline(yintercept = 0, linetype = "dashed") 
+
+r_squared <- model_evaluation %>%
+  split(.$model_type) %>%
+  map(~lm(prediction ~ actual_second_half_k_rate, data = .)) %>%
+  map(summary) %>%
+  map_dbl("r.squared") %>%
+  tidy() %>% 
+  select(model_type = names, r_squared = x)
+  
+model_evaluation %>%
+  group_by(model_type) %>%
+  summarize(RMSE = RMSE(prediction, actual_second_half_k_rate)) %>%
+  inner_join(r_squared, by="model_type") %>%
+  select(`Model Type` = model_type, `R^2` = r_squared, RMSE)
 ```
 
-The plot shows some skew to the residuals, but not an unreasonable amount. The bulk of the misses, and the largest ones, are negative, which means the model tends to over-predict second-half K%. GM's should consider this information in deciding whether to acquire, trade, or keep a pitcher based on the prediction.
+In the plots above, the dashed lines are reference lines that show what a perfect fit would look like.
 
-The RMSE of the predictions is 0.015, or 1.5 percentage points of second-half strikeout rate. Out of all the models I generated, with all the dataset and tuning parameters combinations I tried, this value is the lowest.
+## Choosing the Best Model
 
-The final code chunk saves the model to a file so it can be used to reproduce results later.
+I chose the linear model for several reasons. It has the highest R^2 and the lowest RMSE. Its scatterplot contains no outliers that would cause the stated R^2 to lose meaning (like in Anscombe's Quartet) and its residuals graph is reasonably close to random. I'm confident in this evaluation because it was done on out-of-sample data.
 
-```{r show results, echo=TRUE, message=FALSE, warning=FALSE}
-# save model to a file so it can be used later.
-saveRDS(second_half_k_predictor, "phillies-k-rate-predictor.rds")
+## Predicting Second-Half K% 
+
+Now that we have a model, the following code uses it to predict the second-half K% for each pitcher. The predictions are written to a CSV file for convenience.
+
+```{r final results, include=FALSE}
+final_results <-
+  partition_df %>%
+  mutate(predicted_second_half_k_rate = predict(second_half_k_predictor_lm, newdata = .)) %>%
+  bind_cols(pitchers_2017 %>% select(Name)) %>%
+  select(Name, actual_second_half_k_rate = `2ndHalfK%`, predicted_second_half_k_rate) %>%
+  write_csv("phillies-second-half-predicted-k-rates.csv")
 ```
+
+The RMSE of these predictions is `r round(RMSE(final_results$predicted_second_half_k_rate, final_results$actual_second_half_k_rate), 3)`.
+
+NOTE: The model used to make these predictions was built on some of the data it is predicting here. This means the model is not suitable to predict values beyond the second half of 2017. But it does accomplish the stated request.
 
 # Areas for Improvement
-For a future project I would analyze more modeling types besides xgboost. It could be that other types perform better. I'd also like to minimize the residuals and see them distributed more randomly. This might involve searching different tuning parameter spaces or including more, or different kinds of, data points. For example, knowing a team's second-half schedule could help predict future strikeout rates. Additionally, [park factors](https://www.fangraphs.com/guts.aspx?type=pf&teamid=0&season=2017) influence strikeout rates. 
+
+In the future I'd most like to build a generalized K% predictor. The request here was for one that predicting K% in a specific timeframe; a more useful program would do something like take a requested prediction year and timeframe, build an appropriate model, and make the predictions.
+
+I would analyze even more modeling types besides the ones listed here. I don't yet have enough experience to understand which model type(s) may best fit this kind of predcition. But this report shows my general philosophy of training many models, evaluating them using out-of-sample data, and using the best-performing model to make predictions. The caret package is of tremendous value here.
 
 Finally, I'd like to incorporate probability distributions and credible intervals instead of point estimates. Seeing a distribution could convince a GM to move on a certain player in a way that a single estimate might not.
-
-# Conclusion
-All models can be improved. But based on the 0.962 R^2, the reasonable-looking plot of the residuals, and the low RMSE of 0.015, this model is an excellent base from which to start making predictions. 
