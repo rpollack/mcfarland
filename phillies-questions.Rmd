@@ -23,8 +23,11 @@ The following sections are the R code that set up the analysis, get the data, tr
 The following code sets up the libraries and ggplot themes used:
 
 ```{r setup, echo = TRUE, warning = FALSE, message = FALSE}
-knitr::opts_chunk$set(warning = FALSE, message = FALSE)
-
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
 # load required libraries
 library(tidyverse)
 library(xgboost)
@@ -48,19 +51,26 @@ fgt = theme(
 
 ```
 
-## Get Data
+## Data Acquisition and Processing
 I used all the data in strikeouts.csv except G, IP, GB%, FB%, and LD%. I found during the course of selecting and evaluating models that including these features reduced the predictive abilities of the models.
+
+I left FIP and AVG in the dataset even though they're highly correlated with K% at r > 0.75. Removing these columns reduced the R^2 and increased the RMSE of all model types.
 
 In addition to the data that remained, I incorporated the throwing hand of each pitcher. So much of batter/pitcher matchups involves platoon splits that I wanted to see if that information helped the model. I also included the pitcher's strikeout rate in 2016. Strikeout rate is among the most stable of pitching metrics; it correlates year-to-year very well, so I thought it might help second-half 2017 predictions. 
 
 Both additional datasets proved useful in constructing the model.
 
-```{r echo=TRUE, message=FALSE, warning=FALSE}
-
+```{r}
 # get data from the first half of 2017
 # source: https://questionnaire-148920.appspot.com/qa/
 pitcher_data <- read_csv("~/Downloads/strikeouts.csv") %>%
   select(-G, -IP, -`GB%`, -`FB%`, -`LD%`)
+
+# not run: for demonstration purposes: identify predictors correlated at above 0.75
+# pitchers_2017 %>% 
+#   select(-Name, -Team, -fangraphs_id, -Throws, -contains("2ndHalf")) %>% 
+#   cor() %>% 
+#   findCorrelation(cutoff = 0.75, names = TRUE)
 
 # get throwing hand of pitchers. source: fangraphs
 pitcher_handedness <- read_csv("pitcher_handedness.csv")
@@ -75,12 +85,12 @@ pitchers_2017 <- inner_join(pitcher_data, pitcher_handedness, by=c("fangraphs_id
 
 ## Create Training/Validation and Test Datasets
 
-The following code removes unimportant variables from the dataset and defines 75% of it for training/validation and 25% of it for testing/model evaluation.
+The following code removes unimportant variables from the dataset and defines 75% of it for training/validation and 25% of it for testing/model evaluation. This latter dataset is held out from training and validation, making it suitable for model evaluation.
 
-```{r create train/validate and test datasets }
+```{r create train/validate and test datasets, message=FALSE, warning=FALSE}
 # create dataset from which test & validation/train splits will be made
 
-seed <- 23
+seed <- 2356
 
 set.seed(seed)
 
@@ -107,13 +117,13 @@ train_df <-
 
 ## Model Training and Validation
 
-I used the caret package with the training/validation dataset to find the optimal hypermarameters for xgboost, neural network, support vector machine, k nearest neighbors, and linear model types. Choosing a variety of nonlinear models, as well as a linear one, helps ensure we find the model that provides the best possible fit.
+I used the caret package with the training/validation dataset to find the optimal parameter values for xgboost, neural network, support vector machine, k nearest neighbors, and linear model types. Choosing a variety of nonlinear models as well as a linear one helps ensure we find the model that provides the best possible fit.
 
 I train and validate each model by using 10-fold cross-validation repeated 5 times. Each training/validation run attempts to minimize the RMSE metric of the resulting model.
 
-```{r train and validate models, message=FALSE, warning=FALSE, cache=TRUE, include=FALSE}
+```{r train and validate models, message=FALSE, warning=FALSE}
 
-# establish training characteristics
+# establish training parameters
 control_parameters <- trainControl(method = "repeatedcv",
                                    repeats = 5,
                                    number = 10,
@@ -133,7 +143,8 @@ second_half_k_predictor_nnet <- train(`2ndHalfK%` ~ .,
                                       data = train_df,
                                       method = "nnet",
                                       trControl = control_parameters,
-                                      metric = "RMSE")
+                                      metric = "RMSE",
+                                      trace = FALSE)
 
 set.seed(seed)
 second_half_k_predictor_svm <- train(`2ndHalfK%` ~ .,
@@ -161,7 +172,7 @@ second_half_k_predictor_lm <- train(`2ndHalfK%` ~ .,
 
 The code below evaluates each model type by predicting the second-half K% in the test/out-of-sample dataset and displaying the success metrics I listed earlier in this report. 
 
-```{r model testing and evaluation, echo=FALSE, message=FALSE, warning=FALSE}
+```{r model testing and evaluation, message=FALSE, warning=FALSE}
 
 # using data held out from training and validation, predict second-half K% using each model type
 predictions_xgb <-
@@ -219,7 +230,8 @@ r_squared <- model_evaluation %>%
   map_dbl("r.squared") %>%
   tidy() %>% 
   select(model_type = names, r_squared = x)
-  
+
+# display table of model evaluation statistics  
 model_evaluation %>%
   group_by(model_type) %>%
   summarize(RMSE = RMSE(prediction, actual_second_half_k_rate)) %>%
@@ -231,29 +243,29 @@ In the plots above, the dashed lines are reference lines that show what a perfec
 
 ## Choosing the Best Model
 
-I chose the linear model for several reasons. It has the highest R^2 and the lowest RMSE. Its scatterplot contains no outliers that would cause the stated R^2 to lose meaning (like in Anscombe's Quartet) and its residuals graph is reasonably close to random. I'm confident in this evaluation because it was done on out-of-sample data.
+I chose the linear model for several reasons. It has the highest R^2 and the lowest RMSE. Its scatterplot contains no outliers that would cause the stated R^2 to lose meaning (like in Anscombe's Quartet) and its residuals graph is closest to a horizontal line around y=0. I'm confident in this evaluation because it was done on out-of-sample data.
 
 ## Predicting Second-Half K% 
 
 Now that we have a model, the following code uses it to predict the second-half K% for each pitcher. The predictions are written to a CSV file for convenience.
 
-```{r final results, include=FALSE}
+```{r final results, message=FALSE, warning=FALSE}
 final_results <-
   partition_df %>%
   mutate(predicted_second_half_k_rate = predict(second_half_k_predictor_lm, newdata = .)) %>%
   bind_cols(pitchers_2017 %>% select(Name)) %>%
-  select(Name, actual_second_half_k_rate = `2ndHalfK%`, predicted_second_half_k_rate) %>%
+  select(Name, actual_second_half_k_rate = `2ndHalfK%`, predicted_second_half_k_rate)
+
+final_results %>%
   write_csv("phillies-second-half-predicted-k-rates.csv")
 ```
 
-The RMSE of these predictions is `r round(RMSE(final_results$predicted_second_half_k_rate, final_results$actual_second_half_k_rate), 3)`.
-
-NOTE: The model used to make these predictions was built on some of the data it is predicting here. This means the model is not suitable to predict values beyond the second half of 2017. But it does accomplish the stated request.
-
 # Areas for Improvement
 
-In the future I'd most like to build a generalized K% predictor. The request here was for one that predicting K% in a specific timeframe; a more useful program would do something like take a requested prediction year and timeframe, build an appropriate model, and make the predictions.
+In the future I'd most like to build a generalized K% predictor. The request here was for one that predicting K% in a specific timeframe; a more useful program would do something like take a requested prediction year and timeframe, build an appropriate model, and make the predictions. This predictor could be further generalized to any stat.
 
 I would analyze even more modeling types besides the ones listed here. I don't yet have enough experience to understand which model type(s) may best fit this kind of predcition. But this report shows my general philosophy of training many models, evaluating them using out-of-sample data, and using the best-performing model to make predictions. The caret package is of tremendous value here.
 
-Finally, I'd like to incorporate probability distributions and credible intervals instead of point estimates. Seeing a distribution could convince a GM to move on a certain player in a way that a single estimate might not.
+I'd like to better separate the data I used. While the model evaluation was done on out-of-sample data, the actual predictions were done using some data that trained the model. I'd prefer to use first-half/second-half data from, say, 2014-2016 to build the model, then apply that model to first-half stats in 2017. I was unable to find first-half plate discipline data on FanGraphs, however.
+
+Finally, I'd like to incorporate probability distributions and credible intervals instead of point estimates. Seeing a distribution could convince a GM to move on a certain player in a way that a single estimate might not. And talking about credible intervals and probabilities helps show non-technical stakeholders that you understand prediction is an inexact science.
