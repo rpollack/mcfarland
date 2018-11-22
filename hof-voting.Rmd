@@ -85,8 +85,6 @@ specifically DO NOT select the X4 column 'vote total'.
 
 leave all highly correlated predictors intact. i tried removing ones correlated beloy 0.9 and again at below 0.75. each time the models got worse.
 
-TODO: the 'position' mutation below doesn't account for designated hitters (Martinez).
-
 ```{r}
 data_clean <- 
   hof_voting_data %>%
@@ -145,6 +143,7 @@ data_clean <-
 
 
 # TODO: Figure out out to do vote share change while leaving in NA values. otherwise we will omit first-year-players. maybe change to 0? but this fucks up first-year players. if I can't figure out how to handle NA values, then omit entirely ...
+# it's possible that I can impute them or something for the algorithms that don't handle NA values. otherwise, like for the xgb algorithms, I can pass them to the algorithm.
 
 
 # separate out pitchers from the dataset
@@ -269,6 +268,8 @@ player_data <- read_html(url) %>%
 Transform and clean data, predict `r year_to_predict` voting share for position players
 
 ```{r}
+
+best_model <- "xgbLinear"
 
 hof_predictions <-
   player_data %>%
