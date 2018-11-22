@@ -69,6 +69,8 @@ specifically DO NOT select the X4 column 'vote total'.
 
 leave all highly correlated predictors intact. i tried removing ones correlated beloy 0.9 and again at below 0.75. each time the models got worse.
 
+TODO: the 'position' mutation below doesn't account for designated hitters (Martinez).
+
 ```{r}
 data_clean <- 
   hof_voting_data %>%
@@ -130,11 +132,7 @@ batter_hof <- data_clean %>%
   filter(position != 1) %>%
   select(-W, -L, -ERA, -ERA_plus, -WHIP, -G_pitch, -GS, -SV, -IP, -H_allowed, -HR_allowed, -BB_allowed, -SO)
 
-# identify highly correlated variables?
 # add data: previous three year's voting shares? postseason career numbers?
-# modif
-
-# the year we want to predict has a different table form. (it doesn't have vote total or vote share columns, obvs). will have to grab that one separately.
 
 # how to get Veterans Committee tables? maybe that is a separate analysis.
 
@@ -180,10 +178,9 @@ train_model(batter_hof_train, "svmRadial", control_parameters)
 train_model(batter_hof_train, "xgbTree", control_parameters)
 train_model(batter_hof_train, "xgbLinear", control_parameters)
 train_model(batter_hof_train, "knn", control_parameters)
+#train_model(batter_hof_train, "gbm", control_parameters)
+
 # neural networks always give me 'missing values in resampled performance measures ...'
-
-send_message("HOF voting models are finished training!")
-
 
 # TODO: I can do all this work inside of a function, instead of outside it. the output of the function should be the model's predictions, not the model itself. maybe also a df of what the model thinks is important, since I don't know what the winning one is yet. then I can just use map_df() to combine the predictions into a tibble.
 
@@ -204,12 +201,12 @@ ggplot(aes(vote_share, predicted_vote_share)) +
   geom_point() + geom_smooth(method ="lm") +
   fgt + facet_wrap(vars(model_type)) +
   expand_limits(x=0,y=0) +
-  geom_abline(linetype = "dashed")
+  geom_abline(linetype = "dashed") + ggtitle("Model Evaluation: Position Player Voting %")
 
 model_evaluation %>% 
   ggplot(aes(predicted_vote_share, residual)) + geom_point() +
   facet_wrap(vars(model_type)) + fgt +
-  geom_hline(yintercept = 0, linetype = "dashed") 
+  geom_hline(yintercept = 0, linetype = "dashed") + ggtitle("Model Evaluation: Position Player Voting %")
 
 r_squared <- model_evaluation %>%
   split(.$model_type) %>%
@@ -220,14 +217,102 @@ r_squared <- model_evaluation %>%
   select(model_type = names, r_squared = x)
 
 # display table of model evaluation statistics  
-model_evaluation %>%
+model_metrics <-
+  model_evaluation %>%
   group_by(model_type) %>%
   summarize(RMSE = RMSE(predicted_vote_share, vote_share)) %>%
   inner_join(r_squared, by="model_type") %>%
-  select(`Model Type` = model_type, `R^2` = r_squared, RMSE)
+  ungroup() %>%
+  mutate(zr_squared = (r_squared - mean(r_squared)) / sd(r_squared),
+         zRMSE = (RMSE - mean(RMSE)) / sd(RMSE)) %>%
+  select(`Model Type` = model_type, `R^2` = r_squared, RMSE, `zR^2` = zr_squared, zRMSE)
+
+model_metrics
+
+ggplot(model_metrics, aes(`zR^2`, zRMSE)) + geom_point() + fgt +
+  geom_vline(xintercept = 0, linetype = "dashed") + geom_hline(yintercept = 0, linetype ="dashed") +
+  xlim(-3, 3) + ylim(-3, 3)
+
 
 
 
 ```
 
+position players: after selecting the best model, use it to predict future results
+
+```{r}
+
+url <- str_c("https://www.baseball-reference.com/awards/hof_", year_to_predict, ".shtml")
+
+player_data <- read_html(url) %>%
+  html_nodes("table") %>%
+  .[[1]] %>%
+  html_table(header=FALSE) %>%
+  as_tibble()
+
+```
+
+Transform and clean data, predict `r year_to_predict` voting share for position players
+
+```{r}
+
+hof_predictions <-
+  player_data %>%
+  select(-X1, -X4, Name = X2, year_on_ballot = X3, bj_hof_monitor = X5, 
+         bj_hof_standards = X6, career_length = X7, career_rWAR = X8, best_war_years = X9,
+         jaws = X10, jpos = X11, G_bat = X12, AB = X13, R = X14, H = X15, HR = X16, RBI = X17,
+         SB = X18, BB = X19, BA = X20, OBP = X21, SLG = X22, OPS = X23, OPS_plus = X24,
+         W = X25, L = X26, ERA = X27, ERA_plus = X28, WHIP = X29, G_pitch = X30, GS = X31, SV = X32, IP = X33,
+         H_allowed = X34, HR_allowed = X35, BB_allowed = X36, SO = X37, position = X38) %>%
+  mutate(Name = str_replace(Name, "y ", ""),
+         Name = str_replace_all(Name, c("X-" = "",
+                                        "\\sHOF" = "")),
+         year_on_ballot = as.integer(str_extract(year_on_ballot, "[:digit:]{1,2}")),
+         bj_hof_monitor = as.integer(bj_hof_monitor),
+         bj_hof_standards = as.integer(bj_hof_standards),
+         career_length = as.integer(career_length),
+         career_rWAR = as.double(career_rWAR),
+         best_war_years = as.double(best_war_years),
+         jaws = as.double(jaws), jpos = as.double(jpos),
+         G_bat = as.integer(G_bat),
+         AB = as.integer(AB),
+         R = as.integer(R),
+         H = as.integer(H),
+         HR = as.integer(HR),
+         RBI = as.integer(RBI),
+         SB = as.integer(SB),
+         BB = as.integer(BB),
+         BA = as.double(BA),
+         OBP = as.double(OBP),
+         SLG = as.double(SLG),
+         OPS = as.double(OPS),
+         OPS_plus = as.integer(OPS_plus),
+         W = as.integer(W),
+         L = as.integer(L),
+         ERA = as.double(ERA), 
+         ERA_plus = as.integer(ERA_plus),
+         WHIP = as.double(WHIP),
+         G_pitch = as.integer(G_pitch),
+         GS = as.integer(GS),
+         SV = as.integer(SV),
+         IP = as.double(IP),
+         H_allowed = as.integer(H_allowed),
+         HR_allowed = as.integer(HR_allowed),
+         BB_allowed = as.integer(BB_allowed),
+         SO = as.integer(SO),
+         position = as.numeric(str_extract(position, "[:digit:]"))) %>%
+  filter(!is.na(year_on_ballot),
+         position != 1) %>%
+  select(-W, -L, -ERA, -ERA_plus, -WHIP, -G_pitch, -GS, -SV, -IP, -H_allowed, -HR_allowed, -BB_allowed, -SO) %>%
+  mutate(voting_year = year_to_predict)
+         
+predict(hof_voting_model_xgbLinear, newdata = hof_predictions) %>%
+  as_tibble() %>%
+  select(predicted_voting_percentage = value) %>%
+  bind_cols(hof_predictions) %>%
+  select(Name, predicted_voting_percentage, everything()) %>%
+  mutate(predicted_voting_percentage = round(predicted_voting_percentage, 1)) %>%
+  arrange(desc(predicted_voting_percentage))
+
+```
 
