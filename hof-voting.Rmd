@@ -53,7 +53,7 @@ read_html(url) %>%
   mutate(voting_year = year)
 }
 
-year_to_predict <- 2018
+year_to_predict <- 2019
 num_years_to_train_on <- 10
 first_training_year <- year_to_predict - num_years_to_train_on
 last_training_year <- year_to_predict - 1
@@ -175,8 +175,6 @@ batter_hof_train <-
   select(-Name) %>%
   filter(!row_number() %in% batter_test_df_rows)
 
-
-
 train_model(batter_hof_train, "glm", control_parameters)
 train_model(batter_hof_train, "svmRadial", control_parameters)
 train_model(batter_hof_train, "xgbTree", control_parameters)
@@ -187,7 +185,7 @@ train_model(batter_hof_train, "knn", control_parameters)
 send_message("HOF voting models are finished training!")
 
 
-# TODO: I can do all this work inside of a function, instead of outside it. the output of the function should be the model's predictions, not the model itself. then I can just use map_df() to combine the predictions into a tibble.
+# TODO: I can do all this work inside of a function, instead of outside it. the output of the function should be the model's predictions, not the model itself. maybe also a df of what the model thinks is important, since I don't know what the winning one is yet. then I can just use map_df() to combine the predictions into a tibble.
 
 model_evaluation <-
   batter_hof_test %>% 
@@ -227,6 +225,7 @@ model_evaluation %>%
   summarize(RMSE = RMSE(predicted_vote_share, vote_share)) %>%
   inner_join(r_squared, by="model_type") %>%
   select(`Model Type` = model_type, `R^2` = r_squared, RMSE)
+
 
 
 ```
