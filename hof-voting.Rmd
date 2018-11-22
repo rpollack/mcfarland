@@ -35,14 +35,23 @@ send_message <- function(msg){
 }
 
 
-```
-
-
-get data
-
-```{r}
+train_model <- function(train_df, algorithm){
+  # train a model to predict HOF voting share. create model variable inside global environment
+  mdl<- train(vote_share ~ .,
+              data = train_df,
+              method = algorithm,
+              trControl = trainControl(method = "cv",
+                                   number = 10,
+                                   allowParallel = TRUE),
+              metric = "RMSE",
+              trace = FALSE)
+  
+  model_name <- paste("hof_voting_model", algorithm, sep = "_")
+  assign(model_name, mdl, envir = globalenv())
+}
 
 get_voting_results <- function(year){
+  # get HOF voting results from bb-ref for a single year
 url <- str_c("https://www.baseball-reference.com/awards/hof_", year, ".shtml")
 
 read_html(url) %>%
@@ -53,8 +62,15 @@ read_html(url) %>%
   mutate(voting_year = year)
 }
 
+```
+
+
+get data
+
+```{r}
+
 year_to_predict <- 2019
-num_years_to_train_on <- 10
+num_years_to_train_on <- 15
 first_training_year <- year_to_predict - num_years_to_train_on
 last_training_year <- year_to_predict - 1
 
@@ -119,6 +135,17 @@ data_clean <-
          SO = as.integer(SO),
          position = as.numeric(str_extract(position, "[:digit:]"))) %>% # encode position as where they played the most often
   filter(!is.na(year_on_ballot))
+  # group_by(Name) %>%
+  # arrange(Name, year_on_ballot) %>%
+  # mutate(vote_share_change = vote_share - lag(vote_share)) %>%
+  # select(Name, year_on_ballot, vote_share, vote_share_change, everything()) %>%
+  # filter(!is.na(vote_share_change)) %>% 
+  # ungroup()
+
+
+
+# TODO: Figure out out to do vote share change while leaving in NA values. otherwise we will omit first-year-players. maybe change to 0? but this fucks up first-year players. if I can't figure out how to handle NA values, then omit entirely ...
+
 
 # separate out pitchers from the dataset
 pitcher_hof <- data_clean %>%
@@ -132,7 +159,10 @@ batter_hof <- data_clean %>%
   filter(position != 1) %>%
   select(-W, -L, -ERA, -ERA_plus, -WHIP, -G_pitch, -GS, -SV, -IP, -H_allowed, -HR_allowed, -BB_allowed, -SO)
 
-# add data: previous three year's voting shares? postseason career numbers?
+# add data: 
+# THE NEXT THING SHOULD BE: % change from previous year on ballot? can compute this easily.
+# how to deal with the fact that players appear multiple times in the dataset but their stats don't change?
+# postseason numbers??? batting titles? number of major awards (MVP, CY) won? milestones reached?
 
 # how to get Veterans Committee tables? maybe that is a separate analysis.
 
@@ -141,25 +171,6 @@ batter_hof <- data_clean %>%
 # train and predict batter voting totals
 
 ```{r}
-
-train_model <- function(train_df, algorithm, control_parameters){
-  mdl<- train(vote_share ~ .,
-              data = train_df,
-              method = algorithm,
-              trControl = control_parameters,
-              metric = "RMSE",
-              trace = FALSE)
-  
-  model_name <- paste("hof_voting_model", algorithm, sep = "_")
-  assign(model_name, mdl, envir = globalenv())
-}
-
-control_parameters <- trainControl(method = "cv",
-                                   number = 10,
-                                   allowParallel = TRUE)
-
-# algorithms <- c("nnet", "xgbTree", "svmRadial", "xgbLinear")
-
 # make training and test DF's
 batter_test_df_rows <- createDataPartition(batter_hof$vote_share, p = 0.25, list = FALSE)
 
@@ -173,14 +184,18 @@ batter_hof_train <-
   select(-Name) %>%
   filter(!row_number() %in% batter_test_df_rows)
 
-train_model(batter_hof_train, "glm", control_parameters)
-train_model(batter_hof_train, "svmRadial", control_parameters)
-train_model(batter_hof_train, "xgbTree", control_parameters)
-train_model(batter_hof_train, "xgbLinear", control_parameters)
-train_model(batter_hof_train, "knn", control_parameters)
-#train_model(batter_hof_train, "gbm", control_parameters)
 
-# neural networks always give me 'missing values in resampled performance measures ...'
+# algorithms <- c("nnet", "xgbTree", "svmRadial", "xgbLinear"). later on, use map() to do this
+
+# batter_hof_train %>% 
+#   map(train_model(train_df = .,
+#                   algorithm=c("glm", "svmRadial", "xgbTree", "xgbLinear", "knn")))
+
+train_model(batter_hof_train, "glm")
+train_model(batter_hof_train, "svmRadial")
+train_model(batter_hof_train, "xgbTree")
+train_model(batter_hof_train, "xgbLinear")
+train_model(batter_hof_train, "knn")
 
 # TODO: I can do all this work inside of a function, instead of outside it. the output of the function should be the model's predictions, not the model itself. maybe also a df of what the model thinks is important, since I don't know what the winning one is yet. then I can just use map_df() to combine the predictions into a tibble.
 
@@ -232,7 +247,7 @@ model_metrics
 ggplot(model_metrics, aes(`zR^2`, zRMSE)) + geom_point() + fgt +
   geom_vline(xintercept = 0, linetype = "dashed") + geom_hline(yintercept = 0, linetype ="dashed") +
   xlim(-3, 3) + ylim(-3, 3) + 
-  geom_label(aes(label=str_c(str_replace(`Model Type`, "predict_", ""), ": R^2 = ", round(`R^2`, 1), ", RMSE = ", round(RMSE, 1)))) +
+  geom_label(aes(label=str_c(str_replace(`Model Type`, "predict_", ""), ": R^2 = ", round(`R^2`, 2), ", RMSE = ", round(RMSE, 1)))) +
   ggtitle("Evaluation Metrics of Models")
 
 ```
