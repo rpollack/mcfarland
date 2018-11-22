@@ -231,10 +231,9 @@ model_metrics
 
 ggplot(model_metrics, aes(`zR^2`, zRMSE)) + geom_point() + fgt +
   geom_vline(xintercept = 0, linetype = "dashed") + geom_hline(yintercept = 0, linetype ="dashed") +
-  xlim(-3, 3) + ylim(-3, 3)
-
-
-
+  xlim(-3, 3) + ylim(-3, 3) + 
+  geom_label(aes(label=str_c(str_replace(`Model Type`, "predict_", ""), ": R^2 = ", round(`R^2`, 1), ", RMSE = ", round(RMSE, 1)))) +
+  ggtitle("Evaluation Metrics of Models")
 
 ```
 
