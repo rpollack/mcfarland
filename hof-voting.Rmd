@@ -1,0 +1,234 @@
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(RMySQL)
+library(caret)
+library(rvest)
+library(twilio)
+library(janitor)
+
+fgt = theme(
+  panel.background = element_rect(color = "lightgrey", fill = "white"),
+  axis.title = element_text(family = "Lato"),
+  axis.text = element_text(family = "Lato"),
+  legend.title = element_text(family = "Lato"),
+  legend.text = element_text(family = "Lato"),
+  legend.background = element_rect(fill = "white"),
+  legend.key = element_rect(fill = "white"),
+  plot.title = element_text(family = "Lato"),
+  panel.grid.major = element_line(size = .1, color = "lightgrey"),
+  panel.grid.minor = element_line(size = 0),
+  #strip.background = element_rect(fill = "#50ae26"),
+  strip.text = element_text(family="Lato")
+  )
+
+fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"), 
+                            host = Sys.getenv("FG_HOST"), 
+                            user = Sys.getenv("FG_USER"),
+                            password = Sys.getenv("FG_PW"))
+
+TWILIO_SID <- Sys.getenv("TWILIO_SID")
+TWILIO_TOKEN <- Sys.getenv("TWILIO_TOKEN")
+twilio_number <- Sys.getenv("twilio_number")
+
+send_message <- function(msg){
+  tw_send_message(from = twilio_number, to = "5123505107", body = msg)
+}
+
+
+```
+
+
+get data
+
+```{r}
+
+get_voting_results <- function(year){
+url <- str_c("https://www.baseball-reference.com/awards/hof_", year, ".shtml")
+
+read_html(url) %>%
+  html_nodes("table") %>%
+    .[[1]] %>%
+    html_table(header=FALSE) %>%
+  as_tibble() %>%
+  mutate(voting_year = year)
+}
+
+year_to_predict <- 2018
+num_years_to_train_on <- 10
+first_training_year <- year_to_predict - num_years_to_train_on
+last_training_year <- year_to_predict - 1
+
+hof_voting_data <- seq(first_training_year, last_training_year) %>%
+  map_df(get_voting_results)
+
+```
+
+transform and clean data
+
+specifically DO NOT select the X4 column 'vote total'.
+
+leave all highly correlated predictors intact. i tried removing ones correlated beloy 0.9 and again at below 0.75. each time the models got worse.
+
+```{r}
+data_clean <- 
+  hof_voting_data %>%
+  select(-X1, -X4, voting_year, Name = X2, year_on_ballot = X3, vote_share = X5, bj_hof_monitor = X6, 
+         bj_hof_standards = X7, career_length = X8, career_rWAR = X9, best_war_years = X10,
+         jaws = X11, jpos = X12, G_bat = X13, AB = X14, R = X15, H = X16, HR = X17, RBI = X18,
+         SB = X19, BB = X20, BA = X21, OBP = X22, SLG = X23, OPS = X24, OPS_plus = X25,
+         W = X26, L = X27, ERA = X28, ERA_plus = X29, WHIP = X30, G_pitch = X31, GS = X32, SV = X33, IP = X34,
+         H_allowed = X35, HR_allowed = X36, BB_allowed = X37, SO = X38, position = X39) %>%
+  mutate(Name = str_replace(Name, "y ", ""),
+         Name = str_replace_all(Name, c("X-" = "",
+                                        "\\sHOF" = "")),
+         year_on_ballot = as.integer(str_extract(year_on_ballot, "[:digit:]{1,2}")),
+         vote_share = as.double(str_extract(vote_share, "[:digit:]{1,3}.[:digit:]")),
+         bj_hof_monitor = as.integer(bj_hof_monitor),
+         bj_hof_standards = as.integer(bj_hof_standards),
+         career_length = as.integer(career_length),
+         career_rWAR = as.double(career_rWAR),
+         best_war_years = as.double(best_war_years),
+         jaws = as.double(jaws), jpos = as.double(jpos),
+         G_bat = as.integer(G_bat),
+         AB = as.integer(AB),
+         R = as.integer(R),
+         H = as.integer(H),
+         HR = as.integer(HR),
+         RBI = as.integer(RBI),
+         SB = as.integer(SB),
+         BB = as.integer(BB),
+         BA = as.double(BA),
+         OBP = as.double(OBP),
+         SLG = as.double(SLG),
+         OPS = as.double(OPS),
+         OPS_plus = as.integer(OPS_plus),
+         W = as.integer(W),
+         L = as.integer(L),
+         ERA = as.double(ERA), 
+         ERA_plus = as.integer(ERA_plus),
+         WHIP = as.double(WHIP),
+         G_pitch = as.integer(G_pitch),
+         GS = as.integer(GS),
+         SV = as.integer(SV),
+         IP = as.double(IP),
+         H_allowed = as.integer(H_allowed),
+         HR_allowed = as.integer(HR_allowed),
+         BB_allowed = as.integer(BB_allowed),
+         SO = as.integer(SO),
+         position = as.numeric(str_extract(position, "[:digit:]"))) %>% # encode position as where they played the most often
+  filter(!is.na(year_on_ballot))
+
+# separate out pitchers from the dataset
+pitcher_hof <- data_clean %>%
+  filter(position == 1) %>%
+  mutate(is_reliever = if_else(GS / G_pitch <= 0.5, 1, 0)) %>%
+  select(-position) %>%
+  remove_empty("cols")
+
+#separate out batters & remove their pitching stats
+batter_hof <- data_clean %>%
+  filter(position != 1) %>%
+  select(-W, -L, -ERA, -ERA_plus, -WHIP, -G_pitch, -GS, -SV, -IP, -H_allowed, -HR_allowed, -BB_allowed, -SO)
+
+# identify highly correlated variables?
+# add data: previous three year's voting shares? postseason career numbers?
+# modif
+
+# the year we want to predict has a different table form. (it doesn't have vote total or vote share columns, obvs). will have to grab that one separately.
+
+# how to get Veterans Committee tables? maybe that is a separate analysis.
+
+```
+
+# train and predict batter voting totals
+
+```{r}
+
+train_model <- function(train_df, algorithm, control_parameters){
+  mdl<- train(vote_share ~ .,
+              data = train_df,
+              method = algorithm,
+              trControl = control_parameters,
+              metric = "RMSE",
+              trace = FALSE)
+  
+  model_name <- paste("hof_voting_model", algorithm, sep = "_")
+  assign(model_name, mdl, envir = globalenv())
+}
+
+control_parameters <- trainControl(method = "cv",
+                                   number = 10,
+                                   allowParallel = TRUE)
+
+# algorithms <- c("nnet", "xgbTree", "svmRadial", "xgbLinear")
+
+# make training and test DF's
+batter_test_df_rows <- createDataPartition(batter_hof$vote_share, p = 0.25, list = FALSE)
+
+batter_hof_test <- 
+  batter_hof %>%
+  select(-Name) %>%
+  filter(row_number() %in% batter_test_df_rows)
+
+batter_hof_train <- 
+  batter_hof %>%
+  select(-Name) %>%
+  filter(!row_number() %in% batter_test_df_rows)
+
+
+
+train_model(batter_hof_train, "glm", control_parameters)
+train_model(batter_hof_train, "svmRadial", control_parameters)
+train_model(batter_hof_train, "xgbTree", control_parameters)
+train_model(batter_hof_train, "xgbLinear", control_parameters)
+train_model(batter_hof_train, "knn", control_parameters)
+# neural networks always give me 'missing values in resampled performance measures ...'
+
+send_message("HOF voting models are finished training!")
+
+
+# TODO: I can do all this work inside of a function, instead of outside it. the output of the function should be the model's predictions, not the model itself. then I can just use map_df() to combine the predictions into a tibble.
+
+model_evaluation <-
+  batter_hof_test %>% 
+  mutate(predict_xgbtree = as.numeric(predict(hof_voting_model_xgbTree, newdata =.)),
+         predict_glm = as.numeric(predict(hof_voting_model_glm, newdata =.)),
+         predict_svm = as.numeric(predict(hof_voting_model_svmRadial, newdata = .)),
+         predict_xgblinear = as.numeric(predict(hof_voting_model_xgbLinear, newdata=.)),
+         predict_knn = as.numeric(predict(hof_voting_model_knn, newdata=.))) %>%
+  select(vote_share, contains("predict_")) %>%
+  gather(model_type, predicted_vote_share, contains("predict_")) %>%
+  select(vote_share, model_type, predicted_vote_share) %>%
+  mutate(residual = vote_share - predicted_vote_share)
+
+model_evaluation %>%
+ggplot(aes(vote_share, predicted_vote_share)) +
+  geom_point() + geom_smooth(method ="lm") +
+  fgt + facet_wrap(vars(model_type)) +
+  expand_limits(x=0,y=0) +
+  geom_abline(linetype = "dashed")
+
+model_evaluation %>% 
+  ggplot(aes(predicted_vote_share, residual)) + geom_point() +
+  facet_wrap(vars(model_type)) + fgt +
+  geom_hline(yintercept = 0, linetype = "dashed") 
+
+r_squared <- model_evaluation %>%
+  split(.$model_type) %>%
+  map(~lm(vote_share ~ predicted_vote_share, data = .)) %>%
+  map(summary) %>%
+  map_dbl("r.squared") %>%
+  tidy() %>% 
+  select(model_type = names, r_squared = x)
+
+# display table of model evaluation statistics  
+model_evaluation %>%
+  group_by(model_type) %>%
+  summarize(RMSE = RMSE(predicted_vote_share, vote_share)) %>%
+  inner_join(r_squared, by="model_type") %>%
+  select(`Model Type` = model_type, `R^2` = r_squared, RMSE)
+
+
+```
+
+
