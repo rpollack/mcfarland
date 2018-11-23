@@ -329,6 +329,8 @@ predict(hof_voting_model_xgbLinear, newdata = hof_predictions) %>%
 
 # now do it for pitchers!!
 
+removing highly correlated data helped here. 
+
 ```{r}
 
 pitcher_hof <- data_clean %>%
@@ -336,7 +338,7 @@ pitcher_hof <- data_clean %>%
   mutate(is_reliever = if_else(GS / G_pitch <= 0.5, 1, 0)) %>%
   select(-position) %>%
   remove_empty("cols") %>%
-  select(W, L, ERA, ERA_plus, WHIP, G_pitch, GS, SV, IP, H_allowed, HR_allowed, BB_allowed, SO, is_reliever, vote_share)
+  select(ERA, WHIP, G_pitch, SV, BB_allowed, vote_share)
 
 pitcher_test_df_rows <- createDataPartition(pitcher_hof$vote_share, p = 0.25, list = FALSE)
 
