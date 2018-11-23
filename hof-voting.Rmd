@@ -2,6 +2,7 @@
 library(tidyverse)
 library(RMySQL)
 library(caret)
+library(broom)
 library(rvest)
 library(twilio)
 library(janitor)
@@ -131,6 +132,8 @@ data_clean <-
          HR_allowed = as.integer(HR_allowed),
          BB_allowed = as.integer(BB_allowed),
          SO = as.integer(SO),
+         # position = str_replace(position, "D", "10"),
+         # position = str_extract(position, "(10)|[0-9]")) %>%
          position = as.numeric(str_extract(position, "[:digit:]"))) %>% # encode position as where they played the most often
   filter(!is.na(year_on_ballot))
   # group_by(Name) %>%
@@ -147,16 +150,16 @@ data_clean <-
 
 
 # separate out pitchers from the dataset
-pitcher_hof <- data_clean %>%
-  filter(position == 1) %>%
-  mutate(is_reliever = if_else(GS / G_pitch <= 0.5, 1, 0)) %>%
-  select(-position) %>%
-  remove_empty("cols")
+# pitcher_hof <- data_clean %>%
+#   filter(position == 1) %>%
+#   mutate(is_reliever = if_else(GS / G_pitch <= 0.5, 1, 0)) %>%
+#   select(-position) %>%
+#   remove_empty("cols")
 
 #separate out batters & remove their pitching stats
 batter_hof <- data_clean %>%
   filter(position != 1) %>%
-  select(-W, -L, -ERA, -ERA_plus, -WHIP, -G_pitch, -GS, -SV, -IP, -H_allowed, -HR_allowed, -BB_allowed, -SO)
+  select(-W, -L, -ERA, -ERA_plus, -WHIP, -G_pitch, -GS, -SV, -IP, -H_allowed, -HR_allowed, -BB_allowed, -SO, -position)
 
 # add data: 
 # THE NEXT THING SHOULD BE: % change from previous year on ballot? can compute this easily.
@@ -164,6 +167,7 @@ batter_hof <- data_clean %>%
 # postseason numbers??? batting titles? number of major awards (MVP, CY) won? milestones reached?
 
 # how to get Veterans Committee tables? maybe that is a separate analysis.
+
 
 ```
 
@@ -269,8 +273,6 @@ Transform and clean data, predict `r year_to_predict` voting share for position 
 
 ```{r}
 
-best_model <- "xgbLinear"
-
 hof_predictions <-
   player_data %>%
   select(-X1, -X4, Name = X2, year_on_ballot = X3, bj_hof_monitor = X5, 
@@ -315,10 +317,11 @@ hof_predictions <-
          HR_allowed = as.integer(HR_allowed),
          BB_allowed = as.integer(BB_allowed),
          SO = as.integer(SO),
-         position = as.numeric(str_extract(position, "[:digit:]"))) %>%
+         position = as.numeric(str_extract(position, "[:digit:]"))) %>% # encode position as where they played the most often
   filter(!is.na(year_on_ballot),
-         position != 1) %>%
-  select(-W, -L, -ERA, -ERA_plus, -WHIP, -G_pitch, -GS, -SV, -IP, -H_allowed, -HR_allowed, -BB_allowed, -SO) %>%
+         position != "1") %>%
+  select(-W, -L, -ERA, -ERA_plus, -WHIP, -G_pitch, -GS, -SV, -IP, -H_allowed, 
+         -HR_allowed, -BB_allowed, -SO, -position) %>%
   mutate(voting_year = year_to_predict)
          
 predict(hof_voting_model_xgbLinear, newdata = hof_predictions) %>%
