@@ -132,8 +132,6 @@ data_clean <-
          HR_allowed = as.integer(HR_allowed),
          BB_allowed = as.integer(BB_allowed),
          SO = as.integer(SO),
-         # position = str_replace(position, "D", "10"),
-         # position = str_extract(position, "(10)|[0-9]")) %>%
          position = as.numeric(str_extract(position, "[:digit:]"))) %>% # encode position as where they played the most often
   filter(!is.na(year_on_ballot))
   # group_by(Name) %>%
@@ -143,23 +141,13 @@ data_clean <-
   # filter(!is.na(vote_share_change)) %>% 
   # ungroup()
 
-
-
 # TODO: Figure out out to do vote share change while leaving in NA values. otherwise we will omit first-year-players. maybe change to 0? but this fucks up first-year players. if I can't figure out how to handle NA values, then omit entirely ...
 # it's possible that I can impute them or something for the algorithms that don't handle NA values. otherwise, like for the xgb algorithms, I can pass them to the algorithm.
 
-
 # separate out pitchers from the dataset
-# pitcher_hof <- data_clean %>%
-#   filter(position == 1) %>%
-#   mutate(is_reliever = if_else(GS / G_pitch <= 0.5, 1, 0)) %>%
-#   select(-position) %>%
-#   remove_empty("cols")
 
 #separate out batters & remove their pitching stats
-batter_hof <- data_clean %>%
-  filter(position != 1) %>%
-  select(-W, -L, -ERA, -ERA_plus, -WHIP, -G_pitch, -GS, -SV, -IP, -H_allowed, -HR_allowed, -BB_allowed, -SO, -position)
+
 
 # add data: 
 # THE NEXT THING SHOULD BE: % change from previous year on ballot? can compute this easily.
@@ -174,6 +162,11 @@ batter_hof <- data_clean %>%
 # train and predict batter voting totals
 
 ```{r}
+
+batter_hof <- data_clean %>%
+  filter(position != 1) %>%
+  select(-W, -L, -ERA, -ERA_plus, -WHIP, -G_pitch, -GS, -SV, -IP, -H_allowed, -HR_allowed, -BB_allowed, -SO, -position)
+
 # make training and test DF's
 batter_test_df_rows <- createDataPartition(batter_hof$vote_share, p = 0.25, list = FALSE)
 
@@ -186,7 +179,6 @@ batter_hof_train <-
   batter_hof %>%
   select(-Name) %>%
   filter(!row_number() %in% batter_test_df_rows)
-
 
 # algorithms <- c("nnet", "xgbTree", "svmRadial", "xgbLinear"). later on, use map() to do this
 
@@ -202,7 +194,7 @@ train_model(batter_hof_train, "knn")
 
 # TODO: I can do all this work inside of a function, instead of outside it. the output of the function should be the model's predictions, not the model itself. maybe also a df of what the model thinks is important, since I don't know what the winning one is yet. then I can just use map_df() to combine the predictions into a tibble.
 
-model_evaluation <-
+batter_model_evaluation <-
   batter_hof_test %>% 
   mutate(predict_xgbtree = as.numeric(predict(hof_voting_model_xgbTree, newdata =.)),
          predict_glm = as.numeric(predict(hof_voting_model_glm, newdata =.)),
@@ -214,19 +206,20 @@ model_evaluation <-
   select(vote_share, model_type, predicted_vote_share) %>%
   mutate(residual = vote_share - predicted_vote_share)
 
-model_evaluation %>%
+batter_model_evaluation %>%
 ggplot(aes(vote_share, predicted_vote_share)) +
   geom_point() + geom_smooth(method ="lm") +
   fgt + facet_wrap(vars(model_type)) +
   expand_limits(x=0,y=0) +
   geom_abline(linetype = "dashed") + ggtitle("Model Evaluation: Position Player Voting %")
 
-model_evaluation %>% 
+batter_model_evaluation %>% 
   ggplot(aes(predicted_vote_share, residual)) + geom_point() +
   facet_wrap(vars(model_type)) + fgt +
   geom_hline(yintercept = 0, linetype = "dashed") + ggtitle("Model Evaluation: Position Player Voting %")
 
-r_squared <- model_evaluation %>%
+batter_r_squared <- 
+  batter_model_evaluation %>%
   split(.$model_type) %>%
   map(~lm(vote_share ~ predicted_vote_share, data = .)) %>%
   map(summary) %>%
@@ -235,19 +228,19 @@ r_squared <- model_evaluation %>%
   select(model_type = names, r_squared = x)
 
 # display table of model evaluation statistics  
-model_metrics <-
-  model_evaluation %>%
+batter_model_metrics <-
+  batter_model_evaluation %>%
   group_by(model_type) %>%
   summarize(RMSE = RMSE(predicted_vote_share, vote_share)) %>%
-  inner_join(r_squared, by="model_type") %>%
+  inner_join(batter_r_squared, by="model_type") %>%
   ungroup() %>%
   mutate(zr_squared = (r_squared - mean(r_squared)) / sd(r_squared),
          zRMSE = (RMSE - mean(RMSE)) / sd(RMSE)) %>%
   select(`Model Type` = model_type, `R^2` = r_squared, RMSE, `zR^2` = zr_squared, zRMSE)
 
-model_metrics
+batter_model_metrics
 
-ggplot(model_metrics, aes(`zR^2`, zRMSE)) + geom_point() + fgt +
+ggplot(batter_model_metrics, aes(`zR^2`, zRMSE)) + geom_point() + fgt +
   geom_vline(xintercept = 0, linetype = "dashed") + geom_hline(yintercept = 0, linetype ="dashed") +
   xlim(-3, 3) + ylim(-3, 3) + 
   geom_label(aes(label=str_c(str_replace(`Model Type`, "predict_", ""), ": R^2 = ", round(`R^2`, 2), ", RMSE = ", round(RMSE, 1)))) +
@@ -333,4 +326,94 @@ predict(hof_voting_model_xgbLinear, newdata = hof_predictions) %>%
   arrange(desc(predicted_voting_percentage))
 
 ```
+
+# now do it for pitchers!!
+
+```{r}
+
+pitcher_hof <- data_clean %>%
+  filter(position == 1) %>%
+  mutate(is_reliever = if_else(GS / G_pitch <= 0.5, 1, 0)) %>%
+  select(-position) %>%
+  remove_empty("cols") %>%
+  select(W, L, ERA, ERA_plus, WHIP, G_pitch, GS, SV, IP, H_allowed, HR_allowed, BB_allowed, SO, is_reliever, vote_share)
+
+pitcher_test_df_rows <- createDataPartition(pitcher_hof$vote_share, p = 0.25, list = FALSE)
+
+pitcher_hof_test <- 
+  pitcher_hof %>%
+  filter(row_number() %in% batter_test_df_rows)
+
+pitcher_hof_train <- 
+  pitcher_hof %>%
+  filter(!row_number() %in% batter_test_df_rows)
+
+# algorithms <- c("nnet", "xgbTree", "svmRadial", "xgbLinear"). later on, use map() to do this
+
+# batter_hof_train %>% 
+#   map(train_model(train_df = .,
+#                   algorithm=c("glm", "svmRadial", "xgbTree", "xgbLinear", "knn")))
+
+train_model(pitcher_hof_train, "glm")
+train_model(pitcher_hof_train, "svmRadial")
+train_model(pitcher_hof_train, "xgbTree")
+train_model(pitcher_hof_train, "xgbLinear")
+train_model(pitcher_hof_train, "knn")
+
+# TODO: I can do all this work inside of a function, instead of outside it. the output of the function should be the model's predictions, not the model itself. maybe also a df of what the model thinks is important, since I don't know what the winning one is yet. then I can just use map_df() to combine the predictions into a tibble.
+
+pitcher_model_evaluation <-
+  pitcher_hof_test %>% 
+  mutate(predict_xgbtree = as.numeric(predict(hof_voting_model_xgbTree, newdata =.)),
+         predict_glm = as.numeric(predict(hof_voting_model_glm, newdata =.)),
+         predict_svm = as.numeric(predict(hof_voting_model_svmRadial, newdata = .)),
+         predict_xgblinear = as.numeric(predict(hof_voting_model_xgbLinear, newdata=.)),
+         predict_knn = as.numeric(predict(hof_voting_model_knn, newdata=.))) %>%
+  select(vote_share, contains("predict_")) %>%
+  gather(model_type, predicted_vote_share, contains("predict_")) %>%
+  select(vote_share, model_type, predicted_vote_share) %>%
+  mutate(residual = vote_share - predicted_vote_share)
+
+pitcher_model_evaluation %>%
+ggplot(aes(vote_share, predicted_vote_share)) +
+  geom_point() + geom_smooth(method ="lm") +
+  fgt + facet_wrap(vars(model_type)) +
+  expand_limits(x=0,y=0) +
+  geom_abline(linetype = "dashed") + ggtitle("Model Evaluation: Position Player Voting %")
+
+pitcher_model_evaluation %>% 
+  ggplot(aes(predicted_vote_share, residual)) + geom_point() +
+  facet_wrap(vars(model_type)) + fgt +
+  geom_hline(yintercept = 0, linetype = "dashed") + ggtitle("Model Evaluation: Position Player Voting %")
+
+pitcher_r_squared <- 
+  pitcher_model_evaluation %>%
+  split(.$model_type) %>%
+  map(~lm(vote_share ~ predicted_vote_share, data = .)) %>%
+  map(summary) %>%
+  map_dbl("r.squared") %>%
+  tidy() %>% 
+  select(model_type = names, r_squared = x)
+
+# display table of model evaluation statistics  
+pitcher_model_metrics <-
+  pitcher_model_evaluation %>%
+  group_by(model_type) %>%
+  summarize(RMSE = RMSE(predicted_vote_share, vote_share)) %>%
+  inner_join(pitcher_r_squared, by="model_type") %>%
+  ungroup() %>%
+  mutate(zr_squared = (r_squared - mean(r_squared)) / sd(r_squared),
+         zRMSE = (RMSE - mean(RMSE)) / sd(RMSE)) %>%
+  select(`Model Type` = model_type, `R^2` = r_squared, RMSE, `zR^2` = zr_squared, zRMSE)
+
+pitcher_model_metrics
+
+ggplot(pitcher_model_metrics, aes(`zR^2`, zRMSE)) + geom_point() + fgt +
+  geom_vline(xintercept = 0, linetype = "dashed") + geom_hline(yintercept = 0, linetype ="dashed") +
+  xlim(-3, 3) + ylim(-3, 3) + 
+  geom_label(aes(label=str_c(str_replace(`Model Type`, "predict_", ""), ": R^2 = ", round(`R^2`, 2), ", RMSE = ", round(RMSE, 1)))) +
+  ggtitle("Evaluation Metrics of Models")
+
+```
+
 
