@@ -59,8 +59,7 @@ read_html(url) %>%
   html_nodes("table") %>%
     .[[1]] %>%
     html_table(header=FALSE) %>%
-  as_tibble() %>%
-  mutate(voting_year = year)
+  as_tibble()
 }
 
 ```
@@ -71,7 +70,7 @@ get data
 ```{r}
 
 year_to_predict <- 2019
-num_years_to_train_on <- 30
+num_years_to_train_on <- 15
 first_training_year <- year_to_predict - num_years_to_train_on
 last_training_year <- year_to_predict - 1
 
@@ -89,7 +88,7 @@ leave all highly correlated predictors intact. i tried removing ones correlated 
 ```{r}
 data_clean <- 
   hof_voting_data %>%
-  select(-X1, -X4, voting_year, Name = X2, year_on_ballot = X3, vote_share = X5, bj_hof_monitor = X6, 
+  select(-X1, -X4, Name = X2, year_on_ballot = X3, vote_share = X5, bj_hof_monitor = X6, 
          bj_hof_standards = X7, career_length = X8, career_rWAR = X9, best_war_years = X10,
          jaws = X11, jpos = X12, G_bat = X13, AB = X14, R = X15, H = X16, HR = X17, RBI = X18,
          SB = X19, BB = X20, BA = X21, OBP = X22, SLG = X23, OPS = X24, OPS_plus = X25,
@@ -317,9 +316,8 @@ batter_predictions <-
   hof_predictions %>%
   filter(position != "1") %>%
   select(-W, -L, -ERA, -ERA_plus, -WHIP, -G_pitch, -GS, -SV, -IP, -H_allowed, 
-         -HR_allowed, -BB_allowed, -SO, -position) %>%
-  mutate(voting_year = year_to_predict)
-         
+         -HR_allowed, -BB_allowed, -SO, -position)
+
 predict(hof_voting_model_xgbLinear, newdata = batter_predictions) %>%
   as_tibble() %>%
   select(predicted_voting_percentage = value) %>%
