@@ -54,13 +54,20 @@ train_model <- function(train_df, algorithm){
 
 get_voting_results <- function(year){
   # get HOF voting results from bb-ref for a single year
-url <- str_c("https://www.baseball-reference.com/awards/hof_", year, ".shtml")
-
-read_html(url) %>%
-  html_nodes("table") %>%
+  url <- str_c("https://www.baseball-reference.com/awards/hof_", year, ".shtml")
+  
+  read_html(url) %>%
+    html_nodes("table") %>%
     .[[1]] %>%
     html_table(header=FALSE) %>%
-  as_tibble()
+    as_tibble()
+}
+
+get_ped_scandal <- function(name){
+  if_else(name %in% c("Barry Bonds", "Roger Clemens", "Alex Rodriguez", 
+                      "Gary Sheffield", "Rafael Palmeiro",
+                      "Sammy Sosa", "Mark McGwire", "Andy Pettite", "David Ortiz",
+                      "Manny Ramirez"), 1, 0)
 }
 
 ```
@@ -100,7 +107,6 @@ data_clean <-
                                         "\\sHOF" = "")),
          year_on_ballot = as.integer(str_extract(year_on_ballot, "[:digit:]{1,2}")),
          vote_share = as.double(str_extract(vote_share, "[:digit:]{1,3}.[:digit:]")),
-         log_vote_share = log(vote_share),
          bj_hof_monitor = as.integer(bj_hof_monitor),
          bj_hof_standards = as.integer(bj_hof_standards),
          career_length = as.integer(career_length),
@@ -133,20 +139,21 @@ data_clean <-
          HR_allowed = as.integer(HR_allowed),
          BB_allowed = as.integer(BB_allowed),
          SO = as.integer(SO),
-         position = as.numeric(str_extract(position, "[:digit:]"))) %>% # encode position as where they played the most often
-  filter(!is.na(year_on_ballot))
-  # group_by(Name) %>%
-  # arrange(Name, year_on_ballot) %>%
-  # mutate(vote_share_change = vote_share - lag(vote_share)) %>%
-  # select(Name, year_on_ballot, vote_share, vote_share_change, everything()) %>%
-  # filter(!is.na(vote_share_change)) %>% 
-  # ungroup()
+         position = as.numeric(str_extract(position, "[:digit:]")), # encode position as where they played the most often
+         ped_scandal = map_dbl(Name, get_ped_scandal)) %>% 
+  filter(!is.na(year_on_ballot)) %>%  # remove spurious rows caused by BB-Ref table formatting
+  group_by(Name) %>%
+  arrange(Name, year_on_ballot) %>%
+  mutate(vote_share_change = vote_share - lag(vote_share),
+         vote_share_change = replace_na(vote_share_change, 0)) %>%
+  select(Name, year_on_ballot, vote_share, vote_share_change, everything()) %>%
+  ungroup()
 
 # TODO: Figure out out to do vote share change while leaving in NA values. otherwise we will omit first-year-players. maybe change to 0? but this fucks up first-year players. if I can't figure out how to handle NA values, then omit entirely ...
 # it's possible that I can impute them or something for the algorithms that don't handle NA values. otherwise, like for the xgb algorithms, I can pass them to the algorithm.
 # i would also have to add the most recent vote-share change in the 2019 data. I can't compute vote share change from 2018 to 2019, because 2019 hasn't happened yet.
 
-# add data: 
+# add data: WAR rank on ballot? to account for the fact that ballots get crowded with good players?
 # THE NEXT THING SHOULD BE: % change from previous year on ballot? can compute this easily.
 # how to deal with the fact that players appear multiple times in the dataset but their stats don't change?
 # postseason numbers??? batting titles? number of major awards (MVP, CY) won? milestones reached?
@@ -160,11 +167,14 @@ data_clean <-
 
 ```{r}
 
+seed <- 1
+
 batter_hof <- data_clean %>%
   filter(position != 1) %>%
   select(-W, -L, -ERA, -ERA_plus, -WHIP, -G_pitch, -GS, -SV, -IP, -H_allowed, -HR_allowed, -BB_allowed, -SO, -position)
 
-# make training and test DF's
+# make training and test DF's. use seed to keep the splits the same between runs
+sed.seed(seed)
 batter_test_df_rows <- createDataPartition(batter_hof$vote_share, p = 0.25, list = FALSE)
 
 batter_hof_test <- 
@@ -177,20 +187,14 @@ batter_hof_train <-
   select(-Name) %>%
   filter(!row_number() %in% batter_test_df_rows)
 
-# algorithms <- c("nnet", "xgbTree", "svmRadial", "xgbLinear"). later on, use map() to do this
-
-# batter_hof_train %>% 
-#   map(train_model(train_df = .,
-#                   algorithm=c("glm", "svmRadial", "xgbTree", "xgbLinear", "knn")))
-
 train_model(batter_hof_train, "glm")
 train_model(batter_hof_train, "svmRadial")
 train_model(batter_hof_train, "xgbTree")
 train_model(batter_hof_train, "xgbLinear")
 train_model(batter_hof_train, "knn")
+train_model(batter_hof_train, "lasso")
 
-
-# TODO: I can do all this work inside of a function, instead of outside it. the output of the function should be the model's predictions, not the model itself. maybe also a df of what the model thinks is important, since I don't know what the winning one is yet. then I can just use map_df() to combine the predictions into a tibble.
+# TODO: modify train_model function to both train and predict, returning the predictions that I can combine using map_dfc.
 
 batter_model_evaluation <-
   batter_hof_test %>% 
@@ -198,7 +202,8 @@ batter_model_evaluation <-
          predict_glm = as.numeric(predict(hof_voting_model_glm, newdata =.)),
          predict_svm = as.numeric(predict(hof_voting_model_svmRadial, newdata = .)),
          predict_xgblinear = as.numeric(predict(hof_voting_model_xgbLinear, newdata=.)),
-         predict_knn = as.numeric(predict(hof_voting_model_knn, newdata=.))) %>%
+         predict_knn = as.numeric(predict(hof_voting_model_knn, newdata=.)),
+         predict_lasso = as.numeric(predict(hof_voting_model_lasso, newdata = .))) %>%
   select(vote_share, contains("predict_")) %>%
   gather(model_type, predicted_vote_share, contains("predict_")) %>%
   select(vote_share, model_type, predicted_vote_share) %>%
@@ -281,7 +286,8 @@ hof_predictions <-
          career_length = as.integer(career_length),
          career_rWAR = as.double(career_rWAR),
          best_war_years = as.double(best_war_years),
-         jaws = as.double(jaws), jpos = as.double(jpos),
+         jaws = as.double(jaws), 
+         jpos = as.double(jpos),
          G_bat = as.integer(G_bat),
          AB = as.integer(AB),
          R = as.integer(R),
@@ -295,21 +301,11 @@ hof_predictions <-
          SLG = as.double(SLG),
          OPS = as.double(OPS),
          OPS_plus = as.integer(OPS_plus),
-         W = as.integer(W),
-         L = as.integer(L),
-         ERA = as.double(ERA), 
-         ERA_plus = as.integer(ERA_plus),
-         WHIP = as.double(WHIP),
-         G_pitch = as.integer(G_pitch),
-         GS = as.integer(GS),
-         SV = as.integer(SV),
-         IP = as.double(IP),
-         H_allowed = as.integer(H_allowed),
-         HR_allowed = as.integer(HR_allowed),
-         BB_allowed = as.integer(BB_allowed),
-         SO = as.integer(SO),
-         position = as.numeric(str_extract(position, "[:digit:]"))) %>% # encode position as where they played the most often
-  filter(!is.na(year_on_ballot))
+         position = as.numeric(str_extract(position, "[:digit:]")),
+         ped_scandal = map_dbl(Name, get_ped_scandal)) %>%
+  filter(!is.na(year_on_ballot)) %>%
+  # how do we do vote_share_change here??? we don't know the voting share change. so maybe it will have to be 2018's value.
+  # i think i need to draw this out. maybe should just be 'most recent vote share change'. or something like 'vote share each year for the past 3 yrs to establish trend"
 
 batter_predictions <-
   hof_predictions %>%
@@ -328,8 +324,6 @@ predict(hof_voting_model_xgbLinear, newdata = batter_predictions) %>%
 ```
 
 # now do it for starting pitchers!!
-
-removing highly correlated data helped here. 
 
 ```{r}
 # get number of cy youngs won by each pitcher
@@ -350,7 +344,7 @@ pitcher_hof <- data_clean %>%
          dist_from_3000k = SO - 3000) %>%
   select(year_on_ballot, bj_hof_monitor, bj_hof_standards, career_rWAR, best_war_years, jaws,
          W, L, ERA, ERA_plus, WHIP, IP, SO, num_cy_youngs, k_bb_ratio, dist_from_300_w,
-         dist_from_3000k, vote_share)
+         dist_from_3000k, ped_scandal, vote_share)
 
 pitcher_test_df_rows <- createDataPartition(pitcher_hof$vote_share, p = 0.25, list = FALSE)
 
@@ -374,8 +368,6 @@ train_model(pitcher_hof_train, "xgbTree")
 train_model(pitcher_hof_train, "xgbLinear")
 train_model(pitcher_hof_train, "knn")
 train_model(pitcher_hof_train, "lasso")
-
-
 
 # TODO: I can do all this work inside of a function, instead of outside it. the output of the function should be the model's predictions, not the model itself. maybe also a df of what the model thinks is important, since I don't know what the winning one is yet. then I can just use map_df() to combine the predictions into a tibble.
 
@@ -445,11 +437,12 @@ pitcher_predictions <-
   mutate(num_cy_youngs = replace_na(num_cy_youngs, 0),
          dist_from_300_w = W - 300,
          dist_from_3000k = SO - 3000,
-         k_bb_ratio = SO / BB_allowed) %>%
+         k_bb_ratio = SO / BB_allowed,
+         ped_scandal = map_dbl(Name, get_ped_scandal)) %>%
   select(Name, year_on_ballot, bj_hof_monitor, bj_hof_standards, career_rWAR, best_war_years, jaws,
-         W, L, ERA, ERA_plus, WHIP, IP, SO, num_cy_youngs, k_bb_ratio, dist_from_300_w, dist_from_3000k)
+         W, L, ERA, ERA_plus, WHIP, IP, SO, num_cy_youngs, k_bb_ratio, dist_from_300_w, dist_from_3000k, ped_scandal)
          
-predict(hof_voting_model_xgbTree, newdata = pitcher_predictions) %>%
+predict(hof_voting_model_lasso, newdata = pitcher_predictions) %>%
   as_tibble() %>%
   select(predicted_voting_percentage = value) %>%
   bind_cols(pitcher_predictions) %>%
