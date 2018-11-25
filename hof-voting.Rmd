@@ -47,6 +47,8 @@ train_model <- function(train_df, algorithm){
                                        allowParallel = TRUE),
               metric = "RMSE",
               trace = FALSE)
+              # na.action = na.pass,
+            #  preProcess = c("center", "scale"))
   
   model_name <- paste("hof_voting_model", algorithm, sep = "_")
   assign(model_name, mdl, envir = globalenv())
@@ -60,7 +62,8 @@ get_voting_results <- function(year){
     html_nodes("table") %>%
     .[[1]] %>%
     html_table(header=FALSE) %>%
-    as_tibble()
+    as_tibble() %>%
+    mutate(vote_year = year)
 }
 
 get_ped_scandal <- function(name){
@@ -93,7 +96,17 @@ specifically DO NOT select the X4 column 'vote total'.
 
 leave all highly correlated predictors intact. i tried removing ones correlated below 0.9 and again at below 0.75. each time the models got worse.
 
-```{r}
+```{r message=FALSE, warning=FALSE}
+
+# TODO: Examine residual outliers & see if there is any trend I can identify
+# TODO: modify train_model function to both train and predict, returning the predictions that I can combine using map_dfc.
+# TODO: figure out better way to impute NA values for prev_three_year_vote_trends. leaving as 0 is not great.
+# TODO: see if adding the player's primary position back in has any effect.
+# TODO: ensure train and test splits are equally distributed in terms of vote_share & other data points
+# TODO: See if major awards (batting titles, MVP's) affect results
+
+# best tune: XGBlinear, R^S of 0.94, RMSE Of 7.1
+
 data_clean <- 
   hof_voting_data %>%
   select(-X1, -X4, Name = X2, year_on_ballot = X3, vote_share = X5, 
@@ -144,21 +157,25 @@ data_clean <-
   filter(!is.na(year_on_ballot)) %>%  # remove spurious rows caused by BB-Ref table formatting
   group_by(Name) %>%
   arrange(Name, year_on_ballot) %>%
-  mutate(vote_share_change = vote_share - lag(vote_share),
-         vote_share_change = replace_na(vote_share_change, 0)) %>%
-  select(Name, year_on_ballot, vote_share, vote_share_change, everything()) %>%
+  mutate(prev_three_year_vote_share_trend = round((lag(vote_share) - lag(vote_share, 3)) / 3, 1),
+         prev_three_year_vote_share_trend = replace_na(prev_three_year_vote_share_trend, 0)) %>%
+  select(Name, year_on_ballot, vote_share, prev_three_year_vote_share_trend, everything()) %>%
   ungroup()
 
-# TODO: Figure out out to do vote share change while leaving in NA values. otherwise we will omit first-year-players. maybe change to 0? but this fucks up first-year players. if I can't figure out how to handle NA values, then omit entirely ...
-# it's possible that I can impute them or something for the algorithms that don't handle NA values. otherwise, like for the xgb algorithms, I can pass them to the algorithm.
-# i would also have to add the most recent vote-share change in the 2019 data. I can't compute vote share change from 2018 to 2019, because 2019 hasn't happened yet.
 
-# add data: WAR rank on ballot? to account for the fact that ballots get crowded with good players?
-# THE NEXT THING SHOULD BE: % change from previous year on ballot? can compute this easily.
-# how to deal with the fact that players appear multiple times in the dataset but their stats don't change?
-# postseason numbers??? batting titles? number of major awards (MVP, CY) won? milestones reached?
+# impute_model <- preProcess(data_clean[,c('prev_three_year_vote_share_trend')], "knnImpute")
+# data_clean_imputed <- predict(impute_model, data_clean)
 
-# how to get Veterans Committee tables? maybe that is a separate analysis.
+# vote_share_trans <-  preProcess(data_clean[,3], method = "YeoJohnson")
+# pp_vote_share <- predict(vote_share_trans, data_clean[,3]) %>%
+#   select(vote_share_pp = vote_share) %>%
+#   bind_cols(data_clean) %>%
+#   select(-vote_share)
+# 
+# 
+# impute_model <- preProcess(data_clean[,c('prev_three_year_vote_share_trend')], "knnImpute")
+# data_clean_imputed <- predict(impute_model, data_clean[,c('prev_three_year_vote_share_trend')])
+
 
 
 ```
@@ -171,10 +188,11 @@ seed <- 1
 
 batter_hof <- data_clean %>%
   filter(position != 1) %>%
-  select(-W, -L, -ERA, -ERA_plus, -WHIP, -G_pitch, -GS, -SV, -IP, -H_allowed, -HR_allowed, -BB_allowed, -SO, -position)
+  select(-W, -L, -ERA, -ERA_plus, -WHIP, -G_pitch, -GS, -SV, -IP, -H_allowed, -HR_allowed, -BB_allowed, -SO, -position,
+         -career_length, -vote_year, -BB, -AB, -OBP, -SLG, -R, -OPS, -RBI, -HR, -OPS_plus)
 
 # make training and test DF's. use seed to keep the splits the same between runs
-sed.seed(seed)
+set.seed(seed)
 batter_test_df_rows <- createDataPartition(batter_hof$vote_share, p = 0.25, list = FALSE)
 
 batter_hof_test <- 
@@ -193,8 +211,7 @@ train_model(batter_hof_train, "xgbTree")
 train_model(batter_hof_train, "xgbLinear")
 train_model(batter_hof_train, "knn")
 train_model(batter_hof_train, "lasso")
-
-# TODO: modify train_model function to both train and predict, returning the predictions that I can combine using map_dfc.
+# train_model(batter_hof_train, "nnet")
 
 batter_model_evaluation <-
   batter_hof_test %>% 
@@ -267,7 +284,19 @@ player_data <- read_html(url) %>%
 
 Transform and clean data, predict `r year_to_predict` voting share for position players
 
-```{r}
+```{r message=FALSE, warning=FALSE}
+
+# compute three-year vote share trend in the three years running up to the year we want to predict
+# for example if we're predicting HOF voting in 2019, get vote shares from 2016 and 2018. use data points to compute slope of trend line
+voting_trends <-
+  data_clean %>%
+  filter(vote_year %in% c(year_to_predict - 3, year_to_predict - 1)) %>%
+  group_by(Name) %>%
+  arrange(Name, vote_year) %>%
+  mutate(prev_three_year_vote_share_trend = round((vote_share) - lag(vote_share) / 3, 1),
+         prev_three_year_vote_share_trend = replace_na(prev_three_year_vote_share_trend, 0)) %>%
+  filter(vote_year == max(vote_year)) %>%
+  select(Name, prev_three_year_vote_share_trend)
 
 hof_predictions <-
   player_data %>%
@@ -303,23 +332,24 @@ hof_predictions <-
          OPS_plus = as.integer(OPS_plus),
          position = as.numeric(str_extract(position, "[:digit:]")),
          ped_scandal = map_dbl(Name, get_ped_scandal)) %>%
-  filter(!is.na(year_on_ballot)) %>%
-  # how do we do vote_share_change here??? we don't know the voting share change. so maybe it will have to be 2018's value.
-  # i think i need to draw this out. maybe should just be 'most recent vote share change'. or something like 'vote share each year for the past 3 yrs to establish trend"
-
+  filter(!is.na(year_on_ballot))
+ 
 batter_predictions <-
   hof_predictions %>%
   filter(position != "1") %>%
   select(-W, -L, -ERA, -ERA_plus, -WHIP, -G_pitch, -GS, -SV, -IP, -H_allowed, 
-         -HR_allowed, -BB_allowed, -SO, -position)
+         -HR_allowed, -BB_allowed, -SO, -position, -career_length, -BB, -AB, -OBP, -SLG, -R, -OPS, -RBI, -OPS_plus) %>%
+  left_join(voting_trends, by="Name") %>%
+  mutate(prev_three_year_vote_share_trend = replace_na(prev_three_year_vote_share_trend, 0))
 
 predict(hof_voting_model_xgbLinear, newdata = batter_predictions) %>%
   as_tibble() %>%
-  select(predicted_voting_percentage = value) %>%
+  select(predicted_vote_share = value) %>%
   bind_cols(batter_predictions) %>%
-  select(Name, predicted_voting_percentage, everything()) %>%
-  mutate(predicted_voting_percentage = round(predicted_voting_percentage, 1)) %>%
-  arrange(desc(predicted_voting_percentage))
+  select(Name, predicted_vote_share, everything()) %>%
+  mutate(predicted_vote_share = round(predicted_vote_share, 1)) %>%
+  select(Name, year_on_ballot, predicted_vote_share, prev_three_year_vote_share_trend, everything()) %>%
+  arrange(desc(predicted_vote_share))
 
 ```
 
