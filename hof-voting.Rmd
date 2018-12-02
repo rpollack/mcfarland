@@ -45,9 +45,7 @@ train_model <- function(train_df, algorithm){
               trControl = trainControl(method = "cv",
                                        number = 10,
                                        allowParallel = TRUE),
-              metric = "RMSE",
-              trace = FALSE)
-              # na.action = na.pass,
+              metric = "MAE")
             #  preProcess = c("center", "scale"))
   
   model_name <- paste("hof_voting_model", algorithm, sep = "_")
@@ -98,14 +96,16 @@ leave all highly correlated predictors intact. i tried removing ones correlated 
 
 ```{r message=FALSE, warning=FALSE}
 
+# TODO: Perhaps train models independently, allowing the use of (say) early_stopping_rounds for xgb, and other parameters for other algorithms
 # TODO: Examine residual outliers & see if there is any trend I can identify
+# TODO: See if major awards (batting titles, MVP's) affect results
+# TODO: see if dist_from_3000_H and dist_from_500_HR affect results
 # TODO: modify train_model function to both train and predict, returning the predictions that I can combine using map_dfc.
 # TODO: figure out better way to impute NA values for prev_three_year_vote_trends. leaving as 0 is not great.
 # TODO: see if adding the player's primary position back in has any effect.
 # TODO: ensure train and test splits are equally distributed in terms of vote_share & other data points
-# TODO: See if major awards (batting titles, MVP's) affect results
 
-# best tune: XGBlinear, R^S of 0.94, RMSE Of 7.1
+# best tune: XGBlinear, R^S of 0.94, RMSE Of 7.1, MAE of 4
 
 data_clean <- 
   hof_voting_data %>%
@@ -157,11 +157,25 @@ data_clean <-
   filter(!is.na(year_on_ballot)) %>%  # remove spurious rows caused by BB-Ref table formatting
   group_by(Name) %>%
   arrange(Name, year_on_ballot) %>%
-  mutate(prev_three_year_vote_share_trend = round((lag(vote_share) - lag(vote_share, 3)) / 3, 1),
-         prev_three_year_vote_share_trend = replace_na(prev_three_year_vote_share_trend, 0)) %>%
-  select(Name, year_on_ballot, vote_share, prev_three_year_vote_share_trend, everything()) %>%
-  ungroup()
+  mutate(prev_three_year_vote_share_trend = round((lag(vote_share) - lag(vote_share, 3)) / 3, 1)) %>%
+         #prev_three_year_vote_share_trend = replace_na(prev_three_year_vote_share_trend, 0)) %>%
+  filter(position != 1) %>%
+  select(-position, Name, year_on_ballot, vote_share, prev_three_year_vote_share_trend, everything()) %>%
+  ungroup() %>%
+  select(-W, -L, -ERA, -ERA_plus, -WHIP, -G_pitch, -GS, -SV, -IP, -H_allowed, 
+         -HR_allowed, -BB_allowed, -SO, -position, -career_length, -BB, -AB, 
+         -OBP, -SLG, -R, -OPS, -RBI, -HR, -OPS_plus)
 
+# remove response variable & binary variable from cleaned data, preprocess remaining data & re-join
+# to removed columns
+data_pre <- data_clean %>%
+  select(-vote_share, -ped_scandal, -year_on_ballot, -vote_year)
+preprocess_params <- preProcess(data_pre, method = c("center", "scale", "knnImpute"))
+data_clean_processed <- predict(preprocess_params, data_pre) %>%
+  bind_cols(data_clean %>% select(vote_share), 
+            data_clean %>% select(ped_scandal),
+            data_clean %>% select(year_on_ballot),
+            data_clean %>% select(vote_year))
 
 # impute_model <- preProcess(data_clean[,c('prev_three_year_vote_share_trend')], "knnImpute")
 # data_clean_imputed <- predict(impute_model, data_clean)
@@ -186,14 +200,9 @@ data_clean <-
 
 seed <- 1
 
-batter_hof <- data_clean %>%
-  filter(position != 1) %>%
-  select(-W, -L, -ERA, -ERA_plus, -WHIP, -G_pitch, -GS, -SV, -IP, -H_allowed, -HR_allowed, -BB_allowed, -SO, -position,
-         -career_length, -vote_year, -BB, -AB, -OBP, -SLG, -R, -OPS, -RBI, -HR, -OPS_plus)
-
 # make training and test DF's. use seed to keep the splits the same between runs
 set.seed(seed)
-batter_test_df_rows <- createDataPartition(batter_hof$vote_share, p = 0.25, list = FALSE)
+batter_test_df_rows <- createDataPartition(data_clean_processed$vote_share, p = 0.3, list = FALSE)
 
 batter_hof_test <- 
   batter_hof %>%
@@ -205,18 +214,18 @@ batter_hof_train <-
   select(-Name) %>%
   filter(!row_number() %in% batter_test_df_rows)
 
-train_model(batter_hof_train, "glm")
+train_model(batter_hof_train, "lm")
 train_model(batter_hof_train, "svmRadial")
 train_model(batter_hof_train, "xgbTree")
 train_model(batter_hof_train, "xgbLinear")
 train_model(batter_hof_train, "knn")
 train_model(batter_hof_train, "lasso")
-# train_model(batter_hof_train, "nnet")
+#train_model(batter_hof_train, "nnet")
 
 batter_model_evaluation <-
   batter_hof_test %>% 
   mutate(predict_xgbtree = as.numeric(predict(hof_voting_model_xgbTree, newdata =.)),
-         predict_glm = as.numeric(predict(hof_voting_model_glm, newdata =.)),
+         predict_lm = as.numeric(predict(hof_voting_model_lm, newdata =.)),
          predict_svm = as.numeric(predict(hof_voting_model_svmRadial, newdata = .)),
          predict_xgblinear = as.numeric(predict(hof_voting_model_xgbLinear, newdata=.)),
          predict_knn = as.numeric(predict(hof_voting_model_knn, newdata=.)),
@@ -251,19 +260,21 @@ batter_r_squared <-
 batter_model_metrics <-
   batter_model_evaluation %>%
   group_by(model_type) %>%
-  summarize(RMSE = RMSE(predicted_vote_share, vote_share)) %>%
+  summarize(RMSE = RMSE(predicted_vote_share, vote_share),
+            MAE = mean(abs(predicted_vote_share - vote_share))) %>%
   inner_join(batter_r_squared, by="model_type") %>%
   ungroup() %>%
   mutate(zr_squared = (r_squared - mean(r_squared)) / sd(r_squared),
-         zRMSE = (RMSE - mean(RMSE)) / sd(RMSE)) %>%
-  select(`Model Type` = model_type, `R^2` = r_squared, RMSE, `zR^2` = zr_squared, zRMSE)
+         zRMSE = (RMSE - mean(RMSE)) / sd(RMSE),
+         zMAE = (MAE - mean(MAE)) / sd(MAE)) %>%
+  select(`Model Type` = model_type, `R^2` = r_squared, RMSE, `zR^2` = zr_squared, zRMSE, MAE, zMAE)
 
 batter_model_metrics
 
-ggplot(batter_model_metrics, aes(`zR^2`, zRMSE)) + geom_point() + fgt +
+ggplot(batter_model_metrics, aes(`zR^2`, zMAE)) + geom_point() + fgt +
   geom_vline(xintercept = 0, linetype = "dashed") + geom_hline(yintercept = 0, linetype ="dashed") +
   xlim(-3, 3) + ylim(-3, 3) + 
-  geom_label(aes(label=str_c(str_replace(`Model Type`, "predict_", ""), ": R^2 = ", round(`R^2`, 2), ", RMSE = ", round(RMSE, 1)))) +
+  geom_label(aes(label=str_c(str_replace(`Model Type`, "predict_", ""), ": R^2 = ", round(`R^2`, 2), ", MAE = ", round(MAE, 1)))) +
   ggtitle("Evaluation Metrics of Models")
 
 ```
@@ -278,7 +289,8 @@ player_data <- read_html(url) %>%
   html_nodes("table") %>%
   .[[1]] %>%
   html_table(header=FALSE) %>%
-  as_tibble()
+  as_tibble() %>%
+  mutate(vote_year = year_to_predict)
 
 ```
 
@@ -337,18 +349,26 @@ hof_predictions <-
 batter_predictions <-
   hof_predictions %>%
   filter(position != "1") %>%
-  select(-W, -L, -ERA, -ERA_plus, -WHIP, -G_pitch, -GS, -SV, -IP, -H_allowed, 
-         -HR_allowed, -BB_allowed, -SO, -position, -career_length, -BB, -AB, -OBP, -SLG, -R, -OPS, -RBI, -OPS_plus) %>%
   left_join(voting_trends, by="Name") %>%
   mutate(prev_three_year_vote_share_trend = replace_na(prev_three_year_vote_share_trend, 0))
 
-predict(hof_voting_model_xgbLinear, newdata = batter_predictions) %>%
+predictions_pre <- batter_predictions %>%
+  select(-ped_scandal, -year_on_ballot, -vote_year)
+preprocess_params_2 <- preProcess(predictions_pre, method = c("center", "scale", "knnImpute"))
+predictions_processed <- predict(preprocess_params_2, predictions_pre) %>%
+  bind_cols(batter_predictions %>% select(ped_scandal),
+            batter_predictions %>% select(year_on_ballot), 
+            batter_predictions %>% select(vote_year)) %>%
+  select(-W, -L, -ERA, -ERA_plus, -WHIP, -G_pitch, -GS, -SV, -IP, -H_allowed, 
+         -HR_allowed, -BB_allowed, -SO, -position, -career_length, -BB, -AB, -OBP, -SLG, -R, -OPS, -RBI, -OPS_plus)
+
+predict(hof_voting_model_xgbLinear, newdata = predictions_processed) %>%
   as_tibble() %>%
   select(predicted_vote_share = value) %>%
-  bind_cols(batter_predictions) %>%
+  bind_cols(predictions_processed) %>%
   select(Name, predicted_vote_share, everything()) %>%
   mutate(predicted_vote_share = round(predicted_vote_share, 1)) %>%
-  select(Name, year_on_ballot, predicted_vote_share, prev_three_year_vote_share_trend, everything()) %>%
+  select(Name, year_on_ballot, predicted_vote_share) %>%
   arrange(desc(predicted_vote_share))
 
 ```
@@ -435,16 +455,21 @@ pitcher_r_squared <-
   tidy() %>% 
   select(model_type = names, r_squared = x)
 
+
+# TODO: calc. MAE instead of RMSE
+
 # display table of model evaluation statistics  
 pitcher_model_metrics <-
   pitcher_model_evaluation %>%
   group_by(model_type) %>%
-  summarize(RMSE = RMSE(predicted_vote_share, vote_share)) %>%
+  summarize(RMSE = RMSE(predicted_vote_share, vote_share),
+            MAE = mean(abs(predicted_vote_share - vote_share))) %>%
   inner_join(pitcher_r_squared, by="model_type") %>%
   ungroup() %>%
   mutate(zr_squared = (r_squared - mean(r_squared)) / sd(r_squared),
-         zRMSE = (RMSE - mean(RMSE)) / sd(RMSE)) %>%
-  select(`Model Type` = model_type, `R^2` = r_squared, RMSE, `zR^2` = zr_squared, zRMSE)
+         zRMSE = (RMSE - mean(RMSE)) / sd(RMSE),
+         zMAE = (MAE - mean(MAE)) / sd(MAE)) %>%
+  select(`Model Type` = model_type, `R^2` = r_squared, RMSE, `zR^2` = zr_squared, zRMSE, zMAE)
 
 pitcher_model_metrics
 
