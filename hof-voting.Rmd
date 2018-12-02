@@ -168,7 +168,8 @@ data_clean <-
          -OBP, -SLG, -R, -OPS, -RBI, -HR, -OPS_plus)
 
 # remove response variable & binary variable from cleaned data, preprocess remaining data & re-join
-# to removed columns
+# to removed columns. preprocessing includes centering and scaling predictors as well as imputing missing values
+# using k nearest neighbors
 data_pre <- data_clean %>%
   select(-vote_share, -ped_scandal, -year_on_ballot, -vote_year)
 preprocess_params <- preProcess(data_pre, method = c("center", "scale", "knnImpute"))
@@ -264,7 +265,8 @@ batter_model_metrics
 
 ggplot(batter_model_metrics, aes(`zR^2`, zMAE)) + geom_point() + fgt +
   geom_vline(xintercept = 0, linetype = "dashed") + geom_hline(yintercept = 0, linetype ="dashed") +
-  geom_label_repel(aes(label = label)) +
+  geom_label_repel(aes(label = label),
+                   nudge_x = -0.5) +
   ggtitle("Evaluation Metrics of Models")
 
 ```
