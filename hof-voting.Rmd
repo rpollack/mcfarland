@@ -36,7 +36,7 @@ send_message <- function(msg){
   tw_send_message(from = twilio_number, to = "5123505107", body = msg)
 }
 
-
+# train a model on a specified algorithm
 train_model <- function(train_df, algorithm){
   # train a model to predict HOF voting share. create model variable inside global environment
   mdl<- train(vote_share ~ .,
@@ -52,6 +52,7 @@ train_model <- function(train_df, algorithm){
   assign(model_name, mdl, envir = globalenv())
 }
 
+# get player data and (if available) HOF voting results for a particular year
 get_voting_results <- function(year){
   # get HOF voting results from bb-ref for a single year
   url <- str_c("https://www.baseball-reference.com/awards/hof_", year, ".shtml")
@@ -64,6 +65,7 @@ get_voting_results <- function(year){
     mutate(vote_year = year)
 }
 
+# mark players who have a PED scandal asoscaited with them
 get_ped_scandal <- function(name){
   if_else(name %in% c("Barry Bonds", "Roger Clemens", "Alex Rodriguez", 
                       "Gary Sheffield", "Rafael Palmeiro",
@@ -101,7 +103,6 @@ leave all highly correlated predictors intact. i tried removing ones correlated 
 # TODO: See if major awards (batting titles, MVP's) affect results
 # TODO: see if dist_from_3000_H and dist_from_500_HR affect results
 # TODO: modify train_model function to both train and predict, returning the predictions that I can combine using map_dfc.
-# TODO: figure out better way to impute NA values for prev_three_year_vote_trends. leaving as 0 is not great.
 # TODO: see if adding the player's primary position back in has any effect.
 # TODO: ensure train and test splits are equally distributed in terms of vote_share & other data points
 
@@ -176,22 +177,6 @@ data_clean_processed <- predict(preprocess_params, data_pre) %>%
             data_clean %>% select(ped_scandal),
             data_clean %>% select(year_on_ballot),
             data_clean %>% select(vote_year))
-
-# impute_model <- preProcess(data_clean[,c('prev_three_year_vote_share_trend')], "knnImpute")
-# data_clean_imputed <- predict(impute_model, data_clean)
-
-# vote_share_trans <-  preProcess(data_clean[,3], method = "YeoJohnson")
-# pp_vote_share <- predict(vote_share_trans, data_clean[,3]) %>%
-#   select(vote_share_pp = vote_share) %>%
-#   bind_cols(data_clean) %>%
-#   select(-vote_share)
-# 
-# 
-# impute_model <- preProcess(data_clean[,c('prev_three_year_vote_share_trend')], "knnImpute")
-# data_clean_imputed <- predict(impute_model, data_clean[,c('prev_three_year_vote_share_trend')])
-
-
-
 ```
 
 # train and predict batter voting totals
@@ -220,6 +205,7 @@ train_model(batter_hof_train, "xgbTree")
 train_model(batter_hof_train, "xgbLinear")
 train_model(batter_hof_train, "knn")
 train_model(batter_hof_train, "lasso")
+
 #train_model(batter_hof_train, "nnet")
 
 batter_model_evaluation <-
