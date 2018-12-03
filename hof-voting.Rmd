@@ -36,25 +36,25 @@ send_message <- function(msg){
   tw_send_message(from = twilio_number, to = "5123505107", body = msg)
 }
 
-# train a model on a specified algorithm
-train_model <- function(train_df, algorithm){
-  # train a model to predict HOF voting share. create model variable inside global environment
-  mdl<- train(vote_share ~ .,
+# train a model on a specified algorithm and assess it using the held-out test set
+# return a dynamically-assigned column name so we know which model made which assessment
+train_and_assess_model <- function(algorithm, train_df, assess_df){
+  mdl <- train(vote_share ~ .,
               data = train_df,
               method = algorithm,
               trControl = trainControl(method = "cv",
                                        number = 10,
                                        allowParallel = TRUE),
               metric = "MAE")
-            #  preProcess = c("center", "scale"))
   
-  model_name <- paste("hof_voting_model", algorithm, sep = "_")
-  assign(model_name, mdl, envir = globalenv())
+  label <- str_c("predict_", algorithm) # build the column name that will contain predictions the model makes
+  as.numeric(predict(mdl, newdata = test_df)) %>%
+    as_tibble() %>%
+    select(!!label := value)
 }
 
 # get player data and (if available) HOF voting results for a particular year
 get_voting_results <- function(year){
-  # get HOF voting results from bb-ref for a single year
   url <- str_c("https://www.baseball-reference.com/awards/hof_", year, ".shtml")
   
   read_html(url) %>%
@@ -98,15 +98,16 @@ leave all highly correlated predictors intact. i tried removing ones correlated 
 
 ```{r message=FALSE, warning=FALSE}
 
+# TODO: select and pre-process data in one function, using different columns depending on whether the request is a batter, starter, or reliever
 # TODO: Perhaps train models independently, allowing the use of (say) early_stopping_rounds for xgb, and other parameters for other algorithms
 # TODO: Examine residual outliers & see if there is any trend I can identify
 # TODO: See if major awards (batting titles, MVP's) affect results
 # TODO: see if dist_from_3000_H and dist_from_500_HR affect results
-# TODO: modify train_model function to both train and predict, returning the predictions that I can combine using map_dfc.
 # TODO: see if adding the player's primary position back in has any effect.
 # TODO: ensure train and test splits are equally distributed in terms of vote_share & other data points
 
-# best tune: XGBlinear, R^S of 0.94, RMSE Of 7.1, MAE of 4
+# best tune: XGBlinear, R^S of 0.934, RMSE Of 6.13, MAE of 3.6
+# seed of 1 gets us here
 
 data_clean <- 
   hof_voting_data %>%
@@ -200,13 +201,19 @@ batter_hof_train <-
   select(-Name) %>%
   filter(!row_number() %in% batter_test_df_rows)
 
-train_model(batter_hof_train, "lm")
-train_model(batter_hof_train, "svmRadial")
-train_model(batter_hof_train, "xgbTree")
-train_model(batter_hof_train, "xgbLinear")
-train_model(batter_hof_train, "xgbDART")
-train_model(batter_hof_train, "knn")
-train_model(batter_hof_train, "gbm")
+algorithms <- c("lm", "svmRadial", "xgbTree", "xgbLinear", "knn", "gbm")
+
+# for each algorithm listed, train a model and assess it using the held-out test set,
+# gather its predictions into a tibble, and compute residuals
+batter_model_evaluation <-
+  algorithms %>%
+  map_dfc(train_and_assess_model, train_df = batter_hof_train, assess_df = batter_hof_test) %>%
+  as_tibble() %>%
+  bind_cols(batter_hof_test) %>%
+  select(vote_share, contains("predict_")) %>%
+  gather(model_type, predicted_vote_share, contains("predict_")) %>%
+  select(model_type, predicted_vote_share, vote_share) %>%
+  mutate(residual = vote_share - predicted_vote_share)
 
 # parameter_grid <-
 #   expand.grid(
@@ -224,22 +231,6 @@ train_model(batter_hof_train, "gbm")
 #                                           tuneGrid = parameter_grid,
 #                                           verbose = TRUE,
 #                                           metric = "MAE")
-
-#train_model(batter_hof_train, "nnet")
-
-batter_model_evaluation <-
-  batter_hof_test %>% 
-  mutate(predict_xgbTree = as.numeric(predict(hof_voting_model_xgbTree, newdata =.)),
-         predict_linear = as.numeric(predict(hof_voting_model_lm, newdata =.)),
-         predict_svmRadial = as.numeric(predict(hof_voting_model_svmRadial, newdata = .)),
-         predict_xgbLinear = as.numeric(predict(hof_voting_model_xgbLinear, newdata=.)),
-         predict_knn = as.numeric(predict(hof_voting_model_knn, newdata=.)),
-         predict_xgbDART = as.numeric(predict(hof_voting_model_xgbDART, newdata = .)),
-         predict_gbm = as.numeric(predict(hof_voting_model_gbm, newdata = .))) %>%
-  select(vote_share, contains("predict_")) %>%
-  gather(model_type, predicted_vote_share, contains("predict_")) %>%
-  select(vote_share, model_type, predicted_vote_share) %>%
-  mutate(residual = vote_share - predicted_vote_share)
 
 batter_model_evaluation %>%
 ggplot(aes(vote_share, predicted_vote_share)) +
@@ -277,8 +268,6 @@ batter_model_metrics <-
                        "R^2:", str_c(round(r_squared, 1), ","), 
                        "MAE:", round(MAE, 1), sep = " ")) %>%
   select(`Model Type` = model_type, `R^2` = r_squared, RMSE, `zR^2` = zr_squared, zRMSE, MAE, zMAE, label)
-
-batter_model_metrics
 
 ggplot(batter_model_metrics, aes(`zR^2`, zMAE)) + geom_point() + fgt +
   geom_vline(xintercept = 0, linetype = "dashed") + geom_hline(yintercept = 0, linetype ="dashed") +
