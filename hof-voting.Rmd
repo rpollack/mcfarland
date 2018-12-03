@@ -206,9 +206,7 @@ train_model(batter_hof_train, "xgbTree")
 train_model(batter_hof_train, "xgbLinear")
 train_model(batter_hof_train, "xgbDART")
 train_model(batter_hof_train, "knn")
-train_model(batter_hof_train, "lasso")
 train_model(batter_hof_train, "gbm")
-
 
 # parameter_grid <-
 #   expand.grid(
@@ -233,10 +231,9 @@ batter_model_evaluation <-
   batter_hof_test %>% 
   mutate(predict_xgbTree = as.numeric(predict(hof_voting_model_xgbTree, newdata =.)),
          predict_linear = as.numeric(predict(hof_voting_model_lm, newdata =.)),
-         predict_svm = as.numeric(predict(hof_voting_model_svmRadial, newdata = .)),
+         predict_svmRadial = as.numeric(predict(hof_voting_model_svmRadial, newdata = .)),
          predict_xgbLinear = as.numeric(predict(hof_voting_model_xgbLinear, newdata=.)),
          predict_knn = as.numeric(predict(hof_voting_model_knn, newdata=.)),
-         predict_lasso = as.numeric(predict(hof_voting_model_lasso, newdata = .)),
          predict_xgbDART = as.numeric(predict(hof_voting_model_xgbDART, newdata = .)),
          predict_gbm = as.numeric(predict(hof_voting_model_gbm, newdata = .))) %>%
   select(vote_share, contains("predict_")) %>%
