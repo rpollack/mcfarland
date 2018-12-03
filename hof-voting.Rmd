@@ -207,18 +207,38 @@ train_model(batter_hof_train, "xgbLinear")
 train_model(batter_hof_train, "xgbDART")
 train_model(batter_hof_train, "knn")
 train_model(batter_hof_train, "lasso")
+train_model(batter_hof_train, "gbm")
+
+
+# parameter_grid <-
+#   expand.grid(
+#     nrounds = c(40, 45, 50, 55, 60),
+#     lambda = c(0, 0.05, 0.1, 0.15, 0.2, 0.25),
+#     alpha = c(0, 0.01, 0.05, 0.1, 0.15, 0.2),
+#     eta=c(0.1, 0.2, 0.3, 0.4, 0.5)
+#   )
+# hof_voting_model_xgbLinear_tuned <- train(vote_share ~ .,
+#                                           data = batter_hof_train,
+#                                           method = "xgbLinear",
+#                                           trControl = trainControl(method = "cv",
+#                                                                    number = 10,
+#                                                                    allowParallel = TRUE),
+#                                           tuneGrid = parameter_grid,
+#                                           verbose = TRUE,
+#                                           metric = "MAE")
 
 #train_model(batter_hof_train, "nnet")
 
 batter_model_evaluation <-
   batter_hof_test %>% 
-  mutate(predict_xgbtree = as.numeric(predict(hof_voting_model_xgbTree, newdata =.)),
-         predict_lm = as.numeric(predict(hof_voting_model_lm, newdata =.)),
+  mutate(predict_xgbTree = as.numeric(predict(hof_voting_model_xgbTree, newdata =.)),
+         predict_linear = as.numeric(predict(hof_voting_model_lm, newdata =.)),
          predict_svm = as.numeric(predict(hof_voting_model_svmRadial, newdata = .)),
-         predict_xgblinear = as.numeric(predict(hof_voting_model_xgbLinear, newdata=.)),
+         predict_xgbLinear = as.numeric(predict(hof_voting_model_xgbLinear, newdata=.)),
          predict_knn = as.numeric(predict(hof_voting_model_knn, newdata=.)),
          predict_lasso = as.numeric(predict(hof_voting_model_lasso, newdata = .)),
-         predict_xgbDART = as.numeric(predict(hof_voting_model_xgbDART, newdata = .))) %>%
+         predict_xgbDART = as.numeric(predict(hof_voting_model_xgbDART, newdata = .)),
+         predict_gbm = as.numeric(predict(hof_voting_model_gbm, newdata = .))) %>%
   select(vote_share, contains("predict_")) %>%
   gather(model_type, predicted_vote_share, contains("predict_")) %>%
   select(vote_share, model_type, predicted_vote_share) %>%
@@ -256,7 +276,7 @@ batter_model_metrics <-
   mutate(zr_squared = (r_squared - mean(r_squared)) / sd(r_squared),
          zRMSE = (RMSE - mean(RMSE)) / sd(RMSE),
          zMAE = (MAE - mean(MAE)) / sd(MAE),
-         label = str_c("Model Type:", str_c(str_replace(model_type, "predict_", ""), ","),
+         label = str_c(str_c(str_replace(model_type, "predict_", ""), ":"),
                        "R^2:", str_c(round(r_squared, 1), ","), 
                        "MAE:", round(MAE, 1), sep = " ")) %>%
   select(`Model Type` = model_type, `R^2` = r_squared, RMSE, `zR^2` = zr_squared, zRMSE, MAE, zMAE, label)
@@ -265,17 +285,10 @@ batter_model_metrics
 
 ggplot(batter_model_metrics, aes(`zR^2`, zMAE)) + geom_point() + fgt +
   geom_vline(xintercept = 0, linetype = "dashed") + geom_hline(yintercept = 0, linetype ="dashed") +
-  geom_label_repel(aes(label = label),
-                   nudge_x = -0.5) +
+  geom_label_repel(aes(label = label)) +
   ggtitle("Evaluation Metrics of Models")
 
 ```
-
-xgbLinear is consistently the best-performing model in the above analysis. tweak its tuning parameters to get an even better fit
-```{r}
-
-```
-
 
 position players: after selecting the best model, use it to predict future results
 
@@ -368,6 +381,15 @@ predict(hof_voting_model_xgbLinear, newdata = predictions_processed) %>%
   mutate(predicted_vote_share = round(predicted_vote_share, 1)) %>%
   select(Name, year_on_ballot, predicted_vote_share) %>%
   arrange(desc(predicted_vote_share))
+# 
+# predict(hof_voting_model_xgbLinear_tuned, newdata = predictions_processed) %>%
+#   as_tibble() %>%
+#   select(predicted_vote_share = value) %>%
+#   bind_cols(predictions_processed) %>%
+#   select(Name, predicted_vote_share, everything()) %>%
+#   mutate(predicted_vote_share = round(predicted_vote_share, 1)) %>%
+#   select(Name, year_on_ballot, predicted_vote_share) %>%
+#   arrange(desc(predicted_vote_share))
 
 ```
 
