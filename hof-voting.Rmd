@@ -48,7 +48,13 @@ train_and_assess_model <- function(algorithm, train_df, assess_df){
               metric = "MAE")
   
   label <- str_c("predict_", algorithm) # build the column name that will contain predictions the model makes
-  as.numeric(predict(mdl, newdata = test_df)) %>%
+  
+  # save model to global environment so it can be used later
+  model_name <- str_c("hof_voting_model", algorithm, sep = "_")
+  assign(model_name, mdl, envir = globalenv())
+
+  # return prediction of model on assessment tibble
+  as.numeric(predict(mdl, newdata = assess_df)) %>%
     as_tibble() %>%
     select(!!label := value)
 }
@@ -127,7 +133,9 @@ data_clean <-
          career_length = as.integer(career_length),
          career_rWAR = as.double(career_rWAR),
          best_war_years = as.double(best_war_years),
-         jaws = as.double(jaws), jpos = as.double(jpos),
+         jaws = as.double(jaws), 
+         jpos = as.double(jpos),
+         jaws_plus = round(100 * (jaws/jpos), 0),
          G_bat = as.integer(G_bat),
          AB = as.integer(AB),
          R = as.integer(R),
@@ -166,7 +174,7 @@ data_clean <-
   ungroup() %>%
   select(-W, -L, -ERA, -ERA_plus, -WHIP, -G_pitch, -GS, -SV, -IP, -H_allowed, 
          -HR_allowed, -BB_allowed, -SO, -position, -career_length, -BB, -AB, 
-         -OBP, -SLG, -R, -OPS, -RBI, -HR, -OPS_plus)
+         -OBP, -SLG, -R, -OPS, -RBI, -HR, -OPS_plus, -jaws, -jpos)
 
 # remove response variable & binary variable from cleaned data, preprocess remaining data & re-join
 # to removed columns. preprocessing includes centering and scaling predictors as well as imputing missing values
@@ -192,12 +200,12 @@ set.seed(seed)
 batter_test_df_rows <- createDataPartition(data_clean_processed$vote_share, p = 0.3, list = FALSE)
 
 batter_hof_test <- 
-  batter_hof %>%
+  data_clean_processed %>%
   select(-Name) %>%
   filter(row_number() %in% batter_test_df_rows)
 
 batter_hof_train <- 
-  batter_hof %>%
+  data_clean_processed %>%
   select(-Name) %>%
   filter(!row_number() %in% batter_test_df_rows)
 
@@ -272,7 +280,8 @@ batter_model_metrics <-
 ggplot(batter_model_metrics, aes(`zR^2`, zMAE)) + geom_point() + fgt +
   geom_vline(xintercept = 0, linetype = "dashed") + geom_hline(yintercept = 0, linetype ="dashed") +
   geom_label_repel(aes(label = label)) +
-  ggtitle("Evaluation Metrics of Models")
+  ggtitle("Evaluation Metrics of Models") +
+  xlim(-2, 2) + ylim(-2, 2)
 
 ```
 
@@ -326,6 +335,7 @@ hof_predictions <-
          best_war_years = as.double(best_war_years),
          jaws = as.double(jaws), 
          jpos = as.double(jpos),
+         jaws_plus = round(100 * (jaws/jpos), 0),
          G_bat = as.integer(G_bat),
          AB = as.integer(AB),
          R = as.integer(R),
@@ -346,8 +356,7 @@ hof_predictions <-
 batter_predictions <-
   hof_predictions %>%
   filter(position != "1") %>%
-  left_join(voting_trends, by="Name") %>%
-  mutate(prev_three_year_vote_share_trend = replace_na(prev_three_year_vote_share_trend, 0))
+  left_join(voting_trends, by="Name")
 
 predictions_pre <- batter_predictions %>%
   select(-ped_scandal, -year_on_ballot, -vote_year)
@@ -357,7 +366,8 @@ predictions_processed <- predict(preprocess_params_2, predictions_pre) %>%
             batter_predictions %>% select(year_on_ballot), 
             batter_predictions %>% select(vote_year)) %>%
   select(-W, -L, -ERA, -ERA_plus, -WHIP, -G_pitch, -GS, -SV, -IP, -H_allowed, 
-         -HR_allowed, -BB_allowed, -SO, -position, -career_length, -BB, -AB, -OBP, -SLG, -R, -OPS, -RBI, -OPS_plus)
+         -HR_allowed, -BB_allowed, -SO, -position, -career_length, -BB, -AB, -OBP, -SLG, -R, -OPS, -RBI, -OPS_plus,
+         -jaws, -jpos)
 
 predict(hof_voting_model_xgbLinear, newdata = predictions_processed) %>%
   as_tibble() %>%
