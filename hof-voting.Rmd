@@ -135,7 +135,7 @@ data_clean <-
          best_war_years = as.double(best_war_years),
          jaws = as.double(jaws), 
          jpos = as.double(jpos),
-         jaws_plus = round(100 * (jaws/jpos), 0),
+         jaws_above_avg = jaws - jpos,
          G_bat = as.integer(G_bat),
          AB = as.integer(AB),
          R = as.integer(R),
@@ -193,7 +193,7 @@ data_clean_processed <- predict(preprocess_params, data_pre) %>%
 
 ```{r}
 
-seed <- 1
+seed <- 6
 
 # make training and test DF's. use seed to keep the splits the same between runs
 set.seed(seed)
@@ -335,7 +335,7 @@ hof_predictions <-
          best_war_years = as.double(best_war_years),
          jaws = as.double(jaws), 
          jpos = as.double(jpos),
-         jaws_plus = round(100 * (jaws/jpos), 0),
+         jaws_above_avg = jaws - jpos,
          G_bat = as.integer(G_bat),
          AB = as.integer(AB),
          R = as.integer(R),
