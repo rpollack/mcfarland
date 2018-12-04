@@ -104,7 +104,7 @@ leave all highly correlated predictors intact. i tried removing ones correlated 
 
 ```{r message=FALSE, warning=FALSE}
 
-# TODO: select and pre-process data in one function, using different columns depending on whether the request is a batter, starter, or reliever
+# TODO: select and pre-process data in one function, using different columns depending on whether the request is a batter, starter, or reliever .... and whether the "vote share" column is present (not really sure how to do this)
 # TODO: Perhaps train models independently, allowing the use of (say) early_stopping_rounds for xgb, and other parameters for other algorithms
 # TODO: Examine residual outliers & see if there is any trend I can identify
 # TODO: See if major awards (batting titles, MVP's) affect results
@@ -112,7 +112,7 @@ leave all highly correlated predictors intact. i tried removing ones correlated 
 # TODO: see if adding the player's primary position back in has any effect.
 # TODO: ensure train and test splits are equally distributed in terms of vote_share & other data points
 
-# best tune: XGBlinear, R^S of 0.934, RMSE Of 6.13, MAE of 3.6
+# best tune: XGBlinear, R^S of 0.9, RMSE Of 6.13, MAE of 3.6
 # seed of 1 gets us here
 
 data_clean <- 
@@ -194,6 +194,7 @@ data_clean_processed <- predict(preprocess_params, data_pre) %>%
 ```{r}
 
 seed <- 6
+# best seed so far is 6. xgblinear with R^2 of 0.9 and MAE of 3.6
 
 # make training and test DF's. use seed to keep the splits the same between runs
 set.seed(seed)
@@ -275,7 +276,7 @@ batter_model_metrics <-
          label = str_c(str_c(str_replace(model_type, "predict_", ""), ":"),
                        "R^2:", str_c(round(r_squared, 1), ","), 
                        "MAE:", round(MAE, 1), sep = " ")) %>%
-  select(`Model Type` = model_type, `R^2` = r_squared, RMSE, `zR^2` = zr_squared, zRMSE, MAE, zMAE, label)
+  select(`Model Type` = model_type, `R^2` = r_squared, RMSE, MAE, `zR^2` = zr_squared, zRMSE, zMAE, label)
 
 ggplot(batter_model_metrics, aes(`zR^2`, zMAE)) + geom_point() + fgt +
   geom_vline(xintercept = 0, linetype = "dashed") + geom_hline(yintercept = 0, linetype ="dashed") +
