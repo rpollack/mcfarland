@@ -38,14 +38,14 @@ send_message <- function(msg){
 
 # train a model on a specified algorithm and assess it using the held-out test set
 # return a dynamically-assigned column name so we know which model made which assessment
-train_and_assess_model <- function(algorithm, train_df, assess_df){
+train_and_assess_model <- function(algorithm, train_df, assess_df, eval_metric){
   mdl <- train(vote_share ~ .,
               data = train_df,
               method = algorithm,
               trControl = trainControl(method = "cv",
                                        number = 10,
                                        allowParallel = TRUE),
-              metric = "MAE")
+              metric = eval_metric)
   
   label <- str_c("predict_", algorithm) # build the column name that will contain predictions the model makes
   
@@ -167,14 +167,15 @@ data_clean <-
   filter(!is.na(year_on_ballot)) %>%  # remove spurious rows caused by BB-Ref table formatting
   group_by(Name) %>%
   arrange(Name, year_on_ballot) %>%
-  mutate(prev_three_year_vote_share_trend = round((lag(vote_share) - lag(vote_share, 3)) / 3, 1)) %>%
+  mutate(prev_year_vote_share = lag(vote_share),
+         prev_three_year_vote_share_trend = round((lag(vote_share) - lag(vote_share, 3)) / 3, 1)) %>%
          #prev_three_year_vote_share_trend = replace_na(prev_three_year_vote_share_trend, 0)) %>%
   filter(position != 1) %>%
   select(-position, Name, year_on_ballot, vote_share, prev_three_year_vote_share_trend, everything()) %>%
   ungroup() %>%
   select(-W, -L, -ERA, -ERA_plus, -WHIP, -G_pitch, -GS, -SV, -IP, -H_allowed, 
          -HR_allowed, -BB_allowed, -SO, -position, -career_length, -BB, -AB, 
-         -OBP, -SLG, -R, -OPS, -RBI, -HR, -OPS_plus, -jaws, -jpos)
+         -OBP, -SLG, -R, -OPS, -RBI, -HR, -OPS_plus, -jaws, -jpos, -bj_hof_standards, -G_bat)
 
 # remove response variable & binary variable from cleaned data, preprocess remaining data & re-join
 # to removed columns. preprocessing includes centering and scaling predictors as well as imputing missing values
@@ -193,7 +194,7 @@ data_clean_processed <- predict(preprocess_params, data_pre) %>%
 
 ```{r}
 
-seed <- 6
+seed <- 11
 # best seed so far is 6. xgblinear with R^2 of 0.9 and MAE of 3.6
 
 # make training and test DF's. use seed to keep the splits the same between runs
@@ -216,7 +217,7 @@ algorithms <- c("lm", "svmRadial", "xgbTree", "xgbLinear", "knn", "gbm")
 # gather its predictions into a tibble, and compute residuals
 batter_model_evaluation <-
   algorithms %>%
-  map_dfc(train_and_assess_model, train_df = batter_hof_train, assess_df = batter_hof_test) %>%
+  map_dfc(train_and_assess_model, train_df = batter_hof_train, assess_df = batter_hof_test, eval_metric = "MAE") %>%
   as_tibble() %>%
   bind_cols(batter_hof_test) %>%
   select(vote_share, contains("predict_")) %>%
@@ -242,7 +243,7 @@ batter_model_evaluation <-
 #                                           metric = "MAE")
 
 batter_model_evaluation %>%
-ggplot(aes(vote_share, predicted_vote_share)) +
+  ggplot(aes(vote_share, predicted_vote_share)) +
   geom_point() + geom_smooth(method ="lm") +
   fgt + facet_wrap(vars(model_type)) +
   expand_limits(x=0,y=0) +
@@ -312,10 +313,11 @@ voting_trends <-
   filter(vote_year %in% c(year_to_predict - 3, year_to_predict - 1)) %>%
   group_by(Name) %>%
   arrange(Name, vote_year) %>%
-  mutate(prev_three_year_vote_share_trend = round((vote_share) - lag(vote_share) / 3, 1),
+  mutate(prev_year_vote_share = vote_share,
+         prev_three_year_vote_share_trend = round((vote_share) - lag(vote_share) / 3, 1),
          prev_three_year_vote_share_trend = replace_na(prev_three_year_vote_share_trend, 0)) %>%
   filter(vote_year == max(vote_year)) %>%
-  select(Name, prev_three_year_vote_share_trend)
+  select(Name, prev_year_vote_share, prev_three_year_vote_share_trend)
 
 hof_predictions <-
   player_data %>%
@@ -368,7 +370,7 @@ predictions_processed <- predict(preprocess_params_2, predictions_pre) %>%
             batter_predictions %>% select(vote_year)) %>%
   select(-W, -L, -ERA, -ERA_plus, -WHIP, -G_pitch, -GS, -SV, -IP, -H_allowed, 
          -HR_allowed, -BB_allowed, -SO, -position, -career_length, -BB, -AB, -OBP, -SLG, -R, -OPS, -RBI, -OPS_plus,
-         -jaws, -jpos)
+         -jaws, -jpos, -G_bat, -bj_hof_standards)
 
 predict(hof_voting_model_xgbLinear, newdata = predictions_processed) %>%
   as_tibble() %>%
@@ -376,9 +378,12 @@ predict(hof_voting_model_xgbLinear, newdata = predictions_processed) %>%
   bind_cols(predictions_processed) %>%
   select(Name, predicted_vote_share, everything()) %>%
   mutate(predicted_vote_share = round(predicted_vote_share, 1)) %>%
-  select(Name, year_on_ballot, predicted_vote_share) %>%
-  arrange(desc(predicted_vote_share))
-# 
+  arrange(desc(predicted_vote_share)) %>%
+  left_join(voting_trends, by="Name") %>%
+  select(Name, year_on_ballot, predicted_vote_share, previous_year_vote_share = prev_year_vote_share.y) %>%
+  mutate(change = predicted_vote_share - previous_year_vote_share)
+
+
 # predict(hof_voting_model_xgbLinear_tuned, newdata = predictions_processed) %>%
 #   as_tibble() %>%
 #   select(predicted_vote_share = value) %>%
