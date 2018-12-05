@@ -276,10 +276,10 @@ batter_model_metrics <-
          zMAE = (MAE - mean(MAE)) / sd(MAE),
          label = str_c(str_c(str_replace(model_type, "predict_", ""), ":"),
                        "R^2:", str_c(round(r_squared, 1), ","), 
-                       "MAE:", round(MAE, 1), sep = " ")) %>%
+                       "RMSE:", round(RMSE, 1), sep = " ")) %>%
   select(`Model Type` = model_type, `R^2` = r_squared, RMSE, MAE, `zR^2` = zr_squared, zRMSE, zMAE, label)
 
-ggplot(batter_model_metrics, aes(`zR^2`, zMAE)) + geom_point() + fgt +
+ggplot(batter_model_metrics, aes(`zR^2`, zRMSE)) + geom_point() + fgt +
   geom_vline(xintercept = 0, linetype = "dashed") + geom_hline(yintercept = 0, linetype ="dashed") +
   geom_label_repel(aes(label = label)) +
   ggtitle("Evaluation Metrics of Models") +
