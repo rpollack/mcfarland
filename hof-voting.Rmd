@@ -217,7 +217,7 @@ algorithms <- c("lm", "svmRadial", "xgbTree", "xgbLinear", "knn", "gbm")
 # gather its predictions into a tibble, and compute residuals
 batter_model_evaluation <-
   algorithms %>%
-  map_dfc(train_and_assess_model, train_df = batter_hof_train, assess_df = batter_hof_test, eval_metric = "MAE") %>%
+  map_dfc(train_and_assess_model, train_df = batter_hof_train, assess_df = batter_hof_test, eval_metric = "RMSE") %>%
   as_tibble() %>%
   bind_cols(batter_hof_test) %>%
   select(vote_share, contains("predict_")) %>%
@@ -283,7 +283,7 @@ ggplot(batter_model_metrics, aes(`zR^2`, zRMSE)) + geom_point() + fgt +
   geom_vline(xintercept = 0, linetype = "dashed") + geom_hline(yintercept = 0, linetype ="dashed") +
   geom_label_repel(aes(label = label)) +
   ggtitle("Evaluation Metrics of Models") +
-  xlim(-2, 2) + ylim(-2, 2)
+  xlim(-2, 2) + ylim(-2, 2) + labs(x="zR^2")
 
 ```
 
