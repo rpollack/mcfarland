@@ -4,6 +4,7 @@ library(RMySQL)
 library(caret)
 library(broom)
 library(rvest)
+library(data.table)
 library(twilio)
 library(ggrepel)
 library(styler)
@@ -75,7 +76,7 @@ get_voting_results <- function(year) {
     .[[1]] %>%
     html_table(header = FALSE) %>%
     as_tibble() %>%
-    mutate(vote_year = year)
+    mutate(vote_year = as.numeric(year))
 }
 
 get_ped_scandal <- function(name) {
@@ -137,42 +138,42 @@ data_clean <-
       "X-" = "",
       "\\sHOF" = ""
     )),
-    year_on_ballot = as.integer(str_extract(year_on_ballot, "[:digit:]{1,2}")),
+    year_on_ballot = as.numeric(str_extract(year_on_ballot, "[:digit:]{1,2}")),
     vote_share = as.double(str_extract(vote_share, "[:digit:]{1,3}.[:digit:]")),
-    bj_hof_monitor = as.integer(bj_hof_monitor),
-    bj_hof_standards = as.integer(bj_hof_standards),
-    career_length = as.integer(career_length),
+    bj_hof_monitor = as.numeric(bj_hof_monitor),
+    bj_hof_standards = as.numeric(bj_hof_standards),
+    career_length = as.numeric(career_length),
     career_rWAR = as.double(career_rWAR),
     best_war_years = as.double(best_war_years),
     jaws = as.double(jaws),
     jpos = as.double(jpos),
     jaws_above_avg = jaws - jpos,
-    G_bat = as.integer(G_bat),
-    AB = as.integer(AB),
-    R = as.integer(R),
-    H = as.integer(H),
-    HR = as.integer(HR),
-    RBI = as.integer(RBI),
-    SB = as.integer(SB),
-    BB = as.integer(BB),
+    G_bat = as.numeric(G_bat),
+    AB = as.numeric(AB),
+    R = as.numeric(R),
+    H = as.numeric(H),
+    HR = as.numeric(HR),
+    RBI = as.numeric(RBI),
+    SB = as.numeric(SB),
+    BB = as.numeric(BB),
     BA = as.double(BA),
     OBP = as.double(OBP),
     SLG = as.double(SLG),
     OPS = as.double(OPS),
-    OPS_plus = as.integer(OPS_plus),
-    W = as.integer(W),
-    L = as.integer(L),
+    OPS_plus = as.numeric(OPS_plus),
+    W = as.numeric(W),
+    L = as.numeric(L),
     ERA = as.double(ERA),
-    ERA_plus = as.integer(ERA_plus),
+    ERA_plus = as.numeric(ERA_plus),
     WHIP = as.double(WHIP),
-    G_pitch = as.integer(G_pitch),
-    GS = as.integer(GS),
-    SV = as.integer(SV),
+    G_pitch = as.numeric(G_pitch),
+    GS = as.numeric(GS),
+    SV = as.numeric(SV),
     IP = as.double(IP),
-    H_allowed = as.integer(H_allowed),
-    HR_allowed = as.integer(HR_allowed),
-    BB_allowed = as.integer(BB_allowed),
-    SO = as.integer(SO),
+    H_allowed = as.numeric(H_allowed),
+    HR_allowed = as.numeric(HR_allowed),
+    BB_allowed = as.numeric(BB_allowed),
+    SO = as.numeric(SO),
     position = as.numeric(str_extract(position, "[:digit:]")), # encode position as where they played the most often
     ped_scandal = map_dbl(Name, get_ped_scandal)
   ) %>%
@@ -324,7 +325,7 @@ player_data <- read_html(url) %>%
   .[[1]] %>%
   html_table(header = FALSE) %>%
   as_tibble() %>%
-  mutate(vote_year = year_to_predict)
+  mutate(vote_year = as.numeric(year_to_predict))
 ```
 
 Transform and clean data, predict `r year_to_predict` voting share for position players
@@ -362,28 +363,28 @@ hof_predictions <-
       "X-" = "",
       "\\sHOF" = ""
     )),
-    year_on_ballot = as.integer(str_extract(year_on_ballot, "[:digit:]{1,2}")),
-    bj_hof_monitor = as.integer(bj_hof_monitor),
-    bj_hof_standards = as.integer(bj_hof_standards),
-    career_length = as.integer(career_length),
+    year_on_ballot = as.numeric(str_extract(year_on_ballot, "[:digit:]{1,2}")),
+    bj_hof_monitor = as.numeric(bj_hof_monitor),
+    bj_hof_standards = as.numeric(bj_hof_standards),
+    career_length = as.numeric(career_length),
     career_rWAR = as.double(career_rWAR),
     best_war_years = as.double(best_war_years),
     jaws = as.double(jaws),
     jpos = as.double(jpos),
     jaws_above_avg = jaws - jpos,
-    G_bat = as.integer(G_bat),
-    AB = as.integer(AB),
-    R = as.integer(R),
-    H = as.integer(H),
-    HR = as.integer(HR),
-    RBI = as.integer(RBI),
-    SB = as.integer(SB),
-    BB = as.integer(BB),
+    G_bat = as.numeric(G_bat),
+    AB = as.numeric(AB),
+    R = as.numeric(R),
+    H = as.numeric(H),
+    HR = as.numeric(HR),
+    RBI = as.numeric(RBI),
+    SB = as.numeric(SB),
+    BB = as.numeric(BB),
     BA = as.double(BA),
     OBP = as.double(OBP),
     SLG = as.double(SLG),
     OPS = as.double(OPS),
-    OPS_plus = as.integer(OPS_plus),
+    OPS_plus = as.numeric(OPS_plus),
     position = as.numeric(str_extract(position, "[:digit:]")),
     ped_scandal = map_dbl(Name, get_ped_scandal)
   ) %>%
@@ -431,6 +432,89 @@ predict(hof_voting_model_xgbLinear, newdata = predictions_processed) %>%
 #   arrange(desc(predicted_vote_share))
 ```
 
+for batters: run bare xgboost algorithm to see if it gives better results than the caret-trained one.
+for example the early_stopping_rounds arg could maybe prevent overfitting.
+
+```{r}
+
+# create xgboost-friendly matrices
+batter_train_labels <- batter_hof_train$vote_share %>%
+  as.matrix()
+batter_train_matrix <- 
+  batter_hof_train %>% 
+  select(-vote_share) %>% 
+  as.matrix()
+batter_dtrain <- xgb.DMatrix(data = batter_train_matrix,
+                             label = batter_train_labels)
+
+params <- list(objective = "reg:linear",
+               eval_metric = "rmse",
+               booster = "gbtree")
+
+# use 10-fold CV to determine the optimal number of iterations
+batter_hof_xgb_mdl_params <- xgb.cv(params = params,
+                               data = batter_dtrain,
+                               nrounds = 500,
+                               nfold = 100,
+                               early_stopping_rounds = 50,
+                               print_every_n = 50,
+                               stratified = TRUE)
+
+num_rounds <- batter_hof_xgb_mdl_params$best_iteration
+
+batter_hof_xgb_mdl <- xgb.train(params = params,
+                                data = batter_dtrain,
+                                nrounds = num_rounds)
+
+# construct xgboost-friendly test dataset, augment with model predictions, and evaluate
+batter_test_labels <- batter_hof_test$vote_share %>%
+  as.matrix()
+batter_test_matrix <- 
+  batter_hof_test %>% 
+  select(-vote_share) %>% 
+  as.matrix()
+
+batter_dtest <- xgb.DMatrix(data = batter_test_matrix,
+                            label = batter_test_labels)
+
+xgb_predictions <-
+  predict(batter_hof_xgb_mdl, newdata = batter_dtest) %>%
+  as_tibble() %>%
+  select(predicted_vote_share = value) %>%
+  bind_cols(batter_hof_test) %>%
+  select(vote_share, predicted_vote_share) %>%
+  mutate(residual = vote_share - predicted_vote_share)
+
+xgb_rmse <- RMSE(xgb_predictions$predicted_vote_share, xgb_predictions$vote_share)
+
+xgb_r_squared <- round(summary(lm(xgb_predictions$predicted_vote_share ~ xgb_predictions$vote_share))$r.squared, 3)
+
+ggplot(xgb_predictions, aes(vote_share, predicted_vote_share)) +
+  geom_point() + geom_smooth(method = "lm")
+
+ggplot(xgb_predictions, aes(vote_share, residual)) +
+  geom_point()
+
+# make 2019 predictions using model
+data_2019 <- xgb.DMatrix(predictions_processed %>% 
+                           select(bj_hof_monitor,
+                                  career_rWAR, best_war_years, H, SB, BA, jaws_above_avg, prev_year_vote_share,
+                                  prev_three_year_vote_share_trend, ped_scandal, year_on_ballot, vote_year) %>% 
+                           as.matrix()
+                         )
+
+predict(batter_hof_xgb_mdl, newdata = data_2019) %>%
+  as_tibble() %>%
+  select(predicted_vote_share = value) %>%
+  bind_cols(predictions_processed %>% select(Name, year_on_ballot)) %>%
+  select(Name, predicted_vote_share, everything()) %>%
+  mutate(predicted_vote_share = round(predicted_vote_share, 1)) %>%
+  arrange(desc(predicted_vote_share)) %>%
+  left_join(voting_trends, by = "Name") %>%
+  select(Name, year_on_ballot, predicted_vote_share, previous_year_vote_share = prev_year_vote_share) %>%
+  mutate(change = predicted_vote_share - previous_year_vote_share)
+
+```
 
 
 
@@ -646,28 +730,28 @@ starter_hof_predictions <-
       "X-" = "",
       "\\sHOF" = ""
     )),
-    year_on_ballot = as.integer(str_extract(year_on_ballot, "[:digit:]{1,2}")),
-    bj_hof_monitor = as.integer(bj_hof_monitor),
-    bj_hof_standards = as.integer(bj_hof_standards),
-    career_length = as.integer(career_length),
+    year_on_ballot = as.numeric(str_extract(year_on_ballot, "[:digit:]{1,2}")),
+    bj_hof_monitor = as.numeric(bj_hof_monitor),
+    bj_hof_standards = as.numeric(bj_hof_standards),
+    career_length = as.numeric(career_length),
     career_rWAR = as.double(career_rWAR),
     best_war_years = as.double(best_war_years),
     jaws = as.double(jaws),
     jpos = as.double(jpos),
     jaws_above_avg = jaws - jpos,
-    W = as.integer(W),
-    L = as.integer(L),
+    W = as.numeric(W),
+    L = as.numeric(L),
     ERA = as.double(ERA),
-    ERA_plus = as.integer(ERA_plus),
+    ERA_plus = as.numeric(ERA_plus),
     WHIP = as.double(WHIP),
-    G_pitch = as.integer(G_pitch),
-    GS = as.integer(GS),
-    SV = as.integer(SV),
+    G_pitch = as.numeric(G_pitch),
+    GS = as.numeric(GS),
+    SV = as.numeric(SV),
     IP = as.double(IP),
-    H_allowed = as.integer(H_allowed),
-    HR_allowed = as.integer(HR_allowed),
-    BB_allowed = as.integer(BB_allowed),
-    SO = as.integer(SO),
+    H_allowed = as.numeric(H_allowed),
+    HR_allowed = as.numeric(HR_allowed),
+    BB_allowed = as.numeric(BB_allowed),
+    SO = as.numeric(SO),
     position = as.numeric(str_extract(position, "[:digit:]")),
     ped_scandal = map_dbl(Name, get_ped_scandal)
   ) %>%
@@ -787,6 +871,13 @@ predict(hof_voting_model_xgbLinear, newdata = starter_predictions_processed) %>%
   select(Name, year_on_ballot, predicted_vote_share, previous_year_vote_share = prev_year_vote_share.y) %>%
   mutate(change = predicted_vote_share - previous_year_vote_share)
 ```
+
+do a regular round of xgb tree-ing ... 
+
+```{r}
+
+```
+
 
 
 
