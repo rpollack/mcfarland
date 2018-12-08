@@ -168,8 +168,10 @@ data_clean <-
   group_by(Name) %>%
   arrange(Name, year_on_ballot) %>%
   mutate(prev_year_vote_share = lag(vote_share),
-         prev_three_year_vote_share_trend = round((lag(vote_share) - lag(vote_share, 3)) / 3, 1)) %>%
-         #prev_three_year_vote_share_trend = replace_na(prev_three_year_vote_share_trend, 0)) %>%
+         prev_three_year_vote_share_trend = round((lag(vote_share) - lag(vote_share, 3)) / 3, 1))
+
+batter_data <- 
+  data_clean %>%
   filter(position != 1) %>%
   select(-position, Name, year_on_ballot, vote_share, prev_three_year_vote_share_trend, everything()) %>%
   ungroup() %>%
@@ -180,14 +182,15 @@ data_clean <-
 # remove response variable & binary variable from cleaned data, preprocess remaining data & re-join
 # to removed columns. preprocessing includes centering and scaling predictors as well as imputing missing values
 # using k nearest neighbors
-data_pre <- data_clean %>%
+batter_data_pre <- 
+  batter_data %>%
   select(-vote_share, -ped_scandal, -year_on_ballot, -vote_year)
-preprocess_params <- preProcess(data_pre, method = c("center", "scale", "knnImpute"))
-data_clean_processed <- predict(preprocess_params, data_pre) %>%
-  bind_cols(data_clean %>% select(vote_share), 
-            data_clean %>% select(ped_scandal),
-            data_clean %>% select(year_on_ballot),
-            data_clean %>% select(vote_year))
+batter_preprocess_params <- preProcess(batter_data_pre, method = c("center", "scale", "knnImpute"))
+batter_data_clean_processed <- predict(batter_preprocess_params, batter_data_pre) %>%
+  bind_cols(batter_data %>% select(vote_share), 
+            batter_data %>% select(ped_scandal),
+            batter_data %>% select(year_on_ballot),
+            batter_data %>% select(vote_year))
 ```
 
 # train and predict batter voting totals
@@ -195,19 +198,19 @@ data_clean_processed <- predict(preprocess_params, data_pre) %>%
 ```{r}
 
 seed <- 11
-# best seed so far is 6. xgblinear with R^2 of 0.9 and MAE of 3.6
+# best seed so far is 11. xgblinear with R^2 of 0.9 and RMSE of 7.5. Good batter predictions, too.
 
 # make training and test DF's. use seed to keep the splits the same between runs
 set.seed(seed)
-batter_test_df_rows <- createDataPartition(data_clean_processed$vote_share, p = 0.3, list = FALSE)
+batter_test_df_rows <- createDataPartition(batter_data_clean_processed$vote_share, p = 0.3, list = FALSE)
 
 batter_hof_test <- 
-  data_clean_processed %>%
+  batter_data_clean_processed %>%
   select(-Name) %>%
   filter(row_number() %in% batter_test_df_rows)
 
 batter_hof_train <- 
-  data_clean_processed %>%
+  batter_data_clean_processed %>%
   select(-Name) %>%
   filter(!row_number() %in% batter_test_df_rows)
 
@@ -282,7 +285,7 @@ batter_model_metrics <-
 ggplot(batter_model_metrics, aes(`zR^2`, zRMSE)) + geom_point() + fgt +
   geom_vline(xintercept = 0, linetype = "dashed") + geom_hline(yintercept = 0, linetype ="dashed") +
   geom_label_repel(aes(label = label)) +
-  ggtitle("Evaluation Metrics of Models") +
+  ggtitle("Evaluation Metrics of Models: Batter HOF Predictions") +
   xlim(-2, 2) + ylim(-2, 2) + labs(x="zR^2")
 
 ```
@@ -395,81 +398,127 @@ predict(hof_voting_model_xgbLinear, newdata = predictions_processed) %>%
 
 ```
 
+
+
+
 # now do it for starting pitchers!!
 
 ```{r}
 # get number of cy youngs won by each pitcher
-cy_young_winner_count <- read_csv("~/Downloads/mlb season awards - Cy_yong.csv") %>%
+cy_young_winner_count <-
+  read_csv("~/Downloads/mlb season awards - Cy_yong.csv") %>%
   gather(League, player_name, AL, NL) %>%
   group_by(player_name) %>%
   summarize(num_cy_youngs = n())
 
-pitcher_hof <- data_clean %>%
+starter_hof_data <-
+  data_clean %>%
   filter(position == 1,
          GS / G_pitch >= 0.5) %>%
-  select(-position) %>%
-  remove_empty("cols") %>%
-  left_join(cy_young_winner_count, by=c("Name" = "player_name")) %>%
-  mutate(num_cy_youngs = replace_na(num_cy_youngs, 0),
-         dist_from_300_w = W - 300,
-         k_bb_ratio = SO/BB_allowed,
-         dist_from_3000k = SO - 3000) %>%
-  select(year_on_ballot, bj_hof_monitor, bj_hof_standards, career_rWAR, best_war_years, jaws,
-         W, L, ERA, ERA_plus, WHIP, IP, SO, num_cy_youngs, k_bb_ratio, dist_from_300_w,
-         dist_from_3000k, ped_scandal, vote_share)
+  select(-position,
+         Name,
+         year_on_ballot,
+         vote_share,
+         prev_year_vote_share,
+         everything()) %>%
+  left_join(cy_young_winner_count, by = c("Name" = "player_name")) %>%
+  mutate(
+    num_cy_youngs = replace_na(num_cy_youngs, 0),
+    dist_from_300_w = W - 300,
+    k_bb_ratio = SO / BB_allowed,
+    dist_from_3000k = SO - 3000
+  ) %>%
+  select(
+    year_on_ballot,
+    prev_year_vote_share,
+    prev_three_year_vote_share_trend,
+    bj_hof_monitor,
+    bj_hof_standards,
+    career_rWAR,
+    best_war_years,
+    jaws,
+    W,
+    L,
+    ERA,
+    ERA_plus,
+    WHIP,
+    IP,
+    SO,
+    num_cy_youngs,
+    k_bb_ratio,
+    dist_from_300_w,
+    dist_from_3000k,
+    ped_scandal,
+    vote_year,
+    vote_share
+  ) %>%
+  ungroup()
 
-pitcher_test_df_rows <- createDataPartition(pitcher_hof$vote_share, p = 0.25, list = FALSE)
+starter_data_pre <-
+  starter_hof_data %>%
+  select(-vote_share,-ped_scandal,-year_on_ballot,-vote_year)
+starter_preprocess_params <-
+  preProcess(starter_data_pre, method = c("center", "scale", "knnImpute"))
+starter_data_clean_processed <-
+  predict(preprocess_params, starter_data_pre) %>%
+  bind_cols(
+    starter_hof_data %>% select(vote_share),
+    starter_hof_data %>% select(ped_scandal),
+    starter_hof_data %>% select(year_on_ballot),
+    starter_hof_data %>% select(vote_year)
+  )
 
-pitcher_hof_test <- 
-  pitcher_hof %>%
+seed <- 1
+set.seed(seed)
+starter_test_df_rows <-
+  createDataPartition(starter_data_clean_processed$vote_share,
+                      p = 0.3,
+                      list = FALSE)
+
+starter_hof_test <-
+  starter_data_clean_processed %>%
+  select(-Name) %>%
   filter(row_number() %in% batter_test_df_rows)
 
-pitcher_hof_train <- 
-  pitcher_hof %>%
+starter_hof_train <-
+  starter_data_clean_processed %>%
+  select(-Name) %>%
   filter(!row_number() %in% batter_test_df_rows)
 
-# algorithms <- c("nnet", "xgbTree", "svmRadial", "xgbLinear"). later on, use map() to do this
+algorithms <-
+  c("lm", "svmRadial", "xgbTree", "xgbLinear", "knn", "gbm")
 
-# batter_hof_train %>% 
-#   map(train_model(train_df = .,
-#                   algorithm=c("glm", "svmRadial", "xgbTree", "xgbLinear", "knn")))
-
-train_model(pitcher_hof_train, "glm")
-train_model(pitcher_hof_train, "svmRadial")
-train_model(pitcher_hof_train, "xgbTree")
-train_model(pitcher_hof_train, "xgbLinear")
-train_model(pitcher_hof_train, "knn")
-train_model(pitcher_hof_train, "lasso")
-
-# TODO: I can do all this work inside of a function, instead of outside it. the output of the function should be the model's predictions, not the model itself. maybe also a df of what the model thinks is important, since I don't know what the winning one is yet. then I can just use map_df() to combine the predictions into a tibble.
-
-pitcher_model_evaluation <-
-  pitcher_hof_test %>% 
-  mutate(predict_xgbtree = as.numeric(predict(hof_voting_model_xgbTree, newdata =.)),
-         predict_glm = as.numeric(predict(hof_voting_model_glm, newdata =.)),
-         predict_svm = as.numeric(predict(hof_voting_model_svmRadial, newdata = .)),
-         predict_xgblinear = as.numeric(predict(hof_voting_model_xgbLinear, newdata=.)),
-         predict_knn = as.numeric(predict(hof_voting_model_knn, newdata=.)),
-         predict_lasso = as.numeric(predict(hof_voting_model_lasso, newdata = .))) %>%
+# for each algorithm listed, train a model and assess it using the held-out test set,
+# gather its predictions into a tibble, and compute residuals
+starter_model_evaluation <-
+  algorithms %>%
+  map_dfc(
+    train_and_assess_model,
+    train_df = starter_hof_train,
+    assess_df = starter_hof_test,
+    eval_metric = "RMSE"
+  ) %>%
+  as_tibble() %>%
+  bind_cols(starter_hof_test) %>%
   select(vote_share, contains("predict_")) %>%
   gather(model_type, predicted_vote_share, contains("predict_")) %>%
-  select(vote_share, model_type, predicted_vote_share) %>%
+  select(model_type, predicted_vote_share, vote_share) %>%
   mutate(residual = vote_share - predicted_vote_share)
 
-pitcher_model_evaluation %>%
-ggplot(aes(vote_share, predicted_vote_share)) +
+starter_model_evaluation %>%
+  ggplot(aes(vote_share, predicted_vote_share)) +
   geom_point() + geom_smooth(method ="lm") +
   fgt + facet_wrap(vars(model_type)) +
   expand_limits(x=0,y=0) +
   geom_abline(linetype = "dashed") + ggtitle("Model Evaluation: Position Player Voting %")
 
-pitcher_model_evaluation %>% 
+starter_model_evaluation %>% 
   ggplot(aes(predicted_vote_share, residual)) + geom_point() +
   facet_wrap(vars(model_type)) + fgt +
   geom_hline(yintercept = 0, linetype = "dashed") + ggtitle("Model Evaluation: Position Player Voting %")
 
-pitcher_r_squared <- 
-  pitcher_model_evaluation %>%
+starter_r_squared <- 
+  starter_model_evaluation %>%
   split(.$model_type) %>%
   map(~lm(vote_share ~ predicted_vote_share, data = .)) %>%
   map(summary) %>%
@@ -477,56 +526,218 @@ pitcher_r_squared <-
   tidy() %>% 
   select(model_type = names, r_squared = x)
 
-
-# TODO: calc. MAE instead of RMSE
-
 # display table of model evaluation statistics  
-pitcher_model_metrics <-
-  pitcher_model_evaluation %>%
+starter_model_metrics <-
+  starter_model_evaluation %>%
   group_by(model_type) %>%
   summarize(RMSE = RMSE(predicted_vote_share, vote_share),
             MAE = mean(abs(predicted_vote_share - vote_share))) %>%
-  inner_join(pitcher_r_squared, by="model_type") %>%
+  inner_join(starter_r_squared, by="model_type") %>%
   ungroup() %>%
   mutate(zr_squared = (r_squared - mean(r_squared)) / sd(r_squared),
          zRMSE = (RMSE - mean(RMSE)) / sd(RMSE),
-         zMAE = (MAE - mean(MAE)) / sd(MAE)) %>%
-  select(`Model Type` = model_type, `R^2` = r_squared, RMSE, `zR^2` = zr_squared, zRMSE, zMAE)
+         zMAE = (MAE - mean(MAE)) / sd(MAE),
+         label = str_c(str_c(str_replace(model_type, "predict_", ""), ":"),
+                       "R^2:", str_c(round(r_squared, 1), ","), 
+                       "RMSE:", round(RMSE, 1), sep = " ")) %>%
+  select(`Model Type` = model_type, `R^2` = r_squared, RMSE, MAE, `zR^2` = zr_squared, zRMSE, zMAE, label)
 
-pitcher_model_metrics
-
-ggplot(pitcher_model_metrics, aes(`zR^2`, zRMSE)) + geom_point() + fgt +
+ggplot(starter_model_metrics, aes(`zR^2`, zRMSE)) + geom_point() + fgt +
   geom_vline(xintercept = 0, linetype = "dashed") + geom_hline(yintercept = 0, linetype ="dashed") +
-  xlim(-3, 3) + ylim(-3, 3) + 
-  geom_label(aes(label=str_c(str_replace(`Model Type`, "predict_", ""), ": R^2 = ", round(`R^2`, 2), ", RMSE = ", round(RMSE, 1)))) +
-  ggtitle("Evaluation Metrics of Models")
+  geom_label_repel(aes(label = label)) +
+  ggtitle("Evaluation Metrics of Models: Starter HOF Voting") +
+  xlim(-2, 2) + ylim(-2, 2) + labs(x="zR^2")
 
 ```
 
-after selecting the best model ...
+make 2019 predictions using chosen model
+
 ```{r}
-pitcher_predictions <-
-  hof_predictions %>%
-  filter(position == 1,
-         GS / G_pitch >= 0.5) %>%
-  remove_empty("cols") %>%
-  left_join(cy_young_winner_count, by=c("Name" = "player_name")) %>%
-  mutate(num_cy_youngs = replace_na(num_cy_youngs, 0),
-         dist_from_300_w = W - 300,
-         dist_from_3000k = SO - 3000,
-         k_bb_ratio = SO / BB_allowed,
-         ped_scandal = map_dbl(Name, get_ped_scandal)) %>%
-  select(Name, year_on_ballot, bj_hof_monitor, bj_hof_standards, career_rWAR, best_war_years, jaws,
-         W, L, ERA, ERA_plus, WHIP, IP, SO, num_cy_youngs, k_bb_ratio, dist_from_300_w, dist_from_3000k, ped_scandal)
-         
-predict(hof_voting_model_lasso, newdata = pitcher_predictions) %>%
+voting_trends <-
+  data_clean %>%
+  filter(vote_year %in% c(year_to_predict - 3, year_to_predict - 1)) %>%
+  group_by(Name) %>%
+  arrange(Name, vote_year) %>%
+  mutate(
+    prev_year_vote_share = vote_share,
+    prev_three_year_vote_share_trend = round((vote_share) - lag(vote_share) / 3, 1)
+  ) %>%
+  filter(vote_year == max(vote_year)) %>%
+  select(Name, prev_year_vote_share, prev_three_year_vote_share_trend)
+
+starter_hof_predictions <-
+  player_data %>%
+  select(
+    -X1,
+    -X4,
+    Name = X2,
+    year_on_ballot = X3,
+    bj_hof_monitor = X5,
+    bj_hof_standards = X6,
+    career_length = X7,
+    career_rWAR = X8,
+    best_war_years = X9,
+    jaws = X10,
+    jpos = X11,
+    W = X25,
+    L = X26,
+    ERA = X27,
+    ERA_plus = X28,
+    WHIP = X29,
+    G_pitch = X30,
+    GS = X31,
+    SV = X32,
+    IP = X33,
+    H_allowed = X34,
+    HR_allowed = X35,
+    BB_allowed = X36,
+    SO = X37,
+    position = X38
+  ) %>%
+  mutate(
+    Name = str_replace(Name, "y ", ""),
+    Name = str_replace_all(Name, c("X-" = "",
+                                   "\\sHOF" = "")),
+    year_on_ballot = as.integer(str_extract(year_on_ballot, "[:digit:]{1,2}")),
+    bj_hof_monitor = as.integer(bj_hof_monitor),
+    bj_hof_standards = as.integer(bj_hof_standards),
+    career_length = as.integer(career_length),
+    career_rWAR = as.double(career_rWAR),
+    best_war_years = as.double(best_war_years),
+    jaws = as.double(jaws),
+    jpos = as.double(jpos),
+    jaws_above_avg = jaws - jpos,
+       W = as.integer(W),
+         L = as.integer(L),
+         ERA = as.double(ERA), 
+         ERA_plus = as.integer(ERA_plus),
+         WHIP = as.double(WHIP),
+         G_pitch = as.integer(G_pitch),
+         GS = as.integer(GS),
+         SV = as.integer(SV),
+         IP = as.double(IP),
+         H_allowed = as.integer(H_allowed),
+         HR_allowed = as.integer(HR_allowed),
+         BB_allowed = as.integer(BB_allowed),
+         SO = as.integer(SO),
+    position = as.numeric(str_extract(position, "[:digit:]")),
+    ped_scandal = map_dbl(Name, get_ped_scandal)
+  ) %>%
+  filter(!is.na(year_on_ballot),
+         position == 1,
+         GS/G_pitch >= 0.5) %>%
+  left_join(voting_trends, by = "Name") %>% 
+  left_join(cy_young_winner_count, by = c("Name" = "player_name")) %>%
+  mutate(
+    num_cy_youngs = replace_na(num_cy_youngs, 0),
+    dist_from_300_w = W - 300,
+    k_bb_ratio = SO / BB_allowed,
+    dist_from_3000k = SO - 3000,
+    to_predict = 1  # this flag lets us know we want to predict these players. later on i join these players back to the main data set
+                    # to provide enough data points for knn inputation of NA values. to_predict lets us impute and then grab only the players
+                    # we want to predict
+  ) %>%
+  select(
+    Name,
+    year_on_ballot,
+    prev_year_vote_share,
+    prev_three_year_vote_share_trend,
+    bj_hof_monitor,
+    bj_hof_standards,
+    career_rWAR,
+    best_war_years,
+    jaws,
+    W,
+    L,
+    ERA,
+    ERA_plus,
+    WHIP,
+    IP,
+    SO,
+    num_cy_youngs,
+    k_bb_ratio,
+    dist_from_300_w,
+    dist_from_3000k,
+    ped_scandal,
+    vote_year,
+    to_predict
+  ) %>%
+  ungroup()
+
+# in the above dataset there are too many rows with NA for knn imputation to work.
+# so I have to:
+# go back to the main dataset and mash it together to make it look like the one we're predicting
+# use those values to impute the ones missing from the starters we want to predict
+# remove pitchers from the main dataset. we do this with the to_predict column
+
+bound_data <-
+  data_clean %>% 
+  filter(position == 1, 
+         GS/G_pitch >= 0.5) %>%
+  left_join(cy_young_winner_count, by = c("Name" = "player_name")) %>%
+  mutate(
+    num_cy_youngs = replace_na(num_cy_youngs, 0),
+    dist_from_300_w = W - 300,
+    k_bb_ratio = SO / BB_allowed,
+    dist_from_3000k = SO - 3000,
+    to_predict = 0  
+  ) %>%
+  select(
+    Name,
+    year_on_ballot,
+    prev_year_vote_share,
+    prev_three_year_vote_share_trend,
+    bj_hof_monitor,
+    bj_hof_standards,
+    career_rWAR,
+    best_war_years,
+    jaws,
+    W,
+    L,
+    ERA,
+    ERA_plus,
+    WHIP,
+    IP,
+    SO,
+    num_cy_youngs,
+    k_bb_ratio,
+    dist_from_300_w,
+    dist_from_3000k,
+    ped_scandal,
+    vote_year,
+    to_predict
+  ) %>%
+  bind_rows(starter_hof_predictions)
+
+starter_predictions_pre <- 
+  bound_data %>%
+  select(-ped_scandal, -year_on_ballot, -vote_year, -to_predict)
+preprocess_params_3 <- preProcess(starter_predictions_pre, method = c("center", "scale", "knnImpute"))
+starter_predictions_processed <- predict(preprocess_params_3, bound_data) %>%
+  bind_cols(bound_data %>% select(ped_scandal),
+            bound_data %>% select(year_on_ballot), 
+            bound_data %>% select(vote_year),
+            bound_data %>% select(to_predict)) %>%
+  filter(to_predict == 1) %>%
+  select(-to_predict)
+
+predict(hof_voting_model_xgbLinear, newdata = starter_predictions_processed) %>%
   as_tibble() %>%
-  select(predicted_voting_percentage = value) %>%
-  bind_cols(pitcher_predictions) %>%
-  select(Name, predicted_voting_percentage, everything()) %>%
-  mutate(predicted_voting_percentage = round(predicted_voting_percentage, 1)) %>%
-  arrange(desc(predicted_voting_percentage))
+  select(predicted_vote_share = value) %>%
+  bind_cols(starter_predictions_processed) %>%
+  select(Name, predicted_vote_share, everything()) %>%
+  mutate(predicted_vote_share = round(predicted_vote_share, 1)) %>%
+  arrange(desc(predicted_vote_share)) %>%
+  left_join(voting_trends, by="Name") %>%
+  select(Name, year_on_ballot, predicted_vote_share, previous_year_vote_share = prev_year_vote_share.y) %>%
+  mutate(change = predicted_vote_share - previous_year_vote_share)
+
 ```
+
+
+
+
+
 
 
 
