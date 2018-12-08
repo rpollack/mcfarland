@@ -38,9 +38,11 @@ send_message <- function(msg) {
   tw_send_message(from = twilio_number, to = "5123505107", body = msg)
 }
 
-# train a model on a specified algorithm and assess it using the held-out test set
-# return a dynamically-assigned column name so we know which model made which assessment
 train_and_assess_model <- function(algorithm, train_df, assess_df, eval_metric) {
+  # train a model on a specified algorithm and assess it using the held-out test set
+  # return a dynamically-assigned column name so we know which model made which assessment
+  # save model to generic environment so it can be used for predictions
+
   mdl <- train(vote_share ~ .,
     data = train_df,
     method = algorithm,
@@ -64,8 +66,8 @@ train_and_assess_model <- function(algorithm, train_df, assess_df, eval_metric) 
     select(!!label := value)
 }
 
-# get player data and (if available) HOF voting results for a particular year
 get_voting_results <- function(year) {
+  # get player data and (if available) HOF voting results for a particular year
   url <- str_c("https://www.baseball-reference.com/awards/hof_", year, ".shtml")
 
   read_html(url) %>%
@@ -76,8 +78,8 @@ get_voting_results <- function(year) {
     mutate(vote_year = year)
 }
 
-# mark players who have a PED scandal asoscaited with them
 get_ped_scandal <- function(name) {
+  # mark players who have a PED scandal asoscaited with them
   if_else(name %in% c(
     "Barry Bonds", "Roger Clemens", "Alex Rodriguez",
     "Gary Sheffield", "Rafael Palmeiro",
@@ -115,10 +117,9 @@ leave all highly correlated predictors intact. i tried removing ones correlated 
 # TODO: See if major awards (batting titles, MVP's) affect results
 # TODO: see if dist_from_3000_H and dist_from_500_HR affect results
 # TODO: see if adding the player's primary position back in has any effect.
-# TODO: ensure train and test splits are equally distributed in terms of vote_share & other data points
 
 # best tune: XGBlinear, R^S of 0.9, RMSE Of 6.13, MAE of 3.6
-# seed of 1 gets us here
+# seed of 11 gets us here
 
 data_clean <-
   hof_voting_data %>%
@@ -493,10 +494,13 @@ starter_hof_data <-
 starter_data_pre <-
   starter_hof_data %>%
   select(-vote_share, -ped_scandal, -year_on_ballot, -vote_year)
+
+pre_methods <- c("center", "scale", "knnImpute")
 starter_preprocess_params <-
-  preProcess(starter_data_pre, c("center", "scale", "knnImpute"))
+  preProcess(starter_data_pre, pre_methods)
+
 starter_data_clean_processed <-
-  predict(preprocess_params, starter_data_pre) %>%
+  predict(starter_preprocess_params, starter_data_pre) %>%
   bind_cols(
     starter_hof_data %>% select(vote_share),
     starter_hof_data %>% select(ped_scandal),
@@ -504,11 +508,11 @@ starter_data_clean_processed <-
     starter_hof_data %>% select(vote_year)
   )
 
-seed <- 1
+seed <- 3
 set.seed(seed)
 starter_test_df_rows <-
   createDataPartition(starter_data_clean_processed$vote_share,
-    0.3,
+    p = 0.3,
     list = FALSE
   )
 
@@ -689,7 +693,6 @@ starter_hof_predictions <-
     prev_year_vote_share,
     prev_three_year_vote_share_trend,
     bj_hof_monitor,
-    bj_hof_standards,
     career_rWAR,
     best_war_years,
     jaws,
@@ -760,8 +763,10 @@ bound_data <-
 starter_predictions_pre <-
   bound_data %>%
   select(-ped_scandal, -year_on_ballot, -vote_year, -to_predict)
-preprocess_params_3 <- preProcess(starter_predictions_pre, method = c("center", "scale", "knnImpute"))
-starter_predictions_processed <- predict(preprocess_params_3, bound_data) %>%
+
+preprocess_params_3 <- preProcess(starter_predictions_pre, method = pre_methods)
+
+starter_predictions_processed <- predict(preprocess_params_3, starter_predictions_pre) %>%
   bind_cols(
     bound_data %>% select(ped_scandal),
     bound_data %>% select(year_on_ballot),
