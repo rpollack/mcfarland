@@ -1,13 +1,14 @@
 ```{r message=FALSE, warning=FALSE}
 library(tidyverse)
-library(RMySQL)
 library(caret)
 library(broom)
+library(glue)
 library(rvest)
 library(data.table)
 library(twilio)
 library(ggrepel)
 library(styler)
+library(LearnBayes)
 
 fgt <- theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
@@ -422,6 +423,7 @@ predict(hof_voting_model_xgbLinear, newdata = predictions_processed) %>%
   mutate(change = predicted_vote_share - previous_year_vote_share)
 
 
+
 # predict(hof_voting_model_xgbLinear_tuned, newdata = predictions_processed) %>%
 #   as_tibble() %>%
 #   select(predicted_vote_share = value) %>%
@@ -432,6 +434,64 @@ predict(hof_voting_model_xgbLinear, newdata = predictions_processed) %>%
 #   arrange(desc(predicted_vote_share))
 ```
 
+in order to do a discrete bayesian inference i would have to manually generate a probability density curve for all 1,000 data points (since HOF voting goes to 3 digits)
+
+in order to do continous inference (at least for empirical bayes) i would have to do something like getting the success/fail data for each player from the past 3 years to get a prior. for players w/o at least 3 years of data I'd have to impute the missing data somehow. for barrel rates there was no missing data as I used players who'd had at least 3 PA in the big leagues
+
+I think ML is still the best approach (at least until I learn the latter)
+
+```{r}
+p_hof <- seq(0, 1, by = .01)
+prior_edgar <- 1 / 5 + 0 * p_hof
+
+plot(p_hof, prior_edgar, type = "h")
+
+# add info from HOF Ballot Tracker: http://www.bbhoftracker.com/
+
+total_ballots_observed <- 46
+edgar_percent <- .913
+edgar_success <- total_ballots_observed * edgar_percent
+edgar_fail <- total_ballots_observed - edgar_success
+edgar_votes <- c(edgar_success, edgar_fail)
+
+posterior_edgar <- pdisc(p_hof, prior_edgar, edgar_votes)
+edgar_95_credible <- discint(cbind(p_hof, posterior_edgar), 0.95)
+
+ggplot(posterior_edgar %>% as_tibble(), aes(p_hof, value)) + geom_col() +
+  labs(x = "HOF Vote Share", y = "Probability") +
+  ggtitle("Edgar Martinez HOF Vote Share Probability",
+    subtitle = glue("{round(max(posterior_edgar), 3) * 100}% chance that vote share is exactly {edgar_percent * 100}%
+                          {round(edgar_95_credible$prob, 3) * 100}% chance that HOF vote share is between {min(edgar_95_credible$set)*100}% and {max(edgar_95_credible$set)*100}%")
+  )
+
+# halladay
+prior_roy <- 1 / 2 + 0 * p_hof
+
+plot(p_hof, prior_halladay, type = "h")
+
+# add info from HOF Ballot Tracker: http://www.bbhoftracker.com/
+
+roy_percent <- .893
+roy_success <- total_ballots_observed * roy_percent
+roy_fail <- total_ballots_observed - roy_success
+roy_votes <- c(roy_success, roy_fail)
+
+posterior_roy <- pdisc(p_hof, prior_roy, roy_votes)
+roy_95_credible <- discint(cbind(p_hof, posterior_roy), 0.95)
+
+ggplot(posterior_roy %>% as_tibble(), aes(p_hof, value)) + geom_col() +
+  labs(x = "HOF Vote Share", y = "Probability") +
+  ggtitle("Roy Halladay HOF Vote Share Probability",
+    subtitle = glue("{round(max(posterior_roy), 3) * 100}% chance that vote share is exactly {roy_percent * 100}%
+                          {round(roy_95_credible$prob, 3) * 100}% chance that HOF vote share is between {min(roy_95_credible$set)*100}% and {max(roy_95_credible$set)*100}%")
+  )
+
+
+
+# plot(p_hof, edgar_posterior, type="h")
+```
+
+
 for batters: run bare xgboost algorithm to see if it gives better results than the caret-trained one.
 for example the early_stopping_rounds arg could maybe prevent overfitting.
 
@@ -440,42 +500,52 @@ for example the early_stopping_rounds arg could maybe prevent overfitting.
 # create xgboost-friendly matrices
 batter_train_labels <- batter_hof_train$vote_share %>%
   as.matrix()
-batter_train_matrix <- 
-  batter_hof_train %>% 
-  select(-vote_share) %>% 
+batter_train_matrix <-
+  batter_hof_train %>%
+  select(-vote_share) %>%
   as.matrix()
-batter_dtrain <- xgb.DMatrix(data = batter_train_matrix,
-                             label = batter_train_labels)
+batter_dtrain <- xgb.DMatrix(
+  data = batter_train_matrix,
+  label = batter_train_labels
+)
 
-params <- list(objective = "reg:linear",
-               eval_metric = "rmse",
-               booster = "gbtree")
+params <- list(
+  objective = "reg:linear",
+  eval_metric = "rmse",
+  booster = "gbtree"
+)
 
 # use 10-fold CV to determine the optimal number of iterations
-batter_hof_xgb_mdl_params <- xgb.cv(params = params,
-                               data = batter_dtrain,
-                               nrounds = 500,
-                               nfold = 100,
-                               early_stopping_rounds = 50,
-                               print_every_n = 50,
-                               stratified = TRUE)
+batter_hof_xgb_mdl_params <- xgb.cv(
+  params = params,
+  data = batter_dtrain,
+  nrounds = 500,
+  nfold = 100,
+  early_stopping_rounds = 50,
+  print_every_n = 50,
+  stratified = TRUE
+)
 
 num_rounds <- batter_hof_xgb_mdl_params$best_iteration
 
-batter_hof_xgb_mdl <- xgb.train(params = params,
-                                data = batter_dtrain,
-                                nrounds = num_rounds)
+batter_hof_xgb_mdl <- xgb.train(
+  params = params,
+  data = batter_dtrain,
+  nrounds = num_rounds
+)
 
 # construct xgboost-friendly test dataset, augment with model predictions, and evaluate
 batter_test_labels <- batter_hof_test$vote_share %>%
   as.matrix()
-batter_test_matrix <- 
-  batter_hof_test %>% 
-  select(-vote_share) %>% 
+batter_test_matrix <-
+  batter_hof_test %>%
+  select(-vote_share) %>%
   as.matrix()
 
-batter_dtest <- xgb.DMatrix(data = batter_test_matrix,
-                            label = batter_test_labels)
+batter_dtest <- xgb.DMatrix(
+  data = batter_test_matrix,
+  label = batter_test_labels
+)
 
 xgb_predictions <-
   predict(batter_hof_xgb_mdl, newdata = batter_dtest) %>%
@@ -496,12 +566,13 @@ ggplot(xgb_predictions, aes(vote_share, residual)) +
   geom_point()
 
 # make 2019 predictions using model
-data_2019 <- xgb.DMatrix(predictions_processed %>% 
-                           select(bj_hof_monitor,
-                                  career_rWAR, best_war_years, H, SB, BA, jaws_above_avg, prev_year_vote_share,
-                                  prev_three_year_vote_share_trend, ped_scandal, year_on_ballot, vote_year) %>% 
-                           as.matrix()
-                         )
+data_2019 <- xgb.DMatrix(predictions_processed %>%
+  select(
+    bj_hof_monitor,
+    career_rWAR, best_war_years, H, SB, BA, jaws_above_avg, prev_year_vote_share,
+    prev_three_year_vote_share_trend, ped_scandal, year_on_ballot, vote_year
+  ) %>%
+  as.matrix())
 
 predict(batter_hof_xgb_mdl, newdata = data_2019) %>%
   as_tibble() %>%
@@ -513,7 +584,6 @@ predict(batter_hof_xgb_mdl, newdata = data_2019) %>%
   left_join(voting_trends, by = "Name") %>%
   select(Name, year_on_ballot, predicted_vote_share, previous_year_vote_share = prev_year_vote_share) %>%
   mutate(change = predicted_vote_share - previous_year_vote_share)
-
 ```
 
 
@@ -870,12 +940,6 @@ predict(hof_voting_model_xgbLinear, newdata = starter_predictions_processed) %>%
   left_join(voting_trends, by = "Name") %>%
   select(Name, year_on_ballot, predicted_vote_share, previous_year_vote_share = prev_year_vote_share.y) %>%
   mutate(change = predicted_vote_share - previous_year_vote_share)
-```
-
-do a regular round of xgb tree-ing ... 
-
-```{r}
-
 ```
 
 
