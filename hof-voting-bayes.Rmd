@@ -1,0 +1,168 @@
+---
+title: "Hof-voting-bayes"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(stringr)
+#library(plotly)
+library(RMySQL)
+library(broom)
+library(gamlss)
+
+fgt = theme(
+  panel.background = element_rect(color = "lightgrey", fill = "white"),
+  axis.title = element_text(family = "Lato"),
+  axis.text = element_text(family = "Lato"),
+  legend.title = element_text(family = "Lato"),
+  legend.text = element_text(family = "Lato"),
+  legend.background = element_rect(fill = "white"),
+  legend.key = element_rect(fill = "white"),
+  plot.title = element_text(family = "Lato"),
+  panel.grid.major = element_line(size = .1, color = "lightgrey"),
+  panel.grid.minor = element_line(size = 0),
+  #strip.background = element_rect(fill = "#50ae26"),
+  strip.text = element_text(family="Lato")
+  )
+
+fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"), 
+                            host = Sys.getenv("FG_HOST"), 
+                            user = Sys.getenv("FG_USER"),
+                            password = Sys.getenv("FG_PW"))
+
+get_voting_results <- function(year) {
+  # get player data and (if available) HOF voting results for a particular year
+  # also get total ballots cast that year
+  url <- str_c("https://www.baseball-reference.com/awards/hof_", year, ".shtml")
+
+html <- read_html(url)
+
+ballot_text <-
+  html %>%
+  html_nodes("li") %>% 
+  html_text() %>%
+  as_tibble() %>% 
+  filter(str_detect(value, "total ballots")) %>%
+  distinct(value) # needed because some years, like 2011, have a vote total listed twice
+
+total_votes <- as.numeric(str_extract(ballot_text$value, "[:digit:]{3}"))
+
+html %>%
+    html_nodes("table") %>%
+    .[[1]] %>%
+    html_table(header = FALSE) %>%
+    as_tibble() %>%
+    mutate(vote_year = as.numeric(year),
+           total_ballots = total_votes)
+}
+
+
+```
+
+
+```{r}
+# foo <-
+#   read_html("https://www.baseball-reference.com/awards/hof_2011.shtml") %>% 
+#   html_nodes("li") %>% 
+#   html_text() %>%
+#   as_tibble() %>% 
+#   filter(str_detect(value, "total ballots"))
+# 
+# as.numeric(str_extract(foo$value, "[:digit:]{3}"))[1]
+# 
+
+```
+
+
+get voting results so we can estimate beta prior parameters
+
+for each player, get: 
+- year on ballot
+- playing position
+- JAWS
+- # votes that year
+- # total votes 
+
+
+```{r}
+hof_voting_data <- seq(first_training_year, last_training_year) %>%
+  map_df(get_voting_results)
+```
+
+clean and transform data so it can be processed correctly
+```{r}
+hof_voting_data_clean <-
+  hof_voting_data %>% 
+  dplyr::select(Name = X2,
+         num_votes_received = X4,
+         year_on_ballot = X3,
+         vote_year,
+         total_ballots,
+         jaws = X11
+         ) %>%
+  filter(!Name %in% c("Name", "")) %>% # remove informational and spacer rows
+  mutate(
+     Name = str_replace(Name, "y ", ""),
+    Name = str_replace_all(Name, c(
+      "X-" = "",
+      "\\sHOF" = ""
+    )),
+    num_votes_received = as.numeric(num_votes_received),
+         year_on_ballot = as.numeric(str_extract(year_on_ballot, "[:digit:]{1,2}")),
+         jaws = as.numeric(jaws))
+
+
+# TODO: now add in information from 2019. can i do this? their voting_years will be 1. they will prob. need better priors .. 
+# TODO: can probably estimate their priors using JAWS as well as year on ballot.
+
+
+# %>%
+#   group_by(Name) %>%
+#   summarize(total_votes = sum(num_votes_received),
+#             total_ballots = sum(total_ballots),
+#             years_on_ballot = n())
+
+fit <- gamlss(cbind(num_votes_received, total_ballots - num_votes_received) ~ log(year_on_ballot),
+              data = hof_voting_data_clean,
+              family = BB(mu.link = "identity"))
+
+td <- tidy(fit)
+
+mu <- fitted(fit, parameter = "mu")
+sigma <- fitted(fit, parameter="sigma")
+
+# combine prior distributions with likelihoods to produce posterior distributions.
+# simplify visualizations to most likely values + credible intervals instead of probability distributions
+est_hof_voting <- hof_voting_data_clean %>%
+  ungroup() %>%
+  mutate(mu = mu,
+         alpha0 = mu / sigma,
+         beta0 = (1 - mu) / sigma,
+         alpha1 = alpha0 + num_votes_received,
+         beta1 = beta0 + total_ballots - num_votes_received,
+         est_hof_vote_share = alpha1 / (alpha1 + beta1),
+         low_credible = qbeta(.025, alpha1, beta1), 
+         high_credible = qbeta(.975, alpha1, beta1)) %>%
+  mutate(name_year = paste(Name, vote_year, sep = " ")) %>%
+  arrange(desc(est_hof_vote_share))
+
+ggplot(est_hof_voting %>% head(25), aes(est_hof_vote_share, reorder(name_year, est_hof_vote_share))) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
+  labs(y="", x="Estimated HOF Vote %  with 95% Credible Interval") +
+  ggtitle("THIS GRAPH NEEDS A FUCKING TITLE") + fgt
+
+```
+
+
+
+
+ahhhh but i can't estimate a prior for players w/o any voting results ... can i??
+
+they DO have some ACTUAL voting results (likelihood). perhaps I can use a naive prior? beta with alpha = 1 and beta = 1? or comparable players?
+
+
+
+do empirical analysis for first-year players. they haven't had any results to observe yet ... or have they?
+
