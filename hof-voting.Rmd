@@ -8,7 +8,7 @@ library(data.table)
 library(twilio)
 library(ggrepel)
 library(styler)
-library(LearnBayes)
+#library(LearnBayes)
 
 fgt <- theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
@@ -217,8 +217,10 @@ batter_data_clean_processed <- predict(batter_preprocess_params, batter_data_pre
 
 ```{r}
 
-seed <- 11
-# best seed so far is 11. xgblinear with R^2 of 0.9 and RMSE of 7.5. Good batter predictions, too.
+seed <-11
+# seeds: 11, xgblinear with R^2 of 0.93 and RMSE of 7.5. 2019 predictions look good. 
+# 12, xgbTree, with R^2 of 0.96 and RMSE of 6.5. 2019 predictions don't look great. Andruw Jones is at -5.8%
+# 
 
 # make training and test DF's. use seed to keep the splits the same between runs
 set.seed(seed)
@@ -275,7 +277,7 @@ batter_model_evaluation %>%
 batter_model_evaluation %>%
   ggplot(aes(predicted_vote_share, residual)) + geom_point() +
   facet_wrap(vars(model_type)) + fgt +
-  geom_hline(yintercept = 0, linetype = "dashed") + ggtitle("Model Evaluation: Position Player Voting %")
+  geom_hline(yintercept = 0, linetype = "dashed") + ggtitle("Model Evaluation: Residuals of Position Player Voting %")
 
 batter_r_squared <-
   batter_model_evaluation %>%
@@ -301,7 +303,7 @@ batter_model_metrics <-
     zRMSE = (RMSE - mean(RMSE)) / sd(RMSE),
     zMAE = (MAE - mean(MAE)) / sd(MAE),
     label = str_c(str_c(str_replace(model_type, "predict_", ""), ":"),
-      "R^2:", str_c(round(r_squared, 1), ","),
+      "R^2:", str_c(round(r_squared, 2), ","),
       "RMSE:", round(RMSE, 1),
       sep = " "
     )
@@ -438,7 +440,7 @@ in order to do a discrete bayesian inference i would have to manually generate a
 
 in order to do continous inference (at least for empirical bayes) i would have to do something like getting the success/fail data for each player from the past 3 years to get a prior. for players w/o at least 3 years of data I'd have to impute the missing data somehow. for barrel rates there was no missing data as I used players who'd had at least 3 PA in the big leagues
 
-I think ML is still the best approach (at least until I learn the latter)
+I think ML is still the best approach (at least until I learn the latter, or until I find a good way to generate a realistic continuous probability distribution for HOF voting totals)
 
 ```{r}
 p_hof <- seq(0, 1, by = .01)
@@ -498,6 +500,7 @@ for example the early_stopping_rounds arg could maybe prevent overfitting.
 ```{r}
 
 # create xgboost-friendly matrices
+
 batter_train_labels <- batter_hof_train$vote_share %>%
   as.matrix()
 batter_train_matrix <-
@@ -520,8 +523,8 @@ batter_hof_xgb_mdl_params <- xgb.cv(
   params = params,
   data = batter_dtrain,
   nrounds = 500,
-  nfold = 100,
-  early_stopping_rounds = 50,
+  nfold = 10,
+  early_stopping_rounds = 10,
   print_every_n = 50,
   stratified = TRUE
 )
@@ -593,7 +596,7 @@ predict(batter_hof_xgb_mdl, newdata = data_2019) %>%
 ```{r}
 # get number of cy youngs won by each pitcher
 cy_young_winner_count <-
-  read_csv("~/Downloads/mlb season awards - Cy_yong.csv") %>%
+  read_csv("mlb season awards - cy_young_winners.csv") %>%
   gather(League, player_name, AL, NL) %>%
   group_by(player_name) %>%
   summarize(num_cy_youngs = n())
@@ -662,7 +665,7 @@ starter_data_clean_processed <-
     starter_hof_data %>% select(vote_year)
   )
 
-seed <- 3
+seed <- 12
 set.seed(seed)
 starter_test_df_rows <-
   createDataPartition(starter_data_clean_processed$vote_share,
@@ -673,12 +676,12 @@ starter_test_df_rows <-
 starter_hof_test <-
   starter_data_clean_processed %>%
   select(-Name) %>%
-  filter(row_number() %in% batter_test_df_rows)
+  filter(row_number() %in% starter_test_df_rows)
 
 starter_hof_train <-
   starter_data_clean_processed %>%
   select(-Name) %>%
-  filter(!row_number() %in% batter_test_df_rows)
+  filter(!row_number() %in% starter_test_df_rows)
 
 algorithms <-
   c("lm", "svmRadial", "xgbTree", "xgbLinear", "knn", "gbm")
@@ -930,7 +933,7 @@ starter_predictions_processed <- predict(preprocess_params_3, starter_prediction
   filter(to_predict == 1) %>%
   select(-to_predict)
 
-predict(hof_voting_model_xgbLinear, newdata = starter_predictions_processed) %>%
+predict(hof_voting_model_xgbTree, newdata = starter_predictions_processed) %>%
   as_tibble() %>%
   select(predicted_vote_share = value) %>%
   bind_cols(starter_predictions_processed) %>%
@@ -943,8 +946,85 @@ predict(hof_voting_model_xgbLinear, newdata = starter_predictions_processed) %>%
 ```
 
 
+lastly, predict relievers
 
+```{r}
 
+reliever_hof_data <-
+  data_clean %>%
+  filter(
+    position == 1,
+    GS / G_pitch <= 0.5
+  ) %>%
+  select(
+    -position,
+    Name,
+    year_on_ballot,
+    vote_share,
+    prev_year_vote_share,
+    everything()
+  ) %>%
+  select(
+    year_on_ballot,
+    prev_year_vote_share,
+    prev_three_year_vote_share_trend,
+    bj_hof_monitor,
+    bj_hof_standards,
+    career_rWAR,
+    best_war_years,
+    jaws,
+    W,
+    L,
+    ERA,
+    ERA_plus,
+    WHIP,
+    IP,
+    SO,
+    SV,
+    #k_bb_ratio,
+    ped_scandal,
+    vote_year,
+    vote_share
+  ) %>%
+  ungroup()
+
+reliever_data_pre <-
+  reliever_hof_data %>%
+  select(-vote_share, -ped_scandal, -year_on_ballot, -vote_year)
+
+pre_methods <- c("center", "scale", "knnImpute")
+reliever_preprocess_params <-
+  preProcess(reliever_data_pre, pre_methods)
+
+reliever_data_clean_processed <-
+  predict(reliever_preprocess_params, reliever_data_pre) %>%
+  bind_cols(
+    reliever_hof_data %>% select(vote_share),
+    reliever_hof_data %>% select(ped_scandal),
+    reliever_hof_data %>% select(year_on_ballot),
+    reliever_hof_data %>% select(vote_year)
+  )
+
+set.seed(1)
+reliever_test_df_rows <-
+  createDataPartition(reliever_data_clean_processed$vote_share,
+    p = 0.3,
+    list = FALSE
+  )
+
+reliever_hof_test <-
+  reliever_data_clean_processed %>%
+  select(-Name) %>%
+  filter(row_number() %in% reliever_test_df_rows)
+
+reliever_hof_train <-
+  reliever_data_clean_processed %>%
+  select(-Name) %>%
+  filter(!row_number() %in% reliever_test_df_rows)
+
+algorithms <-
+  c("lm", "svmRadial", "xgbTree", "xgbLinear", "knn", "gbm")
+```
 
 
 
