@@ -123,20 +123,74 @@ hof_voting_data_clean <-
 #             total_ballots = sum(total_ballots),
 #             years_on_ballot = n())
 
-fit <- gamlss(cbind(num_votes_received, total_ballots - num_votes_received) ~ log(year_on_ballot),
+fit <- gamlss(cbind(num_votes_received, total_ballots - num_votes_received) ~ 0 + log(year_on_ballot) * jaws,
               data = hof_voting_data_clean,
               family = BB(mu.link = "identity"))
 
-td <- tidy(fit)
+# td <- tidy(fit)
+# 
+# mu_0 <- td$estimate[1]
+# mu_PA <- td$estimate[2]
+# sigma <- exp(td$estimate[3])
 
-mu <- fitted(fit, parameter = "mu")
-sigma <- fitted(fit, parameter="sigma")
+# plot prior distirbutions for players' HOF voting, based on their year on the ballot and JAWS. 
+# note these are just the medians.
+# TODO: might be better to quantize JAWS and show ACTUAL CURVES for players with 10, 50, and 100 JAWS to get the point across.
+
+# sigma <- fitted(fit, "sigma")[1]
+# crossing(jaws = c(25, 50, 75, 100),
+#          year_on_ballot = c(1, 5, 10)) %>%
+#   augment(fit, newdata = .) %>%
+#   rename(mu = .fitted) %>%
+#   crossing(x = seq(0, 1, .1)) %>%
+#   mutate(alpha = mu / sigma,
+#          beta = (1 - mu) / sigma,
+#          density = dbeta(x, alpha, beta)) %>%
+#   ggplot(aes(x, density, color = factor(year_on_ballot), group = jaws)) +
+#   geom_line() +
+#   labs(x = "Estimated HOF",
+#        y = "Prior density",
+#        color = "AB",
+#        lty = "Batting hand")
+
+
+# plot medians of prior distributions of vote share totals, given player's jaws & the year they are on the ballot 
+# TODO: I want to show the actual distro curves but haven't figured out how to do that successfully. some code for it is in my NOTES
+hof_voting_data_clean %>%
+    augment(fit, newdata = .) %>%
+    rename(mu = .fitted) %>%
+    mutate(sigma = fitted(fit, "sigma")[1],
+           alpha0 = mu / sigma,
+           beta0 = (1 - mu) / sigma,
+           conf_low = qbeta(.025, alpha0, beta0),
+           conf_high = qbeta(.975, alpha0, beta0)) %>%
+    ggplot(aes(year_on_ballot, mu, color = jaws, group = jaws)) +
+    geom_line() +
+    #geom_ribbon(aes(ymin = conf_low, ymax = conf_high), linetype = 2, alpha = .1) +
+    labs(x = "Year on Ballot",
+         y = "Estimate Prior HOF Vote Share (Median)",
+         color = "JAWS") +
+  geom_hline(yintercept = 0.75, linetype="dashed", color="red") +
+  ylim(0, 1) + fgt
+
+
+
+```
+
+
+```{r}
+# td <- tidy(fit)
+# 
+# mu <- fitted(fit, parameter = "mu")
+# sigma <- fitted(fit, parameter="sigma")
 
 # combine prior distributions with likelihoods to produce posterior distributions.
 # simplify visualizations to most likely values + credible intervals instead of probability distributions
-est_hof_voting <- hof_voting_data_clean %>%
+est_hof_voting <- 
+  hof_voting_data_clean %>%
   ungroup() %>%
-  mutate(mu = mu,
+  mutate(mu = predict(fit, what = "mu", newdata = hof_voting_data_clean),
+         sigma = predict(fit, what = "sigma", newdata = hof_voting_data_clean, type = "response"),
          alpha0 = mu / sigma,
          beta0 = (1 - mu) / sigma,
          alpha1 = alpha0 + num_votes_received,
