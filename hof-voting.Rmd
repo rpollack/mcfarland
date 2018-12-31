@@ -191,10 +191,10 @@ leave all highly correlated predictors intact. i tried removing ones correlated 
 # best tune: XGBlinear, R^S of 0.9, RMSE Of 6.13, MAE of 3.6
 # seed of 11 gets us here
 
+# select predictors for position players only
 batter_data <-
   data_clean %>%
   filter(position != 1) %>%
-  dplyr::select(-position, Name, year_on_ballot, vote_share, prev_three_year_vote_share_trend, everything()) %>%
   ungroup() %>%
   dplyr::select(Name, year_on_ballot, vote_year, prev_year_vote_share, prev_three_year_vote_share_trend, ped_scandal, bj_hof_monitor, vote_share)
 
@@ -353,38 +353,50 @@ voting_trends <-
 
 hof_predictions <-
   player_data %>%
-  dplyr::select(-X1, -X4,
-    Name = X2, year_on_ballot = X3, bj_hof_monitor = X5,
-    bj_hof_standards = X6, career_length = X7, career_rWAR = X8, best_war_years = X9,
-    jaws = X10, jpos = X11, G_bat = X12, AB = X13, R = X14, H = X15, HR = X16, RBI = X17,
-    SB = X18, BB = X19, BA = X20, OBP = X21, SLG = X22, OPS = X23, OPS_plus = X24,
-    W = X25, L = X26, ERA = X27, ERA_plus = X28, WHIP = X29, G_pitch = X30, GS = X31, SV = X32, IP = X33,
-    H_allowed = X34, HR_allowed = X35, BB_allowed = X36, SO = X37, position = X38
+  dplyr::select(
+    -X1,
+    -X4,
+    Name = X2,
+    year_on_ballot = X3,
+    bj_hof_monitor = X5,
+    bj_hof_standards = X6,
+    career_length = X7,
+    career_rWAR = X8,
+    best_war_years = X9,
+    jaws = X10,
+    jpos = X11,
+    G_bat = X12,
+    AB = X13,
+    R = X14,
+    H = X15,
+    HR = X16,
+    RBI = X17,
+    SB = X18,
+    BB = X19,
+    BA = X20,
+    OBP = X21,
+    SLG = X22,
+    OPS = X23,
+    OPS_plus = X24,
+    W = X25,
+    L = X26,
+    ERA = X27,
+    ERA_plus = X28,
+    WHIP = X29,
+    G_pitch = X30,
+    GS = X31,
+    SV = X32,
+    IP = X33,
+    H_allowed = X34,
+    HR_allowed = X35,
+    BB_allowed = X36,
+    SO = X37,
+    position = X38
   ) %>%
   mutate(
     Name = fix_name(Name),
     year_on_ballot = as.numeric(str_extract(year_on_ballot, "[:digit:]{1,2}")),
     bj_hof_monitor = as.numeric(bj_hof_monitor),
-    bj_hof_standards = as.numeric(bj_hof_standards),
-    career_length = as.numeric(career_length),
-    career_rWAR = as.double(career_rWAR),
-    best_war_years = as.double(best_war_years),
-    jaws = as.double(jaws),
-    jpos = as.double(jpos),
-    jaws_above_avg = jaws - jpos,
-    G_bat = as.numeric(G_bat),
-    AB = as.numeric(AB),
-    R = as.numeric(R),
-    H = as.numeric(H),
-    HR = as.numeric(HR),
-    RBI = as.numeric(RBI),
-    SB = as.numeric(SB),
-    BB = as.numeric(BB),
-    BA = as.double(BA),
-    OBP = as.double(OBP),
-    SLG = as.double(SLG),
-    OPS = as.double(OPS),
-    OPS_plus = as.numeric(OPS_plus),
     position = as.numeric(str_extract(position, "[:digit:]")),
     ped_scandal = map_dbl(Name, get_ped_scandal)
   ) %>%
@@ -397,12 +409,8 @@ batter_predictions <-
   dplyr::select(Name, year_on_ballot, vote_year, prev_year_vote_share, prev_three_year_vote_share_trend, ped_scandal, bj_hof_monitor)
 
 # preprocess 2019 HOF voting data using the same parameters identified earlier
-
-
-
 predictions_pre <- batter_predictions %>%
   dplyr::select(-ped_scandal, -year_on_ballot, -vote_year)
-
 predictions_processed <- predict(batter_preprocess_params, predictions_pre) %>%
   bind_cols(
     batter_predictions %>% dplyr::select(ped_scandal),
