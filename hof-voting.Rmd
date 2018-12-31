@@ -196,11 +196,7 @@ batter_data <-
   filter(position != 1) %>%
   dplyr::select(-position, Name, year_on_ballot, vote_share, prev_three_year_vote_share_trend, everything()) %>%
   ungroup() %>%
-  dplyr::select(
-    -W, -L, -ERA, -ERA_plus, -WHIP, -G_pitch, -GS, -SV, -IP, -H_allowed,
-    -HR_allowed, -BB_allowed, -SO, -position, -career_length, -BB, -AB,
-    -OBP, -SLG, -R, -OPS, -RBI, -HR, -OPS_plus, -jaws, -jpos, -bj_hof_standards, -G_bat
-  )
+  dplyr::select(Name, year_on_ballot, vote_year, prev_year_vote_share, prev_three_year_vote_share_trend, ped_scandal, bj_hof_monitor, vote_share)
 
 # remove response variable & binary variable from cleaned data, preprocess remaining data & re-join
 # to removed columns. preprocessing includes centering and scaling predictors as well as imputing missing values
@@ -398,11 +394,7 @@ batter_predictions <-
   hof_predictions %>%
   filter(position != "1") %>%
   left_join(voting_trends, by = "Name") %>%
-  dplyr::select(
-    -W, -L, -ERA, -ERA_plus, -WHIP, -G_pitch, -GS, -SV, -IP, -H_allowed,
-    -HR_allowed, -BB_allowed, -SO, -position, -career_length, -BB, -AB, -OBP, -SLG, -R, -OPS, -RBI, -OPS_plus,
-    -jaws, -jpos, -G_bat, -bj_hof_standards
-  )
+  dplyr::select(Name, year_on_ballot, vote_year, prev_year_vote_share, prev_three_year_vote_share_trend, ped_scandal, bj_hof_monitor)
 
 # preprocess 2019 HOF voting data using the same parameters identified earlier
 
@@ -417,23 +409,8 @@ predictions_processed <- predict(batter_preprocess_params, predictions_pre) %>%
     batter_predictions %>% dplyr::select(year_on_ballot),
     batter_predictions %>% dplyr::select(vote_year)
   )
-  
 
-
-# batter_data_pre <-
-#   batter_data %>%
-#   dplyr::select(-vote_share, -ped_scandal, -year_on_ballot, -vote_year)
-# batter_preprocess_params <- preProcess(batter_data_pre, method = c("center", "scale", "knnImpute"))
-# batter_data_clean_processed <- predict(batter_preprocess_params, batter_data_pre) %>%
-#   bind_cols(
-#     batter_data %>% dplyr::select(vote_share),
-#     batter_data %>% dplyr::select(ped_scandal),
-#     batter_data %>% dplyr::select(year_on_ballot),
-#     batter_data %>% dplyr::select(vote_year)
-#   )
-
-
-predict(position_player_hof_voting_model_xgbLinear, newdata = predictions_processed) %>%
+predict(position_player_hof_voting_model_xgbTree, newdata = predictions_processed) %>%
   as_tibble() %>%
   dplyr::select(predicted_vote_share = value) %>%
   bind_cols(predictions_processed) %>%
@@ -477,7 +454,7 @@ batter_hof_xgb_mdl_params <- xgb.cv(
   data = batter_dtrain,
   nrounds = 500,
   nfold = 10,
-  early_stopping_rounds = 10,
+  early_stopping_rounds = 50,
   print_every_n = 50,
   stratified = TRUE
 )
