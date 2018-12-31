@@ -964,7 +964,7 @@ reliever_predictions_processed <- predict(reliever_preprocess_params, reliever_p
     reliever_hof_predictions %>% dplyr::select(vote_year)
   ) 
 
-predict(reliever_hof_voting_model_xgbTree, newdata = reliever_predictions_processed) %>%
+predict(reliever_hof_voting_model_xgbLinear, newdata = reliever_predictions_processed) %>%
   as_tibble() %>%
   dplyr::select(predicted_vote_share = value) %>%
   bind_cols(reliever_predictions_processed) %>%
