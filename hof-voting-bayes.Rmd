@@ -10,6 +10,7 @@ library(stringr)
 library(RMySQL)
 library(broom)
 library(gamlss)
+library(glue)
 
 fgt = theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
@@ -106,13 +107,17 @@ hof_voting_data_clean <-
                 year_on_ballot = X3,
                 vote_year,
                 total_ballots,
-                jaws = X11
+                jaws = X11,
+                jpos = X12
   ) %>%
   filter(!Name %in% c("Name", "")) %>% # remove informational and spacer rows
   mutate(Name = fix_name(Name),
          num_votes_received = as.numeric(num_votes_received),
          year_on_ballot = as.numeric(str_extract(year_on_ballot, "[:digit:]{1,2}")),
-         jaws = as.numeric(jaws))
+         jaws = as.numeric(jaws),
+         jpos = as.numeric(jpos),
+         jaws_plus = round(100 * (jaws / jpos), 0)) %>%
+  dplyr::select(-jaws, -jpos)
 
 # get ballot and stat information for those on the next ballot. 
 year_to_predict <- 2019
@@ -127,16 +132,19 @@ current_hof_voting <-
   dplyr::select(Name = X2,
          year_on_ballot = X3,
          vote_year,
-         jaws = X10) %>%
+         jaws = X10,
+         jpos = X11) %>%
   filter(!Name %in% c("Name", "")) %>% # remove informational and spacer rows
   mutate(Name = fix_name(Name),
          year_on_ballot = as.numeric(str_extract(year_on_ballot, "[:digit:]{1,2}")),
-         jaws = as.numeric(jaws))
+         jaws = as.numeric(jaws),
+         jpos = as.numeric(jpos),
+         jaws_plus = round(100 * (jaws / jpos), 0)) %>%
+  dplyr::select(-jaws, -jpos)
 
-# get to-date voting information from HOF Tracker
+# get to-date voting information from HOF Tracker and combine with BB-Ref stats, and join to previously scraped data
 current_voting_data <-
   read_csv("2019 BBHOF Tracker/Summary-Table 1.csv")
-
 known_votes <- as.numeric(current_voting_data[2,3]) + as.numeric(current_voting_data[1,3])
 voting_info_to_date <-
   current_voting_data %>%
@@ -147,8 +155,7 @@ voting_info_to_date <-
          total_ballots = known_votes,
          num_votes_received = ceiling(vote_share * total_ballots)) %>%
   inner_join(current_hof_voting, by="Name") %>%
-  dplyr::select(Name, num_votes_received, year_on_ballot, vote_year, total_ballots, jaws)
-
+  dplyr::select(Name, num_votes_received, year_on_ballot, vote_year, total_ballots, jaws_plus)
 master <- bind_rows(hof_voting_data_clean, voting_info_to_date)
 
 ```
@@ -165,7 +172,7 @@ master <- bind_rows(hof_voting_data_clean, voting_info_to_date)
 #             total_ballots = sum(total_ballots),
 #             years_on_ballot = n())
 
-fit <- gamlss(cbind(num_votes_received, total_ballots - num_votes_received) ~ 0 + log(year_on_ballot) * jaws,
+fit <- gamlss(cbind(num_votes_received, total_ballots - num_votes_received) ~ 0 + log(year_on_ballot) * log(jaws_plus),
               data = master,
               family = BB(mu.link = "identity"))
 
@@ -206,12 +213,12 @@ master %>%
            beta0 = (1 - mu) / sigma,
            conf_low = qbeta(.025, alpha0, beta0),
            conf_high = qbeta(.975, alpha0, beta0)) %>%
-    ggplot(aes(year_on_ballot, mu, color = jaws, group = jaws)) +
+    ggplot(aes(year_on_ballot, mu, color = jaws_plus, group = jaws_plus)) +
     geom_line() +
     #geom_ribbon(aes(ymin = conf_low, ymax = conf_high), linetype = 2, alpha = .1) +
     labs(x = "Year on Ballot",
          y = "Estimate Prior HOF Vote Share (Median)",
-         color = "JAWS") +
+         color = "JAWS+") +
   geom_hline(yintercept = 0.75, linetype="dashed", color="red") +
   ylim(0, 1) + fgt
 
@@ -243,22 +250,16 @@ est_hof_voting <-
   mutate(name_year = paste(Name, vote_year, sep = " ")) %>%
   arrange(desc(est_hof_vote_share))
 
-ggplot(est_hof_voting %>% head(25), aes(est_hof_vote_share, reorder(name_year, est_hof_vote_share))) +
-  geom_point() +
-  geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
-  labs(y="", x="Estimated HOF Vote %  with 95% Credible Interval") +
-  ggtitle("THIS GRAPH NEEDS A FUCKING TITLE") + fgt
-
-# edgar martinez: prior vs. posterior
+# ken griffey jr. prior vs. posterior
 ggplot() + geom_histogram(binwidth = 0.009, aes(y=..density..)) +
   stat_function(fun = dbeta,
-                args=list(shape1 = 0.8895907, shape2 = 1.417794),
+                args=list(shape1 = 0.2426830, shape2 = 1.932842),
                 aes(color = "Prior")) +
   stat_function(fun = dbeta,
-                args=list(shape1 = 118.8896, shape2 = 12.41779),
+                args=list(shape1 = 437.24268, shape2 = 4.932842),
                 aes(color="Posterior")) +
   xlim(0, 1) + labs(x="HOF Vote Share") + 
-  ggtitle("Edgar Martinez in 2019: Prior Expectations vs. Posterior Probabilities") +
+  ggtitle("Ken Griffey Jr. HOF Voting:  Prior Expectations vs. Posterior Probabilities") +
   fgt
 
 #mariano rivera: prior vs. posterior
@@ -277,6 +278,18 @@ ggplot() + geom_histogram(binwidth = 0.009, aes(y=..density..)) +
   ggtitle("HOF Vote Share Derby: Two Great Closers") +
   fgt
 
+```
+
+```{r, fig.height=3}
+ggplot(est_hof_voting %>% filter(vote_year == 2019), aes(est_hof_vote_share, reorder(Name, est_hof_vote_share))) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
+  labs(y="", x="Estimated HOF Vote % with 95% Credible Interval", 
+       caption = "Sources: \nPast voting: Baseball Reference\n2019 voting: bbhoftracker.com") +
+  ggtitle("Projected HOF Voting, Class of 2019",
+          subtitle = glue("After {known_votes} votes tallied")) + fgt +
+  geom_vline(xintercept = 0.75, linetype = "dashed", color = "green") +
+  geom_vline(xintercept = .05, linetype = "dashed", color = "red")
 ```
 
 
