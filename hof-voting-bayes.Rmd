@@ -266,18 +266,6 @@ ggplot() + geom_histogram(binwidth = 0.009, aes(y=..density..)) +
 
 
 
-#compare two players' posterior distributions visually
-ggplot() + geom_histogram(binwidth = 0.009, aes(y=..density..)) +
-  stat_function(fun = dbeta,
-                args=list(shape1 = 337.4489, shape2 = 86.77561),
-                aes(color = "Trevor Hoffman")) +
-  stat_function(fun = dbeta,
-                args=list(shape1 = 47.4489, shape2 = 376.77561),
-                aes(color="Billy Wagner")) +
-  xlim(0, 1) + labs(x="HOF Vote Share") + 
-  ggtitle("HOF Vote Share Derby: Two Great Closers") +
-  fgt
-
 ```
 
 ```{r, fig.height=3}
