@@ -567,6 +567,7 @@ starter_hof_data <-
   ) %>%
   ungroup()
 
+# pre-process relevant predictors by removing irrelevant ones, applying pre-processing, and re-adding irrelevant ones
 starter_data_pre <-
   starter_hof_data %>%
   dplyr::select(-vote_share, -ped_scandal, -year_on_ballot, -vote_year)
@@ -584,8 +585,7 @@ starter_data_clean_processed <-
     starter_hof_data %>% dplyr::select(vote_year)
   )
 
-# seed <- 1
-# set.seed(seed)
+set.seed(5)
 starter_test_df_rows <-
   createDataPartition(starter_data_clean_processed$vote_share,
     p = 0.3,
@@ -658,7 +658,7 @@ starter_model_metrics <-
     zRMSE = (RMSE - mean(RMSE)) / sd(RMSE),
     zMAE = (MAE - mean(MAE)) / sd(MAE),
     label = str_c(str_c(str_replace(model_type, "predict_", ""), ":"),
-      "R^2:", str_c(round(r_squared, 1), ","),
+      "R^2:", str_c(round(r_squared, 2), ","),
       "RMSE:", round(RMSE, 1),
       sep = " "
     )
@@ -670,6 +670,8 @@ ggplot(starter_model_metrics, aes(`zR^2`, zRMSE)) + geom_point() + fgt +
   geom_label_repel(aes(label = label)) +
   ggtitle("Evaluation Metrics of Models: Starter HOF Voting") +
   xlim(-2, 2) + ylim(-2, 2) + labs(x = "zR^2")
+
+# best attempt so far: xgblinear, 0.9 R^2, 6.9 RMSE
 ```
 
 make 2019 predictions using chosen model
@@ -809,13 +811,11 @@ bound_data <-
   ) %>%
   bind_rows(starter_hof_predictions)
 
+# pre-process 2019 starter data using parameters identified earlier
 starter_predictions_pre <-
   bound_data %>%
   dplyr::select(-ped_scandal, -year_on_ballot, -vote_year, -to_predict)
-
-preprocess_params_3 <- preProcess(starter_predictions_pre, method = pre_methods)
-
-starter_predictions_processed <- predict(preprocess_params_3, starter_predictions_pre) %>%
+starter_predictions_processed <- predict(starter_preprocess_params, starter_predictions_pre) %>%
   bind_cols(
     bound_data %>% dplyr::select(ped_scandal),
     bound_data %>% dplyr::select(year_on_ballot),
