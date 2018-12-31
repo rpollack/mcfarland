@@ -566,7 +566,7 @@ starter_hof_data <-
     prev_year_vote_share,
     everything()
   ) %>%
-  left_join(cy_young_winner_count, by = c("Name" = "player_name")) %>%
+  left_join(cy_young_winner_count, by = c("Name" = "player_name")) %>%  # TODO: see if this has any effect on predictions. is currently unused
   mutate(
     num_cy_youngs = replace_na(num_cy_youngs, 0),
     dist_from_300_w = W - 300,
@@ -933,19 +933,47 @@ ggplot(reliever_model_metrics, aes(`zR^2`, zRMSE)) + geom_point() + fgt +
 predict reliever vote share using best model
 
 ```{r}
-voting_trends <-
-  data_clean %>%
-  filter(vote_year %in% c(year_to_predict - 3, year_to_predict - 1)) %>%
-  group_by(Name) %>%
-  arrange(Name, vote_year) %>%
-  mutate(
-    prev_year_vote_share = vote_share,
-    prev_three_year_vote_share_trend = round((vote_share) - lag(vote_share) / 3, 1)
+
+reliever_hof_predictions <-
+  hof_predictions %>%
+ filter(
+    position == 1,
+    GS / G_pitch <= 0.5
   ) %>%
-  filter(vote_year == max(vote_year)) %>%
-  dplyr::select(Name, prev_year_vote_share, prev_three_year_vote_share_trend)
+  left_join(voting_trends, by="Name") %>%
+  group_by(Name) %>%
+  mutate(jaws_plus = round(100 * (jaws/jpos)), 0) %>%
+ dplyr::select(
+    Name,
+    prev_year_vote_share,
+    prev_three_year_vote_share_trend,
+    SV,
+    jaws_plus,
+    ped_scandal,
+    year_on_ballot,
+    vote_year) %>%
+  ungroup()
 
+reliever_predictions_pre <-
+  reliever_hof_predictions %>%
+  dplyr::select(-ped_scandal, -year_on_ballot, -vote_year)
+reliever_predictions_processed <- predict(reliever_preprocess_params, reliever_predictions_pre) %>%
+  bind_cols(
+    reliever_hof_predictions %>% dplyr::select(ped_scandal),
+    reliever_hof_predictions %>% dplyr::select(year_on_ballot),
+    reliever_hof_predictions %>% dplyr::select(vote_year)
+  ) 
 
+predict(reliever_hof_voting_model_xgbTree, newdata = reliever_predictions_processed) %>%
+  as_tibble() %>%
+  dplyr::select(predicted_vote_share = value) %>%
+  bind_cols(reliever_predictions_processed) %>%
+  dplyr::select(Name, predicted_vote_share, everything()) %>%
+  mutate(predicted_vote_share = round(predicted_vote_share, 1)) %>%
+  arrange(desc(predicted_vote_share)) %>%
+  left_join(voting_trends, by = "Name") %>%
+  dplyr::select(Name, year_on_ballot, predicted_vote_share, previous_year_vote_share = prev_year_vote_share.y) %>%
+  mutate(change = predicted_vote_share - previous_year_vote_share)
 
 ```
 
