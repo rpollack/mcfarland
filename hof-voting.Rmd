@@ -40,7 +40,7 @@ send_message <- function(msg) {
   tw_send_message(from = twilio_number, to = "5123505107", body = msg)
 }
 
-train_and_assess_model <- function(algorithm, train_df, assess_df, eval_metric) {
+train_and_assess_model <- function(algorithm, train_df, assess_df, eval_metric, player_type = NULL) {
   # train a model on a specified algorithm and assess it using the held-out test set
   # return a dynamically-assigned column name so we know which model made which assessment
   # save model to generic environment so it can be used for predictions
@@ -58,8 +58,8 @@ train_and_assess_model <- function(algorithm, train_df, assess_df, eval_metric) 
 
   label <- str_c("predict_", algorithm) # build the column name that will contain predictions the model makes
 
-  # save model to global environment so it can be used later
-  model_name <- str_c("hof_voting_model", algorithm, sep = "_")
+  # save model to global environment so it can be used later to make actual predictions
+  model_name <- str_c(player_type, "hof_voting_model", algorithm, sep = "_")
   assign(model_name, mdl, envir = globalenv())
 
   # return prediction of model on assessment tibble
@@ -89,10 +89,18 @@ get_ped_scandal <- function(name) {
     "Manny Ramirez"
   ), 1, 0)
 }
+
+fix_name <- function(name) {
+  # scrub player's name of weird characters that BB-Ref puts in their HOF voting data tables
+  str_replace_all(str_replace(name, "y ", ""),
+                  c(
+                    "X-" = "",
+                    "\\sHOF" = ""))
+}
 ```
 
 
-get data
+get raw data, clean up, and engineer some features
 
 ```{r}
 
@@ -103,26 +111,6 @@ last_training_year <- year_to_predict - 1
 
 hof_voting_data <- seq(first_training_year, last_training_year) %>%
   map_df(get_voting_results)
-```
-
-transform and clean data
-
-specifically DO NOT select the X4 column 'vote total'.
-
-leave all highly correlated predictors intact. i tried removing ones correlated below 0.9 and again at below 0.75. each time the models got worse.
-
-```{r message=FALSE, warning=FALSE}
-
-# TODO: add predictor: years left on ballot?
-# TODO: select and pre-process data in one function, using different columns depending on whether the request is a batter, starter, or reliever .... and whether the "vote share" column is present (not really sure how to do this)
-# TODO: Perhaps train models independently, allowing the use of (say) early_stopping_rounds for xgb, and other parameters for other algorithms
-# TODO: Examine residual outliers & see if there is any trend I can identify
-# TODO: See if major awards (batting titles, MVP's) affect results
-# TODO: see if dist_from_3000_H and dist_from_500_HR affect results
-# TODO: see if adding the player's primary position back in has any effect.
-
-# best tune: XGBlinear, R^S of 0.9, RMSE Of 6.13, MAE of 3.6
-# seed of 11 gets us here
 
 data_clean <-
   hof_voting_data %>%
@@ -135,11 +123,7 @@ data_clean <-
     H_allowed = X35, HR_allowed = X36, BB_allowed = X37, SO = X38, position = X39
   ) %>%
   mutate(
-    Name = str_replace(Name, "y ", ""),
-    Name = str_replace_all(Name, c(
-      "X-" = "",
-      "\\sHOF" = ""
-    )),
+    Name = fix_name(Name),
     year_on_ballot = as.numeric(str_extract(year_on_ballot, "[:digit:]{1,2}")),
     vote_share = as.double(str_extract(vote_share, "[:digit:]{1,3}.[:digit:]")),
     bj_hof_monitor = as.numeric(bj_hof_monitor),
@@ -186,6 +170,26 @@ data_clean <-
     prev_year_vote_share = lag(vote_share),
     prev_three_year_vote_share_trend = round((lag(vote_share) - lag(vote_share, 3)) / 3, 1)
   )
+```
+
+transform and clean data
+
+specifically DO NOT select the X4 column 'vote total'.
+
+leave all highly correlated predictors intact. i tried removing ones correlated below 0.9 and again at below 0.75. each time the models got worse.
+
+```{r message=FALSE, warning=FALSE}
+
+# TODO: add predictor: years left on ballot?
+# TODO: select and pre-process data in one function, using different columns depending on whether the request is a batter, starter, or reliever .... and whether the "vote share" column is present (not really sure how to do this)
+# TODO: Perhaps train models independently, allowing the use of (say) early_stopping_rounds for xgb, and other parameters for other algorithms
+# TODO: Examine residual outliers & see if there is any trend I can identify
+# TODO: See if major awards (batting titles, MVP's) affect results
+# TODO: see if dist_from_3000_H and dist_from_500_HR affect results
+# TODO: see if adding the player's primary position back in has any effect.
+
+# best tune: XGBlinear, R^S of 0.9, RMSE Of 6.13, MAE of 3.6
+# seed of 11 gets us here
 
 batter_data <-
   data_clean %>%
@@ -243,7 +247,7 @@ algorithms <- c("lm", "svmRadial", "xgbTree", "xgbLinear", "knn", "gbm")
 # gather its predictions into a tibble, and compute residuals
 batter_model_evaluation <-
   algorithms %>%
-  map_dfc(train_and_assess_model, train_df = batter_hof_train, assess_df = batter_hof_test, eval_metric = "RMSE") %>%
+  map_dfc(train_and_assess_model, train_df = batter_hof_train, assess_df = batter_hof_test, eval_metric = "RMSE", player_type = "position_player") %>%
   as_tibble() %>%
   bind_cols(batter_hof_test) %>%
   dplyr::select(vote_share, contains("predict_")) %>%
@@ -362,11 +366,7 @@ hof_predictions <-
     H_allowed = X34, HR_allowed = X35, BB_allowed = X36, SO = X37, position = X38
   ) %>%
   mutate(
-    Name = str_replace(Name, "y ", ""),
-    Name = str_replace_all(Name, c(
-      "X-" = "",
-      "\\sHOF" = ""
-    )),
+    Name = fix_name(Name),
     year_on_ballot = as.numeric(str_extract(year_on_ballot, "[:digit:]{1,2}")),
     bj_hof_monitor = as.numeric(bj_hof_monitor),
     bj_hof_standards = as.numeric(bj_hof_standards),
@@ -397,24 +397,43 @@ hof_predictions <-
 batter_predictions <-
   hof_predictions %>%
   filter(position != "1") %>%
-  left_join(voting_trends, by = "Name")
-
-predictions_pre <- batter_predictions %>%
-  dplyr::select(-ped_scandal, -year_on_ballot, -vote_year)
-preprocess_params_2 <- preProcess(predictions_pre, method = c("center", "scale", "knnImpute"))
-predictions_processed <- predict(preprocess_params_2, predictions_pre) %>%
-  bind_cols(
-    batter_predictions %>% dplyr::select(ped_scandal),
-    batter_predictions %>% dplyr::select(year_on_ballot),
-    batter_predictions %>% dplyr::select(vote_year)
-  ) %>%
+  left_join(voting_trends, by = "Name") %>%
   dplyr::select(
     -W, -L, -ERA, -ERA_plus, -WHIP, -G_pitch, -GS, -SV, -IP, -H_allowed,
     -HR_allowed, -BB_allowed, -SO, -position, -career_length, -BB, -AB, -OBP, -SLG, -R, -OPS, -RBI, -OPS_plus,
     -jaws, -jpos, -G_bat, -bj_hof_standards
   )
 
-predict(hof_voting_model_xgbLinear, newdata = predictions_processed) %>%
+# preprocess 2019 HOF voting data using the same parameters identified earlier
+
+
+
+predictions_pre <- batter_predictions %>%
+  dplyr::select(-ped_scandal, -year_on_ballot, -vote_year)
+
+predictions_processed <- predict(batter_preprocess_params, predictions_pre) %>%
+  bind_cols(
+    batter_predictions %>% dplyr::select(ped_scandal),
+    batter_predictions %>% dplyr::select(year_on_ballot),
+    batter_predictions %>% dplyr::select(vote_year)
+  )
+  
+
+
+# batter_data_pre <-
+#   batter_data %>%
+#   dplyr::select(-vote_share, -ped_scandal, -year_on_ballot, -vote_year)
+# batter_preprocess_params <- preProcess(batter_data_pre, method = c("center", "scale", "knnImpute"))
+# batter_data_clean_processed <- predict(batter_preprocess_params, batter_data_pre) %>%
+#   bind_cols(
+#     batter_data %>% dplyr::select(vote_share),
+#     batter_data %>% dplyr::select(ped_scandal),
+#     batter_data %>% dplyr::select(year_on_ballot),
+#     batter_data %>% dplyr::select(vote_year)
+#   )
+
+
+predict(position_player_hof_voting_model_xgbLinear, newdata = predictions_processed) %>%
   as_tibble() %>%
   dplyr::select(predicted_vote_share = value) %>%
   bind_cols(predictions_processed) %>%
@@ -585,7 +604,7 @@ starter_data_clean_processed <-
     starter_hof_data %>% dplyr::select(vote_year)
   )
 
-set.seed(5)
+#set.seed(7)
 starter_test_df_rows <-
   createDataPartition(starter_data_clean_processed$vote_share,
     p = 0.3,
@@ -613,7 +632,8 @@ starter_model_evaluation <-
     train_and_assess_model,
     starter_hof_train,
     starter_hof_test,
-    "RMSE"
+    "RMSE",
+    "starter"
   ) %>%
   as_tibble() %>%
   bind_cols(starter_hof_test) %>%
@@ -719,11 +739,7 @@ starter_hof_predictions <-
     position = X38
   ) %>%
   mutate(
-    Name = str_replace(Name, "y ", ""),
-    Name = str_replace_all(Name, c(
-      "X-" = "",
-      "\\sHOF" = ""
-    )),
+    Name = fix_name(Name),
     year_on_ballot = as.numeric(str_extract(year_on_ballot, "[:digit:]{1,2}")),
     bj_hof_monitor = as.numeric(bj_hof_monitor),
     bj_hof_standards = as.numeric(bj_hof_standards),
@@ -778,7 +794,6 @@ starter_hof_predictions <-
   ungroup()
 
 
-
 # in the above dataset there are too many rows with NA for knn imputation to work.
 # so I have to:
 # go back to the main dataset and mash it together to make it look like the one we're predicting
@@ -811,7 +826,8 @@ bound_data <-
   ) %>%
   bind_rows(starter_hof_predictions)
 
-# pre-process 2019 starter data using parameters identified earlier
+# pre-process 2019 starter data using parameters identified earlier: remove irrelevant data, pre-process remaining predictors, and add
+# irrelevant data back in
 starter_predictions_pre <-
   bound_data %>%
   dplyr::select(-ped_scandal, -year_on_ballot, -vote_year, -to_predict)
@@ -825,7 +841,7 @@ starter_predictions_processed <- predict(starter_preprocess_params, starter_pred
   filter(to_predict == 1) %>%
   dplyr::select(-to_predict)
 
-predict(hof_voting_model_xgbLinear, newdata = starter_predictions_processed) %>%
+predict(starter_hof_voting_model_xgbLinear, newdata = starter_predictions_processed) %>%
   as_tibble() %>%
   dplyr::select(predicted_vote_share = value) %>%
   bind_cols(starter_predictions_processed) %>%
