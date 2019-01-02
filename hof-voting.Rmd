@@ -285,10 +285,7 @@ batter_data_pre <-
 batter_preprocess_params <- preProcess(batter_data_pre, method = c("center", "scale", "knnImpute"))
 batter_data_preprocessed <- predict(batter_preprocess_params, batter_data_pre) %>%
   bind_cols(
-    batter_data %>% dplyr::select(vote_share),
-    batter_data %>% dplyr::select(ped_scandal),
-    batter_data %>% dplyr::select(year_on_ballot),
-    batter_data %>% dplyr::select(vote_year)
+    batter_data %>% dplyr::select(vote_share, ped_scandal, year_on_ballot, vote_year)
   )
 
 batter_test_df_rows <- createDataPartition(batter_data_preprocessed$vote_share, p = 0.25, list = FALSE)
@@ -305,7 +302,7 @@ batter_hof_train <-
 
 # engineer, clean, and process data for the year we want to predict
 voting_trends <-
-  data_clean %>%
+  hof_voting_data_historical_clean %>%
   filter(vote_year %in% c(year_to_predict - 3, year_to_predict - 1)) %>%
   group_by(Name) %>%
   arrange(Name, vote_year) %>%
@@ -328,9 +325,7 @@ batter_voting_future_pre <- batter_predictions %>%
   dplyr::select(-ped_scandal, -year_on_ballot, -vote_year)
 batter_voting_future_preprocessed <- predict(batter_preprocess_params, batter_voting_future_pre) %>%
   bind_cols(
-    batter_predictions %>% dplyr::select(ped_scandal),
-    batter_predictions %>% dplyr::select(year_on_ballot),
-    batter_predictions %>% dplyr::select(vote_year)
+    batter_predictions %>% dplyr::select(ped_scandal, year_on_ballot, vote_year)
   )
 ######################## STARTING PITCHERS: prepare training and validation datasets ###########
 
@@ -341,13 +336,12 @@ cy_young_winner_count <-
   summarize(num_cy_youngs = n())
 
 starter_hof_data <-
-  data_clean %>%
+  hof_voting_data_historical_clean %>%
   filter(
     position == 1,
     GS / G_pitch >= 0.5
   ) %>%
   dplyr::select(
-    -position,
     Name,
     year_on_ballot,
     vote_share,
@@ -369,6 +363,7 @@ starter_hof_data <-
     ped_scandal,
     vote_year,
     ERA,
+    SO,
     vote_share
   ) %>%
   ungroup()
@@ -431,7 +426,8 @@ starter_voting_future <-
     ped_scandal,
     vote_year,
     to_predict,
-    ERA
+    ERA,
+    SO
   ) %>%
   ungroup()
 
@@ -463,6 +459,8 @@ starter_data_padded <-
     bj_hof_monitor,
     ped_scandal,
     vote_year,
+    ERA,
+    SO,
     to_predict
   ) %>%
   bind_rows(starter_voting_future) %>% 
