@@ -8,7 +8,7 @@ library(data.table)
 library(twilio)
 library(ggrepel)
 library(styler)
-#library(LearnBayes)
+# library(LearnBayes)
 
 fgt <- theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
@@ -92,10 +92,13 @@ get_ped_scandal <- function(name) {
 
 fix_name <- function(name) {
   # scrub player's name of weird characters that BB-Ref puts in their HOF voting data tables
-  str_replace_all(str_replace(name, "y ", ""),
-                  c(
-                    "X-" = "",
-                    "\\sHOF" = ""))
+  str_replace_all(
+    str_replace(name, "y ", ""),
+    c(
+      "X-" = "",
+      "\\sHOF" = ""
+    )
+  )
 }
 ```
 
@@ -114,7 +117,8 @@ hof_voting_data <- seq(first_training_year, last_training_year) %>%
 
 data_clean <-
   hof_voting_data %>%
-  dplyr::select(Name = X2, year_on_ballot = X3, vote_share = X5,
+  dplyr::select(
+    Name = X2, year_on_ballot = X3, vote_share = X5,
     bj_hof_monitor = X6, bj_hof_standards = X7, career_length = X8, career_rWAR = X9,
     best_war_years = X10, jaws = X11, jpos = X12, G_bat = X13, AB = X14, R = X15, H = X16, HR = X17, RBI = X18,
     SB = X19, BB = X20, BA = X21, OBP = X22, SLG = X23, OPS = X24, OPS_plus = X25,
@@ -245,17 +249,16 @@ hof_predictions <-
 Explore and visualize data 
 
 ```{r}
-data_clean %>% 
-  gather(metric, value, bj_hof_standards, bj_hof_monitor, jaws_plus) %>% 
-  dplyr::select(Name, year_on_ballot, metric, value, vote_share) %>% 
-  group_by(Name) %>% 
-  filter(year_on_ballot == max(year_on_ballot)) %>% 
+data_clean %>%
+  gather(metric, value, bj_hof_standards, bj_hof_monitor, jaws_plus) %>%
+  dplyr::select(Name, year_on_ballot, metric, value, vote_share) %>%
+  group_by(Name) %>%
+  filter(year_on_ballot == max(year_on_ballot)) %>%
   rename(num_years_on_ballot = year_on_ballot) %>%
-  ggplot(aes(num_years_on_ballot, value, color = vote_share)) + 
+  ggplot(aes(num_years_on_ballot, value, color = vote_share)) +
   geom_point() + facet_wrap(vars(metric))
 
-#free scales on the y-axis
-
+# free scales on the y-axis
 ```
 
 
@@ -278,7 +281,7 @@ batter_data <-
   data_clean %>%
   filter(position != 1) %>%
   ungroup() %>%
-  dplyr::select(Name, year_on_ballot, vote_year, prev_year_vote_share, prev_three_year_vote_share_trend, ped_scandal, bj_hof_monitor, vote_share) 
+  dplyr::select(Name, year_on_ballot, vote_year, prev_year_vote_share, prev_three_year_vote_share_trend, ped_scandal, bj_hof_monitor, vote_share)
 
 # remove response variable & binary variable from cleaned data, preprocess remaining data & re-join
 # to removed columns. preprocessing includes centering and scaling predictors as well as imputing missing values
@@ -359,7 +362,7 @@ starter_hof_data <-
     prev_year_vote_share,
     everything()
   ) %>%
-  left_join(cy_young_winner_count, by = c("Name" = "player_name")) %>%  # TODO: see if this has any effect on predictions. is currently unused
+  left_join(cy_young_winner_count, by = c("Name" = "player_name")) %>% # TODO: see if this has any effect on predictions. is currently unused
   mutate(
     num_cy_youngs = replace_na(num_cy_youngs, 0),
     dist_from_300_w = W - 300,
@@ -414,7 +417,7 @@ starter_hof_train <-
 # STARTING PITCHERS: Prepare data used to test model
 starter_hof_predictions <-
   hof_predictions %>%
- filter(
+  filter(
     position == 1,
     GS / G_pitch >= 0.5
   ) %>%
@@ -463,7 +466,7 @@ bound_data <-
     to_predict = 0
   ) %>%
   dplyr::select(
-   Name,
+    Name,
     year_on_ballot,
     prev_year_vote_share,
     prev_three_year_vote_share_trend,
@@ -514,10 +517,10 @@ reliever_hof_data <-
     ped_scandal
   ) %>%
   group_by(Name) %>%
-  mutate(jaws_plus = round(100 * (jaws/jpos)), 0) %>%
+  mutate(jaws_plus = round(100 * (jaws / jpos)), 0) %>%
   dplyr::select(-jaws, -jpos) %>%
   ungroup()
-  
+
 # pre-process data. in addition to centering, scaling, and imputing, also remove zero-variance predictors (ped_scandal, in this case)
 reliever_data_pre <-
   reliever_hof_data %>%
@@ -554,14 +557,14 @@ reliever_hof_train <-
 
 reliever_hof_predictions <-
   hof_predictions %>%
- filter(
+  filter(
     position == 1,
     GS / G_pitch <= 0.5
   ) %>%
-  left_join(voting_trends, by="Name") %>%
+  left_join(voting_trends, by = "Name") %>%
   group_by(Name) %>%
-  mutate(jaws_plus = round(100 * (jaws/jpos)), 0) %>%
- dplyr::select(
+  mutate(jaws_plus = round(100 * (jaws / jpos)), 0) %>%
+  dplyr::select(
     Name,
     prev_year_vote_share,
     prev_three_year_vote_share_trend,
@@ -569,7 +572,8 @@ reliever_hof_predictions <-
     jaws_plus,
     ped_scandal,
     year_on_ballot,
-    vote_year) %>%
+    vote_year
+  ) %>%
   ungroup()
 
 reliever_predictions_pre <-
@@ -580,9 +584,7 @@ reliever_predictions_processed <- predict(reliever_preprocess_params, reliever_p
     reliever_hof_predictions %>% dplyr::select(ped_scandal),
     reliever_hof_predictions %>% dplyr::select(year_on_ballot),
     reliever_hof_predictions %>% dplyr::select(vote_year)
-  ) 
-
-
+  )
 ```
 
 # train and predict batter voting totals
@@ -595,11 +597,13 @@ algorithms <- c("lm", "svmRadial", "xgbTree", "xgbLinear", "knn", "gbm")
 # gather its predictions into a tibble, and compute residuals
 batter_model_evaluation <-
   algorithms %>%
-  map_dfc(train_and_assess_model, 
-          batter_hof_train, 
-          batter_hof_test,
-          "RMSE",
-          "position_player") %>%
+  map_dfc(
+    train_and_assess_model,
+    batter_hof_train,
+    batter_hof_test,
+    "RMSE",
+    "position_player"
+  ) %>%
   as_tibble() %>%
   bind_cols(batter_hof_test) %>%
   dplyr::select(vote_share, contains("predict_")) %>%
@@ -689,7 +693,6 @@ predict(position_player_hof_voting_model_gbm, newdata = predictions_processed) %
   left_join(voting_trends, by = "Name") %>%
   dplyr::select(Name, year_on_ballot, predicted_vote_share, previous_year_vote_share = prev_year_vote_share.y) %>%
   mutate(change = predicted_vote_share - previous_year_vote_share)
-
 ```
 
 
@@ -700,7 +703,7 @@ for example the early_stopping_rounds arg could maybe prevent overfitting.
 
 # create xgboost-friendly matrices for training the model
 
-batter_train_labels <- 
+batter_train_labels <-
   batter_hof_train$vote_share %>%
   as.matrix()
 batter_train_matrix <-
@@ -718,9 +721,9 @@ params <- list(
   booster = "gbtree"
 )
 
-watchlist <- list(validation=batter_dtest, train=batter_dtrain)
+watchlist <- list(validation = batter_dtest, train = batter_dtrain)
 
-  
+
 # use 10-fold CV to determine the optimal number of iterations
 batter_hof_xgb_mdl_params <- xgb.cv(
   params = params,
@@ -769,7 +772,7 @@ ggplot(xgb_predictions, aes(vote_share, predicted_vote_share)) +
   geom_point() + geom_smooth(method = "lm") +
   geom_abline(linetype = "dashed") +
   ggtitle("Predicted Vote Share vs. Vote Share", subtitle = glue("R^2 = {xgb_r_squared}")) +
-  labs(x="Vote Share", y="Predicted HOF Vote Share", caption = "Source: HOF Voting Data 1966-2018")
+  labs(x = "Vote Share", y = "Predicted HOF Vote Share", caption = "Source: HOF Voting Data 1966-2018")
 
 ggplot(xgb_predictions, aes(vote_share, residual)) +
   geom_point() + geom_hline(yintercept = 0, linetype = "dashed") +
@@ -777,17 +780,19 @@ ggplot(xgb_predictions, aes(vote_share, residual)) +
 
 # evaluate model subjectively using its 2019 predictions using model
 data_2019 <- xgb.DMatrix(batter_predictions_processed %>%
-                           dplyr::select(
-                             prev_year_vote_share, prev_three_year_vote_share_trend, bj_hof_monitor, 
-                             ped_scandal, year_on_ballot, vote_year
-                           ) %>%
-                           as.matrix())
+  dplyr::select(
+    prev_year_vote_share, prev_three_year_vote_share_trend, bj_hof_monitor,
+    ped_scandal, year_on_ballot, vote_year
+  ) %>%
+  as.matrix())
 
 predictions <-
   predict(batter_hof_xgb_mdl, newdata = data_2019) %>%
   as_tibble() %>%
-  dplyr::select(predicted_vote_share = value) %>%mutate(predicted_vote_share = round(predicted_vote_share, 1)) %>%
-  bind_cols(predictions_processed %>% dplyr::select(Name, year_on_ballot)) %>%
+  dplyr::select(predicted_vote_share = value) %>%
+  mutate(predicted_vote_share = round(predicted_vote_share, 1)) %>%
+  bind_cols(predictions_processed %>%
+    dplyr::select(Name, year_on_ballot)) %>%
   dplyr::select(Name, predicted_vote_share, everything()) %>%
   arrange(desc(predicted_vote_share)) %>%
   left_join(voting_trends, by = "Name") %>%
@@ -800,7 +805,6 @@ xgb.importance(feature_names = names(batter_hof_test %>% dplyr::select(-vote_sha
   as_tibble() %>%
   ggplot(aes(reorder(Feature, Gain), Gain)) +
   geom_col() + coord_flip() + fgt
-
 ```
 
 
@@ -978,7 +982,6 @@ ggplot(reliever_model_metrics, aes(`zR^2`, zRMSE)) + geom_point() + fgt +
   geom_label_repel(aes(label = label)) +
   ggtitle("Evaluation Metrics of Models: Reliever HOF Voting %") +
   xlim(-2, 2) + ylim(-2, 2) + labs(x = "zR^2")
-
 ```
 
 predict reliever vote share using best model
@@ -996,7 +999,6 @@ predict(reliever_hof_voting_model_xgbTree, newdata = reliever_predictions_proces
   left_join(voting_trends, by = "Name") %>%
   dplyr::select(Name, year_on_ballot, predicted_vote_share, previous_year_vote_share = prev_year_vote_share.y) %>%
   mutate(change = predicted_vote_share - previous_year_vote_share)
-
 ```
 
 
