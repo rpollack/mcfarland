@@ -232,7 +232,7 @@ hof_predictions <-
     ped_scandal = map_dbl(Name, get_ped_scandal),
     jaws = as.numeric(jaws),
     jpos = as.numeric(jpos),
-    jaws_plus = 100 * (jaws / jpos)
+    jaws_plus = 100 * (jaws / jpos),
     G_pitch = as.numeric(G_pitch),
     GS = as.numeric(GS),
     SV = as.numeric(SV),
@@ -273,9 +273,6 @@ Position Players: extract data from main dataset, pre-processs, and create train
 # TODO: see if dist_from_3000_H and dist_from_500_HR affect results
 # TODO: see if adding the player's primary position back in has any effect.
 
-# best tune: XGBlinear, R^S of 0.9, RMSE Of 6.13, MAE of 3.6
-# seed of 11 gets us here
-
 # select predictors for position players only
 batter_data <-
   data_clean %>%
@@ -309,6 +306,37 @@ batter_hof_train <-
   batter_data_clean_processed %>%
   dplyr::select(-Name) %>%
   filter(!row_number() %in% batter_test_df_rows)
+
+# engineer, clean, and process data for the year we want to predict
+voting_trends <-
+  data_clean %>%
+  filter(vote_year %in% c(year_to_predict - 3, year_to_predict - 1)) %>%
+  group_by(Name) %>%
+  arrange(Name, vote_year) %>%
+  mutate(
+    prev_year_vote_share = vote_share,
+    prev_three_year_vote_share_trend = round((vote_share) - lag(vote_share) / 3, 1),
+    prev_three_year_vote_share_trend = replace_na(prev_three_year_vote_share_trend, 0)
+  ) %>%
+  filter(vote_year == max(vote_year)) %>%
+  dplyr::select(Name, prev_year_vote_share, prev_three_year_vote_share_trend)
+
+batter_predictions <-
+  hof_predictions %>%
+  filter(position != "1") %>%
+  left_join(voting_trends, by = "Name") %>%
+  dplyr::select(Name, year_on_ballot, vote_year, prev_year_vote_share, prev_three_year_vote_share_trend, ped_scandal, bj_hof_monitor)
+
+# preprocess 2019 HOF voting data using the same parameters identified earlier
+batter_predictions_pre <- batter_predictions %>%
+  dplyr::select(-ped_scandal, -year_on_ballot, -vote_year)
+batter_predictions_processed <- predict(batter_preprocess_params, predictions_pre) %>%
+  bind_cols(
+    batter_predictions %>% dplyr::select(ped_scandal),
+    batter_predictions %>% dplyr::select(year_on_ballot),
+    batter_predictions %>% dplyr::select(vote_year)
+  )
+
 ```
 
 # train and predict batter voting totals
@@ -412,36 +440,6 @@ Transform and clean data, predict `r year_to_predict` voting share for position 
 
 ```{r message=FALSE, warning=FALSE}
 
-# compute three-year vote share trend in the three years running up to the year we want to predict
-# for example if we're predicting HOF voting in 2019, get vote shares from 2016 and 2018. use data points to compute slope of trend line
-voting_trends <-
-  data_clean %>%
-  filter(vote_year %in% c(year_to_predict - 3, year_to_predict - 1)) %>%
-  group_by(Name) %>%
-  arrange(Name, vote_year) %>%
-  mutate(
-    prev_year_vote_share = vote_share,
-    prev_three_year_vote_share_trend = round((vote_share) - lag(vote_share) / 3, 1),
-    prev_three_year_vote_share_trend = replace_na(prev_three_year_vote_share_trend, 0)
-  ) %>%
-  filter(vote_year == max(vote_year)) %>%
-  dplyr::select(Name, prev_year_vote_share, prev_three_year_vote_share_trend)
-
-batter_predictions <-
-  hof_predictions %>%
-  filter(position != "1") %>%
-  left_join(voting_trends, by = "Name") %>%
-  dplyr::select(Name, year_on_ballot, vote_year, prev_year_vote_share, prev_three_year_vote_share_trend, ped_scandal, bj_hof_monitor)
-
-# preprocess 2019 HOF voting data using the same parameters identified earlier
-predictions_pre <- batter_predictions %>%
-  dplyr::select(-ped_scandal, -year_on_ballot, -vote_year)
-predictions_processed <- predict(batter_preprocess_params, predictions_pre) %>%
-  bind_cols(
-    batter_predictions %>% dplyr::select(ped_scandal),
-    batter_predictions %>% dplyr::select(year_on_ballot),
-    batter_predictions %>% dplyr::select(vote_year)
-  )
 
 predict(position_player_hof_voting_model_gbm, newdata = predictions_processed) %>%
   as_tibble() %>%
@@ -538,7 +536,7 @@ ggplot(xgb_predictions, aes(vote_share, residual)) +
   ggtitle("Predicted Vote Share vs. Residuals", subtitle = glue("RMSE = {xgb_rmse}"))
 
 # evaluate model subjectively using its 2019 predictions using model
-data_2019 <- xgb.DMatrix(predictions_processed %>%
+data_2019 <- xgb.DMatrix(batter_predictions_processed %>%
                            dplyr::select(
                              prev_year_vote_share, prev_three_year_vote_share_trend, bj_hof_monitor, 
                              ped_scandal, year_on_ballot, vote_year
