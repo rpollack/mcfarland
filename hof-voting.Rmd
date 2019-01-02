@@ -240,7 +240,7 @@ hof_voting_data_future_clean <-
 Explore and visualize data 
 
 ```{r}
-data_clean %>%
+hof_voting_data_historical_clean %>%
   gather(metric, value, bj_hof_standards, bj_hof_monitor, jaws_plus) %>%
   dplyr::select(Name, year_on_ballot, metric, value, vote_share) %>%
   group_by(Name) %>%
@@ -379,7 +379,7 @@ pre_methods <- c("center", "scale", "knnImpute")
 starter_preprocess_params <-
   preProcess(starter_data_pre, pre_methods)
 
-starter_data_clean_processed <-
+starter_data_preprocessed <-
   predict(starter_preprocess_params, starter_data_pre) %>%
   bind_cols(
     starter_hof_data %>% dplyr::select(vote_share),
@@ -389,23 +389,23 @@ starter_data_clean_processed <-
   )
 
 starter_test_df_rows <-
-  createDataPartition(starter_data_clean_processed$vote_share,
+  createDataPartition(starter_data_preprocessed$vote_share,
     p = 0.25,
     list = FALSE
   )
 
 starter_hof_test <-
-  starter_data_clean_processed %>%
+  starter_data_preprocessed %>%
   dplyr::select(-Name) %>%
   filter(row_number() %in% starter_test_df_rows)
 
 starter_hof_train <-
-  starter_data_clean_processed %>%
+  starter_data_preprocessed %>%
   dplyr::select(-Name) %>%
   filter(!row_number() %in% starter_test_df_rows)
 
 # STARTING PITCHERS: Prepare data used to test model
-starter_hof_predictions <-
+starter_voting_future <-
   hof_predictions %>%
   filter(
     position == 1,
@@ -434,15 +434,14 @@ starter_hof_predictions <-
   ) %>%
   ungroup()
 
-
 # in the above dataset there are too many rows with NA for knn imputation to work.
 # so I have to:
 # go back to the main dataset and mash it together to make it look like the one we're predicting
 # use those values to impute the ones missing from the starters we want to predict
 # predict vote share for the correct pitchers (e.g. not the ones we used to thicken the dataset for imputation). we do this with the to_predict column
 
-bound_data <-
-  data_clean %>%
+starter_data_padded <-
+  hof_voting_data_historical_clean %>%
   filter(
     position == 1,
     GS / G_pitch >= 0.5
@@ -465,14 +464,14 @@ bound_data <-
     vote_year,
     to_predict
   ) %>%
-  bind_rows(starter_hof_predictions)
+  bind_rows(starter_voting_future)
 
 # pre-process 2019 starter data using parameters identified earlier: remove irrelevant data, pre-process remaining predictors, and add
 # irrelevant data back in
 starter_predictions_pre <-
-  bound_data %>%
+  starter_data_padded %>%
   dplyr::select(-ped_scandal, -year_on_ballot, -vote_year, -to_predict)
-starter_predictions_processed <- predict(starter_preprocess_params, starter_predictions_pre) %>%
+starter_voting_future_preprocessed <- predict(starter_preprocess_params, starter_predictions_pre) %>%
   bind_cols(
     bound_data %>% dplyr::select(ped_scandal),
     bound_data %>% dplyr::select(year_on_ballot),
@@ -489,7 +488,7 @@ starter_predictions_processed <- predict(starter_preprocess_params, starter_pred
 # Bill James' HOF monitor doesn't account for relievers b/c it's position-agnostic
 # so I use JAWS+ (JAWS relative to average at position) to separate the wheat from the chaff
 reliever_hof_data <-
-  data_clean %>%
+  hof_voting_data_historical_clean %>%
   filter(
     position == 1,
     GS / G_pitch <= 0.5
@@ -760,22 +759,20 @@ xgb_rmse <- round(RMSE(batter_xgb_predictions$predicted_vote_share, batter_xgb_p
 
 xgb_r_squared <- round(summary(lm(batter_xgb_predictions$predicted_vote_share ~ batter_xgb_predictions$vote_share))$r.squared, 2)
 
-ggplot(xgb_predictions, aes(vote_share, predicted_vote_share)) +
+ggplot(batter_xgb_predictions, aes(vote_share, predicted_vote_share)) +
   geom_point() + geom_smooth(method = "lm") +
   geom_abline(linetype = "dashed") +
   ggtitle("Predicted Vote Share vs. Vote Share", subtitle = glue("R^2 = {xgb_r_squared}")) +
   labs(x = "Vote Share", y = "Predicted HOF Vote Share", caption = "Source: HOF Voting Data 1966-2018")
 
-ggplot(xgb_predictions, aes(vote_share, residual)) +
+ggplot(batter_xgb_predictions, aes(vote_share, residual)) +
   geom_point() + geom_hline(yintercept = 0, linetype = "dashed") +
-  ggtitle("Predicted Vote Share vs. Residuals", subtitle = glue("RMSE = {xgb_rmse}"))
+  ggtitle("Predicted Vote Share vs. Residuals", subtitle = glue("RMSE = {xgb_rmse}")) +
+  labs(x="Predicted Vote Share", y="Residual")
 
 # evaluate model subjectively using its 2019 predictions using model
 data_2019 <- xgb.DMatrix(batter_voting_future_preprocessed %>%
-  dplyr::select(
-    prev_year_vote_share, prev_three_year_vote_share_trend, bj_hof_monitor,
-    ped_scandal, year_on_ballot, vote_year
-  ) %>%
+  dplyr::select(-Name) %>%
   as.matrix())
 
 xgb_predictions <-
@@ -888,9 +885,7 @@ make 2019 predictions using chosen model
 
 ```{r}
 
-
-
-predict(starter_hof_voting_model_lm, newdata = starter_predictions_processed) %>%
+predict(starter_hof_voting_model_gbm, newdata = starter_voting_future_preprocessed) %>%
   as_tibble() %>%
   dplyr::select(predicted_vote_share = value) %>%
   bind_cols(starter_predictions_processed) %>%
