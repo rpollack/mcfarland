@@ -5,7 +5,6 @@ library(broom)
 library(glue)
 library(rvest)
 library(data.table)
-library(twilio)
 library(ggrepel)
 library(styler)
 # library(LearnBayes)
@@ -31,14 +30,6 @@ fg_db <- dplyr::src_mysql(
   user = Sys.getenv("FG_USER"),
   password = Sys.getenv("FG_PW")
 )
-
-TWILIO_SID <- Sys.getenv("TWILIO_SID")
-TWILIO_TOKEN <- Sys.getenv("TWILIO_TOKEN")
-twilio_number <- Sys.getenv("twilio_number")
-
-send_message <- function(msg) {
-  tw_send_message(from = twilio_number, to = "5123505107", body = msg)
-}
 
 train_and_assess_model <- function(algorithm, train_df, assess_df, eval_metric, player_type = NULL) {
   # train a model on a specified algorithm and assess it using the held-out test set
@@ -112,11 +103,11 @@ first_training_year <- 1966
 last_training_year <- year_to_predict - 1
 
 # get past voting data that will be used to train and test models
-hof_voting_data <- seq(first_training_year, last_training_year) %>%
+hof_voting_data_historical <- seq(first_training_year, last_training_year) %>%
   map_df(get_voting_results)
 
-data_clean <-
-  hof_voting_data %>%
+hof_voting_data_historical_clean <-
+  hof_voting_data_historical %>%
   dplyr::select(
     Name = X2, year_on_ballot = X3, vote_share = X5,
     bj_hof_monitor = X6, bj_hof_standards = X7, career_length = X8, career_rWAR = X9,
@@ -178,15 +169,15 @@ data_clean <-
 # get data for the year we want to predict, to to assess the final model
 url <- str_c("https://www.baseball-reference.com/awards/hof_", year_to_predict, ".shtml")
 
-player_data <- read_html(url) %>%
+hof_voting_data_future <- read_html(url) %>%
   html_nodes("table") %>%
   .[[1]] %>%
   html_table(header = FALSE) %>%
   as_tibble() %>%
   mutate(vote_year = as.numeric(year_to_predict))
 
-hof_predictions <-
-  player_data %>%
+hof_voting_data_future_clean <-
+  hof_voting_data_future %>%
   dplyr::select(
     Name = X2,
     year_on_ballot = X3,
@@ -278,7 +269,7 @@ They each need different datasets because they will have different predictors & 
 
 # POSITION PLAYERS
 batter_data <-
-  data_clean %>%
+  hof_voting_data_historical_clean %>%
   filter(position != 1) %>%
   ungroup() %>%
   dplyr::select(Name, year_on_ballot, vote_year, prev_year_vote_share, prev_three_year_vote_share_trend, ped_scandal, bj_hof_monitor, vote_share)
@@ -290,7 +281,7 @@ batter_data_pre <-
   batter_data %>%
   dplyr::select(-vote_share, -ped_scandal, -year_on_ballot, -vote_year)
 batter_preprocess_params <- preProcess(batter_data_pre, method = c("center", "scale", "knnImpute"))
-batter_data_clean_processed <- predict(batter_preprocess_params, batter_data_pre) %>%
+batter_data_preprocessed <- predict(batter_preprocess_params, batter_data_pre) %>%
   bind_cols(
     batter_data %>% dplyr::select(vote_share),
     batter_data %>% dplyr::select(ped_scandal),
@@ -298,15 +289,15 @@ batter_data_clean_processed <- predict(batter_preprocess_params, batter_data_pre
     batter_data %>% dplyr::select(vote_year)
   )
 
-batter_test_df_rows <- createDataPartition(batter_data_clean_processed$vote_share, p = 0.25, list = FALSE)
+batter_test_df_rows <- createDataPartition(batter_data_preprocessed$vote_share, p = 0.25, list = FALSE)
 
 batter_hof_test <-
-  batter_data_clean_processed %>%
+  batter_data_preprocessed %>%
   dplyr::select(-Name) %>%
   filter(row_number() %in% batter_test_df_rows)
 
 batter_hof_train <-
-  batter_data_clean_processed %>%
+  batter_data_preprocessed %>%
   dplyr::select(-Name) %>%
   filter(!row_number() %in% batter_test_df_rows)
 
@@ -324,23 +315,22 @@ voting_trends <-
   filter(vote_year == max(vote_year)) %>%
   dplyr::select(Name, prev_year_vote_share, prev_three_year_vote_share_trend)
 
-batter_predictions <-
-  hof_predictions %>%
+batter_voting_future <-
+  hof_voting_data_future_clean %>%
   filter(position != "1") %>%
   left_join(voting_trends, by = "Name") %>%
   dplyr::select(Name, year_on_ballot, vote_year, prev_year_vote_share, prev_three_year_vote_share_trend, ped_scandal, bj_hof_monitor)
 
 # preprocess 2019 HOF voting data using the same parameters identified earlier
-batter_predictions_pre <- batter_predictions %>%
+batter_voting_future_pre <- batter_predictions %>%
   dplyr::select(-ped_scandal, -year_on_ballot, -vote_year)
-batter_predictions_processed <- predict(batter_preprocess_params, batter_predictions_pre) %>%
+batter_voting_future_preprocessed <- predict(batter_preprocess_params, batter_voting_future_pre) %>%
   bind_cols(
     batter_predictions %>% dplyr::select(ped_scandal),
     batter_predictions %>% dplyr::select(year_on_ballot),
     batter_predictions %>% dplyr::select(vote_year)
   )
-
-# STARTING PITCHERS: prepare training and validation datasets
+######################## STARTING PITCHERS: prepare training and validation datasets ###########
 
 cy_young_winner_count <-
   read_csv("mlb season awards - cy_young_winners.csv") %>%
@@ -539,7 +529,7 @@ reliever_data_clean_processed <-
 
 reliever_test_df_rows <-
   createDataPartition(reliever_data_clean_processed$vote_share,
-    p = 0.3,
+    p = 0.25,
     list = FALSE
   )
 
@@ -683,10 +673,10 @@ Transform and clean data, predict `r year_to_predict` voting share for position 
 ```{r message=FALSE, warning=FALSE}
 
 
-predict(position_player_hof_voting_model_gbm, newdata = predictions_processed) %>%
+predict(position_player_hof_voting_model_gbm, newdata = batter_voting_future_preprocessed) %>%
   as_tibble() %>%
   dplyr::select(predicted_vote_share = value) %>%
-  bind_cols(predictions_processed) %>%
+  bind_cols(batter_voting_future_preprocessed) %>%
   dplyr::select(Name, predicted_vote_share, everything()) %>%
   mutate(predicted_vote_share = round(predicted_vote_share, 1)) %>%
   arrange(desc(predicted_vote_share)) %>%
@@ -740,7 +730,9 @@ num_rounds <- batter_hof_xgb_mdl_params$best_iteration
 batter_hof_xgb_mdl <- xgb.train(
   params = params,
   data = batter_dtrain,
-  nrounds = num_rounds
+  nrounds = num_rounds,
+  early_stopping_rounds = 5,
+  watchlist = watchlist
 )
 
 # construct xgboost-friendly test dataset, augment with model predictions, and evaluate model
@@ -779,19 +771,19 @@ ggplot(xgb_predictions, aes(vote_share, residual)) +
   ggtitle("Predicted Vote Share vs. Residuals", subtitle = glue("RMSE = {xgb_rmse}"))
 
 # evaluate model subjectively using its 2019 predictions using model
-data_2019 <- xgb.DMatrix(batter_predictions_processed %>%
+data_2019 <- xgb.DMatrix(batter_voting_future_preprocessed %>%
   dplyr::select(
     prev_year_vote_share, prev_three_year_vote_share_trend, bj_hof_monitor,
     ped_scandal, year_on_ballot, vote_year
   ) %>%
   as.matrix())
 
-predictions <-
+xgb_predictions <-
   predict(batter_hof_xgb_mdl, newdata = data_2019) %>%
   as_tibble() %>%
   dplyr::select(predicted_vote_share = value) %>%
   mutate(predicted_vote_share = round(predicted_vote_share, 1)) %>%
-  bind_cols(predictions_processed %>%
+  bind_cols(batter_voting_future_preprocessed %>%
     dplyr::select(Name, year_on_ballot)) %>%
   dplyr::select(Name, predicted_vote_share, everything()) %>%
   arrange(desc(predicted_vote_share)) %>%
@@ -799,7 +791,7 @@ predictions <-
   dplyr::select(Name, year_on_ballot, predicted_vote_share, previous_year_vote_share = prev_year_vote_share) %>%
   mutate(change = predicted_vote_share - previous_year_vote_share)
 
-predictions
+xgb_predictions
 
 xgb.importance(feature_names = names(batter_hof_test %>% dplyr::select(-vote_share)), model = batter_hof_xgb_mdl) %>%
   as_tibble() %>%
