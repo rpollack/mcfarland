@@ -44,7 +44,9 @@ train_and_assess_model <- function(algorithm, train_df, assess_df, eval_metric, 
       number = 10,
       allowParallel = TRUE
     ),
-    metric = eval_metric
+    metric = eval_metric,
+    tuneLength = 5
+    
   )
 
   label <- str_c("predict_", algorithm) # build the column name that will contain predictions the model makes
@@ -366,6 +368,7 @@ starter_hof_data <-
     bj_hof_monitor,
     ped_scandal,
     vote_year,
+    ERA,
     vote_share
   ) %>%
   ungroup()
@@ -382,10 +385,7 @@ starter_preprocess_params <-
 starter_data_preprocessed <-
   predict(starter_preprocess_params, starter_data_pre) %>%
   bind_cols(
-    starter_hof_data %>% dplyr::select(vote_share),
-    starter_hof_data %>% dplyr::select(ped_scandal),
-    starter_hof_data %>% dplyr::select(year_on_ballot),
-    starter_hof_data %>% dplyr::select(vote_year)
+    starter_hof_data %>% dplyr::select(vote_share, ped_scandal, year_on_ballot, vote_year)
   )
 
 starter_test_df_rows <-
@@ -430,7 +430,8 @@ starter_voting_future <-
     bj_hof_monitor,
     ped_scandal,
     vote_year,
-    to_predict
+    to_predict,
+    ERA
   ) %>%
   ungroup()
 
@@ -464,7 +465,8 @@ starter_data_padded <-
     vote_year,
     to_predict
   ) %>%
-  bind_rows(starter_voting_future)
+  bind_rows(starter_voting_future) %>% 
+  ungroup()
 
 # pre-process 2019 starter data using parameters identified earlier: remove irrelevant data, pre-process remaining predictors, and add
 # irrelevant data back in
@@ -473,10 +475,7 @@ starter_predictions_pre <-
   dplyr::select(-ped_scandal, -year_on_ballot, -vote_year, -to_predict)
 starter_voting_future_preprocessed <- predict(starter_preprocess_params, starter_predictions_pre) %>%
   bind_cols(
-    bound_data %>% dplyr::select(ped_scandal),
-    bound_data %>% dplyr::select(year_on_ballot),
-    bound_data %>% dplyr::select(vote_year),
-    bound_data %>% dplyr::select(to_predict)
+    starter_data_padded %>% dplyr::select(ped_scandal, year_on_ballot, vote_year, to_predict)
   ) %>%
   filter(to_predict == 1) %>%
   dplyr::select(-to_predict)
@@ -885,7 +884,7 @@ make 2019 predictions using chosen model
 
 ```{r}
 
-predict(starter_hof_voting_model_gbm, newdata = starter_voting_future_preprocessed) %>%
+predict(starter_hof_voting_model_xgbTree, newdata = starter_voting_future_preprocessed) %>%
   as_tibble() %>%
   dplyr::select(predicted_vote_share = value) %>%
   bind_cols(starter_predictions_processed) %>%
@@ -895,6 +894,114 @@ predict(starter_hof_voting_model_gbm, newdata = starter_voting_future_preprocess
   left_join(voting_trends, by = "Name") %>%
   dplyr::select(Name, year_on_ballot, predicted_vote_share, previous_year_vote_share = prev_year_vote_share.y) %>%
   mutate(change = predicted_vote_share - previous_year_vote_share)
+```
+
+
+"raw" xgboost for starting pitchers
+
+```{r}
+
+# create xgboost-friendly matrices for training the model
+starter_train_labels <-
+  starter_hof_train$vote_share %>%
+  as.matrix()
+starter_train_matrix <-
+  starter_hof_train %>%
+  dplyr::select(-vote_share) %>%
+  as.matrix()
+starter_dtrain <- xgb.DMatrix(
+  data = starter_train_matrix,
+  label = starter_train_labels
+)
+
+# construct xgboost-friendly test dataset
+starter_test_labels <- starter_hof_test$vote_share %>%
+  as.matrix()
+starter_test_matrix <-
+  starter_hof_test %>%
+  dplyr::select(-vote_share) %>%
+  as.matrix()
+starter_dtest <- xgb.DMatrix(
+  data = starter_test_matrix,
+  label = starter_test_labels
+)
+
+params <- list(
+  objective = "reg:linear",
+  eval_metric = "rmse",
+  booster = "gbtree"
+)
+
+starter_watchlist <- list(train = starter_dtrain, test = starter_dtest)
+
+# use 10-fold CV to determine the optimal number of iterations
+starter_hof_xgb_mdl_params <- xgb.cv(
+  params = params,
+  data = starter_dtrain,
+  nrounds = 500,
+  nfold = 10,
+  early_stopping_rounds = 50,
+  stratified = TRUE
+)
+
+starter_num_rounds <- starter_hof_xgb_mdl_params$best_iteration
+
+# train model
+starter_hof_xgb_mdl <- xgb.train(
+  params = params,
+  data = starter_dtrain,
+  nrounds = starter_num_rounds
+)
+
+# evaluate model empirically
+starter_xgb_predictions <-
+  predict(starter_hof_xgb_mdl, newdata = starter_dtest) %>%
+  as_tibble() %>%
+  dplyr::select(predicted_vote_share = value) %>%
+  bind_cols(starter_hof_test) %>%
+  dplyr::select(vote_share, predicted_vote_share) %>%
+  mutate(residual = vote_share - predicted_vote_share)
+
+starter_xgb_rmse <- round(RMSE(starter_xgb_predictions$predicted_vote_share, starter_xgb_predictions$vote_share), 1)
+
+starter_xgb_r_squared <- round(summary(lm(starter_xgb_predictions$predicted_vote_share ~ starter_xgb_predictions$vote_share))$r.squared, 2)
+
+ggplot(starter_xgb_predictions, aes(vote_share, predicted_vote_share)) +
+  geom_point() + geom_smooth(method = "lm") +
+  geom_abline(linetype = "dashed") +
+  ggtitle("Predicted Vote Share vs. Vote Share", subtitle = glue("R^2 = {starter_xgb_r_squared}")) +
+  labs(x = "Vote Share", y = "Predicted HOF Vote Share", caption = "Source: HOF Voting Data 1966-2018")
+
+ggplot(starter_xgb_predictions, aes(vote_share, residual)) +
+  geom_point() + geom_hline(yintercept = 0, linetype = "dashed") +
+  ggtitle("Predicted Vote Share vs. Residuals", subtitle = glue("RMSE = {starter_xgb_rmse}")) +
+  labs(x="Predicted Vote Share", y="Residual")
+
+# evaluate model subjectively using its 2019 predictions using model
+starter_data_2019 <- 
+  xgb.DMatrix(starter_voting_future_preprocessed %>%
+  dplyr::select(-Name) %>%
+  as.matrix())
+
+starter_xgb_predictions <-
+  predict(starter_hof_xgb_mdl, newdata = starter_data_2019) %>%
+  as_tibble() %>%
+  dplyr::select(predicted_vote_share = value) %>%
+  mutate(predicted_vote_share = round(predicted_vote_share, 1)) %>%
+  bind_cols(starter_voting_future_preprocessed %>%
+    dplyr::select(Name, year_on_ballot)) %>%
+  dplyr::select(Name, predicted_vote_share, everything()) %>%
+  arrange(desc(predicted_vote_share)) %>%
+  left_join(voting_trends, by = "Name") %>%
+  dplyr::select(Name, year_on_ballot, predicted_vote_share, previous_year_vote_share = prev_year_vote_share) %>%
+  mutate(change = predicted_vote_share - previous_year_vote_share)
+
+starter_xgb_predictions
+
+xgb.importance(feature_names = names(starter_hof_test %>% dplyr::select(-vote_share)), model = starter_hof_xgb_mdl) %>%
+  as_tibble() %>%
+  ggplot(aes(reorder(Feature, Gain), Gain)) +
+  geom_col() + coord_flip() + fgt
 ```
 
 
