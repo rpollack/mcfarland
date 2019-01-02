@@ -100,8 +100,7 @@ fix_name <- function(name) {
 ```
 
 
-get data, clean up, and engineer some features
-
+get data, clean up, and engineer some features. 
 ```{r}
 
 
@@ -261,7 +260,8 @@ data_clean %>%
 
 
 
-Position Players: extract data from main dataset, pre-processs, and create training and test datasets
+Create preprocessed training, validation, and test datasets for position players, starters, and relievers
+They each need different datasets because they will have different predictors & those predictors will be scaled differently
 
 ```{r message=FALSE, warning=FALSE}
 
@@ -273,7 +273,7 @@ Position Players: extract data from main dataset, pre-processs, and create train
 # TODO: see if dist_from_3000_H and dist_from_500_HR affect results
 # TODO: see if adding the player's primary position back in has any effect.
 
-# select predictors for position players only
+# POSITION PLAYERS
 batter_data <-
   data_clean %>%
   filter(position != 1) %>%
@@ -330,26 +330,264 @@ batter_predictions <-
 # preprocess 2019 HOF voting data using the same parameters identified earlier
 batter_predictions_pre <- batter_predictions %>%
   dplyr::select(-ped_scandal, -year_on_ballot, -vote_year)
-batter_predictions_processed <- predict(batter_preprocess_params, predictions_pre) %>%
+batter_predictions_processed <- predict(batter_preprocess_params, batter_predictions_pre) %>%
   bind_cols(
     batter_predictions %>% dplyr::select(ped_scandal),
     batter_predictions %>% dplyr::select(year_on_ballot),
     batter_predictions %>% dplyr::select(vote_year)
   )
 
+# STARTING PITCHERS: prepare training and validation datasets
+
+cy_young_winner_count <-
+  read_csv("mlb season awards - cy_young_winners.csv") %>%
+  gather(League, player_name, AL, NL) %>%
+  group_by(player_name) %>%
+  summarize(num_cy_youngs = n())
+
+starter_hof_data <-
+  data_clean %>%
+  filter(
+    position == 1,
+    GS / G_pitch >= 0.5
+  ) %>%
+  dplyr::select(
+    -position,
+    Name,
+    year_on_ballot,
+    vote_share,
+    prev_year_vote_share,
+    everything()
+  ) %>%
+  left_join(cy_young_winner_count, by = c("Name" = "player_name")) %>%  # TODO: see if this has any effect on predictions. is currently unused
+  mutate(
+    num_cy_youngs = replace_na(num_cy_youngs, 0),
+    dist_from_300_w = W - 300,
+    k_bb_ratio = SO / BB_allowed,
+    dist_from_3000k = SO - 3000
+  ) %>%
+  dplyr::select(
+    year_on_ballot,
+    prev_year_vote_share,
+    prev_three_year_vote_share_trend,
+    bj_hof_monitor,
+    ped_scandal,
+    vote_year,
+    vote_share
+  ) %>%
+  ungroup()
+
+# pre-process relevant predictors by removing irrelevant ones, applying pre-processing, and re-adding irrelevant ones
+starter_data_pre <-
+  starter_hof_data %>%
+  dplyr::select(-vote_share, -ped_scandal, -year_on_ballot, -vote_year)
+
+pre_methods <- c("center", "scale", "knnImpute")
+starter_preprocess_params <-
+  preProcess(starter_data_pre, pre_methods)
+
+starter_data_clean_processed <-
+  predict(starter_preprocess_params, starter_data_pre) %>%
+  bind_cols(
+    starter_hof_data %>% dplyr::select(vote_share),
+    starter_hof_data %>% dplyr::select(ped_scandal),
+    starter_hof_data %>% dplyr::select(year_on_ballot),
+    starter_hof_data %>% dplyr::select(vote_year)
+  )
+
+starter_test_df_rows <-
+  createDataPartition(starter_data_clean_processed$vote_share,
+    p = 0.25,
+    list = FALSE
+  )
+
+starter_hof_test <-
+  starter_data_clean_processed %>%
+  dplyr::select(-Name) %>%
+  filter(row_number() %in% starter_test_df_rows)
+
+starter_hof_train <-
+  starter_data_clean_processed %>%
+  dplyr::select(-Name) %>%
+  filter(!row_number() %in% starter_test_df_rows)
+
+# STARTING PITCHERS: Prepare data used to test model
+starter_hof_predictions <-
+  hof_predictions %>%
+ filter(
+    position == 1,
+    GS / G_pitch >= 0.5
+  ) %>%
+  left_join(voting_trends, by = "Name") %>%
+  left_join(cy_young_winner_count, by = c("Name" = "player_name")) %>%
+  mutate(
+    num_cy_youngs = replace_na(num_cy_youngs, 0),
+    dist_from_300_w = W - 300,
+    # k_bb_ratio = SO / BB_allowed,
+    dist_from_3000k = SO - 3000,
+    to_predict = 1 # this flag lets us know we want to predict these players. later on i join these players back to the main data set
+    # to provide enough data points for knn inputation of NA values. to_predict lets us impute and then grab only the players
+    # we want to predict
+  ) %>%
+  dplyr::select(
+    Name,
+    year_on_ballot,
+    prev_year_vote_share,
+    prev_three_year_vote_share_trend,
+    bj_hof_monitor,
+    ped_scandal,
+    vote_year,
+    to_predict
+  ) %>%
+  ungroup()
+
+
+# in the above dataset there are too many rows with NA for knn imputation to work.
+# so I have to:
+# go back to the main dataset and mash it together to make it look like the one we're predicting
+# use those values to impute the ones missing from the starters we want to predict
+# predict vote share for the correct pitchers (e.g. not the ones we used to thicken the dataset for imputation). we do this with the to_predict column
+
+bound_data <-
+  data_clean %>%
+  filter(
+    position == 1,
+    GS / G_pitch >= 0.5
+  ) %>%
+  left_join(cy_young_winner_count, by = c("Name" = "player_name")) %>%
+  mutate(
+    num_cy_youngs = replace_na(num_cy_youngs, 0),
+    dist_from_300_w = W - 300,
+    k_bb_ratio = SO / BB_allowed,
+    dist_from_3000k = SO - 3000,
+    to_predict = 0
+  ) %>%
+  dplyr::select(
+   Name,
+    year_on_ballot,
+    prev_year_vote_share,
+    prev_three_year_vote_share_trend,
+    bj_hof_monitor,
+    ped_scandal,
+    vote_year,
+    to_predict
+  ) %>%
+  bind_rows(starter_hof_predictions)
+
+# pre-process 2019 starter data using parameters identified earlier: remove irrelevant data, pre-process remaining predictors, and add
+# irrelevant data back in
+starter_predictions_pre <-
+  bound_data %>%
+  dplyr::select(-ped_scandal, -year_on_ballot, -vote_year, -to_predict)
+starter_predictions_processed <- predict(starter_preprocess_params, starter_predictions_pre) %>%
+  bind_cols(
+    bound_data %>% dplyr::select(ped_scandal),
+    bound_data %>% dplyr::select(year_on_ballot),
+    bound_data %>% dplyr::select(vote_year),
+    bound_data %>% dplyr::select(to_predict)
+  ) %>%
+  filter(to_predict == 1) %>%
+  dplyr::select(-to_predict)
+
+
+# RELIEF PITCHERS: prepare training and validation data
+
+# get predictors for relief pitchers.
+# Bill James' HOF monitor doesn't account for relievers b/c it's position-agnostic
+# so I use JAWS+ (JAWS relative to average at position) to separate the wheat from the chaff
+reliever_hof_data <-
+  data_clean %>%
+  filter(
+    position == 1,
+    GS / G_pitch <= 0.5
+  ) %>%
+  dplyr::select(
+    Name,
+    year_on_ballot,
+    vote_share,
+    vote_year,
+    prev_year_vote_share,
+    prev_three_year_vote_share_trend,
+    jaws,
+    jpos,
+    SV,
+    ped_scandal
+  ) %>%
+  group_by(Name) %>%
+  mutate(jaws_plus = round(100 * (jaws/jpos)), 0) %>%
+  dplyr::select(-jaws, -jpos) %>%
+  ungroup()
+  
+# pre-process data. in addition to centering, scaling, and imputing, also remove zero-variance predictors (ped_scandal, in this case)
+reliever_data_pre <-
+  reliever_hof_data %>%
+  dplyr::select(-vote_share, -ped_scandal, -year_on_ballot, -vote_year)
+pre_methods <- c("center", "scale", "knnImpute", "zv", "nzv")
+reliever_preprocess_params <-
+  preProcess(reliever_data_pre, pre_methods)
+reliever_data_clean_processed <-
+  predict(reliever_preprocess_params, reliever_data_pre) %>%
+  bind_cols(
+    reliever_hof_data %>% dplyr::select(vote_share),
+    reliever_hof_data %>% dplyr::select(ped_scandal),
+    reliever_hof_data %>% dplyr::select(year_on_ballot),
+    reliever_hof_data %>% dplyr::select(vote_year)
+  )
+
+reliever_test_df_rows <-
+  createDataPartition(reliever_data_clean_processed$vote_share,
+    p = 0.3,
+    list = FALSE
+  )
+
+reliever_hof_test <-
+  reliever_data_clean_processed %>%
+  dplyr::select(-Name) %>%
+  filter(row_number() %in% reliever_test_df_rows)
+
+reliever_hof_train <-
+  reliever_data_clean_processed %>%
+  dplyr::select(-Name) %>%
+  filter(!row_number() %in% reliever_test_df_rows)
+
+# RELIEF PITCHERS: Prepare data used to test model
+
+reliever_hof_predictions <-
+  hof_predictions %>%
+ filter(
+    position == 1,
+    GS / G_pitch <= 0.5
+  ) %>%
+  left_join(voting_trends, by="Name") %>%
+  group_by(Name) %>%
+  mutate(jaws_plus = round(100 * (jaws/jpos)), 0) %>%
+ dplyr::select(
+    Name,
+    prev_year_vote_share,
+    prev_three_year_vote_share_trend,
+    SV,
+    jaws_plus,
+    ped_scandal,
+    year_on_ballot,
+    vote_year) %>%
+  ungroup()
+
+reliever_predictions_pre <-
+  reliever_hof_predictions %>%
+  dplyr::select(-ped_scandal, -year_on_ballot, -vote_year)
+reliever_predictions_processed <- predict(reliever_preprocess_params, reliever_predictions_pre) %>%
+  bind_cols(
+    reliever_hof_predictions %>% dplyr::select(ped_scandal),
+    reliever_hof_predictions %>% dplyr::select(year_on_ballot),
+    reliever_hof_predictions %>% dplyr::select(vote_year)
+  ) 
+
+
 ```
 
 # train and predict batter voting totals
 
 ```{r}
-
-#seed <-11
-# seeds: 11, xgblinear with R^2 of 0.93 and RMSE of 7.5. 2019 predictions look good. 
-# 12, xgbTree, with R^2 of 0.96 and RMSE of 6.5. 2019 predictions don't look great. Andruw Jones is at -5.8%
-# 
-
-# make training and test DF's.
-
 
 algorithms <- c("lm", "svmRadial", "xgbTree", "xgbLinear", "knn", "gbm")
 
@@ -480,6 +718,9 @@ params <- list(
   booster = "gbtree"
 )
 
+watchlist <- list(validation=batter_dtest, train=batter_dtrain)
+
+  
 # use 10-fold CV to determine the optimal number of iterations
 batter_hof_xgb_mdl_params <- xgb.cv(
   params = params,
@@ -487,7 +728,6 @@ batter_hof_xgb_mdl_params <- xgb.cv(
   nrounds = 500,
   nfold = 10,
   early_stopping_rounds = 50,
-  print_every_n = 50,
   stratified = TRUE
 )
 
@@ -543,7 +783,8 @@ data_2019 <- xgb.DMatrix(batter_predictions_processed %>%
                            ) %>%
                            as.matrix())
 
-predict(batter_hof_xgb_mdl, newdata = data_2019) %>%
+predictions <-
+  predict(batter_hof_xgb_mdl, newdata = data_2019) %>%
   as_tibble() %>%
   dplyr::select(predicted_vote_share = value) %>%mutate(predicted_vote_share = round(predicted_vote_share, 1)) %>%
   bind_cols(predictions_processed %>% dplyr::select(Name, year_on_ballot)) %>%
@@ -552,6 +793,14 @@ predict(batter_hof_xgb_mdl, newdata = data_2019) %>%
   left_join(voting_trends, by = "Name") %>%
   dplyr::select(Name, year_on_ballot, predicted_vote_share, previous_year_vote_share = prev_year_vote_share) %>%
   mutate(change = predicted_vote_share - previous_year_vote_share)
+
+predictions
+
+xgb.importance(feature_names = names(batter_hof_test %>% dplyr::select(-vote_share)), model = batter_hof_xgb_mdl) %>%
+  as_tibble() %>%
+  ggplot(aes(reorder(Feature, Gain), Gain)) +
+  geom_col() + coord_flip() + fgt
+
 ```
 
 
@@ -564,78 +813,7 @@ predict(batter_hof_xgb_mdl, newdata = data_2019) %>%
 # TODO: vote share+? index vote share to average that year, at position? helps compare players to peers
 
 # get number of cy youngs won by each pitcher
-cy_young_winner_count <-
-  read_csv("mlb season awards - cy_young_winners.csv") %>%
-  gather(League, player_name, AL, NL) %>%
-  group_by(player_name) %>%
-  summarize(num_cy_youngs = n())
 
-starter_hof_data <-
-  data_clean %>%
-  filter(
-    position == 1,
-    GS / G_pitch >= 0.5
-  ) %>%
-  dplyr::select(
-    -position,
-    Name,
-    year_on_ballot,
-    vote_share,
-    prev_year_vote_share,
-    everything()
-  ) %>%
-  left_join(cy_young_winner_count, by = c("Name" = "player_name")) %>%  # TODO: see if this has any effect on predictions. is currently unused
-  mutate(
-    num_cy_youngs = replace_na(num_cy_youngs, 0),
-    dist_from_300_w = W - 300,
-    k_bb_ratio = SO / BB_allowed,
-    dist_from_3000k = SO - 3000
-  ) %>%
-  dplyr::select(
-    year_on_ballot,
-    prev_year_vote_share,
-    prev_three_year_vote_share_trend,
-    bj_hof_monitor,
-    ped_scandal,
-    vote_year,
-    vote_share
-  ) %>%
-  ungroup()
-
-# pre-process relevant predictors by removing irrelevant ones, applying pre-processing, and re-adding irrelevant ones
-starter_data_pre <-
-  starter_hof_data %>%
-  dplyr::select(-vote_share, -ped_scandal, -year_on_ballot, -vote_year)
-
-pre_methods <- c("center", "scale", "knnImpute")
-starter_preprocess_params <-
-  preProcess(starter_data_pre, pre_methods)
-
-starter_data_clean_processed <-
-  predict(starter_preprocess_params, starter_data_pre) %>%
-  bind_cols(
-    starter_hof_data %>% dplyr::select(vote_share),
-    starter_hof_data %>% dplyr::select(ped_scandal),
-    starter_hof_data %>% dplyr::select(year_on_ballot),
-    starter_hof_data %>% dplyr::select(vote_year)
-  )
-
-#set.seed(7)
-starter_test_df_rows <-
-  createDataPartition(starter_data_clean_processed$vote_share,
-    p = 0.3,
-    list = FALSE
-  )
-
-starter_hof_test <-
-  starter_data_clean_processed %>%
-  dplyr::select(-Name) %>%
-  filter(row_number() %in% starter_test_df_rows)
-
-starter_hof_train <-
-  starter_data_clean_processed %>%
-  dplyr::select(-Name) %>%
-  filter(!row_number() %in% starter_test_df_rows)
 
 algorithms <-
   c("lm", "svmRadial", "xgbTree", "xgbLinear", "knn", "gbm")
@@ -713,94 +891,8 @@ ggplot(starter_model_metrics, aes(`zR^2`, zRMSE)) + geom_point() + fgt +
 make 2019 predictions using chosen model
 
 ```{r}
-voting_trends <-
-  data_clean %>%
-  filter(vote_year %in% c(year_to_predict - 3, year_to_predict - 1)) %>%
-  group_by(Name) %>%
-  arrange(Name, vote_year) %>%
-  mutate(
-    prev_year_vote_share = vote_share,
-    prev_three_year_vote_share_trend = round((vote_share) - lag(vote_share) / 3, 1)
-  ) %>%
-  filter(vote_year == max(vote_year)) %>%
-  dplyr::select(Name, prev_year_vote_share, prev_three_year_vote_share_trend)
-
-starter_hof_predictions <-
-  hof_predictions %>%
- filter(
-    position == 1,
-    GS / G_pitch >= 0.5
-  ) %>%
-  left_join(voting_trends, by = "Name") %>%
-  left_join(cy_young_winner_count, by = c("Name" = "player_name")) %>%
-  mutate(
-    num_cy_youngs = replace_na(num_cy_youngs, 0),
-    dist_from_300_w = W - 300,
-    # k_bb_ratio = SO / BB_allowed,
-    dist_from_3000k = SO - 3000,
-    to_predict = 1 # this flag lets us know we want to predict these players. later on i join these players back to the main data set
-    # to provide enough data points for knn inputation of NA values. to_predict lets us impute and then grab only the players
-    # we want to predict
-  ) %>%
-  dplyr::select(
-    Name,
-    year_on_ballot,
-    prev_year_vote_share,
-    prev_three_year_vote_share_trend,
-    bj_hof_monitor,
-    ped_scandal,
-    vote_year,
-    to_predict
-  ) %>%
-  ungroup()
 
 
-# in the above dataset there are too many rows with NA for knn imputation to work.
-# so I have to:
-# go back to the main dataset and mash it together to make it look like the one we're predicting
-# use those values to impute the ones missing from the starters we want to predict
-# predict vote share for the correct pitchers (e.g. not the ones we used to thicken the dataset for imputation). we do this with the to_predict column
-
-bound_data <-
-  data_clean %>%
-  filter(
-    position == 1,
-    GS / G_pitch >= 0.5
-  ) %>%
-  left_join(cy_young_winner_count, by = c("Name" = "player_name")) %>%
-  mutate(
-    num_cy_youngs = replace_na(num_cy_youngs, 0),
-    dist_from_300_w = W - 300,
-    k_bb_ratio = SO / BB_allowed,
-    dist_from_3000k = SO - 3000,
-    to_predict = 0
-  ) %>%
-  dplyr::select(
-   Name,
-    year_on_ballot,
-    prev_year_vote_share,
-    prev_three_year_vote_share_trend,
-    bj_hof_monitor,
-    ped_scandal,
-    vote_year,
-    to_predict
-  ) %>%
-  bind_rows(starter_hof_predictions)
-
-# pre-process 2019 starter data using parameters identified earlier: remove irrelevant data, pre-process remaining predictors, and add
-# irrelevant data back in
-starter_predictions_pre <-
-  bound_data %>%
-  dplyr::select(-ped_scandal, -year_on_ballot, -vote_year, -to_predict)
-starter_predictions_processed <- predict(starter_preprocess_params, starter_predictions_pre) %>%
-  bind_cols(
-    bound_data %>% dplyr::select(ped_scandal),
-    bound_data %>% dplyr::select(year_on_ballot),
-    bound_data %>% dplyr::select(vote_year),
-    bound_data %>% dplyr::select(to_predict)
-  ) %>%
-  filter(to_predict == 1) %>%
-  dplyr::select(-to_predict)
 
 predict(starter_hof_voting_model_lm, newdata = starter_predictions_processed) %>%
   as_tibble() %>%
@@ -818,65 +910,6 @@ predict(starter_hof_voting_model_lm, newdata = starter_predictions_processed) %>
 lastly, predict relievers
 
 ```{r}
-
-# get predictors for relief pitchers.
-# Bill James' HOF monitor doesn't account for relievers b/c it's position-agnostic
-# so I use JAWS+ (JAWS relative to average at position) to separate the wheat from the chaff
-reliever_hof_data <-
-  data_clean %>%
-  filter(
-    position == 1,
-    GS / G_pitch <= 0.5
-  ) %>%
-  dplyr::select(
-    Name,
-    year_on_ballot,
-    vote_share,
-    vote_year,
-    prev_year_vote_share,
-    prev_three_year_vote_share_trend,
-    jaws,
-    jpos,
-    SV,
-    ped_scandal
-  ) %>%
-  group_by(Name) %>%
-  mutate(jaws_plus = round(100 * (jaws/jpos)), 0) %>%
-  dplyr::select(-jaws, -jpos) %>%
-  ungroup()
-  
-# pre-process data. in addition to centering, scaling, and imputing, also remove zero-variance predictors (ped_scandal, in this case)
-reliever_data_pre <-
-  reliever_hof_data %>%
-  dplyr::select(-vote_share, -ped_scandal, -year_on_ballot, -vote_year)
-pre_methods <- c("center", "scale", "knnImpute", "zv", "nzv")
-reliever_preprocess_params <-
-  preProcess(reliever_data_pre, pre_methods)
-reliever_data_clean_processed <-
-  predict(reliever_preprocess_params, reliever_data_pre) %>%
-  bind_cols(
-    reliever_hof_data %>% dplyr::select(vote_share),
-    reliever_hof_data %>% dplyr::select(ped_scandal),
-    reliever_hof_data %>% dplyr::select(year_on_ballot),
-    reliever_hof_data %>% dplyr::select(vote_year)
-  )
-
-set.seed(2)
-reliever_test_df_rows <-
-  createDataPartition(reliever_data_clean_processed$vote_share,
-    p = 0.3,
-    list = FALSE
-  )
-
-reliever_hof_test <-
-  reliever_data_clean_processed %>%
-  dplyr::select(-Name) %>%
-  filter(row_number() %in% reliever_test_df_rows)
-
-reliever_hof_train <-
-  reliever_data_clean_processed %>%
-  dplyr::select(-Name) %>%
-  filter(!row_number() %in% reliever_test_df_rows)
 
 algorithms <-
   c("xgbTree", "xgbLinear", "knn", "rf")
@@ -952,35 +985,6 @@ predict reliever vote share using best model
 
 ```{r}
 
-reliever_hof_predictions <-
-  hof_predictions %>%
- filter(
-    position == 1,
-    GS / G_pitch <= 0.5
-  ) %>%
-  left_join(voting_trends, by="Name") %>%
-  group_by(Name) %>%
-  mutate(jaws_plus = round(100 * (jaws/jpos)), 0) %>%
- dplyr::select(
-    Name,
-    prev_year_vote_share,
-    prev_three_year_vote_share_trend,
-    SV,
-    jaws_plus,
-    ped_scandal,
-    year_on_ballot,
-    vote_year) %>%
-  ungroup()
-
-reliever_predictions_pre <-
-  reliever_hof_predictions %>%
-  dplyr::select(-ped_scandal, -year_on_ballot, -vote_year)
-reliever_predictions_processed <- predict(reliever_preprocess_params, reliever_predictions_pre) %>%
-  bind_cols(
-    reliever_hof_predictions %>% dplyr::select(ped_scandal),
-    reliever_hof_predictions %>% dplyr::select(year_on_ballot),
-    reliever_hof_predictions %>% dplyr::select(vote_year)
-  ) 
 
 predict(reliever_hof_voting_model_xgbTree, newdata = reliever_predictions_processed) %>%
   as_tibble() %>%
