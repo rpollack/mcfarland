@@ -187,7 +187,7 @@ hof_voting_data_future_clean <-
     # bj_hof_standards = X6,
     # career_length = X7,
     # career_rWAR = X8,
-    # best_war_years = X9,
+    best_war_years = X9,
     jaws = X10,
     jpos = X11,
     # G_bat = X12,
@@ -223,6 +223,7 @@ hof_voting_data_future_clean <-
     Name = fix_name(Name),
     year_on_ballot = as.numeric(str_extract(year_on_ballot, "[:digit:]{1,2}")),
     bj_hof_monitor = as.numeric(bj_hof_monitor),
+    best_war_years = as.numeric(best_war_years),
     position = factor(str_extract(position, "[:digit:]")),
     SV = as.numeric(SV),
     ped_scandal = map_dbl(Name, get_ped_scandal),
@@ -364,6 +365,7 @@ starter_hof_data <-
     vote_year,
     ERA,
     SO,
+    best_war_years,
     vote_share
   ) %>%
   ungroup()
@@ -401,7 +403,7 @@ starter_hof_train <-
 
 # STARTING PITCHERS: Prepare data used to test model
 starter_voting_future <-
-  hof_predictions %>%
+  hof_voting_data_future_clean %>%
   filter(
     position == 1,
     GS / G_pitch >= 0.5
@@ -427,7 +429,8 @@ starter_voting_future <-
     vote_year,
     to_predict,
     ERA,
-    SO
+    SO,
+    best_war_years
   ) %>%
   ungroup()
 
@@ -461,6 +464,7 @@ starter_data_padded <-
     vote_year,
     ERA,
     SO,
+    best_war_years,
     to_predict
   ) %>%
   bind_rows(starter_voting_future) %>% 
@@ -517,10 +521,7 @@ reliever_preprocess_params <-
 reliever_data_clean_processed <-
   predict(reliever_preprocess_params, reliever_data_pre) %>%
   bind_cols(
-    reliever_hof_data %>% dplyr::select(vote_share),
-    reliever_hof_data %>% dplyr::select(ped_scandal),
-    reliever_hof_data %>% dplyr::select(year_on_ballot),
-    reliever_hof_data %>% dplyr::select(vote_year)
+    reliever_hof_data %>% dplyr::select(vote_share, ped_scandal, year_on_ballot, vote_year)
   )
 
 reliever_test_df_rows <-
