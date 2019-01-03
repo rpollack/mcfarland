@@ -900,7 +900,7 @@ make 2019 predictions using chosen model
 
 ```{r}
 
-predict(starter_hof_voting_model_gbm, newdata = starter_voting_future_preprocessed) %>%
+predict(starter_hof_voting_model_xgbTree, newdata = starter_voting_future_preprocessed) %>%
   as_tibble() %>%
   dplyr::select(predicted_vote_share = value) %>%
   bind_cols(starter_predictions_processed) %>%
