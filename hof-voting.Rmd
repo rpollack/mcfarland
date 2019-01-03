@@ -93,10 +93,12 @@ set_narrative <- function(name) {
                 "Curt Schilling", "Kevin Brown") ~ -0.5,
     
     # mild positive narrative (you can call these guys "overrated")
-    name %in% c("Jim Rice", "Andre Dawson", "Jack Morris", "Bruce Sutter", "Jorge Posada", "Omar Vizquel") ~ 0.5,
+    name %in% c("Jim Rice", "Andre Dawson", "Jack Morris", "Bruce Sutter", "Jorge Posada", "Omar Vizquel", "Trevor Hoffman") ~ 0.5,
     
     #strong positive narrative; something about their career and/or character strongly transcends their stats
-    name %in% c("Tom Glavine", "Roy Halladay", "Mariano Rivera", "Trevor Hoffman", "Kirby Puckett", "Bill Mazeroski") ~ 1,
+    name %in% c("Roy Halladay", "Mariano Rivera", "Kirby Puckett", "Bill Mazeroski",
+                "Juan Marichal", "Bob Feller", "Vic Willis", "Don Drysdale", "Red Ruffing", "Jim Bunning", "John Smoltz",
+                "Don Sutton", "Sandy Koufax") ~ 1,
     
     # everyone else gets no discernable narrative
     TRUE ~ 0
@@ -386,7 +388,6 @@ starter_hof_data <-
     vote_year,
     ERA,
     SO,
-    best_war_years,
     vote_share
   ) %>%
   ungroup()
@@ -394,7 +395,7 @@ starter_hof_data <-
 # pre-process relevant predictors by removing irrelevant ones, applying pre-processing, and re-adding irrelevant ones
 starter_data_pre <-
   starter_hof_data %>%
-  dplyr::select(-vote_share, -narrative_score, -year_on_ballot, -vote_year)
+  dplyr::select(-vote_share, -year_on_ballot, -vote_year)
 
 pre_methods <- c("center", "scale", "knnImpute")
 starter_preprocess_params <-
@@ -448,10 +449,9 @@ starter_voting_future <-
     bj_hof_monitor,
     narrative_score,
     vote_year,
-    to_predict,
     ERA,
     SO,
-    best_war_years
+    to_predict
   ) %>%
   ungroup()
 
@@ -485,7 +485,6 @@ starter_data_padded <-
     vote_year,
     ERA,
     SO,
-    best_war_years,
     to_predict
   ) %>%
   bind_rows(starter_voting_future) %>% 
@@ -892,8 +891,6 @@ ggplot(starter_model_metrics, aes(`zR^2`, zRMSE)) + geom_point() + fgt +
   geom_label_repel(aes(label = label)) +
   ggtitle("Evaluation Metrics of Models: Starter HOF Voting") +
   xlim(-2, 2) + ylim(-2, 2) + labs(x = "zR^2")
-
-# best attempt so far: xgblinear, 0.9 R^2, 6.9 RMSE
 ```
 
 make 2019 predictions using chosen model
