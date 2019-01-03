@@ -189,7 +189,8 @@ hof_voting_data_historical_clean <-
   mutate(
     prev_year_vote_share = lag(vote_share),
     prev_three_year_vote_share_trend = round((lag(vote_share) - lag(vote_share, 3)) / 3, 1)
-  )
+  ) %>%
+  ungroup()
 
 
 # get data for the year we want to predict, to to assess the final model
@@ -519,78 +520,71 @@ reliever_hof_data <-
   dplyr::select(
     Name,
     year_on_ballot,
-    vote_share,
     vote_year,
     prev_year_vote_share,
     prev_three_year_vote_share_trend,
-    jaws,
-    jpos,
+    bj_hof_monitor,
     SV,
-    narrative_score
-  ) %>%
-  group_by(Name) %>%
-  mutate(jaws_plus = round(100 * (jaws / jpos)), 0) %>%
-  dplyr::select(-jaws, -jpos) %>%
-  ungroup()
+    narrative_score,
+    vote_share
+  )
+  # group_by(Name) %>%
+  # mutate(jaws_plus = round(100 * (jaws / jpos))) %>%
+  # dplyr::select(-jaws, -jpos) %>%
+  # ungroup()
 
 # pre-process data. 
 reliever_data_pre <-
   reliever_hof_data %>%
-  dplyr::select(-vote_share, -year_on_ballot, -vote_year)
+  dplyr::select(-vote_share)
 pre_methods <- c("center", "scale", "knnImpute")
 reliever_preprocess_params <- preProcess(reliever_data_pre, pre_methods)
-reliever_data_clean_processed <-
+reliever_data_preprocessed <-
   predict(reliever_preprocess_params, reliever_data_pre) %>%
   bind_cols(
-    reliever_hof_data %>% dplyr::select(vote_share, year_on_ballot, vote_year)
+    reliever_hof_data %>% dplyr::select(vote_share)
   )
 
 reliever_test_df_rows <-
-  createDataPartition(reliever_data_clean_processed$vote_share,
+  createDataPartition(reliever_data_preprocessed$vote_share,
     p = 0.25,
     list = FALSE
   )
 
 reliever_hof_test <-
-  reliever_data_clean_processed %>%
+  reliever_data_preprocessed %>%
   dplyr::select(-Name) %>%
   filter(row_number() %in% reliever_test_df_rows)
 
 reliever_hof_train <-
-  reliever_data_clean_processed %>%
+  reliever_data_preprocessed %>%
   dplyr::select(-Name) %>%
   filter(!row_number() %in% reliever_test_df_rows)
 
 # RELIEF PITCHERS: Prepare data used to test model
 
-reliever_hof_predictions <-
+reliever_data_future <-
   hof_voting_data_future_clean %>%
   filter(
     position == 1,
     GS / G_pitch <= 0.5
   ) %>%
   left_join(voting_trends, by = "Name") %>%
-  group_by(Name) %>%
-  mutate(jaws_plus = round(100 * (jaws / jpos)), 0) %>%
+  # group_by(Name) %>%
+  # mutate(jaws_plus = round(100 * (jaws / jpos)), 0) %>%
   dplyr::select(
     Name,
+    year_on_ballot,
+    vote_year,
     prev_year_vote_share,
     prev_three_year_vote_share_trend,
+    bj_hof_monitor,
     SV,
-    jaws_plus,
-    narrative_score,
-    year_on_ballot,
-    vote_year
-  ) %>%
-  ungroup()
+    narrative_score
+  ) 
 
-reliever_predictions_pre <-
-  reliever_hof_predictions %>%
-  dplyr::select(-year_on_ballot, -vote_year)
-reliever_predictions_processed <- predict(reliever_preprocess_params, reliever_predictions_pre) %>%
-  bind_cols(
-    reliever_hof_predictions %>% dplyr::select(year_on_ballot, vote_year)
-  )
+reliever_voting_future_preprocessed <- predict(reliever_preprocess_params, reliever_data_future)
+
 ```
 
 # train and predict batter voting totals
@@ -1026,7 +1020,7 @@ lastly, predict relievers
 ```{r}
 
 algorithms <-
-  c("xgbTree", "xgbLinear", "knn", "rf")
+  c("xgbTree", "xgbLinear", "knn", "gbm", "lm", "svmRadial")
 
 reliever_model_evaluation <-
   algorithms %>%
@@ -1099,7 +1093,7 @@ predict reliever vote share using best model
 ```{r}
 
 
-predict(reliever_hof_voting_model_xgbTree, newdata = reliever_predictions_processed) %>%
+predict(reliever_hof_voting_model_xgbTree, newdata = reliever_voting_future_preprocessed) %>%
   as_tibble() %>%
   dplyr::select(predicted_vote_share = value) %>%
   bind_cols(reliever_predictions_processed) %>%
@@ -1111,6 +1105,111 @@ predict(reliever_hof_voting_model_xgbTree, newdata = reliever_predictions_proces
   mutate(change = predicted_vote_share - previous_year_vote_share)
 ```
 
+"raw" xgb predictions for relievers
+
+```{r}
+# create xgboost-friendly matrices for training the model
+reliever_train_labels <-
+  reliever_hof_train$vote_share %>%
+  as.matrix()
+reliever_train_matrix <-
+  reliever_hof_train %>%
+  dplyr::select(-vote_share) %>%
+  as.matrix()
+reliever_dtrain <- xgb.DMatrix(
+  data = reliever_train_matrix,
+  label = reliever_train_labels
+)
+
+# construct xgboost-friendly test dataset
+reliever_test_labels <- reliever_hof_test$vote_share %>%
+  as.matrix()
+reliever_test_matrix <-
+  reliever_hof_test %>%
+  dplyr::select(-vote_share) %>%
+  as.matrix()
+reliever_dtest <- xgb.DMatrix(
+  data = reliever_test_matrix,
+  label = reliever_test_labels
+)
+
+params <- list(
+  objective = "reg:linear",
+  eval_metric = "rmse",
+  booster = "gbtree"
+)
+
+reliever_watchlist <- list(train = reliever_dtrain, test = reliever_dtest)
+
+# use 10-fold CV to determine the optimal number of iterations
+reliever_hof_xgb_mdl_params <- xgb.cv(
+  params = params,
+  data = reliever_dtrain,
+  nrounds = 500,
+  nfold = 10,
+  early_stopping_rounds = 100,
+  stratified = TRUE
+)
+
+reliever_num_rounds <- reliever_hof_xgb_mdl_params$best_iteration
+
+# train model
+reliever_hof_xgb_mdl <- xgb.train(
+  params = params,
+  data = reliever_dtrain,
+  nrounds = reliever_num_rounds
+)
+
+# evaluate model empirically
+reliever_xgb_predictions <-
+  predict(reliever_hof_xgb_mdl, newdata = reliever_dtest) %>%
+  as_tibble() %>%
+  dplyr::select(predicted_vote_share = value) %>%
+  bind_cols(reliever_hof_test) %>%
+  dplyr::select(vote_share, predicted_vote_share) %>%
+  mutate(residual = vote_share - predicted_vote_share)
+
+reliever_xgb_rmse <- round(RMSE(reliever_xgb_predictions$predicted_vote_share, reliever_xgb_predictions$vote_share), 1)
+
+reliever_xgb_r_squared <- round(summary(lm(reliever_xgb_predictions$predicted_vote_share ~ reliever_xgb_predictions$vote_share))$r.squared, 2)
+
+ggplot(reliever_xgb_predictions, aes(vote_share, predicted_vote_share)) +
+  geom_point() + geom_smooth(method = "lm") +
+  geom_abline(linetype = "dashed") +
+  ggtitle("Predicted Vote Share vs. Vote Share", subtitle = glue("R^2 = {reliever_xgb_r_squared}")) +
+  labs(x = "Vote Share", y = "Predicted HOF Vote Share", caption = "Source: HOF Voting Data 1966-2018")
+
+ggplot(reliever_xgb_predictions, aes(vote_share, residual)) +
+  geom_point() + geom_hline(yintercept = 0, linetype = "dashed") +
+  ggtitle("Predicted Vote Share vs. Residuals", subtitle = glue("RMSE = {reliever_xgb_rmse}")) +
+  labs(x="Predicted Vote Share", y="Residual")
+
+# evaluate model subjectively using its 2019 predictions using model
+reliever_data_2019 <- 
+  xgb.DMatrix(reliever_voting_future_preprocessed %>%
+  dplyr::select(-Name) %>%
+  as.matrix())
+
+reliever_xgb_predictions <-
+  predict(reliever_hof_xgb_mdl, newdata = reliever_data_2019) %>%
+  as_tibble() %>%
+  dplyr::select(predicted_vote_share = value) %>%
+  mutate(predicted_vote_share = round(predicted_vote_share, 1)) %>%
+  bind_cols(reliever_voting_future_preprocessed %>%
+    dplyr::select(Name, year_on_ballot)) %>%
+  dplyr::select(Name, predicted_vote_share, everything()) %>%
+  arrange(desc(predicted_vote_share)) %>%
+  left_join(voting_trends, by = "Name") %>%
+  dplyr::select(Name, year_on_ballot, predicted_vote_share, previous_year_vote_share = prev_year_vote_share) %>%
+  mutate(change = predicted_vote_share - previous_year_vote_share)
+
+reliever_xgb_predictions
+
+xgb.importance(feature_names = names(reliever_hof_test %>% dplyr::select(-vote_share)), model = reliever_hof_xgb_mdl) %>%
+  as_tibble() %>%
+  ggplot(aes(reorder(Feature, Gain), Gain)) +
+  geom_col() + coord_flip() + fgt
+```
 
 
 
