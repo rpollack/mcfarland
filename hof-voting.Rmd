@@ -78,11 +78,11 @@ set_narrative <- function(name) {
   # to account for the fact that HOF cases are about more than just stats
   case_when(
     
-    # strong negative narrative
+    # strong negative narrative: PED connection or suspension of some kind
     name %in% c(
     "Barry Bonds", "Roger Clemens", "Alex Rodriguez",
     "Gary Sheffield", "Rafael Palmeiro", "Sammy Sosa", "Mark McGwire", "Manny Ramirez", "Pete Rose",
-    "Jose Canseco", "Ken Caminiti") ~ -1,
+    "Jose Canseco", "Ken Caminiti", "Miguel Tejada", "Robinson Cano", "Ryan Braun", "Marlon Byrd", "Nelson Cruz") ~ -1,
     
     # mild negative narrative. includes 'nicer' PED cases , guys who were jerks, and guys who tend to get overlooked, like: 
     # guys who spent significant time in Coors Field, really good all-around players, and those
@@ -96,9 +96,11 @@ set_narrative <- function(name) {
     name %in% c("Jim Rice", "Andre Dawson", "Jack Morris", "Bruce Sutter", "Jorge Posada", "Omar Vizquel", "Trevor Hoffman") ~ 0.5,
     
     #strong positive narrative; something about their career and/or character strongly transcends their stats
-    name %in% c("Roy Halladay", "Mariano Rivera", "Kirby Puckett", "Bill Mazeroski",
+    name %in% c("Mariano Rivera", "Bill Mazeroski",
                 "Juan Marichal", "Bob Feller", "Vic Willis", "Don Drysdale", "Red Ruffing", "Jim Bunning", "John Smoltz",
                 "Don Sutton", "Sandy Koufax") ~ 1,
+    
+    name %in% c("Roy Halladay", "Kirby Puckett") ~ 2,
     
     # everyone else gets no discernable narrative
     TRUE ~ 0
@@ -687,7 +689,7 @@ Transform and clean data, predict `r year_to_predict` voting share for position 
 ```{r message=FALSE, warning=FALSE}
 
 
-predict(position_player_hof_voting_model_gbm, newdata = batter_voting_future_preprocessed) %>%
+predict(position_player_hof_voting_model_xgbLinear, newdata = batter_voting_future_preprocessed) %>%
   as_tibble() %>%
   dplyr::select(predicted_vote_share = value) %>%
   bind_cols(batter_voting_future_preprocessed) %>%
