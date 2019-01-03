@@ -73,14 +73,34 @@ get_voting_results <- function(year) {
     mutate(vote_year = as.numeric(year))
 }
 
-get_ped_scandal <- function(name) {
-  # mark players who have a PED scandal asoscaited with them
-  if_else(name %in% c(
+set_narrative <- function(name) {
+  # rank players on a scale of -1 (strongly negative narrative) to 1 (strongly positive narrative)
+  # to account for the fact that HOF cases are about more than just stats
+  case_when(
+    
+    # strong negative narrative
+    name %in% c(
     "Barry Bonds", "Roger Clemens", "Alex Rodriguez",
-    "Gary Sheffield", "Rafael Palmeiro",
-    "Sammy Sosa", "Mark McGwire", "Andy Pettite", "David Ortiz",
-    "Manny Ramirez"
-  ), 1, 0)
+    "Gary Sheffield", "Rafael Palmeiro", "Sammy Sosa", "Mark McGwire", "Manny Ramirez", "Pete Rose",
+    "Jose Canseco", "Ken Caminiti") ~ -1,
+    
+    # mild negative narrative. includes 'nicer' PED cases , guys who were jerks, and guys who tend to get overlooked, like: 
+    # guys who spent significant time in Coors Field, really good all-around players, and those
+    # who are overshadowed by a peer
+    name %in% c("Andy Pettite", "David Ortiz", "Jeff Kent", "Todd Helton", "Larry Walker", "Dante Bichette",
+                "Kenny Lofton", "Andruw Jones", "Scott Rolen", "Jim Edmonds", "Tim Raines", "Bert Blyleven",
+                "Ron Santo", "Billy Wagner", "Bobby Grich", "Alan Trammell", "Lou Whitaker",
+                "Curt Schilling", "Kevin Brown") ~ -0.5,
+    
+    # mild positive narrative (you can call these guys "overrated")
+    name %in% c("Jim Rice", "Andre Dawson", "Jack Morris", "Bruce Sutter", "Jorge Posada", "Omar Vizquel") ~ 0.5,
+    
+    #strong positive narrative; something about their career and/or character strongly transcends their stats
+    name %in% c("Tom Glavine", "Roy Halladay", "Mariano Rivera", "Trevor Hoffman", "Kirby Puckett", "Bill Mazeroski") ~ 1,
+    
+    # everyone else gets no discernable narrative
+    TRUE ~ 0
+  )
 }
 
 fix_name <- function(name) {
@@ -157,7 +177,7 @@ hof_voting_data_historical_clean <-
     BB_allowed = as.numeric(BB_allowed),
     SO = as.numeric(SO),
     position = factor(str_extract(position, "[:digit:]")), # encode position as where they played the most often
-    ped_scandal = map_dbl(Name, get_ped_scandal)
+    narrative_score = set_narrative(Name)
   ) %>%
   filter(!is.na(year_on_ballot)) %>% # remove spurious rows caused by BB-Ref table formatting
   group_by(Name) %>%
@@ -226,7 +246,7 @@ hof_voting_data_future_clean <-
     best_war_years = as.numeric(best_war_years),
     position = factor(str_extract(position, "[:digit:]")),
     SV = as.numeric(SV),
-    ped_scandal = map_dbl(Name, get_ped_scandal),
+    narrative_score = set_narrative(Name),
     jaws = as.numeric(jaws),
     jpos = as.numeric(jpos),
     jaws_plus = 100 * (jaws / jpos),
@@ -275,18 +295,18 @@ batter_data <-
   hof_voting_data_historical_clean %>%
   filter(position != 1) %>%
   ungroup() %>%
-  dplyr::select(Name, year_on_ballot, vote_year, prev_year_vote_share, prev_three_year_vote_share_trend, ped_scandal, bj_hof_monitor, vote_share)
+  dplyr::select(Name, year_on_ballot, vote_year, prev_year_vote_share, prev_three_year_vote_share_trend, narrative_score, bj_hof_monitor, vote_share)
 
 # remove response variable & binary variable from cleaned data, preprocess remaining data & re-join
 # to removed columns. preprocessing includes centering and scaling predictors as well as imputing missing values
 # using k nearest neighbors
 batter_data_pre <-
   batter_data %>%
-  dplyr::select(-vote_share, -ped_scandal, -year_on_ballot, -vote_year)
+  dplyr::select(-vote_share, -year_on_ballot, -vote_year)
 batter_preprocess_params <- preProcess(batter_data_pre, method = c("center", "scale", "knnImpute"))
 batter_data_preprocessed <- predict(batter_preprocess_params, batter_data_pre) %>%
   bind_cols(
-    batter_data %>% dplyr::select(vote_share, ped_scandal, year_on_ballot, vote_year)
+    batter_data %>% dplyr::select(vote_share, year_on_ballot, vote_year)
   )
 
 batter_test_df_rows <- createDataPartition(batter_data_preprocessed$vote_share, p = 0.25, list = FALSE)
@@ -319,14 +339,15 @@ batter_voting_future <-
   hof_voting_data_future_clean %>%
   filter(position != "1") %>%
   left_join(voting_trends, by = "Name") %>%
-  dplyr::select(Name, year_on_ballot, vote_year, prev_year_vote_share, prev_three_year_vote_share_trend, ped_scandal, bj_hof_monitor)
+  dplyr::select(Name, year_on_ballot, vote_year, prev_year_vote_share, prev_three_year_vote_share_trend, narrative_score, bj_hof_monitor)
 
 # preprocess 2019 HOF voting data using the same parameters identified earlier
-batter_voting_future_pre <- batter_predictions %>%
-  dplyr::select(-ped_scandal, -year_on_ballot, -vote_year)
+batter_voting_future_pre <- 
+  batter_voting_future %>%
+  dplyr::select(-year_on_ballot, -vote_year)
 batter_voting_future_preprocessed <- predict(batter_preprocess_params, batter_voting_future_pre) %>%
   bind_cols(
-    batter_predictions %>% dplyr::select(ped_scandal, year_on_ballot, vote_year)
+    batter_voting_future %>% dplyr::select(year_on_ballot, vote_year)
   )
 ######################## STARTING PITCHERS: prepare training and validation datasets ###########
 
@@ -361,7 +382,7 @@ starter_hof_data <-
     prev_year_vote_share,
     prev_three_year_vote_share_trend,
     bj_hof_monitor,
-    ped_scandal,
+    narrative_score,
     vote_year,
     ERA,
     SO,
@@ -373,7 +394,7 @@ starter_hof_data <-
 # pre-process relevant predictors by removing irrelevant ones, applying pre-processing, and re-adding irrelevant ones
 starter_data_pre <-
   starter_hof_data %>%
-  dplyr::select(-vote_share, -ped_scandal, -year_on_ballot, -vote_year)
+  dplyr::select(-vote_share, -narrative_score, -year_on_ballot, -vote_year)
 
 pre_methods <- c("center", "scale", "knnImpute")
 starter_preprocess_params <-
@@ -382,7 +403,7 @@ starter_preprocess_params <-
 starter_data_preprocessed <-
   predict(starter_preprocess_params, starter_data_pre) %>%
   bind_cols(
-    starter_hof_data %>% dplyr::select(vote_share, ped_scandal, year_on_ballot, vote_year)
+    starter_hof_data %>% dplyr::select(vote_share, year_on_ballot, vote_year)
   )
 
 starter_test_df_rows <-
@@ -425,7 +446,7 @@ starter_voting_future <-
     prev_year_vote_share,
     prev_three_year_vote_share_trend,
     bj_hof_monitor,
-    ped_scandal,
+    narrative_score,
     vote_year,
     to_predict,
     ERA,
@@ -460,7 +481,7 @@ starter_data_padded <-
     prev_year_vote_share,
     prev_three_year_vote_share_trend,
     bj_hof_monitor,
-    ped_scandal,
+    narrative_score,
     vote_year,
     ERA,
     SO,
@@ -474,14 +495,13 @@ starter_data_padded <-
 # irrelevant data back in
 starter_predictions_pre <-
   starter_data_padded %>%
-  dplyr::select(-ped_scandal, -year_on_ballot, -vote_year, -to_predict)
+  dplyr::select(-year_on_ballot, -vote_year, -to_predict)
 starter_voting_future_preprocessed <- predict(starter_preprocess_params, starter_predictions_pre) %>%
   bind_cols(
-    starter_data_padded %>% dplyr::select(ped_scandal, year_on_ballot, vote_year, to_predict)
+    starter_data_padded %>% dplyr::select(year_on_ballot, vote_year, to_predict)
   ) %>%
   filter(to_predict == 1) %>%
   dplyr::select(-to_predict)
-
 
 # RELIEF PITCHERS: prepare training and validation data
 
@@ -504,24 +524,23 @@ reliever_hof_data <-
     jaws,
     jpos,
     SV,
-    ped_scandal
+    narrative_score
   ) %>%
   group_by(Name) %>%
   mutate(jaws_plus = round(100 * (jaws / jpos)), 0) %>%
   dplyr::select(-jaws, -jpos) %>%
   ungroup()
 
-# pre-process data. in addition to centering, scaling, and imputing, also remove zero-variance predictors (ped_scandal, in this case)
+# pre-process data. 
 reliever_data_pre <-
   reliever_hof_data %>%
-  dplyr::select(-vote_share, -ped_scandal, -year_on_ballot, -vote_year)
-pre_methods <- c("center", "scale", "knnImpute", "zv", "nzv")
-reliever_preprocess_params <-
-  preProcess(reliever_data_pre, pre_methods)
+  dplyr::select(-vote_share, -year_on_ballot, -vote_year)
+pre_methods <- c("center", "scale", "knnImpute")
+reliever_preprocess_params <- preProcess(reliever_data_pre, pre_methods)
 reliever_data_clean_processed <-
   predict(reliever_preprocess_params, reliever_data_pre) %>%
   bind_cols(
-    reliever_hof_data %>% dplyr::select(vote_share, ped_scandal, year_on_ballot, vote_year)
+    reliever_hof_data %>% dplyr::select(vote_share, year_on_ballot, vote_year)
   )
 
 reliever_test_df_rows <-
@@ -543,7 +562,7 @@ reliever_hof_train <-
 # RELIEF PITCHERS: Prepare data used to test model
 
 reliever_hof_predictions <-
-  hof_predictions %>%
+  hof_voting_data_future_clean %>%
   filter(
     position == 1,
     GS / G_pitch <= 0.5
@@ -557,7 +576,7 @@ reliever_hof_predictions <-
     prev_three_year_vote_share_trend,
     SV,
     jaws_plus,
-    ped_scandal,
+    narrative_score,
     year_on_ballot,
     vote_year
   ) %>%
@@ -565,12 +584,10 @@ reliever_hof_predictions <-
 
 reliever_predictions_pre <-
   reliever_hof_predictions %>%
-  dplyr::select(-ped_scandal, -year_on_ballot, -vote_year)
+  dplyr::select(-narrative_score, -year_on_ballot, -vote_year)
 reliever_predictions_processed <- predict(reliever_preprocess_params, reliever_predictions_pre) %>%
   bind_cols(
-    reliever_hof_predictions %>% dplyr::select(ped_scandal),
-    reliever_hof_predictions %>% dplyr::select(year_on_ballot),
-    reliever_hof_predictions %>% dplyr::select(vote_year)
+    reliever_hof_predictions %>% dplyr::select(year_on_ballot, vote_year)
   )
 ```
 
@@ -939,7 +956,7 @@ starter_hof_xgb_mdl_params <- xgb.cv(
   data = starter_dtrain,
   nrounds = 500,
   nfold = 10,
-  early_stopping_rounds = 50,
+  early_stopping_rounds = 100,
   stratified = TRUE
 )
 
