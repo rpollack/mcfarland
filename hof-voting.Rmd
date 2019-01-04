@@ -78,29 +78,26 @@ set_narrative <- function(name) {
   # to account for the fact that HOF cases are about more than just stats
   case_when(
     
-    # strong negative narrative: PED connection or suspension of some kind
+    # strong negative narrative: PED connection or suspension/ban of some kind
     name %in% c(
     "Barry Bonds", "Roger Clemens", "Alex Rodriguez",
     "Gary Sheffield", "Rafael Palmeiro", "Sammy Sosa", "Mark McGwire", "Manny Ramirez", "Pete Rose",
-    "Jose Canseco", "Ken Caminiti", "Miguel Tejada", "Robinson Cano", "Ryan Braun", "Marlon Byrd", "Nelson Cruz") ~ -1,
+    "Jose Canseco", "Ken Caminiti", "Miguel Tejada", "Robinson Cano", "Ryan Braun", "Marlon Byrd", "Nelson Cruz",
+    "Kevin Brown") ~ -1,
     
-    # mild negative narrative. includes 'nicer' PED cases , guys who were jerks, and guys who tend to get overlooked, like: 
-    # guys who spent significant time in Coors Field, really good all-around players, and those
-    # who are overshadowed by a peer
+    # mild negative narrative. includes 'nicer' PED cases , guys who were jerks, and guys who spent significant time in Coors Field
     name %in% c("Andy Pettite", "David Ortiz", "Jeff Kent", "Todd Helton", "Larry Walker", "Dante Bichette",
-                "Kenny Lofton", "Andruw Jones", "Scott Rolen", "Jim Edmonds", "Tim Raines", "Bert Blyleven",
-                "Ron Santo", "Billy Wagner", "Bobby Grich", "Alan Trammell", "Lou Whitaker",
-                "Curt Schilling", "Kevin Brown") ~ -0.5,
+                "Curt Schilling", "Jason Giambi") ~ -0.5,
     
-    # mild positive narrative (you can call these guys "overrated")
-    name %in% c("Jim Rice", "Andre Dawson", "Jack Morris", "Bruce Sutter", "Jorge Posada", "Omar Vizquel", "Trevor Hoffman") ~ 0.5,
+    # mild positive narrative (you can call these guys "overrated" vs. their stats)
+    name %in% c("Jim Rice", "Andre Dawson", "Jack Morris", "Bruce Sutter", "Jorge Posada", "Omar Vizquel", "Trevor Hoffman",
+                "Don Sutton", "Don Drysdale", "Red Ruffing", "John Smoltz") ~ 0.5,
     
-    #strong positive narrative; something about their career and/or character strongly transcends their stats
-    name %in% c("Mariano Rivera", "Bill Mazeroski",
-                "Juan Marichal", "Bob Feller", "Vic Willis", "Don Drysdale", "Red Ruffing", "Jim Bunning", "John Smoltz",
-                "Don Sutton", "Sandy Koufax") ~ 1,
+    # strong positive narrative
+    name %in% c("Bill Mazeroski", "Mariano Rivera", "Sandy Koufax") ~ 1,
     
-    name %in% c("Roy Halladay", "Kirby Puckett") ~ 2,
+    #early deaths of beloved players
+    name %in% c("Roy Halladay", "Kirby Puckett") ~ 3,
     
     # everyone else gets no discernable narrative
     TRUE ~ 0
@@ -275,9 +272,15 @@ hof_voting_data_historical_clean %>%
   filter(year_on_ballot == max(year_on_ballot)) %>%
   rename(num_years_on_ballot = year_on_ballot) %>%
   ggplot(aes(num_years_on_ballot, value, color = vote_share)) +
-  geom_point() + facet_wrap(vars(metric))
+  geom_point() + facet_wrap(vars(metric), scales = "free_y")
 
-# free scales on the y-axis
+# halladay has HOF standards of 45
+hof_voting_data_historical_clean %>%
+  filter(position == 1,
+         GS / G_pitch >= 0.5 ) %>%
+  distinct(Name, bj_hof_standards) %>% 
+  filter(bj_hof_standards >= 42,
+         bj_hof_standards <= 48)
 ```
 
 
@@ -363,6 +366,26 @@ cy_young_winner_count <-
   group_by(player_name) %>%
   summarize(num_cy_youngs = n())
 
+#get list of individual no-hitters and perfect games per pitcher, regular and postseason
+no_hitters <-
+  read_html("http://www.espn.com/mlb/history/nohitters") %>% 
+  html_nodes("table") %>%
+  .[[1]] %>%
+  html_table(header = FALSE) %>%
+  as_tibble() %>%
+  filter(X7 != "Combined",
+         !X1 %in% c("DATE", "MLB No-Hitters")) %>%
+  dplyr::select(Name = X2) %>%
+  # mutate(Type = case_when(
+  #   Type == "" ~ "num_no_hitters",
+  #   Type == "Perfect Game" ~ "num_perfect_games",
+  #   Type == "Perfect Game, Postseason" ~ "num_postseason_perfect_games",
+  #   Type == "Postseason" ~ "num_postseason_no_hitters",
+  #   TRUE ~ NA_character_
+  # )) %>% 
+  count(Name) %>%
+  rename(num_no_hitters_and_perfect_games = n) 
+
 starter_hof_data <-
   hof_voting_data_historical_clean %>%
   filter(
@@ -376,14 +399,17 @@ starter_hof_data <-
     prev_year_vote_share,
     everything()
   ) %>%
-  left_join(cy_young_winner_count, by = c("Name" = "player_name")) %>% # TODO: see if this has any effect on predictions. is currently unused
+ # left_join(cy_young_winner_count, by = c("Name" = "player_name")) %>% # TODO: see if this has any effect on predictions. is currently unused
+  left_join(no_hitters, by = "Name") %>%
+  replace_na(list(num_no_hitters_and_perfect_games = 0)) %>%
   mutate(
-    num_cy_youngs = replace_na(num_cy_youngs, 0),
+  #  num_cy_youngs = replace_na(num_cy_youngs, 0),
     dist_from_300_w = W - 300,
     k_bb_ratio = SO / BB_allowed,
     dist_from_3000k = SO - 3000
   ) %>%
   dplyr::select(
+    Name,
     year_on_ballot,
     prev_year_vote_share,
     prev_three_year_vote_share_trend,
@@ -392,6 +418,7 @@ starter_hof_data <-
     vote_year,
     ERA,
     SO,
+    num_no_hitters_and_perfect_games,
     vote_share
   ) %>%
   ungroup()
@@ -435,9 +462,11 @@ starter_voting_future <-
     GS / G_pitch >= 0.5
   ) %>%
   left_join(voting_trends, by = "Name") %>%
-  left_join(cy_young_winner_count, by = c("Name" = "player_name")) %>%
+#  left_join(cy_young_winner_count, by = c("Name" = "player_name")) %>%
+  left_join(no_hitters, by = "Name") %>%
+  replace_na(list(num_no_hitters_and_perfect_games = 0)) %>%
   mutate(
-    num_cy_youngs = replace_na(num_cy_youngs, 0),
+ #   num_cy_youngs = replace_na(num_cy_youngs, 0),
     dist_from_300_w = W - 300,
     # k_bb_ratio = SO / BB_allowed,
     dist_from_3000k = SO - 3000,
@@ -455,6 +484,7 @@ starter_voting_future <-
     vote_year,
     ERA,
     SO,
+    num_no_hitters_and_perfect_games,
     to_predict
   ) %>%
   ungroup()
@@ -471,9 +501,11 @@ starter_data_padded <-
     position == 1,
     GS / G_pitch >= 0.5
   ) %>%
-  left_join(cy_young_winner_count, by = c("Name" = "player_name")) %>%
+  left_join(no_hitters, by = "Name") %>%
+  replace_na(list(num_no_hitters_and_perfect_games = 0)) %>%
+#  left_join(cy_young_winner_count, by = c("Name" = "player_name")) %>%
   mutate(
-    num_cy_youngs = replace_na(num_cy_youngs, 0),
+ #   num_cy_youngs = replace_na(num_cy_youngs, 0),
     dist_from_300_w = W - 300,
     k_bb_ratio = SO / BB_allowed,
     dist_from_3000k = SO - 3000,
@@ -489,6 +521,7 @@ starter_data_padded <-
     vote_year,
     ERA,
     SO,
+    num_no_hitters_and_perfect_games,
     to_predict
   ) %>%
   bind_rows(starter_voting_future) %>% 
@@ -682,8 +715,7 @@ Transform and clean data, predict `r year_to_predict` voting share for position 
 
 ```{r message=FALSE, warning=FALSE}
 
-
-predict(position_player_hof_voting_model_xgbLinear, newdata = batter_voting_future_preprocessed) %>%
+predict(position_player_hof_voting_model_gbm, newdata = batter_voting_future_preprocessed) %>%
   as_tibble() %>%
   dplyr::select(predicted_vote_share = value) %>%
   bind_cols(batter_voting_future_preprocessed) %>%
@@ -731,6 +763,7 @@ batter_hof_xgb_mdl_params <- xgb.cv(
   nrounds = 500,
   nfold = 10,
   early_stopping_rounds = 50,
+  watchlist = watchlist,
   stratified = TRUE
 )
 
@@ -740,9 +773,7 @@ num_rounds <- batter_hof_xgb_mdl_params$best_iteration
 batter_hof_xgb_mdl <- xgb.train(
   params = params,
   data = batter_dtrain,
-  nrounds = num_rounds,
-  early_stopping_rounds = 5,
-  watchlist = watchlist
+  nrounds = num_rounds
 )
 
 # construct xgboost-friendly test dataset, augment with model predictions, and evaluate model
@@ -815,9 +846,6 @@ xgb.importance(feature_names = names(batter_hof_test %>% dplyr::select(-vote_sha
 
 
 # TODO: vote share+? index vote share to average that year, at position? helps compare players to peers
-
-# get number of cy youngs won by each pitcher
-
 
 algorithms <-
   c("lm", "svmRadial", "xgbTree", "xgbLinear", "knn", "gbm")
@@ -925,7 +953,8 @@ starter_dtrain <- xgb.DMatrix(
 )
 
 # construct xgboost-friendly test dataset
-starter_test_labels <- starter_hof_test$vote_share %>%
+starter_test_labels <- 
+  starter_hof_test$vote_share %>%
   as.matrix()
 starter_test_matrix <-
   starter_hof_test %>%
@@ -950,7 +979,7 @@ starter_hof_xgb_mdl_params <- xgb.cv(
   data = starter_dtrain,
   nrounds = 500,
   nfold = 10,
-  early_stopping_rounds = 100,
+  early_stopping_rounds = 50,
   stratified = TRUE
 )
 
