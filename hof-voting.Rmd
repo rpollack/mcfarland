@@ -310,11 +310,11 @@ batter_data <-
 # using k nearest neighbors
 batter_data_pre <-
   batter_data %>%
-  dplyr::select(-vote_share, -year_on_ballot, -vote_year)
+  dplyr::select(-vote_share)
 batter_preprocess_params <- preProcess(batter_data_pre, method = c("center", "scale", "knnImpute"))
 batter_data_preprocessed <- predict(batter_preprocess_params, batter_data_pre) %>%
   bind_cols(
-    batter_data %>% dplyr::select(vote_share, year_on_ballot, vote_year)
+    batter_data %>% dplyr::select(vote_share)
   )
 
 batter_test_df_rows <- createDataPartition(batter_data_preprocessed$vote_share, p = 0.25, list = FALSE)
@@ -350,13 +350,8 @@ batter_voting_future <-
   dplyr::select(Name, year_on_ballot, vote_year, prev_year_vote_share, prev_three_year_vote_share_trend, narrative_score, bj_hof_monitor)
 
 # preprocess 2019 HOF voting data using the same parameters identified earlier
-batter_voting_future_pre <- 
-  batter_voting_future %>%
-  dplyr::select(-year_on_ballot, -vote_year)
-batter_voting_future_preprocessed <- predict(batter_preprocess_params, batter_voting_future_pre) %>%
-  bind_cols(
-    batter_voting_future %>% dplyr::select(year_on_ballot, vote_year)
-  )
+
+batter_voting_future_preprocessed <- predict(batter_preprocess_params, batter_voting_future)
 
 ######################## STARTING PITCHERS: prepare training and validation datasets ###########
 
