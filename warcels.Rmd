@@ -24,7 +24,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(rvest)
 library(stringr)
-library(plotly)
+#library(plotly)
 library(ggrepel)
 library(scales)
 
@@ -96,7 +96,7 @@ getPayrolls <- function(Tm, team_name) {
 
 ```{r}
 
-this_year <- 2017
+this_year <- 2018
 next_year <- this_year + 1
 
 #player ID / Name data from FG. allows distinguishing b/w players with identical names
@@ -165,7 +165,7 @@ fg_pitchers <- inner_join(fg_players, fg_pitch, by="PlayerId") %>%
 ```{r}
 all_players <- bind_rows(fg_batters, fg_pitchers)  %>%
   inner_join(fg_projected_teams_all, by="PlayerId") %>%
-  select(-TeamId) %>%
+  dplyr::select(-TeamId) %>%
   mutate(FullName = sprintf("%s %s", FirstName, LastName),
          birth_date = as.Date(as.POSIXct(BirthDate)),
          birth_year = format(birth_date, "%Y"),
@@ -227,7 +227,7 @@ arb_2014 <- arb_2014 %>%
 all_arb <- bind_rows(arb_2015, arb_2016, arb_2014) %>%
   filter(SrvTm >= 2,
          SrvTm <= 3.9) %>%  #make sure I catch first-year arbs only
-  select(-SrvTm)
+  dplyr::select(-SrvTm)
 
 all_arb$SettledAmt <- gsub("\\$", "", all_arb$SettledAmt)
 all_arb$SettledAmt <- gsub("MM", "", all_arb$SettledAmt)
@@ -337,6 +337,8 @@ names(team_colors) <- factor(team_info$team_name)
 ### get payroll information 
 
 ```{r}
+# TODO: change do() to map_df()
+
 all_teams_payroll <- team_info %>% 
   group_by(team_name) %>%
   do(getPayrolls(.$team_name, .$team_url)) %>%
@@ -539,6 +541,8 @@ warcels_team_2018 %>%
 
 ```{r, fig.height=3}
 
+# TODO: in all graph titles, make <from_year> - <to_year> dynamic to the current year
+
 #team timeline
 team_war_per_season <-
   master_list %>%
@@ -628,7 +632,7 @@ warcels %>%
                    color="white",
                    segment.color = "black",
                    nudge_y = .1) +
-  ggtitle("MLB Team Outlook, 2018 – 2022") + 
+  ggtitle("MLB Team Outlook, 2019 – 2023") + 
   scale_color_manual(values = team_colors) + fgt +
   scale_fill_manual(values = team_colors) +
   labs(x="Control of Average Player (Years)", y="Proj. WAR per Year of Average Player", 
