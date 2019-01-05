@@ -337,10 +337,12 @@ voting_trends <-
   arrange(Name, vote_year) %>%
   mutate(
     prev_year_vote_share = vote_share,
-    prev_three_year_vote_share_trend = round((vote_share) - lag(vote_share) / 3, 1)
-  ) %>%
-  filter(vote_year == max(vote_year)) %>%
-  dplyr::select(Name, prev_year_vote_share, prev_three_year_vote_share_trend)
+    prev_three_year_vote_share_trend = (vote_share - lag(vote_share)) / 3
+    ) %>%
+ # filter(Name == "Barry Bonds") %>%
+  filter(year_on_ballot == max(year_on_ballot)) %>%
+  dplyr::select(Name, prev_year_vote_share, prev_three_year_vote_share_trend) %>%
+  ungroup()
 
 batter_voting_future <-
   hof_voting_data_future_clean %>%
