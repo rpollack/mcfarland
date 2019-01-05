@@ -46,7 +46,6 @@ train_and_assess_model <- function(algorithm, train_df, assess_df, eval_metric, 
     ),
     metric = eval_metric,
     tuneLength = 5
-    
   )
 
   label <- str_c("predict_", algorithm) # build the column name that will contain predictions the model makes
@@ -65,6 +64,17 @@ get_voting_results <- function(year) {
   # get player data and (if available) HOF voting results for a particular year
   url <- str_c("https://www.baseball-reference.com/awards/hof_", year, ".shtml")
 
+  read_html(url) %>%
+    html_nodes("table") %>%
+    .[[1]] %>%
+    html_table(header = FALSE) %>%
+    as_tibble() %>%
+    mutate(vote_year = as.numeric(year))
+}
+
+get_future_ballots <- function(year){
+  url <- str_c("https://www.baseball-reference.com/awards/hof_", year, ".shtml")
+  
   read_html(url) %>%
     html_nodes("table") %>%
     .[[1]] %>%
@@ -189,16 +199,12 @@ hof_voting_data_historical_clean <-
   ) %>%
   ungroup()
 
-
-# get data for the year we want to predict, to to assess the final model
-url <- str_c("https://www.baseball-reference.com/awards/hof_", year_to_predict, ".shtml")
-
-hof_voting_data_future <- read_html(url) %>%
-  html_nodes("table") %>%
-  .[[1]] %>%
-  html_table(header = FALSE) %>%
-  as_tibble() %>%
-  mutate(vote_year = as.numeric(year_to_predict))
+# gather data for players on future ballots, to use for subjective evaluation of models
+# retain all player's on next year's ballot; in years past that, retain only first-year players as we can't be sure which players will return
+# (and we don't have voting data for them anyway)
+hof_voting_data_future <- 
+  seq(year_to_predict, year_to_predict) %>% 
+  map_df(get_future_ballots)
 
 hof_voting_data_future_clean <-
   hof_voting_data_future %>%
@@ -259,7 +265,8 @@ hof_voting_data_future_clean <-
     W = as.numeric(W),
     ERA = as.numeric(ERA)
   ) %>%
-  filter(!is.na(year_on_ballot))
+  filter(!is.na(year_on_ballot),
+         vote_year == year_to_predict | (vote_year != year_to_predict & year_on_ballot == 1))
 ```
 
 Explore and visualize data 
