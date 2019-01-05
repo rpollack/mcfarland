@@ -996,7 +996,7 @@ params <- list(
   eval_metric = "rmse",
   booster = "gbtree",
   max_depth = 3,
-  min_child_weight = 3,
+  min_child_weight = 4,
   gamma = 0.5
 )
 
@@ -1098,8 +1098,8 @@ xgb.importance(feature_names = names(starter_hof_test %>%
 #   dplyr::select(predicted_vote_share = value) %>%
 #   bind_cols(starter_hof_test_xgb %>%
 #               dplyr::select(vote_share))
-#   
-# 
+
+
 # 
 #   augment(starter_caret_mdl, newdata = .)
 # 
