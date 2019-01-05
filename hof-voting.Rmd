@@ -337,8 +337,7 @@ voting_trends <-
   arrange(Name, vote_year) %>%
   mutate(
     prev_year_vote_share = vote_share,
-    prev_three_year_vote_share_trend = round((vote_share) - lag(vote_share) / 3, 1),
-    prev_three_year_vote_share_trend = replace_na(prev_three_year_vote_share_trend, 0)
+    prev_three_year_vote_share_trend = round((vote_share) - lag(vote_share) / 3, 1)
   ) %>%
   filter(vote_year == max(vote_year)) %>%
   dplyr::select(Name, prev_year_vote_share, prev_three_year_vote_share_trend)
