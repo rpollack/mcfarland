@@ -730,17 +730,39 @@ for example the early_stopping_rounds arg could maybe prevent overfitting.
 
 # create xgboost-friendly matrices for training the model
 
-batter_train_labels <-
-  batter_hof_train$vote_share %>%
-  as.matrix()
-batter_train_matrix <-
-  batter_hof_train %>%
-  dplyr::select(-vote_share) %>%
-  as.matrix()
-batter_dtrain <- xgb.DMatrix(
-  data = batter_train_matrix,
-  label = batter_train_labels
-)
+batter_test_df_rows_xgb <- createDataPartition(batter_data$vote_share, p = 0.25, list = FALSE)
+
+batter_hof_test_xgb <-
+  batter_data %>%
+  dplyr::select(-Name) %>%
+  filter(row_number() %in% batter_test_df_rows_xgb)
+
+batter_hof_train_xgb <-
+  batter_data %>%
+  dplyr::select(-Name) %>%
+  filter(!row_number() %in% batter_test_df_rows_xgb)
+
+
+
+# training/validation dataset
+batter_dtrain <- 
+  xgb.DMatrix(
+    data = batter_hof_train_xgb %>%
+      dplyr::select(-vote_share) %>%
+      as.matrix(),
+    label = batter_hof_train_xgb$vote_share %>%
+      as.matrix()
+  )
+
+# test dataset
+batter_dtest <- 
+  xgb.DMatrix(
+    data = batter_hof_test_xgb %>%
+      dplyr::select(-vote_share) %>%
+      as.matrix(),
+    label =  batter_hof_test_xgb$vote_share %>%
+      as.matrix()
+  )
 
 params <- list(
   objective = "reg:linear",
@@ -757,7 +779,7 @@ batter_hof_xgb_mdl_params <- xgb.cv(
   data = batter_dtrain,
   nrounds = 500,
   nfold = 10,
-  early_stopping_rounds = 50,
+  early_stopping_rounds = 10,
   watchlist = watchlist,
   stratified = TRUE
 )
@@ -772,23 +794,14 @@ batter_hof_xgb_mdl <- xgb.train(
 )
 
 # construct xgboost-friendly test dataset, augment with model predictions, and evaluate model
-batter_test_labels <- batter_hof_test$vote_share %>%
-  as.matrix()
-batter_test_matrix <-
-  batter_hof_test %>%
-  dplyr::select(-vote_share) %>%
-  as.matrix()
-batter_dtest <- xgb.DMatrix(
-  data = batter_test_matrix,
-  label = batter_test_labels
-)
+
 
 # evaluate model empirically
 batter_xgb_predictions <-
   predict(batter_hof_xgb_mdl, newdata = batter_dtest) %>%
   as_tibble() %>%
   dplyr::select(predicted_vote_share = value) %>%
-  bind_cols(batter_hof_test) %>%
+  bind_cols(batter_hof_test_xgb) %>%
   dplyr::select(vote_share, predicted_vote_share) %>%
   mutate(residual = vote_share - predicted_vote_share)
 
@@ -808,16 +821,18 @@ ggplot(batter_xgb_predictions, aes(vote_share, residual)) +
   labs(x="Predicted Vote Share", y="Residual")
 
 # evaluate model subjectively using its 2019 predictions using model
-data_2019 <- xgb.DMatrix(batter_voting_future_preprocessed %>%
-  dplyr::select(-Name) %>%
-  as.matrix())
+data_2019 <- 
+  xgb.DMatrix(batter_voting_future %>%
+                dplyr::select(-Name) %>%
+                as.matrix()
+              )
 
 xgb_predictions <-
   predict(batter_hof_xgb_mdl, newdata = data_2019) %>%
   as_tibble() %>%
   dplyr::select(predicted_vote_share = value) %>%
   mutate(predicted_vote_share = round(predicted_vote_share, 1)) %>%
-  bind_cols(batter_voting_future_preprocessed %>%
+  bind_cols(batter_voting_future %>%
     dplyr::select(Name, year_on_ballot)) %>%
   dplyr::select(Name, predicted_vote_share, everything()) %>%
   arrange(desc(predicted_vote_share)) %>%
@@ -934,12 +949,27 @@ predict(starter_hof_voting_model_xgbTree, newdata = starter_voting_future_prepro
 
 ```{r}
 
+starter_test_df_rows_xgb <- createDataPartition(starter_hof_data$vote_share, p = 0.25, list = FALSE)
+
+starter_hof_test_xgb <-
+  starter_hof_data %>%
+  dplyr::select(-Name) %>%
+  filter(row_number() %in% starter_test_df_rows_xgb)
+
+starter_hof_train_xgb <-
+  starter_hof_data %>%
+  dplyr::select(-Name) %>%
+  filter(!row_number() %in% starter_test_df_rows_xgb)
+
+
+
+
 # create xgboost-friendly matrices for training the model
 starter_train_labels <-
-  starter_hof_train$vote_share %>%
+  starter_hof_train_xgb$vote_share %>%
   as.matrix()
 starter_train_matrix <-
-  starter_hof_train %>%
+  starter_hof_train_xgb %>%
   dplyr::select(-vote_share) %>%
   as.matrix()
 starter_dtrain <- xgb.DMatrix(
@@ -949,10 +979,10 @@ starter_dtrain <- xgb.DMatrix(
 
 # construct xgboost-friendly test dataset
 starter_test_labels <- 
-  starter_hof_test$vote_share %>%
+  starter_hof_test_xgb$vote_share %>%
   as.matrix()
 starter_test_matrix <-
-  starter_hof_test %>%
+  starter_hof_test_xgb %>%
   dplyr::select(-vote_share) %>%
   as.matrix()
 starter_dtest <- xgb.DMatrix(
@@ -960,10 +990,14 @@ starter_dtest <- xgb.DMatrix(
   label = starter_test_labels
 )
 
+# tune model hyperparameters. max_depth, min_child_weight, and gamma affect the model complexity to avoid overfitting
 params <- list(
   objective = "reg:linear",
   eval_metric = "rmse",
-  booster = "gbtree"
+  booster = "gbtree",
+  max_depth = 3,
+  min_child_weight = 3,
+  gamma = 0.5
 )
 
 starter_watchlist <- list(train = starter_dtrain, test = starter_dtest)
@@ -974,8 +1008,10 @@ starter_hof_xgb_mdl_params <- xgb.cv(
   data = starter_dtrain,
   nrounds = 500,
   nfold = 10,
-  early_stopping_rounds = 50,
-  stratified = TRUE
+  early_stopping_rounds = 10,
+  watchlist = starter_watchlist,
+  stratified = TRUE,
+  print_every_n = 20
 )
 
 starter_num_rounds <- starter_hof_xgb_mdl_params$best_iteration
@@ -992,7 +1028,7 @@ starter_xgb_predictions <-
   predict(starter_hof_xgb_mdl, newdata = starter_dtest) %>%
   as_tibble() %>%
   dplyr::select(predicted_vote_share = value) %>%
-  bind_cols(starter_hof_test) %>%
+  bind_cols(starter_hof_test_xgb) %>%
   dplyr::select(vote_share, predicted_vote_share) %>%
   mutate(residual = vote_share - predicted_vote_share)
 
@@ -1013,8 +1049,8 @@ ggplot(starter_xgb_predictions, aes(vote_share, residual)) +
 
 # evaluate model subjectively using its 2019 predictions using model
 starter_data_2019 <- 
-  xgb.DMatrix(starter_voting_future_preprocessed %>%
-  dplyr::select(-Name) %>%
+  xgb.DMatrix(starter_voting_future %>%
+  dplyr::select(-Name, -to_predict) %>%
   as.matrix())
 
 starter_xgb_predictions <-
@@ -1022,7 +1058,7 @@ starter_xgb_predictions <-
   as_tibble() %>%
   dplyr::select(predicted_vote_share = value) %>%
   mutate(predicted_vote_share = round(predicted_vote_share, 1)) %>%
-  bind_cols(starter_voting_future_preprocessed %>%
+  bind_cols(starter_voting_future %>%
     dplyr::select(Name, year_on_ballot)) %>%
   dplyr::select(Name, predicted_vote_share, everything()) %>%
   arrange(desc(predicted_vote_share)) %>%
@@ -1032,12 +1068,46 @@ starter_xgb_predictions <-
 
 starter_xgb_predictions
 
-xgb.importance(feature_names = names(starter_hof_test %>% dplyr::select(-vote_share)), model = starter_hof_xgb_mdl) %>%
+xgb.importance(feature_names = names(starter_hof_test %>% 
+                                       dplyr::select(-vote_share)), 
+               model = starter_hof_xgb_mdl) %>%
   as_tibble() %>%
   ggplot(aes(reorder(Feature, Gain), Gain)) +
   geom_col() + coord_flip() + fgt
-```
 
+
+### do the above, but with tuning via caret ###
+
+# starter_caret_mdl <- train(vote_share ~ .,
+#     data = starter_hof_train_xgb,
+#     method = "xgbTree",
+#     trControl = trainControl(
+#       method = "cv",
+#       number = 10,
+#       allowParallel = TRUE
+#     ),
+#     metric = "RMSE",
+#     tuneLength = 5,
+#     na.action = na.pass
+#   )
+# 
+# # evaluate model using test set
+# starter_xgb_test <-
+#   predict(starter_caret_mdl, newdata = starter_hof_test_xgb) %>%
+#   as_tibble() %>%
+#   dplyr::select(predicted_vote_share = value) %>%
+#   bind_cols(starter_hof_test_xgb %>%
+#               dplyr::select(vote_share))
+#   
+# 
+# 
+#   augment(starter_caret_mdl, newdata = .)
+# 
+#  as.numeric(predict(mdl, newdata = assess_df)) %>%
+#     as_tibble() %>%
+#     dplyr::select(!!label := value)
+
+```
 
 lastly, predict relievers
 
@@ -1116,7 +1186,6 @@ predict reliever vote share using best model
 
 ```{r}
 
-
 predict(reliever_hof_voting_model_xgbTree, newdata = reliever_voting_future_preprocessed) %>%
   as_tibble() %>%
   dplyr::select(predicted_vote_share = value) %>%
@@ -1132,12 +1201,26 @@ predict(reliever_hof_voting_model_xgbTree, newdata = reliever_voting_future_prep
 "raw" xgb predictions for relievers
 
 ```{r}
+
+reliever_test_df_rows_xgb <- createDataPartition(reliever_hof_data$vote_share, p = 0.25, list = FALSE)
+
+reliever_hof_test_xgb <-
+  reliever_hof_data %>%
+  dplyr::select(-Name) %>%
+  filter(row_number() %in% reliever_test_df_rows_xgb)
+
+reliever_hof_train_xgb <-
+  reliever_hof_data %>%
+  dplyr::select(-Name) %>%
+  filter(!row_number() %in% reliever_test_df_rows_xgb)
+
+
 # create xgboost-friendly matrices for training the model
 reliever_train_labels <-
-  reliever_hof_train$vote_share %>%
+  reliever_hof_train_xgb$vote_share %>%
   as.matrix()
 reliever_train_matrix <-
-  reliever_hof_train %>%
+  reliever_hof_train_xgb %>%
   dplyr::select(-vote_share) %>%
   as.matrix()
 reliever_dtrain <- xgb.DMatrix(
@@ -1146,10 +1229,11 @@ reliever_dtrain <- xgb.DMatrix(
 )
 
 # construct xgboost-friendly test dataset
-reliever_test_labels <- reliever_hof_test$vote_share %>%
+reliever_test_labels <- 
+  reliever_hof_test_xgb$vote_share %>%
   as.matrix()
 reliever_test_matrix <-
-  reliever_hof_test %>%
+  reliever_hof_test_xgb %>%
   dplyr::select(-vote_share) %>%
   as.matrix()
 reliever_dtest <- xgb.DMatrix(
@@ -1166,14 +1250,17 @@ params <- list(
 reliever_watchlist <- list(train = reliever_dtrain, test = reliever_dtest)
 
 # use 10-fold CV to determine the optimal number of iterations
-reliever_hof_xgb_mdl_params <- xgb.cv(
-  params = params,
-  data = reliever_dtrain,
-  nrounds = 500,
-  nfold = 10,
-  early_stopping_rounds = 100,
-  stratified = TRUE
-)
+reliever_hof_xgb_mdl_params <- 
+  xgb.cv(
+    params = params,
+    data = reliever_dtrain,
+    nrounds = 500,
+    nfold = 10,
+    early_stopping_rounds = 10,
+    watchlist = reliever_watchlist,
+    stratified = TRUE,
+    print_every_n = 20
+  )
 
 reliever_num_rounds <- reliever_hof_xgb_mdl_params$best_iteration
 
@@ -1189,7 +1276,7 @@ reliever_xgb_predictions <-
   predict(reliever_hof_xgb_mdl, newdata = reliever_dtest) %>%
   as_tibble() %>%
   dplyr::select(predicted_vote_share = value) %>%
-  bind_cols(reliever_hof_test) %>%
+  bind_cols(reliever_hof_test_xgb) %>%
   dplyr::select(vote_share, predicted_vote_share) %>%
   mutate(residual = vote_share - predicted_vote_share)
 
@@ -1210,7 +1297,7 @@ ggplot(reliever_xgb_predictions, aes(vote_share, residual)) +
 
 # evaluate model subjectively using its 2019 predictions using model
 reliever_data_2019 <- 
-  xgb.DMatrix(reliever_voting_future_preprocessed %>%
+  xgb.DMatrix(reliever_data_future %>%
   dplyr::select(-Name) %>%
   as.matrix())
 
@@ -1219,7 +1306,7 @@ reliever_xgb_predictions <-
   as_tibble() %>%
   dplyr::select(predicted_vote_share = value) %>%
   mutate(predicted_vote_share = round(predicted_vote_share, 1)) %>%
-  bind_cols(reliever_voting_future_preprocessed %>%
+  bind_cols(reliever_data_future %>%
     dplyr::select(Name, year_on_ballot)) %>%
   dplyr::select(Name, predicted_vote_share, everything()) %>%
   arrange(desc(predicted_vote_share)) %>%
