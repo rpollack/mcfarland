@@ -91,10 +91,10 @@ set_narrative <- function(name) {
     
     # mild positive narrative (you can call these guys "overrated" vs. their stats)
     name %in% c("Jim Rice", "Andre Dawson", "Jack Morris", "Bruce Sutter", "Jorge Posada", "Omar Vizquel", "Trevor Hoffman",
-                "Don Sutton", "Don Drysdale", "Red Ruffing", "John Smoltz") ~ 0.5,
+                "Don Sutton", "Don Drysdale", "John Smoltz") ~ 0.5,
     
     # strong positive narrative
-    name %in% c("Bill Mazeroski", "Mariano Rivera", "Sandy Koufax") ~ 1,
+    name %in% c("Bill Mazeroski", "Mariano Rivera", "Sandy Koufax", "Red Ruffing") ~ 1,
     
     #early deaths of beloved players
     name %in% c("Roy Halladay", "Kirby Puckett") ~ 3,
@@ -949,16 +949,15 @@ predict(starter_hof_voting_model_xgbTree, newdata = starter_voting_future_prepro
 
 ```{r}
 
+
 starter_test_df_rows_xgb <- createDataPartition(starter_hof_data$vote_share, p = 0.25, list = FALSE)
 
 starter_hof_test_xgb <-
   starter_hof_data %>%
-  dplyr::select(-Name) %>%
   filter(row_number() %in% starter_test_df_rows_xgb)
 
 starter_hof_train_xgb <-
   starter_hof_data %>%
-  dplyr::select(-Name) %>%
   filter(!row_number() %in% starter_test_df_rows_xgb)
 
 
@@ -970,7 +969,7 @@ starter_train_labels <-
   as.matrix()
 starter_train_matrix <-
   starter_hof_train_xgb %>%
-  dplyr::select(-vote_share) %>%
+  dplyr::select(-vote_share, -Name) %>%
   as.matrix()
 starter_dtrain <- xgb.DMatrix(
   data = starter_train_matrix,
@@ -983,7 +982,7 @@ starter_test_labels <-
   as.matrix()
 starter_test_matrix <-
   starter_hof_test_xgb %>%
-  dplyr::select(-vote_share) %>%
+  dplyr::select(-vote_share, -Name) %>%
   as.matrix()
 starter_dtest <- xgb.DMatrix(
   data = starter_test_matrix,
@@ -1029,10 +1028,12 @@ starter_xgb_predictions <-
   as_tibble() %>%
   dplyr::select(predicted_vote_share = value) %>%
   bind_cols(starter_hof_test_xgb) %>%
-  dplyr::select(vote_share, predicted_vote_share) %>%
+  dplyr::select(Name, year_on_ballot, vote_year, vote_share, predicted_vote_share) %>%
   mutate(residual = vote_share - predicted_vote_share)
 
 starter_xgb_rmse <- round(RMSE(starter_xgb_predictions$predicted_vote_share, starter_xgb_predictions$vote_share), 1)
+
+starter_xgb_mae <- round(mean(abs(starter_xgb_predictions$vote_share - starter_xgb_predictions$predicted_vote_share)))
 
 starter_xgb_r_squared <- round(summary(lm(starter_xgb_predictions$predicted_vote_share ~ starter_xgb_predictions$vote_share))$r.squared, 2)
 
@@ -1053,7 +1054,7 @@ starter_data_2019 <-
   dplyr::select(-Name, -to_predict) %>%
   as.matrix())
 
-starter_xgb_predictions <-
+starter_xgb_predictions_future <-
   predict(starter_hof_xgb_mdl, newdata = starter_data_2019) %>%
   as_tibble() %>%
   dplyr::select(predicted_vote_share = value) %>%
@@ -1066,7 +1067,7 @@ starter_xgb_predictions <-
   dplyr::select(Name, year_on_ballot, predicted_vote_share, previous_year_vote_share = prev_year_vote_share) %>%
   mutate(change = predicted_vote_share - previous_year_vote_share)
 
-starter_xgb_predictions
+starter_xgb_predictions_future
 
 xgb.importance(feature_names = names(starter_hof_test %>% 
                                        dplyr::select(-vote_share)), 
