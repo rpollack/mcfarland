@@ -553,6 +553,7 @@ reliever_hof_data <-
     prev_year_vote_share,
     prev_three_year_vote_share_trend,
     bj_hof_monitor,
+    ERA,
     SV,
     narrative_score,
     vote_share
@@ -608,6 +609,7 @@ reliever_data_future <-
     prev_year_vote_share,
     prev_three_year_vote_share_trend,
     bj_hof_monitor,
+    ERA,
     SV,
     narrative_score
   ) 
