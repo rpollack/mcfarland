@@ -581,6 +581,142 @@ xgb.importance(feature_names = names(starter_hof_test_xgb %>%
 
 ```
 
+NOW DO FIRST-YEAR RELIEVERS!!!
+
+
+```{r}
+first_year_relievers <-
+  first_years %>%
+  filter(position_class == "Relief pitcher") %>%
+  dplyr::select(ERA, SV, narrative_score, bj_hof_monitor, vote_share)
+
+reliever_test_df_rows_xgb <- createDataPartition(first_year_relievers$vote_share, 
+                                                p = 0.25, 
+                                                list = FALSE)
+
+reliever_hof_test_xgb <-
+  first_year_relievers %>%
+  filter(row_number() %in% reliever_test_df_rows_xgb)
+
+reliever_hof_train_xgb <-
+  first_year_relievers %>%
+  filter(!row_number() %in% reliever_test_df_rows_xgb)
+
+# create xgboost-friendly matrices for training the model
+reliever_train_labels <-
+  reliever_hof_train_xgb$vote_share %>%
+  as.matrix()
+reliever_train_matrix <-
+  reliever_hof_train_xgb %>%
+  dplyr::select(-vote_share) %>%
+  as.matrix()
+reliever_dtrain <- xgb.DMatrix(
+  data = reliever_train_matrix,
+  label = reliever_train_labels
+)
+
+# construct xgboost-friendly test dataset
+reliever_test_labels <- 
+  reliever_hof_test_xgb$vote_share %>%
+  as.matrix()
+reliever_test_matrix <-
+  reliever_hof_test_xgb %>%
+  dplyr::select(-vote_share) %>%
+  as.matrix()
+reliever_dtest <- xgb.DMatrix(
+  data = reliever_test_matrix,
+  label = reliever_test_labels
+)
+
+# tune model hyperparameters. max_depth, min_child_weight, and gamma affect the model complexity to avoid overfitting
+params <- list(
+  objective = "reg:linear",
+  eval_metric = "rmse",
+  booster = "gbtree"
+  # max_depth = 3,
+  # min_child_weight = 4,
+  # gamma = 0.5
+)
+
+reliever_watchlist <- list(train = reliever_dtrain, test = reliever_dtest)
+
+# use 10-fold CV to determine the optimal number of iterations
+reliever_hof_xgb_mdl_params <- xgb.cv(
+  params = params,
+  data = reliever_dtrain,
+  nrounds = 500,
+  nfold = 10,
+  early_stopping_rounds = 10,
+  watchlist = reliever_watchlist,
+  stratified = TRUE,
+  print_every_n = 20
+)
+
+reliever_num_rounds <- reliever_hof_xgb_mdl_params$best_iteration
+
+# train model
+reliever_hof_xgb_mdl <- xgb.train(
+  params = params,
+  data = reliever_dtrain,
+  nrounds = reliever_num_rounds
+)
+
+# evaluate model empirically
+reliever_xgb_predictions <-
+  predict(reliever_hof_xgb_mdl, newdata = reliever_dtest) %>%
+  as_tibble() %>%
+  dplyr::select(predicted_vote_share = value) %>%
+  bind_cols(reliever_hof_test_xgb) %>%
+  dplyr::select(vote_share, predicted_vote_share) %>%
+  mutate(residual = vote_share - predicted_vote_share)
+
+reliever_xgb_rmse <- round(RMSE(reliever_xgb_predictions$predicted_vote_share, reliever_xgb_predictions$vote_share), 1)
+
+reliever_xgb_r_squared <- round(summary(lm(reliever_xgb_predictions$predicted_vote_share ~ reliever_xgb_predictions$vote_share))$r.squared, 2)
+
+ggplot(reliever_xgb_predictions, aes(vote_share, predicted_vote_share)) +
+  geom_point() + geom_smooth(method = "lm") +
+  geom_abline(linetype = "dashed") +
+  ggtitle("Predicted Vote Share vs. Vote Share", subtitle = glue("R^2 = {reliever_xgb_r_squared}")) +
+  labs(x = "Vote Share", y = "Predicted HOF Vote Share", caption = "Source: HOF Voting Data 1966-2018")
+
+ggplot(reliever_xgb_predictions, aes(vote_share, residual)) +
+  geom_point() + geom_hline(yintercept = 0, linetype = "dashed") +
+  ggtitle("Predicted Vote Share vs. Residuals", subtitle = glue("RMSE = {reliever_xgb_rmse}")) +
+  labs(x="Predicted Vote Share", y="Residual")
+
+# evaluate model subjectively using its 2019 predictions using model
+first_year_relievers_future <-
+  hof_voting_data_future_clean %>%
+  filter(year_on_ballot == 1,
+         position_class == "Relief pitcher") %>%
+  dplyr::select(Name, ERA, SV, narrative_score, bj_hof_monitor)
+  
+reliever_predict_matrix <-
+  xgb.DMatrix(first_year_relievers_future %>%
+                dplyr::select(-Name) %>%
+                as.matrix()
+              )
+
+first_year_reliever_predictions <-
+  predict(reliever_hof_xgb_mdl, newdata = reliever_predict_matrix) %>%
+  as_tibble() %>%
+  dplyr::select(predicted_vote_share = value) %>%
+  mutate(predicted_vote_share = round(predicted_vote_share, 1)) %>%
+  bind_cols(first_year_relievers_future %>%
+    dplyr::select(Name)) %>%
+  dplyr::select(Name, predicted_vote_share)
+
+first_year_reliever_predictions
+
+xgb.importance(feature_names = names(reliever_hof_test_xgb %>% 
+                                       dplyr::select(-vote_share)), 
+               model = reliever_hof_xgb_mdl) %>%
+  as_tibble() %>%
+  ggplot(aes(reorder(Feature, Gain), Gain)) +
+  geom_col() + coord_flip() + fgt
+```
+
 
 model vote_share for players who have already been on the ballot once
 a simple linear model works amazingly well for players who've been on the ballot once already. there's not even that much benefit to splitting it out by player type
