@@ -240,7 +240,7 @@ hof_voting_data_future_clean <-
     G_pitch = X30,
     GS = X31,
     SV = X32,
-    # IP = X33,
+    IP = X33,
     # H_allowed = X34,
     # HR_allowed = X35,
     # BB_allowed = X36,
@@ -269,7 +269,8 @@ hof_voting_data_future_clean <-
     SV = as.numeric(SV),
     SO = as.numeric(SO),
     W = as.numeric(W),
-    ERA = as.numeric(ERA)
+    ERA = as.numeric(ERA),
+    IP = as.numeric(IP)
   ) %>%
    mutate(position_class = case_when(
     position == 1 & GS / G_pitch >= 0.5 ~ "Starting pitcher",
@@ -277,6 +278,9 @@ hof_voting_data_future_clean <-
     TRUE ~ "Position player")) %>%
   filter(!is.na(year_on_ballot),
          vote_year == year_to_predict | (vote_year != year_to_predict & year_on_ballot == 1))
+
+
+
 ```
 
 Explore and visualize data 
@@ -294,15 +298,17 @@ first_years <-
     TRUE ~ "Position player"
   ))
   
-first_years  %>%
-  split(.$position_class) %>%
-  map(~ lm(vote_share ~ bj_hof_monitor + narrative_score , data = .)) %>%
-  map(summary) %>%
-  map_dbl("r.squared") %>%
-  tidy()
+# first_years  %>%
+#   split(.$position_class) %>%
+#   map(~ lm(vote_share ~ bj_hof_monitor + narrative_score , data = .)) %>%
+#   map(summary) %>%
+#   map_dbl("r.squared") %>%
+#   tidy()
+
+
 # position players r^2 is 0.66. bare XGB goes to 0.94 with RMSE of 6.4
 # reliever r^2 is 0.50. 
-# starting pitcher r^2 is 0.80. quite a shock you can get that high with so little information. but the diff in R^2 shows there is value
+# starting pitcher r^2 is 0.80. quite a shock you can get that high with so little information. but the diff in R^2 shows there is value. XGB gets it to 0.9
 # in splitting them out. the numbers above are those to beat with any kind of ML model
 
 first_year_positon_players <-
@@ -359,7 +365,8 @@ batter_hof_xgb_mdl_params <- xgb.cv(
   nfold = 10,
   early_stopping_rounds = 10,
   watchlist = watchlist,
-  stratified = TRUE
+  stratified = TRUE,
+  print_every_n = 20
 )
 
 num_rounds <- batter_hof_xgb_mdl_params$best_iteration
@@ -440,7 +447,8 @@ first_year_starting_pitchers <-
   first_years %>%
   filter(position_class == "Starting pitcher") %>%
   left_join(no_hitters, by="Name") %>%
-  dplyr::select(vote_year, ERA, SO, W, IP, num_no_hitters_and_perfect_games, narrative_score, bj_hof_monitor, vote_share)
+  replace_na(list(num_no_hitters_and_perfect_games = 0)) %>%
+  dplyr::select(ERA, SO, num_no_hitters_and_perfect_games, narrative_score, bj_hof_monitor, vote_share)
 
 starter_test_df_rows_xgb <- createDataPartition(first_year_starting_pitchers$vote_share, 
                                                 p = 0.25, 
@@ -538,25 +546,31 @@ ggplot(starter_xgb_predictions, aes(vote_share, residual)) +
   labs(x="Predicted Vote Share", y="Residual")
 
 # evaluate model subjectively using its 2019 predictions using model
-starter_data_2019 <- 
-  xgb.DMatrix(starter_voting_future %>%
-  dplyr::select(-Name, -to_predict) %>%
-  as.matrix())
+first_year_starters_future <-
+  hof_voting_data_future_clean %>%
+  filter(year_on_ballot == 1,
+         position_class == "Starting pitcher") %>%
+  left_join(no_hitters, by="Name") %>%
+  replace_na(list(num_no_hitters_and_perfect_games = 0)) %>%
+  dplyr::select(Name, ERA, SO, num_no_hitters_and_perfect_games, narrative_score, bj_hof_monitor)
 
-starter_xgb_predictions_future <-
-  predict(starter_hof_xgb_mdl, newdata = starter_data_2019) %>%
+
+starter_predict_matrix <-
+  xgb.DMatrix(first_year_starters_future %>%
+                dplyr::select(-Name) %>%
+                as.matrix()
+              )
+
+first_year_starter_predictions <-
+  predict(starter_hof_xgb_mdl, newdata = starter_predict_matrix) %>%
   as_tibble() %>%
   dplyr::select(predicted_vote_share = value) %>%
   mutate(predicted_vote_share = round(predicted_vote_share, 1)) %>%
-  bind_cols(starter_voting_future %>%
-    dplyr::select(Name, year_on_ballot)) %>%
-  dplyr::select(Name, predicted_vote_share, everything()) %>%
-  arrange(desc(predicted_vote_share)) %>%
-  left_join(voting_trends, by = "Name") %>%
-  dplyr::select(Name, year_on_ballot, predicted_vote_share, previous_year_vote_share = prev_year_vote_share) %>%
-  mutate(change = predicted_vote_share - previous_year_vote_share)
+  bind_cols(first_year_starters_future %>%
+    dplyr::select(Name)) %>%
+  dplyr::select(Name, predicted_vote_share)
 
-starter_xgb_predictions_future
+first_year_starter_predictions
 
 xgb.importance(feature_names = names(starter_hof_test_xgb %>% 
                                        dplyr::select(-vote_share)), 
