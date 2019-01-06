@@ -222,12 +222,12 @@ hof_voting_data_future_clean <-
     # G_bat = X12,
     # AB = X13,
     # R = X14,
-    # H = X15,
-    # HR = X16,
-    # RBI = X17,
+    H = X15,
+    HR = X16,
+    RBI = X17,
     # SB = X18,
     # BB = X19,
-    # BA = X20,
+    BA = X20,
     # OBP = X21,
     # SLG = X22,
     # OPS = X23,
@@ -255,6 +255,10 @@ hof_voting_data_future_clean <-
     bj_hof_monitor = as.numeric(bj_hof_monitor),
     best_war_years = as.numeric(best_war_years),
     position = factor(str_extract(position, "[:digit:]")),
+    HR = as.numeric(HR),
+    RBI = as.numeric(RBI),
+    H = as.numeric(H),
+    BA = as.numeric(BA),
     SV = as.numeric(SV),
     narrative_score = set_narrative(Name),
     jaws = as.numeric(jaws),
@@ -267,6 +271,10 @@ hof_voting_data_future_clean <-
     W = as.numeric(W),
     ERA = as.numeric(ERA)
   ) %>%
+   mutate(position_class = case_when(
+    position == 1 & GS / G_pitch >= 0.5 ~ "Starting pitcher",
+    position == 1 & GS / G_pitch <= 0.5 ~ "Relief pitcher",
+    TRUE ~ "Position player")) %>%
   filter(!is.na(year_on_ballot),
          vote_year == year_to_predict | (vote_year != year_to_predict & year_on_ballot == 1))
 ```
@@ -391,27 +399,30 @@ ggplot(batter_xgb_predictions, aes(vote_share, residual)) +
   ggtitle("Predicted Vote Share vs. Residuals", subtitle = glue("RMSE = {batter_xgb_rmse}")) +
   labs(x="Predicted Vote Share", y="Residual")
 
-# evaluate model subjectively using its 2019 predictions using model
-# data_2019 <- 
-#   xgb.DMatrix(batter_voting_future %>%
-#                 dplyr::select(-Name) %>%
-#                 as.matrix()
-#               )
-# 
-# xgb_predictions <-
-#   predict(batter_hof_xgb_mdl, newdata = data_2019) %>%
-#   as_tibble() %>%
-#   dplyr::select(predicted_vote_share = value) %>%
-#   mutate(predicted_vote_share = round(predicted_vote_share, 1)) %>%
-#   bind_cols(batter_voting_future %>%
-#     dplyr::select(Name, year_on_ballot)) %>%
-#   dplyr::select(Name, predicted_vote_share, everything()) %>%
-#   arrange(desc(predicted_vote_share)) %>%
-#   left_join(voting_trends, by = "Name") %>%
-#   dplyr::select(Name, year_on_ballot, predicted_vote_share, previous_year_vote_share = prev_year_vote_share) %>%
-#   mutate(change = predicted_vote_share - previous_year_vote_share)
-# 
-# xgb_predictions
+#evaluate model subjectively using its predictions of first-year position players
+first_year_batters_future <-
+  hof_voting_data_future_clean %>%
+  filter(year_on_ballot == 1,
+         position_class == "Position player") %>%
+  dplyr::select(Name, vote_year, H, HR, BA, RBI, narrative_score, bj_hof_monitor)
+
+
+batter_predict_matrix <-
+  xgb.DMatrix(first_year_batters_future %>%
+                dplyr::select(-Name) %>%
+                as.matrix()
+              )
+
+first_year_batter_predictions <-
+  predict(batter_hof_xgb_mdl, newdata = batter_predict_matrix) %>%
+  as_tibble() %>%
+  dplyr::select(predicted_vote_share = value) %>%
+  mutate(predicted_vote_share = round(predicted_vote_share, 1)) %>%
+  bind_cols(first_year_batters_future %>%
+    dplyr::select(Name)) %>%
+  dplyr::select(Name, predicted_vote_share)
+
+first_year_batter_predictions
 
 xgb.importance(feature_names = names(batter_hof_test_xgb %>% dplyr::select(-vote_share)), model = batter_hof_xgb_mdl) %>%
   as_tibble() %>%
@@ -564,7 +575,7 @@ a simple linear model works amazingly well for players who've been on the ballot
 non_first_years <- hof_voting_data_historical_clean %>%
   filter(year_on_ballot != 1)
   
-fit_second_year <- lm(vote_share ~ prev_year_vote_share + bj_hof_monitor,
+fit_second_year <- lm(vote_share ~ prev_year_vote_share + year_on_ballot,
                       data = non_first_years)
 
 non_first_years_fitted <-
