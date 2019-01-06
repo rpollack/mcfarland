@@ -279,7 +279,18 @@ hof_voting_data_future_clean <-
   filter(!is.na(year_on_ballot),
          vote_year == year_to_predict | (vote_year != year_to_predict & year_on_ballot == 1))
 
-
+#get list of individual no-hitters and perfect games per pitcher, regular and postseason
+no_hitters <-
+  read_html("http://www.espn.com/mlb/history/nohitters") %>% 
+  html_nodes("table") %>%
+  .[[1]] %>%
+  html_table(header = FALSE) %>%
+  as_tibble() %>%
+  filter(X7 != "Combined",
+         !X1 %in% c("DATE", "MLB No-Hitters")) %>%
+  dplyr::select(Name = X2) %>%
+  count(Name) %>%
+  rename(num_no_hitters_and_perfect_games = n) 
 
 ```
 
@@ -888,25 +899,7 @@ cy_young_winner_count <-
   group_by(player_name) %>%
   summarize(num_cy_youngs = n())
 
-#get list of individual no-hitters and perfect games per pitcher, regular and postseason
-no_hitters <-
-  read_html("http://www.espn.com/mlb/history/nohitters") %>% 
-  html_nodes("table") %>%
-  .[[1]] %>%
-  html_table(header = FALSE) %>%
-  as_tibble() %>%
-  filter(X7 != "Combined",
-         !X1 %in% c("DATE", "MLB No-Hitters")) %>%
-  dplyr::select(Name = X2) %>%
-  # mutate(Type = case_when(
-  #   Type == "" ~ "num_no_hitters",
-  #   Type == "Perfect Game" ~ "num_perfect_games",
-  #   Type == "Perfect Game, Postseason" ~ "num_postseason_perfect_games",
-  #   Type == "Postseason" ~ "num_postseason_no_hitters",
-  #   TRUE ~ NA_character_
-  # )) %>% 
-  count(Name) %>%
-  rename(num_no_hitters_and_perfect_games = n) 
+
 
 starter_hof_data <-
   hof_voting_data_historical_clean %>%
