@@ -298,19 +298,25 @@ first_years <-
     TRUE ~ "Position player"
   ))
   
-# first_years  %>%
-#   split(.$position_class) %>%
-#   map(~ lm(vote_share ~ bj_hof_monitor + narrative_score , data = .)) %>%
-#   map(summary) %>%
-#   map_dbl("r.squared") %>%
-#   tidy()
+first_years  %>%
+  split(.$position_class) %>%
+  map(~ lm(vote_share ~ bj_hof_monitor + narrative_score , data = .)) %>%
+  map(summary) %>%
+  map_dbl("r.squared") %>%
+  tidy()
 
 
 # position players r^2 is 0.66. bare XGB goes to 0.94 with RMSE of 6.4
 # reliever r^2 is 0.50. 
 # starting pitcher r^2 is 0.80. quite a shock you can get that high with so little information. but the diff in R^2 shows there is value. XGB gets it to 0.9
 # in splitting them out. the numbers above are those to beat with any kind of ML model
+```
 
+
+predict first-year position players
+
+
+```{r}
 first_year_positon_players <-
   first_years %>%
   filter(position_class == "Position player") %>%
