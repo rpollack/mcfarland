@@ -32,7 +32,7 @@ fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"),
                             user = Sys.getenv("FG_USER"),
                             password = Sys.getenv("FG_PW"))
 
-get_voting_results <- function(year) {
+get_voting_results_bayes <- function(year) {
   # get player data and (if available) HOF voting results for a particular year
   # also get total ballots cast that year
   url <- str_c("https://www.baseball-reference.com/awards/hof_", year, ".shtml")
@@ -45,9 +45,10 @@ ballot_text <-
   html_text() %>%
   as_tibble() %>% 
   filter(str_detect(value, "total ballots")) %>%
-  distinct(value) # needed because some years, like 2011, have a vote total listed twice
+  distinct(value) # needed because some years, like 2011, have a vote total listed twice. also years like 1967 had 2 elections
 
 total_votes <- as.numeric(str_extract(ballot_text$value, "[:digit:]{3}"))
+print(glue("year: {year}, total ballots: {total_votes}"))
 
 html %>%
     html_nodes("table") %>%
@@ -94,26 +95,28 @@ for each player, get:
 
 
 ```{r}
-hof_voting_data <- seq(1990, 2018) %>%
-  map_df(get_voting_results)
+hof_voting_data_bayes <- seq(1980, 2018) %>%
+  map_df(get_voting_results_bayes)
 ```
 
 clean and transform data so it can be processed correctly
 ```{r}
-hof_voting_data_clean <-
-  hof_voting_data %>% 
+hof_voting_data_bayes_clean <-
+  hof_voting_data_bayes %>% 
   dplyr::select(Name = X2,
                 num_votes_received = X4,
                 year_on_ballot = X3,
                 vote_year,
                 total_ballots,
                 jaws = X11,
-                jpos = X12
+                jpos = X12,
+                bj_hof_monitor = X6
   ) %>%
   filter(!Name %in% c("Name", "")) %>% # remove informational and spacer rows
   mutate(Name = fix_name(Name),
          num_votes_received = as.numeric(num_votes_received),
          year_on_ballot = as.numeric(str_extract(year_on_ballot, "[:digit:]{1,2}")),
+         bj_hof_monitor = as.numeric(bj_hof_monitor),
          jaws = as.numeric(jaws),
          jpos = as.numeric(jpos),
          jaws_plus = round(100 * (jaws / jpos), 0)) %>%
@@ -129,23 +132,27 @@ current_hof_voting <-
     html_table(header = FALSE) %>%
     as_tibble() %>%
     mutate(vote_year = as.numeric(year_to_predict)) %>%
-  dplyr::select(Name = X2,
+  dplyr::select(
+    Name = X2,
          year_on_ballot = X3,
          vote_year,
          jaws = X10,
-         jpos = X11) %>%
+         jpos = X11,
+    bj_hof_monitor = X5) %>%
   filter(!Name %in% c("Name", "")) %>% # remove informational and spacer rows
   mutate(Name = fix_name(Name),
          year_on_ballot = as.numeric(str_extract(year_on_ballot, "[:digit:]{1,2}")),
          jaws = as.numeric(jaws),
          jpos = as.numeric(jpos),
-         jaws_plus = round(100 * (jaws / jpos), 0)) %>%
+         jaws_plus = round(100 * (jaws / jpos), 0),
+  bj_hof_monitor = as.numeric(bj_hof_monitor)) %>%
   dplyr::select(-jaws, -jpos)
 
 # get to-date voting information from HOF Tracker and combine with BB-Ref stats, and join to previously scraped data
 current_voting_data <-
   read_csv("2019 BBHOF Tracker/Summary-Table 1.csv")
 known_votes <- as.numeric(current_voting_data[2,3]) + as.numeric(current_voting_data[1,3])
+
 voting_info_to_date <-
   current_voting_data %>%
   filter(row_number() >= 5) %>% # remove metadata
@@ -155,16 +162,34 @@ voting_info_to_date <-
          total_ballots = known_votes,
          num_votes_received = ceiling(vote_share * total_ballots)) %>%
   inner_join(current_hof_voting, by="Name") %>%
-  dplyr::select(Name, num_votes_received, year_on_ballot, vote_year, total_ballots, jaws_plus)
-master <- bind_rows(hof_voting_data_clean, voting_info_to_date)
+  dplyr::select(Name, num_votes_received, year_on_ballot, vote_year, total_ballots, bj_hof_monitor, jaws_plus)
+
+master_bayes <- 
+  bind_rows(hof_voting_data_bayes_clean, voting_info_to_date) %>%
+  # group_by(Name) %>%
+  # arrange(year_on_ballot) %>%
+  # mutate(prev_year_vote_share = lag(num_votes_received) / lag(total_ballots)) %>%
+  dplyr::select(Name, year_on_ballot, vote_year, jaws_plus, bj_hof_monitor, total_ballots, num_votes_received) %>%
+  mutate(vote_share = num_votes_received / total_ballots) %>%
+  ungroup() 
+
+```
+
+observe voteshare relationship between year on ballot & JAWS
+
+```{r}
+master_bayes %>%
+  ggplot(aes(year_on_ballot, vote_share, color = bj_hof_monitor, size = bj_hof_monitor)) +
+  geom_point() + fgt 
+
+simple_mdl <- lm(master_bayes$vote_share ~ master_bayes$year_on_ballot + master_bayes$bj_hof_monitor)
+
+
+
 
 ```
 
 ```{r}
-
-# TODO: use JAWS relative to avg JAWS @ position, not JAWS itself.
-# TODO: now add in information from 2019. can i do this? their voting_years will be 1. they will prob. need better priors .. 
-
 
 # %>%
 #   group_by(Name) %>%
@@ -172,15 +197,85 @@ master <- bind_rows(hof_voting_data_clean, voting_info_to_date)
 #             total_ballots = sum(total_ballots),
 #             years_on_ballot = n())
 
-fit <- gamlss(cbind(num_votes_received, total_ballots - num_votes_received) ~ 0 + log(year_on_ballot) * log(jaws_plus),
-              data = master,
-              family = BB(mu.link = "identity"))
+master_repeat <- master %>%
+  group_by(Name) %>%
+  arrange(Name, year_on_ballot) %>%
+  mutate(prev_vote_share = lag(vote_share)) %>%
+  filter(year_on_ballot != 1,
+         !is.na(prev_vote_share)) %>%
+  ungroup()
 
+fit <- gamlss(cbind(num_votes_received, total_ballots - num_votes_received) ~ prev_vote_share,
+              data = master_repeat,
+              family = BB(mu.link = "logit"))
+
+td <- tidy(fit)
+mu <- fitted(fit, parameter = "mu")
+sigma <- fitted(fit, parameter = "sigma")
+
+master_repeat %>%
+  mutate(mu = mu,
+         alpha0 = mu / sigma,
+         beta0 = (1 - mu) / sigma,
+         alpha1 = alpha0 + num_votes_received,
+         beta1 = beta0 + total_ballots - num_votes_received,
+         est_hof_vote_share = alpha1 / (alpha1 + beta1),
+         low_credible = qbeta(.025, alpha1, beta1),
+         high_credible = qbeta(.975, alpha1, beta1)) %>%
+  filter(vote_year == 2019) %>%
+  View()
+
+
+#edgar in 2019
+ggplot() + geom_histogram(binwidth = 0.1, aes(y=..density..)) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 39.97636, shape2 = 9.957576),
+                aes(color = "Prior")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 157.9764, shape2 = 20.95758),
+                aes(color="Posterior")) +
+  xlim(0, 1) + labs(x="Est. HOF Vote Share") + 
+  ggtitle("Edgar Martinez HOF Voting in 2019: Prior Expectations vs. Posterior Probabilities") +
+  fgt
+
+# barry bonds in 2019
+ggplot() + geom_histogram(binwidth = 0.1, aes(y=..density..)) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 32.1702, shape2 = 17.76373),
+                aes(color = "Prior")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 128.1702, shape2 = 50.76373),
+                aes(color="Posterior")) +
+  xlim(0, 1) + labs(x="Est. HOF Vote Share") + 
+  ggtitle("Barry Bonds HOF Voting in 2019: Prior Expectations vs. Posterior Probabilities") +
+  fgt
+
+
+
+
+# 
 # td <- tidy(fit)
 # 
-# mu_0 <- td$estimate[1]
-# mu_PA <- td$estimate[2]
-# sigma <- exp(td$estimate[3])
+# sigma <- fitted(fit, "sigma")[1]
+# 
+# crossing(year_on_ballot = c(1, 5, 10),
+#          jaws_plus = c(50, 100, 150)) %>%
+#   broom::augment(fit, newdata = .) %>%
+#   rename(mu = .fitted) %>%
+#   crossing(vote_share = seq(0, 1, .1)) %>%
+#   mutate(alpha = mu / sigma,
+#          beta = (1 - mu) / sigma,
+#          density = dbeta(vote_share, alpha, beta)) %>%
+#   ggplot(aes(vote_share, density, color = factor(jaws_plus), lty = factor(year_on_ballot))) +
+#   geom_line() +
+#   labs(x = "HOF %",
+#        y = "Prior density",
+#        color = "JAWS+",
+#        lty = "Year on Ballot")
+```
+
+```{r}
+
 
 # plot prior distirbutions for players' HOF voting, based on their year on the ballot and JAWS. 
 # note these are just the medians.
@@ -205,7 +300,7 @@ fit <- gamlss(cbind(num_votes_received, total_ballots - num_votes_received) ~ 0 
 
 # plot medians of prior distributions of vote share totals, given player's jaws & the year they are on the ballot 
 # TODO: I want to show the actual distro curves but haven't figured out how to do that successfully. some code for it is in my NOTES
-master %>%
+master_repeat %>%
     augment(fit, newdata = .) %>%
     rename(mu = .fitted) %>%
     mutate(sigma = fitted(fit, "sigma")[1],
@@ -213,16 +308,7 @@ master %>%
            beta0 = (1 - mu) / sigma,
            conf_low = qbeta(.025, alpha0, beta0),
            conf_high = qbeta(.975, alpha0, beta0)) %>%
-    ggplot(aes(year_on_ballot, mu, color = jaws_plus, group = jaws_plus)) +
-    geom_line() +
-    #geom_ribbon(aes(ymin = conf_low, ymax = conf_high), linetype = 2, alpha = .1) +
-    labs(x = "Year on Ballot",
-         y = "Estimate Prior HOF Vote Share (Median)",
-         color = "JAWS+") +
-  geom_hline(yintercept = 0.75, linetype="dashed", color="red") +
-  ylim(0, 1) + fgt
-
-
+    ggplot(aes(y=mu)) + geom_col()
 
 ```
 
@@ -247,22 +333,58 @@ est_hof_voting <-
          est_hof_vote_share = alpha1 / (alpha1 + beta1),
          low_credible = qbeta(.025, alpha1, beta1), 
          high_credible = qbeta(.975, alpha1, beta1)) %>%
-  mutate(name_year = paste(Name, vote_year, sep = " ")) %>%
+  mutate(name_year = paste(Name, vote_year, sep = " "),
+         residual = round(est_hof_vote_share - vote_share, 3)) %>%
   arrange(desc(est_hof_vote_share))
 
 # ken griffey jr. prior vs. posterior
-ggplot() + geom_histogram(binwidth = 0.009, aes(y=..density..)) +
+ggplot() + geom_histogram(binwidth = 0.1, aes(y=..density..)) +
   stat_function(fun = dbeta,
-                args=list(shape1 = 0.2426830, shape2 = 1.932842),
+                args=list(shape1 = 0.5049117, shape2 = 1.866626),
                 aes(color = "Prior")) +
   stat_function(fun = dbeta,
-                args=list(shape1 = 437.24268, shape2 = 4.932842),
+                args=list(shape1 = 437.50491, shape2 = 4.866626),
                 aes(color="Posterior")) +
-  xlim(0, 1) + labs(x="HOF Vote Share") + 
+  xlim(0, 1) + labs(x="Est. HOF Vote Share") + 
   ggtitle("Ken Griffey Jr. HOF Voting:  Prior Expectations vs. Posterior Probabilities") +
   fgt
 
-#mariano rivera: prior vs. posterior
+#barry bonds in 2019: prior vs. posterior
+ggplot() + geom_histogram(binwidth = 0.1, aes(y=..density..)) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 2.479130, shape2 = 1.719731),
+                aes(color = "Prior")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 98.47913, shape2 = 34.71973),
+                aes(color="Posterior")) +
+  xlim(0, 1) + labs(x="Est. HOF Vote Share") + 
+  ggtitle("Barry Bonds HOF Voting in 2019: Prior Expectations vs. Posterior Probabilities") +
+  fgt
+
+#barry bonds in 2019: prior vs. posterior
+ggplot() + geom_histogram(binwidth = 0.1, aes(y=..density..)) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 2.479130, shape2 = 1.719731),
+                aes(color = "Prior")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 98.47913, shape2 = 34.71973),
+                aes(color="Posterior")) +
+  xlim(0, 1) + labs(x="Est. HOF Vote Share") + 
+  ggtitle("Barry Bonds HOF Voting in 2019: Prior Expectations vs. Posterior Probabilities") +
+  fgt
+
+
+#edgar in 2019
+ggplot() + geom_histogram(binwidth = 0.1, aes(y=..density..)) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 1.598705, shape2 = 2.600155),
+                aes(color = "Prior")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 119.5987, shape2 = 13.60016),
+                aes(color="Posterior")) +
+  xlim(0, 1) + labs(x="Est. HOF Vote Share") + 
+  ggtitle("Edgar Martinez HOF Voting in 2019: Prior Expectations vs. Posterior Probabilities") +
+  fgt
 
 
 
@@ -278,6 +400,30 @@ ggplot(est_hof_voting %>% filter(vote_year == 2019), aes(est_hof_vote_share, reo
           subtitle = glue("After {known_votes} votes tallied")) + fgt +
   geom_vline(xintercept = 0.75, linetype = "dashed", color = "green") +
   geom_vline(xintercept = .05, linetype = "dashed", color = "red")
+
+
+# TODO: next step is to draw 10,000 vote shares from each players' posterior curve and see how many are at 0.75 or above
+# this is the probability that the player will reach the HOF
+# use rbeta to do this
+
+# simulate 10,000 HOF voting elections using his posterior distribution and calculate the percentage that end with him gaining election
+clemens_sim <- rbeta(10000, 99.13296, 34.0659)
+sum(clemens_sim >= 0.75) / 10000
+# 44.5% chance of Clemens gaining induction this year
+# could also do this: 1 - pbeta(0.75,  99.13296, 34.0659)
+
+
+#edgar
+martinez_sim <- rbeta(10000, 119.5987, 13.60016)
+sum(martinez_sim >= 0.75) / 10000
+# 100% chance of Edgar getting in
+
+# larry walker
+walker_sim <- rbeta(10000, 87.58949, 45.60937)
+sum(walker_sim >= 0.75) / 10000
+#1% chance of walker getting in
+
+
 ```
 
 
