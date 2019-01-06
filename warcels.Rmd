@@ -520,12 +520,12 @@ write_csv(warcels, "warcels-2019.csv")
 ### plot controlled surplus value by team
 
 ```{r}
-warcels_team_2018 <-
+warcels_team_2019 <-
   warcels %>%
   group_by(Team) %>%
   summarize(total_surplus_value_under_control = sum(surplus_value_under_control, na.rm = TRUE))
 
-warcels_team_2018 %>%
+warcels_team_2019 %>%
   ggplot(aes(reorder(Team, total_surplus_value_under_control), total_surplus_value_under_control), 
          color=Team, fill=Team) +
   geom_col() + 
@@ -645,17 +645,20 @@ warcels %>%
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 #changes from 2017
 
-warcels_2017_2018 <- read_csv("warcels-2017.csv") %>%
-  dplyr::select(Name, Team, war_under_control, salary_under_control, 
-                surplus_value_under_control = controlled_surplus_value) %>%
-  inner_join(warcels, by="Name", suffix=c("_2017", "_2018"))
+warcels_full <- 
+  warcels %>%
+  mutate(year_analyzed = 2019) %>%
+  bind_rows(read_csv("warcels-2018.csv") %>%
+               mutate(year_analyzed = 2018)) %>% 
+  dplyr::select(PlayerId, Name, year_analyzed, everything())
+
 
 ```
 
 ```{r}
 #player surplus value changes 2017 - 2017
 player_surplus_value_changes <-
-  warcels_2017_2018 %>%
+  warcels_2018_2018 %>%
   mutate(surplus_value_change = round(surplus_value_under_control_2018 - surplus_value_under_control_2017, 1)) %>%
   dplyr::select(Name, war_under_control_2017, war_under_control_2018, salary_under_control_2017, salary_under_control_2018,
          surplus_value_under_control_2017, surplus_value_under_control_2018, surplus_value_change) %>%
@@ -684,10 +687,10 @@ player_surplus_value_changes %>%
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
 team_surplus_value_changes <-
-  read_csv("warcels-2017.csv") %>%
+  read_csv("warcels-2018.csv") %>%
   group_by(Team) %>%
   summarize(total_surplus_value_under_control = sum(controlled_surplus_value)) %>%
-  inner_join(warcels_team_2018, by="Team", suffix=c("_2017", "_2018")) %>%
+  inner_join(warcels_team_2018, by="Team", suffix=c("_2018", "_2019")) %>%
   mutate(surplus_value_change = total_surplus_value_under_control_2018 - total_surplus_value_under_control_2017)
 
 team_surplus_value_changes %>%
