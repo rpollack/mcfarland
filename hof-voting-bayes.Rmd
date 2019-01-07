@@ -181,12 +181,11 @@ voting_info_to_date <-
 
 master_bayes <- 
   bind_rows(hof_voting_data_bayes_clean, voting_info_to_date) %>%
-  # group_by(Name) %>%
-  # arrange(year_on_ballot) %>%
-  # mutate(prev_year_vote_share = lag(num_votes_received) / lag(total_ballots)) %>%
+  group_by(Name) %>%
+  arrange(year_on_ballot) %>%
+  mutate(prev_year_vote_share = lag(num_votes_received) / lag(total_ballots)) %>%
   dplyr::select(Name, num_votes_received, year_on_ballot, vote_year, total_ballots, bj_hof_monitor, 
-                narrative_score, SV, position_class) %>%  
-  mutate(vote_share = num_votes_received / total_ballots) %>%
+                narrative_score, SV, position_class, prev_year_vote_share) %>%
   ungroup() 
 
 ```
@@ -202,25 +201,28 @@ observe voteshare relationship between year on ballot & JAWS
 #             total_ballots = sum(total_ballots),
 #             years_on_ballot = n())
 
-master_repeat <- 
-  master %>%
-  group_by(Name) %>%
-  arrange(Name, year_on_ballot) %>%
-  mutate(prev_vote_share = lag(vote_share)) %>%
+
+repeat_position <-
+  master_bayes %>%
   filter(year_on_ballot != 1,
-         !is.na(prev_vote_share)) %>%
+         !is.na(prev_year_vote_share),
+         position_class == "Position player"
+         ) %>%
+  dplyr::select(-SV) %>%
   ungroup()
 
-fit <- gamlss(cbind(num_votes_received, total_ballots - num_votes_received) ~ prev_vote_share,
-              data = master_repeat,
+
+fit <- gamlss(cbind(num_votes_received, total_ballots - num_votes_received) ~ prev_year_vote_share,
+              data = repeat_position,
               family = BB(mu.link = "logit"))
 
 td <- tidy(fit)
 mu <- fitted(fit, parameter = "mu")
 sigma <- fitted(fit, parameter = "sigma")
 
-est_hof_repeat_players <- 
-  master_repeat %>%
+
+est_hof_repeat_position_players <- 
+  repeat_position %>%
   mutate(mu = mu,
          alpha0 = mu / sigma,
          beta0 = (1 - mu) / sigma,
@@ -235,10 +237,10 @@ est_hof_repeat_players <-
 #edgar in 2019
 ggplot() + geom_histogram(binwidth = 0.1, aes(y=..density..)) +
   stat_function(fun = dbeta,
-                args=list(shape1 = 39.97636, shape2 = 9.957576),
+                args=list(shape1 = 35.640424, shape2 = 8.495553),
                 aes(color = "Prior")) +
   stat_function(fun = dbeta,
-                args=list(shape1 = 157.97636, shape2 = 20.95758),
+                args=list(shape1 = 176.64042, shape2 = 23.49555),
                 aes(color="Posterior")) +
   xlim(0, 1) + labs(x="Est. HOF Vote Share") + 
   ggtitle("Edgar Martinez HOF Voting in 2019: Prior Expectations vs. Posterior Probabilities") +
@@ -247,15 +249,19 @@ ggplot() + geom_histogram(binwidth = 0.1, aes(y=..density..)) +
 # barry bonds in 2019
 ggplot() + geom_histogram(binwidth = 0.1, aes(y=..density..)) +
   stat_function(fun = dbeta,
-                args=list(shape1 = 32.1702, shape2 = 17.76373),
+                args=list(shape1 = 28.7401, shape2 = 15.39587),
                 aes(color = "Prior")) +
   stat_function(fun = dbeta,
-                args=list(shape1 = 128.1702, shape2 = 50.76373),
+                args=list(shape1 = 142.7401, shape2 = 57.39587),
                 aes(color="Posterior")) +
   xlim(0, 1) + labs(x="Est. HOF Vote Share") + 
   ggtitle("Barry Bonds HOF Voting in 2019: Prior Expectations vs. Posterior Probabilities") +
   fgt
 
+
+#  NOW I NEED TO DO THE ABOVE FOR REPEAT STARTERS
+
+# AND FUCKING REPEAT RELIEVEFRS TOO. JFC
 
 ```
 
