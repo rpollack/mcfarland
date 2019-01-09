@@ -84,7 +84,9 @@ plot_prior_posterior <- function(Name, alpha0, beta0, alpha1, beta1, est_hof_vot
   
 }
 
+
 ```
+
 
 get voting results so we can estimate beta prior parameters
 
@@ -105,9 +107,9 @@ hof_voting_data_bayes_clean <-
                 bj_hof_monitor = X6,
                 best_seven_war = X10,
                 position = X39,
-                G_pitch = X30,
-                GS = X31,
-                SV = X32
+                G_pitch = X31,
+                GS = X32,
+                SV = X33
   ) %>%
   filter(!Name %in% c("Name", "")) %>% # remove informational and spacer rows
   mutate(Name = fix_name(Name),
@@ -239,10 +241,88 @@ est_hof_first_year_starters %>%
   pmap(plot_prior_posterior)
 ```
 
+estimated HOF voting for first-year relievers
+
+```{r}
+relievers_historical <-
+  master_bayes %>% 
+  filter(vote_year != 2019,
+         position_class == "Relief pitcher") %>%
+  mutate(vote_share = num_votes_received / total_ballots)
+
+reliever_mdl <- lm(relievers_historical$vote_share ~ relievers_historical$bj_hof_monitor + relievers_historical$SV)
+
+summary(reliever_mdl)
+```
+
+```{r}
+
+master_relievers <-
+  master_bayes %>%
+  filter(year_on_ballot == 1,
+         position_class == "Relief pitcher") %>%
+  dplyr::select(-prev_year_vote_share)
+
+fit_relievers <- 
+  gamlss(cbind(num_votes_received, total_ballots - num_votes_received) ~ bj_hof_monitor + SV,
+         data = master_relievers,
+         family = BB(mu.link = "logit"))
+
+td_relievers <- tidy(fit_relievers)
+mu_relievers <- fitted(fit_relievers, parameter = "mu")
+sigma_relievers <- fitted(fit_relievers, parameter = "sigma")
+
+est_hof_first_year_relievers <-
+  master_relievers %>%
+  mutate(mu = mu_relievers,
+         alpha0 = mu / sigma_relievers,
+         beta0 = (1 - mu) / sigma_relievers,
+         alpha1 = alpha0 + num_votes_received,
+         beta1 = beta0 + total_ballots - num_votes_received,
+         est_hof_vote_share = round(alpha1 / (alpha1 + beta1), 3),
+         low_credible = qbeta(.025, alpha1, beta1),
+         high_credible = qbeta(.975, alpha1, beta1)) %>%
+  filter(vote_year == 2019)
+
+est_hof_first_year_relievers %>% 
+  dplyr::select(Name, alpha0, beta0, alpha1, beta1, est_hof_vote_share) %>% 
+  filter(Name %in% c("Mariano Rivera", "Darren Oliver")) %>%
+  pmap(plot_prior_posterior)
+```
+
+
 ```{r, fig.height=3}
 
+# plot posterior curves of some players, to show what pre-flattening looks like
+
+ggplot() + 
+  geom_histogram(binwidth = 0.1, aes(y=..density..)) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 34.59546782, shape2 = 162.2300195),
+                aes(color="Scott Rolen")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 142.79091942, shape2 = 54.0345679),
+                aes(color = "Roger Clemens")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 63.63772263, shape2 = 133.1877647),
+                aes(color = "Fred McGriff")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 14.96972, shape2 = 181.8558),
+                aes(color = "Andruw Jones")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 157.8521, shape2 = 38.97335),
+                aes(color = "Mike Mussina")) +
+  xlim(0, 1) + labs(x="Estimated HOF Vote Share",
+                    color = "Player") + 
+  ggtitle(glue("HOF Voting 2019: Example Posterior Distributions")) + fgt +
+  geom_vline(xintercept = 0.75, linetype = "dashed", color = "green") +
+  geom_vline(xintercept = .05, linetype = "dashed", color = "red")
+
 # final plot of all voting
-ggplot(est_hof_first_year_starters %>% filter(vote_year == 2019), aes(est_hof_vote_share, reorder(Name, est_hof_vote_share))) +
+est_hof_all <-
+  bind_rows(est_hof_repeat_players, est_hof_first_year_starters, est_hof_first_year_relievers)
+
+ggplot(est_hof_all, aes(est_hof_vote_share, reorder(Name, est_hof_vote_share))) +
   geom_point() +
   geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
   labs(y="", x="Estimated HOF Vote % with 95% Credible Interval", 
@@ -250,32 +330,16 @@ ggplot(est_hof_first_year_starters %>% filter(vote_year == 2019), aes(est_hof_vo
   ggtitle("Projected HOF Voting, Class of 2019",
           subtitle = glue("After {known_votes} votes tallied")) + fgt +
   geom_vline(xintercept = 0.75, linetype = "dashed", color = "green") +
-  geom_vline(xintercept = .05, linetype = "dashed", color = "red")
+  geom_vline(xintercept = .05, linetype = "dashed", color = "red") +
+  ggsave("est_hof_voting_2019.png")
 
-
-# TODO: next step is to draw 10,000 vote shares from each players' posterior curve and see how many are at 0.75 or above
-# this is the probability that the player will reach the HOF
-# TODO: also do 
-# use rbeta to do this
-# TODO: put this into a function and then
-
-# simulate 10,000 HOF voting elections using his posterior distribution and calculate the percentage that end with him gaining election
-clemens_sim <- rbeta(10000, 99.13296, 34.0659)
-sum(clemens_sim >= 0.75) / 10000
-# 44.5% chance of Clemens gaining induction this year
-# could also do this: 1 - pbeta(0.75,  99.13296, 34.0659)
-
-
-#edgar
-martinez_sim <- rbeta(10000, 119.5987, 13.60016)
-sum(martinez_sim >= 0.75) / 10000
-# 100% chance of Edgar getting in
-
-# larry walker
-walker_sim <- rbeta(10000, 87.58949, 45.60937)
-sum(walker_sim >= 0.75) / 10000
-#1% chance of walker getting in
-
+# condense to just a table of point estimates, chances of induction, and chances of elimination
+est_hof_all %>%
+  mutate(`Estimated Vote Share (%)` = round(est_hof_vote_share, 3) * 100,
+         `Chance of Induction (%)` = round(1 - pbeta(0.75, alpha1, beta1), 3) * 100,
+         `Chance of Elimination (%)` = round(pbeta(0.05, alpha1, beta1), 3) * 100)  %>%
+  dplyr::select(Name, contains("%")) %>%
+  arrange(desc(`Estimated Vote Share (%)`))
 
 ```
 
