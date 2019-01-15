@@ -351,5 +351,11 @@ est_hof_all %>%
   dplyr::select(Name, contains("%")) %>%
   arrange(desc(`Estimated Vote Share (%)`))
 
+# rivera chance of being unanimous
+1 - pbeta(1, 182.3906, 0.4832773)
+
+# rivera chance of setting vote share record
+1 - pbeta(0.994, 182.3906, 0.4832773)
+
 ```
 
