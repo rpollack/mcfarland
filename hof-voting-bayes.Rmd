@@ -79,8 +79,7 @@ plot_prior_posterior <- function(Name, alpha0, beta0, alpha1, beta1, est_hof_vot
                 aes(color = "Posterior")) +
   xlim(0, 1) + labs(x="Estimated HOF Vote Share",
                     color = "Distribution",
-                    caption = "Sources: HOF voting data from baseball-reference.com
-                    Ballot information from bbhoftracker.com") + 
+                    caption = "Sources:\nPast voting: Baseball Reference\n2019 voting: bbhoftracker.com") + 
   ggtitle(glue("{Name} HOF Voting 2019"),
           subtitle = glue("Estimated vote share: {est_hof_vote_share * 100}%" )) + fgt +
       geom_vline(xintercept = 0.75, linetype = "dashed", color = "green", lwd = 1.1) +
@@ -133,7 +132,7 @@ hof_voting_data_bayes_clean <-
 
 # get to-date voting information from BB HOF Tracker and combine with BB-Ref stats, and join to previously scraped data
 current_voting_data <-
-  read_csv("2019 BBHOF Tracker-3/Summary-Table 1.csv")
+  read_csv("2019 BBHOF Tracker-4/Summary-Table 1.csv")
 known_votes <- as.numeric(current_voting_data[2,3]) + as.numeric(current_voting_data[1,3])
 
 # attach current voting into to player's statistics and combine with data scraped above
@@ -322,7 +321,8 @@ ggplot() +
                 args = list(shape1 = 116.6489, shape2 = 80.17663),
                 aes(color ="Larry Walker")) +
   xlim(0, 1) + labs(x="Estimated HOF Vote Share",
-                    color = "Player") + 
+                    color = "Player",
+                    caption = "Sources:\nPast voting: Baseball Reference\n2019 voting: bbhoftracker.com") + 
   ggtitle(glue("HOF Voting 2019: Example Posterior Distributions")) + fgt +
   geom_vline(xintercept = 0.75, linetype = "dashed", color = "green", lwd = 1.1) +
   geom_vline(xintercept = .05, linetype = "dashed", color = "red", lwd = 1.1) +
@@ -336,7 +336,7 @@ ggplot(est_hof_all, aes(est_hof_vote_share, reorder(Name, est_hof_vote_share))) 
   geom_point() +
   geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
   labs(y="", x="Estimated HOF Vote Share with 95% Credible Interval", 
-       caption = "Sources: \nPast voting: Baseball Reference\n2019 voting: bbhoftracker.com") +
+       caption = "Sources:\nPast voting: Baseball Reference\n2019 voting: bbhoftracker.com") +
   ggtitle("Projected 2019 HOF Voting",
           subtitle = glue("After {known_votes} ballots tallied")) + fgt +
    geom_vline(xintercept = 0.75, linetype = "dashed", color = "green", lwd = 1.1) +
