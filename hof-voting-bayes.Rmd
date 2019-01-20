@@ -327,26 +327,27 @@ ggplot() +
                subtitle = glue("After {known_votes} ballots revealed"))) + fgt +
   geom_vline(xintercept = 0.75, linetype = "dashed", color = "green", lwd = 1.1) +
   geom_vline(xintercept = .05, linetype = "dashed", color = "red", lwd = 1.1) +
-  ggsave("repeat_posteriors.png")
+  ggsave("repeat_posteriors.png", units = "in", width = 7, height = 5)
 
 # final plot of all voting
 est_hof_all <-
   bind_rows(est_hof_repeat_players, est_hof_first_year_starters, est_hof_first_year_relievers)
 
 ggplot(est_hof_all, aes(est_hof_vote_share, reorder(Name, est_hof_vote_share))) +
-  geom_point() +
-  geom_errorbarh(aes(xmin = low_credible, xmax = high_credible)) +
+  geom_point(size=2) +
+  geom_errorbarh(aes(xmin = low_credible, xmax = high_credible), lwd = 1.1) +
   labs(y="", x="Estimated HOF Vote Share with 95% Credible Interval", 
        caption = "Sources:\nPast voting: Baseball Reference\n2019 voting: bbhoftracker.com") +
   ggtitle("Projected 2019 HOF Voting",
           subtitle = glue("After {known_votes} ballots revealed")) + fgt +
    geom_vline(xintercept = 0.75, linetype = "dashed", color = "green", lwd = 1.1) +
   geom_vline(xintercept = .05, linetype = "dashed", color = "red", lwd = 1.1) +
-  ggsave("est_hof_voting_2019.png")
+  theme(text=element_text(size=20)) +
+  ggsave("est_hof_voting_2019.png", units = "in", width = 9, height = 10)
 
 # condense to just a table of point estimates, chances of induction, and chances of elimination
 est_hof_all %>%
-  mutate(`Estimated Vote Share (%)` = round(est_hof_vote_share * 100, 3)d,
+  mutate(`Estimated Vote Share (%)` = round(est_hof_vote_share * 100, 3),
          `Chance of Induction (%)` = round(1 - pbeta(.75, alpha1, beta1), 3) * 100,
          `Chance of Elimination (%)` = round(pbeta(.049, alpha1, beta1), 3) * 100)  %>%
   dplyr::select(Name, contains("%")) %>%
