@@ -133,7 +133,7 @@ hof_voting_data_bayes_clean <-
 
 # get to-date voting information from BB HOF Tracker and combine with BB-Ref stats, and join to previously scraped data
 current_voting_data <-
-  read_csv("2019 BBHOF Tracker-6/Summary-Table 1.csv")
+  read_csv("2019 BBHOF Tracker-7/Summary-Table 1.csv")
 known_votes <- as.numeric(current_voting_data[2,3]) + as.numeric(current_voting_data[1,3])
 
 # attach current voting into to player's statistics and combine with data scraped above
@@ -210,7 +210,23 @@ ggplot() +
           subtitle = "Estimated vote share: 33.4%") + fgt +
     geom_vline(xintercept = 0.75, linetype = "dashed", color = "green", lwd = 1.1) +
   geom_vline(xintercept = .05, linetype = "dashed", color = "red", lwd = 1.1) +
-  ggsave("walker-prior.png")
+  ggsave("walker-prior.png", units = "in", width = 7, height = 5)
+
+ggplot() + 
+  geom_histogram(binwidth = 0.1, aes(y=..density..)) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 13.64886, shape2 = 27.17663),
+                aes(color="Prior")) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = 155.6397, shape2 = 102.1611),
+                aes(color="Posterior")) +
+  xlim(0, 1) + labs(x="Estimated HOF Vote Share",
+                    color = "Distribution") + 
+  ggtitle("Larry Walker HOF Voting 2019: Posterior Expectations",
+          subtitle = "Estimated vote share: 60.4%") + fgt +
+    geom_vline(xintercept = 0.75, linetype = "dashed", color = "green", lwd = 1.1) +
+  geom_vline(xintercept = .05, linetype = "dashed", color = "red", lwd = 1.1) +
+  ggsave("walker-prior-posterior.png", units = "in", width = 7, height = 5)
 
 
 # plot priors and posteriors for interesting players
@@ -306,19 +322,19 @@ est_hof_first_year_relievers %>%
 ggplot() + 
   geom_histogram(binwidth = 0.1, aes(y=..density..)) +
   stat_function(fun = dbeta,
-                args=list(shape1 = 41.57501, shape2 = 184.0197),
+                args=list(shape1 = 48.59796, shape2 = 209.2028),
                 aes(color="Scott Rolen")) +
   stat_function(fun = dbeta,
-                args=list(shape1 = 162.6463, shape2 = 62.94837),
+                args=list(shape1 = 181.7613, shape2 = 76.03944),
                 aes(color = "Roger Clemens")) +
   stat_function(fun = dbeta,
-                args=list(shape1 = 77.59696, shape2 = 147.9977),
+                args=list(shape1 = 91.63613, shape2 = 166.1647),
                 aes(color = "Fred McGriff")) +
   stat_function(fun = dbeta,
-                args=list(shape1 = 18.95226, shape2 = 206.6424),
+                args=list(shape1 = 21.97254, shape2 = 235.8282),
                 aes(color = "Andruw Jones")) +
   stat_function(fun = dbeta,
-                args = list(shape1 = 137.5812, shape2 = 88.0135),
+                args = list(shape1 = 155.6397, shape2 = 102.1611),
                 aes(color ="Larry Walker")) +
   xlim(0, 1) + labs(x="Estimated HOF Vote Share",
                     color = "Player",
@@ -358,7 +374,60 @@ est_hof_all %>%
 1 - pbeta(1, 182.3906, 0.4832773)
 
 # rivera chance of setting vote share record
-1 - pbeta(0.994, 182.3906, 0.4832773)
+1 - pbeta(0.994, 224.3701, 0.4743183)
+
+
+```
+
+
+
+```{r}
+
+# evaluate model using actual 2019 voting
+
+hof_voting_2019 <- seq(2019, 2019) %>%
+  map_df(get_voting_results_bayes)
+
+hof_voting_2019_clean <-
+  hof_voting_2019 %>% 
+  dplyr::select(Name = X2,
+                actual_vote_share = X5) %>%
+  filter(!Name %in% c("Name", "")) %>% # remove informational and spacer rows
+  mutate(Name = fix_name(Name),
+         actual_vote_share = as.numeric(str_extract(actual_vote_share, "[:digit:]{1,3}.[:digit:]")) / 100)
+
+final_data <-
+  est_hof_all %>%
+  inner_join(hof_voting_2019_clean, by="Name") %>%
+  dplyr::select(Name, est_hof_vote_share, actual_vote_share) %>%
+  mutate(residual = actual_vote_share - est_hof_vote_share)
+
+bayes_model_r_sq <-
+  summary(lm(actual_vote_share ~ est_hof_vote_share,
+     data = final_data))$r.squared %>%
+  round(3)
+
+bayes_model_rmse <- 
+  RMSE(final_data$actual_vote_share, final_data$est_hof_vote_share) %>%
+  round(3)
+
+ggplot(final_data, aes(est_hof_vote_share, actual_vote_share)) +
+  geom_point() +
+  geom_smooth(method="lm") + fgt +
+  geom_abline(linetype = "dashed") +
+  labs(x="Predicted Vote Share", y="Actual Vote Share",
+       caption = "Source: https://tht.fangraphs.com/2019-hall-of-fame-voting-edgar-martinez-roy-halladay-mariano-rivera/") +
+  ggtitle("Evaluating Bayesian HOF Model",
+          subtitle=glue("R^2: {bayes_model_r_sq}, RMSE = {bayes_model_rmse}"))
+
+ggplot(final_data, aes(est_hof_vote_share, residual)) +
+  geom_point() + fgt +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(x="Predicted Vote Share", y="Residual",
+       caption = "Source: https://tht.fangraphs.com/2019-hall-of-fame-voting-edgar-martinez-roy-halladay-mariano-rivera/") +
+  ggtitle("Evaluating Bayesian HOF Model: Residuals")
+
+
 
 ```
 
