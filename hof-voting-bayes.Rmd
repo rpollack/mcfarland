@@ -408,7 +408,7 @@ bayes_model_r_sq <-
   round(3)
 
 bayes_model_rmse <- 
-  RMSE(final_data$actual_vote_share, final_data$est_hof_vote_share) %>%
+  RMSE(final_data$est_hof_vote_share, final_data$actual_vote_share) %>%
   round(3)
 
 ggplot(final_data, aes(est_hof_vote_share, actual_vote_share)) +
