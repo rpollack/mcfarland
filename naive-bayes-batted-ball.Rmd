@@ -7,8 +7,9 @@ library(xgboost)
 library(caret)
 library(e1071)
 library(twilio)
+library(styler)
 
-fgt = theme(
+fgt <- theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
   axis.title = element_text(family = "Lato"),
   axis.text = element_text(family = "Lato"),
@@ -19,24 +20,24 @@ fgt = theme(
   plot.title = element_text(family = "Lato"),
   panel.grid.major = element_line(size = .1, color = "lightgrey"),
   panel.grid.minor = element_line(size = 0),
-  #strip.background = element_rect(fill = "#50ae26"),
-  strip.text = element_text(family="Lato")
-  )
+  # strip.background = element_rect(fill = "#50ae26"),
+  strip.text = element_text(family = "Lato")
+)
 
-fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"), 
-                            host = Sys.getenv("FG_HOST"), 
-                            user = Sys.getenv("FG_USER"),
-                            password = Sys.getenv("FG_PW"))
+fg_db <- dplyr::src_mysql(
+  dbname = Sys.getenv("FG_DB"),
+  host = Sys.getenv("FG_HOST"),
+  user = Sys.getenv("FG_USER"),
+  password = Sys.getenv("FG_PW")
+)
 
 TWILIO_SID <- Sys.getenv("TWILIO_SID")
 TWILIO_TOKEN <- Sys.getenv("TWILIO_TOKEN")
 twilio_number <- Sys.getenv("twilio_number")
 
-send_message <- function(msg){
+send_message <- function(msg) {
   tw_send_message(from = twilio_number, to = "5123505107", body = msg)
 }
-
-
 ```
 
 
@@ -44,31 +45,31 @@ send_message <- function(msg){
 
 ### get batted ball data
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 
 mlbam_ids <- fg_db %>%
   tbl("playerid_lookup") %>%
   dplyr::select(playerid, mlbamid) %>%
-  collect(n=Inf)
-  
+  collect(n = Inf)
+
 
 player_info <- fg_db %>%
   tbl("player_info") %>%
   dplyr::select(playerid = PlayerId, FirstName, LastName) %>%
-  collect(n=Inf)
+  collect(n = Inf)
 
 player_speeds <- fg_db %>%
   tbl("stats_batting") %>%
   filter(Type == 0) %>%
   dplyr::select(playerid, Season) %>%
-  collect(n=Inf)
+  collect(n = Inf)
 
-batter_names <- inner_join(mlbam_ids, player_info, by="playerid") %>%
+batter_names <- inner_join(mlbam_ids, player_info, by = "playerid") %>%
   unite(batter_name, FirstName, LastName, sep = " ") %>%
   filter(!is.na(mlbamid))
 
 # get sprint speeds. had to do manual download from statcast leaderboards
-sprint_speed <- 
+sprint_speed <-
   read_csv("Sprint Speed - 2015.csv") %>%
   bind_rows(read_csv("Sprint Speed - 2016.csv")) %>%
   bind_rows(read_csv("Sprint Speed - 2017.csv")) %>%
@@ -79,108 +80,52 @@ sprint_speed <-
 # get fair batted ball data from mlb gameday and join to all other data frames
 savant_data_rf <- fg_db %>%
   tbl("gd_savant_new") %>%
-  filter(events %in% c("home_run", "triple", "double", "single", "field_out"),
-         launch_speed != "null",
-         launch_angle != "null") %>%
-  dplyr::select(batter, pitcher, game_year, game_date, hc_x, hc_y, launch_speed, 
-                stand, launch_angle, events, home_team, away_team, inning_top_bottom) %>%
-  collect(n=Inf) %>%
-  mutate(launch_speed = as.numeric(launch_speed),
-         launch_angle = as.numeric(launch_angle),
-         spray_angle = tan((hc_x-125.42)/(198.27-hc_y))*180/pi*.75) %>%
-  inner_join(batter_names, by=c("batter" = "mlbamid")) %>%
-  inner_join(player_speeds, by =c("game_year" = "Season", "playerid")) %>%
-  inner_join(sprint_speed, by=c("game_year" = "Season", "batter_name")) %>%
+  filter(
+    events %in% c("home_run", "triple", "double", "single", "field_out"),
+    launch_speed != "null",
+    launch_angle != "null"
+  ) %>%
+  dplyr::select(
+    batter, pitcher, game_year, game_date, hc_x, hc_y, launch_speed,
+    stand, launch_angle, events, home_team, away_team, inning_top_bottom
+  ) %>%
+  collect(n = Inf) %>%
+  mutate(
+    launch_speed = as.numeric(launch_speed),
+    launch_angle = as.numeric(launch_angle),
+    spray_angle = tan((hc_x - 125.42) / (198.27 - hc_y)) * 180 / pi * .75
+  ) %>%
+  inner_join(batter_names, by = c("batter" = "mlbamid")) %>%
+  inner_join(player_speeds, by = c("game_year" = "Season", "playerid")) %>%
+  inner_join(sprint_speed, by = c("game_year" = "Season", "batter_name")) %>%
   filter(!is.na(spray_angle)) %>% # 1 row gets computed with a spray angle of NaN. remove it
-  mutate(events = factor(events, levels = c("field_out", "single", "double",
-                                            "triple", "home_run")),        #factorize data so RF model can be built
-         defending_team = ifelse(inning_top_bottom %in% c("Y", "Top"), home_team, away_team), #proxy for team defense
-         park = factor(home_team),
-         away_team = factor(away_team),
-         defending_team = factor(defending_team),
-         stand = factor(stand),
-         game_month = factor(month(game_date))) %>%  
-  dplyr::select(game_year,              # many baseball factors fluctuate year-to-year
-         game_month,             # blunt proxy for weather on game day: cold weather in April/Oct vs hot & humid summers
-         launch_speed,           # speed of ball off bat   
-         launch_angle,           # vertical angle of ball off bat
-         spray_angle,            # horiz. angle of ball off bat
-         sprint_speed,           # sprint speed of batter (statcast)
-         batter_stands = stand,  # batter is lefty or righty?
-         park,                   # stadium where game's being played
-        # defending_team,         # team on defense. variable in quality
-         events)        
-
-```
-
-
-### random forest
-
-```{r}
-sample_rows <- sample(nrow(savant_data_rf), nrow(savant_data_rf) * .75)
-
-training <- savant_data_rf %>%
-  filter(row_number() %in% sample_rows)
-
-test <- savant_data_rf %>%
-  filter(!row_number() %in% sample_rows)
-
-
-rf_model <- randomForest(events ~ 
-                           game_year +
-                           launch_speed + 
-                           launch_angle + 
-                           spray_angle +
-                           home_team +    # home team is proxy for park factor
-                           away_team +    # away team + year is proxy for defense quality
-                           batter_speed,
-                         data = training,
-                         ntree = 50,
-                         mtry = 2,
-                         importance=TRUE)
-
-varImpPlot(rf_model)
-
-## predict using RF model
-results <- test %>%
-  mutate(predicted_event = predict(rf_model, .))
-
-mean(results$events == results$predicted_event, na.rm = TRUE)
-
-#  0.8050596 at 50 ntree and 2 mtry
-```
-
-using caret and Random Forest
-
-```{r}
-
-set.seed(42)
-
-control_params <- trainControl(
-  method = "repeatedcv", number = 10, repeats = 3, search = "random",
-  verboseIter = TRUE
-)
-
-mtry = sqrt(ncol(savant_data_rf))
-
-rf_batted_ball_model <-
-  train(
-    events ~  game_year +
-      launch_speed + 
-      launch_angle + 
-      spray_angle +
-      home_team +    # home team is proxy for park factor
-      away_team +    # away team + year is proxy for defense quality
-      Spd, savant_data_rf,
-    method = "rf",
-    importance = TRUE,
-    allowParallel = TRUE,
-    trControl = control_params,
-    tuneLenth = 5
+  mutate(
+    events = factor(events, levels = c(
+      "field_out", "single", "double",
+      "triple", "home_run"
+    )), # factorize data so RF model can be built
+    game_year = factor(game_year),
+    defending_team = ifelse(inning_top_bottom %in% c("Y", "Top"), home_team, away_team), # proxy for team defense
+    park = factor(home_team),
+    away_team = factor(away_team),
+    defending_team = factor(defending_team),
+    stand = factor(stand),
+    game_month = factor(month(game_date))
+  ) %>%
+  dplyr::select(game_year, # many baseball factors fluctuate year-to-year
+    game_month, # blunt proxy for weather on game day: cold weather in April/Oct vs hot & humid summers
+    launch_speed, # speed of ball off bat
+    launch_angle, # vertical angle of ball off bat
+    spray_angle, # horiz. angle of ball off bat
+    sprint_speed, # sprint speed of batter (statcast)
+    batter_stands = stand, # batter is lefty or righty?
+    park, # stadium where game's being played
+    # defending_team,         # team on defense. variable in quality
+    events
   )
-
-rf_batted_ball_model
 ```
+
+
 
 https://xgboost.readthedocs.io/en/latest/R-package/xgboostPresentation.html
 
@@ -203,14 +148,14 @@ savant_data_train <- savant_data_rf %>%
 # convert labels to numeric range from 0 - 4, using factor levels defined above (0 = out, etc)
 labels <- as.numeric(savant_data_train$events) - 1
 
-#remove 'events' col from training data and dummy-encode home and away parks
+# remove 'events' col from training data and dummy-encode home and away parks
 savant_data_train <- savant_data_train %>%
   select(-events)
 dummy <- dummyVars(~., data = savant_data_train, fullRank = TRUE)
 savant_data_train_dummy <- predict(dummy, savant_data_train)
 dtrain <- xgb.DMatrix(savant_data_train_dummy, label = labels)
 
-#create test set. remove event labels, dummy-encode the rest to match the training set, and add labels back in
+# create test set. remove event labels, dummy-encode the rest to match the training set, and add labels back in
 savant_data_test <- savant_data_rf %>%
   filter(!row_number() %in% sample_rows)
 test_labels <- as.numeric(savant_data_test$events) - 1
@@ -219,43 +164,54 @@ savant_data_test_dummy <- predict(dummy, savant_data_test)
 dtest <- xgb.DMatrix(savant_data_test_dummy, label = test_labels)
 
 # https://rpubs.com/mharris/multiclass_xgboost
-params <- list(objective = "multi:softprob", 
-               eval_metric = "mlogloss",
-               num_class = 5,
-               eta = 0.1,
-               max_depth = 14,
-               gamma = 0,
-               colsample_bytree = 1,
-               min_child_weight = 0,
-               subsample = 0.5)
+params <- list(
+  objective = "multi:softprob",
+  eval_metric = "mlogloss",
+  num_class = 5,
+  eta = 0.1,
+  max_depth = 14,
+  gamma = 0,
+  colsample_bytree = 1,
+  min_child_weight = 0,
+  subsample = 0.5
+)
 
 # use 10-fold CV to determine the optimal number of iterations
-batted_ball_cv_model <- xgb.cv(params = params,
-                               data = dtrain,
-                               nrounds = 300,
-                               nfold = 10,  # start with 3 fold to speed things up
-                               early_stopping_rounds = 40,
-                               print_every_n = 40,
-                               stratified = TRUE)
+batted_ball_cv_model <- xgb.cv(
+  params = params,
+  data = dtrain,
+  nrounds = 300,
+  nfold = 10, # start with 3 fold to speed things up
+  early_stopping_rounds = 40,
+  print_every_n = 40,
+  stratified = TRUE
+)
 
 num_rounds <- batted_ball_cv_model$best_iteration
 
-xgb_batted_ball <- xgb.train(params = params, 
-                             data = dtrain, 
-                             nrounds = num_rounds)
+xgb_batted_ball <- xgb.train(
+  params = params,
+  data = dtrain,
+  nrounds = num_rounds
+)
 
-#use model to predict on test set
+# use model to predict on test set
 test_pred <- predict(xgb_batted_ball, newdata = dtest)
-test_prediction <- matrix(test_pred, nrow = 5,
-                          ncol=length(test_pred)/5) %>%
+test_prediction <- matrix(test_pred,
+  nrow = 5,
+  ncol = length(test_pred) / 5
+) %>%
   t() %>%
   data.frame() %>%
-  mutate(label = test_labels + 1,
-         max_prob = max.col(., "last"))
+  mutate(
+    label = test_labels + 1,
+    max_prob = max.col(., "last")
+  )
 # confusion matrix of test set
 confusionMatrix(factor(test_prediction$max_prob),
-                factor(test_prediction$label),
-                mode = "everything")
+  factor(test_prediction$label),
+  mode = "everything"
+)
 # about 82% accuracy
 
 accuracy_on_test_set <- round(100 * mean(test_prediction$label == test_prediction$max_prob), 2)
@@ -265,27 +221,34 @@ send_message(msg)
 # dummy encode full dataset to allow for application of XGB model
 savant_data_full_predicted <- savant_data_rf
 real_labels <- as.numeric(savant_data_full_predicted$events) - 1
-dummy <- 
-  dummyVars(~., data = savant_data_full_predicted %>% 
-              select(-events), fullRank = TRUE)
+dummy <-
+  dummyVars(~., data = savant_data_full_predicted %>%
+    select(-events), fullRank = TRUE)
 savant_data_full_dummy <- predict(dummy, savant_data_full_predicted)
 
-full_pred <- predict(xgb_batted_ball, 
-                     newdata = savant_data_full_dummy)
+full_pred <- predict(xgb_batted_ball,
+  newdata = savant_data_full_dummy
+)
 
-#append predictions to original dataset
-full_prediction <- matrix(full_pred, nrow = 5,
-                          ncol=length(full_pred)/5) %>%
+# append predictions to original dataset
+full_prediction <- matrix(full_pred,
+  nrow = 5,
+  ncol = length(full_pred) / 5
+) %>%
   t() %>%
   as_tibble() %>%
   mutate(predicted_event = as.character(max.col(., "last"))) %>%
   select(predicted_event) %>%
-  mutate(predicted_event = str_replace_all(predicted_event, 
-                                           c("1" = "field_out",
-                                             "2" = "single",
-                                             "3" = "double",
-                                             "4" = "triple",
-                                             "5" = "home_run"))) %>%
+  mutate(predicted_event = str_replace_all(
+    predicted_event,
+    c(
+      "1" = "field_out",
+      "2" = "single",
+      "3" = "double",
+      "4" = "triple",
+      "5" = "home_run"
+    )
+  )) %>%
   bind_cols(savant_data_rf) %>%
   select(events, predicted_event, everything())
 
@@ -293,30 +256,29 @@ mean(full_prediction$predicted_event == full_prediction$events)
 # accuracy close to 89%!!
 
 # plot feature importance matrix
-names <-  colnames(savant_data_train_dummy)
+names <- colnames(savant_data_train_dummy)
 # compute and plot feature importance matrix
 importance_matrix <- xgb.importance(feature_names = names, model = xgb_batted_ball)
 xgb.ggplot.importance(importance_matrix)
-
 ```
 
 xgboost + caret
 
 ```{r}
-#https://stats.stackexchange.com/questions/171043/how-to-tune-hyperparameters-of-xgboost-trees
+# https://stats.stackexchange.com/questions/171043/how-to-tune-hyperparameters-of-xgboost-trees
 
-#split data into 75/25 train and test sets
-batted_ball_test <- 
+# split data into 75/25 train and test sets
+batted_ball_test <-
   createDataPartition(savant_data_rf$events, p = 0.25)
-  as_tibble()
+as_tibble()
 
 # use 75% of the data for cross-validation
-savant_data_train <- 
+savant_data_train <-
   savant_data_rf %>%
   filter(!row_number() %in% batted_ball_test$Resample1)
 
 # hold out 25% of the data for testing the model
-savant_data_test <- 
+savant_data_test <-
   savant_data_rf %>%
   filter(row_number() %in% batted_ball_test$Resample1)
 
@@ -328,39 +290,43 @@ savant_data_test <-
 # https://stats.stackexchange.com/questions/171043/how-to-tune-hyperparameters-of-xgboost-trees
 # https://rstudio-pubs-static.s3.amazonaws.com/336778_d7d321fab8694292bc0531300c11b319.html
 
-control_parameters <- trainControl(method = "cv",
-                                   number = 10, 
-                                   search="grid",
-                                   allowParallel = TRUE,
-                                   savePredictions = FALSE,
-                                   classProbs = TRUE,
-                                   summaryFunction = mnLogLoss)
+control_parameters <- trainControl(
+  method = "cv",
+  number = 10,
+  search = "grid",
+  allowParallel = TRUE,
+  savePredictions = FALSE,
+  classProbs = TRUE,
+  summaryFunction = mnLogLoss
+)
 
 # TODO: probably need to do some SMOTE sampling or what-have-you
 
 
-parameter_grid <- 
+parameter_grid <-
   expand.grid(
-    nrounds = c(50, 100, 150), 
+    nrounds = c(50, 100, 150),
     eta = 0.1,
     max_depth = 10,
     gamma = 0,
     colsample_bytree = 1,
     min_child_weight = 0,
-    subsample = 0.5)
+    subsample = 0.5
+  )
 
-batted_ball_model_caret <- train(events ~ ., 
-                                 data = savant_data_train, 
-                                 method = "xgbTree", 
-                                 trControl = control_parameters,
-                                 tuneGrid = parameter_grid,
-                                 metric = "logLoss")
+batted_ball_model_caret <- train(events ~ .,
+  data = savant_data_train,
+  method = "xgbTree",
+  trControl = control_parameters,
+  tuneGrid = parameter_grid,
+  metric = "logLoss"
+)
 
-#predict events by applying the model to test dataset
-batted_ball_predicted <- savant_data_test %>% 
-  mutate(predicted_event = predict(batted_ball_model_caret, ., type="raw"))
+# predict events by applying the model to test dataset
+batted_ball_predicted <- savant_data_test %>%
+  mutate(predicted_event = predict(batted_ball_model_caret, ., type = "raw"))
 
-confusionMatrix(batted_ball_predicted$events, batted_ball_predicted$predicted_event, mode = "everything")
+confusionMatrix(batted_ball_predicted$events, batted_ball_predicted4predicted_event, mode = "prec_recall")
 
 # send_message("done training!")
 ```
@@ -370,15 +336,16 @@ confusionMatrix(batted_ball_predicted$events, batted_ball_predicted$predicted_ev
 
 ```{r}
 
-#train model on 2015 and 2016 events
-bayes_model <- naive_bayes(events ~ launch_speed_bin + 
-                             launch_angle_bin + 
-                             home_team +
-                             Spd, 
-                           data = training,
-                           laplace = 5)
+# train model on 2015 and 2016 events
+bayes_model <- naive_bayes(events ~ launch_speed_bin +
+  launch_angle_bin +
+  home_team +
+  Spd,
+data = training,
+laplace = 5
+)
 
-#use model to predict 2017 events. use laplace correction to account for rare events
+# use model to predict 2017 events. use laplace correction to account for rare events
 # to see computed probabilities, use predict( ... , type = "prob")
 # the error 'subscript out of bounds' means there are values in the test dataset not present in the training dataset.
 # this happens when I add in player names
@@ -386,17 +353,17 @@ model_predictions <- predict(bayes_model, to_predict) %>%
   as_tibble() %>%
   select(predicted_events = value)
 
-#add column of predicted events to 2017 actual data
+# add column of predicted events to 2017 actual data
 predictions <- to_predict %>%
   bind_cols(model_predictions) %>%
   mutate(correct_prediction = ifelse(events == predicted_events, 1, 0))
 
-#number of correct predictions overall
+# number of correct predictions overall
 mean(predictions$events == predictions$predicted_events)
 
-#72% is so close to the value of just predicting "out" for everyone that it's suspicious ... 
+# 72% is so close to the value of just predicting "out" for everyone that it's suspicious ...
 
-#which batter has the most incorrect predictions?
+# which batter has the most incorrect predictions?
 correct_percentage <- predictions %>%
   group_by(playerid, batter_name) %>%
   mutate(num_batted_balls = n()) %>%
@@ -404,10 +371,10 @@ correct_percentage <- predictions %>%
   summarize(num_correct_predictions = sum(correct_prediction)) %>%
   mutate(correct_percentage = 100 * (num_correct_predictions / num_batted_balls))
 
-#% correct predictions by batted ball type
+# % correct predictions by batted ball type
 
 
-#break down accuracy of predictions by batted ball type, then compute how much you gain by using this model.
+# break down accuracy of predictions by batted ball type, then compute how much you gain by using this model.
 total_events <- nrow(predictions)
 correct_predictions_batted_ball_type <- predictions %>%
   group_by(events) %>%
@@ -416,26 +383,27 @@ correct_predictions_batted_ball_type <- predictions %>%
   mutate(event_percentage = 100 * (num_events / total_events)) %>%
   group_by(events, num_events, event_percentage) %>%
   summarize(num_correct_predictions = sum(correct_prediction)) %>%
-  mutate(correct_predict_percentage = 100 * (num_correct_predictions / num_events),
-         point_improvement_vs_guessing = correct_predict_percentage - event_percentage)
-
-
+  mutate(
+    correct_predict_percentage = 100 * (num_correct_predictions / num_events),
+    point_improvement_vs_guessing = correct_predict_percentage - event_percentage
+  )
 ```
 
 ```{r}
 
 
-ggplot(correct_predictions_batted_ball_type, aes(reorder(events, -correct_predict_percentage),
-                                                 correct_predict_percentage)) +
+ggplot(correct_predictions_batted_ball_type, aes(
+  reorder(events, -correct_predict_percentage),
+  correct_predict_percentage
+)) +
   geom_bar(stat = "identity") +
-  labs(x="Actual Batted Ball Result", y="% Correct Classifications") +
+  labs(x = "Actual Batted Ball Result", y = "% Correct Classifications") +
   ggtitle("Triples are the Hardest Batted Ball to Classify Correctly")
 
 ggplot(correct_percentage, aes(num_batted_balls, correct_percentage)) + geom_point() +
-  labs(x="Number of batted balls (one dot = one player)", y="Percentage of correct classifications") +
+  labs(x = "Number of batted balls (one dot = one player)", y = "Percentage of correct classifications") +
   ggtitle("Prediction Percentage Settles in at about 100 Batted Balls")
 
-#defending teams?
-
+# defending teams?
 ```
 
