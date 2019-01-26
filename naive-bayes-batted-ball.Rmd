@@ -60,7 +60,7 @@ player_info <- fg_db %>%
 player_speeds <- fg_db %>%
   tbl("stats_batting") %>%
   filter(Type == 0) %>%
-  select(playerid, Season) %>%
+  dplyr::select(playerid, Season) %>%
   collect(n=Inf)
 
 batter_names <- inner_join(mlbam_ids, player_info, by="playerid") %>%
@@ -100,7 +100,7 @@ savant_data_rf <- fg_db %>%
          defending_team = factor(defending_team),
          stand = factor(stand),
          game_month = factor(month(game_date))) %>%  
-  select(game_year,              # many baseball factors fluctuate year-to-year
+  dplyr::select(game_year,              # many baseball factors fluctuate year-to-year
          game_month,             # blunt proxy for weather on game day: cold weather in April/Oct vs hot & humid summers
          launch_speed,           # speed of ball off bat   
          launch_angle,           # vertical angle of ball off bat
@@ -262,10 +262,6 @@ accuracy_on_test_set <- round(100 * mean(test_prediction$label == test_predictio
 msg <- sprintf("xgb model training finished! accuracy on test set: %s percent", accuracy_on_test_set)
 send_message(msg)
 
-```
-
-using above model, predict full dataset so we can see which plays went from HR to out or whatever
-```{r, fig.height = 4, fig.width=4}
 # dummy encode full dataset to allow for application of XGB model
 savant_data_full_predicted <- savant_data_rf
 real_labels <- as.numeric(savant_data_full_predicted$events) - 1
@@ -307,50 +303,66 @@ xgb.ggplot.importance(importance_matrix)
 xgboost + caret
 
 ```{r}
-set.seed(55)
 #https://stats.stackexchange.com/questions/171043/how-to-tune-hyperparameters-of-xgboost-trees
 
 #split data into 75/25 train and test sets
-sample_rows <- sample(nrow(savant_data_rf), nrow(savant_data_rf) * .75)
+batted_ball_test <- 
+  createDataPartition(savant_data_rf$events, p = 0.25)
+  as_tibble()
 
-savant_data_train <- savant_data_rf %>%
-  filter(row_number() %in% sample_rows)
+# use 75% of the data for cross-validation
+savant_data_train <- 
+  savant_data_rf %>%
+  filter(!row_number() %in% batted_ball_test$Resample1)
 
-savant_data_test <- savant_data_rf %>%
-  filter(!row_number() %in% sample_rows)
+# hold out 25% of the data for testing the model
+savant_data_test <- 
+  savant_data_rf %>%
+  filter(row_number() %in% batted_ball_test$Resample1)
+
+# not run: show that training and test sets contain the same rates of events
+# savant_data_test %>% group_by(events) %>% summarize(percent = n() / nrow(savant_data_test))
+# savant_data_train %>% group_by(events) %>% summarize(percent = n() / nrow(savant_data_train))
+
 
 # https://stats.stackexchange.com/questions/171043/how-to-tune-hyperparameters-of-xgboost-trees
 # https://rstudio-pubs-static.s3.amazonaws.com/336778_d7d321fab8694292bc0531300c11b319.html
-# this is 5-fold cross val
-
 
 control_parameters <- trainControl(method = "cv",
                                    number = 10, 
                                    search="grid",
                                    allowParallel = TRUE,
-                                   savePredictions = FALSE)
+                                   savePredictions = FALSE,
+                                   classProbs = TRUE,
+                                   summaryFunction = mnLogLoss)
 
-parameter_grid <- expand.grid(
-  nrounds = 50, 
-  eta = 0.1,
-  max_depth = 10,
-  gamma = 0,
-  colsample_bytree = 1,
-  min_child_weight = 0,
-  subsample = 0.5)
+# TODO: probably need to do some SMOTE sampling or what-have-you
+
+
+parameter_grid <- 
+  expand.grid(
+    nrounds = c(50, 100, 150), 
+    eta = 0.1,
+    max_depth = 10,
+    gamma = 0,
+    colsample_bytree = 1,
+    min_child_weight = 0,
+    subsample = 0.5)
 
 batted_ball_model_caret <- train(events ~ ., 
                                  data = savant_data_train, 
                                  method = "xgbTree", 
                                  trControl = control_parameters,
                                  tuneGrid = parameter_grid,
-                                 metric = "Kappa")
+                                 metric = "logLoss")
 
-#predict events using model data
+#predict events by applying the model to test dataset
 batted_ball_predicted <- savant_data_test %>% 
   mutate(predicted_event = predict(batted_ball_model_caret, ., type="raw"))
 
 confusionMatrix(batted_ball_predicted$events, batted_ball_predicted$predicted_event, mode = "everything")
+
+# send_message("done training!")
 ```
 
 
