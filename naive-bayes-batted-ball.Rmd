@@ -322,13 +322,13 @@ batted_ball_model_caret <- train(events ~ .,
   metric = "logLoss"
 )
 
-# predict events by applying the model to test dataset
+# evaluate model events by applying the model to test dataset
 batted_ball_predicted <- savant_data_test %>%
   mutate(predicted_event = predict(batted_ball_model_caret, ., type = "raw"))
 
-confusionMatrix(batted_ball_predicted$events, batted_ball_predicted4predicted_event, mode = "prec_recall")
+confusionMatrix(batted_ball_predicted$events, batted_ball_predicted$predicted_event, mode = "prec_recall")
 
-# send_message("done training!")
+send_message("done training!")
 ```
 
 
