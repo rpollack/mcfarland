@@ -158,7 +158,7 @@ fa_signings_clean %>%
   group_by(offseason) %>%
   
   #label interesting years only
-  mutate(label = ifelse(offseason %in% c(1999, 2017, 2004, 2003, 1998, 1989, 1994, 1990, 1991, 1993) & 
+  mutate(label = ifelse(offseason %in% c(2018, 1999, 2017, 2004, 2003, 1998, 1989, 1994, 1990, 1991, 1993) & 
                           sign_month == max(sign_month), 
                         offseason, NA_character_)) %>%
   arrange(offseason, sign_month) %>%
@@ -191,7 +191,7 @@ cumulative_sign_plt <-
   group_by(offseason, sign_month, total_available_fas) %>%
   summarize(num_signings = n()) %>%
   group_by(offseason) %>%
-  mutate(label = ifelse(offseason %in% c(1985, 2018, 2017) & 
+  mutate(label = ifelse(offseason %in% c(1985, 2018, 2017, 2003) & 
                           sign_month == max(sign_month), 
                         offseason, NA_character_)) %>%
   arrange(offseason, sign_month) %>%
@@ -199,8 +199,9 @@ cumulative_sign_plt <-
   ggplot(aes(x = sign_month, y = signed_perc, color=offseason, 
              group = offseason)) +
   geom_point() + geom_line() +
-  labs(x="", y="Cumulative FA Signings (%)", caption="SOURCE: baseball-reference.com") +
-  ggtitle("The 2018-2019 Offseason is the Second-Slowest on Record") +
+  labs(x="", y="% of Available FA's Signed", caption="Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com") +
+  ggtitle("The 2018-2019 Offseason is the Second-Slowest on Record",
+          subtitle = "% of available free agents signed each year, by month ") +
   geom_label_repel(aes(label=label),
                        nudge_x = 100,
                        na.rm = TRUE) +
