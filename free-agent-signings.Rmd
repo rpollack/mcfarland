@@ -122,7 +122,6 @@ fa_signings %>% filter(row_number() %in% invalid_dates) %>% View()
 ### clean data
 
 ```{r}
-current_month <- "Feb"
 
 fa_signings_clean <- 
   fa_signings %>%
@@ -130,7 +129,7 @@ fa_signings_clean <-
   #remove transactions w/no valid date attached & for which I can't find info
   filter(!name %in% c("Doug Gwosdz", "Kurt Kepshire", "Bill Scherrer", "Darryl Motley",
                       "Steve Carter", "Guillermo Rodriguez"),
-         !str_detect(sign_date, "00-")) %>%
+         !str_detect(sign_date, "-00-")) %>%
   
   #some guys have missing sign days, but we care only about the month, so fake it
   mutate(sign_date = ifelse(name == "Jay Baller" & offseason == 1989, "1990-01-01", sign_date),
@@ -159,6 +158,8 @@ all_free_agents <-
 
 ```{r}
 
+current_month <- "Feb"
+
 cumulative_sign_plt <- 
   all_free_agents %>% 
   group_by(offseason) %>%
@@ -166,14 +167,18 @@ cumulative_sign_plt <-
   filter(!is.na(sign_month)) %>% # discard unsigned FA"s, now that we have the total number, don't need them anymore
   group_by(offseason, total_available_fas, sign_month) %>%
   summarize(num_signings = n()) %>%
-  complete(offseason, sign_month, fill = list(num_signings = 0)) %>%
+  complete(offseason, sign_month, fill = list(num_signings = 0)) %>%  # zero-pad months where no FA's were signed
   filter(sign_month < current_month) %>%
   group_by(offseason) %>%
+#  filter(offseason %in% c(1994, 2017, 1985, 2018, 2004)) %>%
   mutate(label = ifelse(offseason %in% c(1985, 2018, 2017, 2004, 2016, 1994) & 
                           sign_month == max(sign_month), 
                         offseason, NA_character_)) %>%
   arrange(offseason, sign_month) %>%
-  mutate(signed_perc = 100 * (cumsum(num_signings) / total_available_fas)) %>%
+  mutate(signed_perc = 100 * (cumsum(num_signings) / total_available_fas))
+    
+    
+cumulative_sign_plt %>%
   ggplot(aes(x = sign_month, y = signed_perc, color=offseason, 
              group = offseason)) +
   geom_point() + geom_line() +
@@ -184,13 +189,22 @@ cumulative_sign_plt <-
                        nudge_x = 100,
                        na.rm = TRUE) +
   fgt +
-  guides(color=guide_legend(ncol=3))
-
-cumulative_sign_plt
+  guides(color=guide_legend(ncol=3)) +
+  theme(legend.position = "none")
 
 #ggplotly(cumulative_sign_plt)
 
 ```
+
+```{r, fig.height=3}
+cumulative_sign_plt %>%
+  filter(sign_month == "Jan")  %>%
+  ggplot(aes(reorder(offseason, signed_perc), signed_perc)) + 
+  geom_col() + coord_flip() +
+  ggtitle("% of Free Agents Signed through January") +
+  labs(x="", y="% of Free Agents Signed")
+```
+
 
 
 debugging is below
@@ -213,7 +227,7 @@ all_free_agents %>%
   arrange(offseason, sign_month) %>%
   mutate(cume_fas_signed = cumsum(num_signings),
          cume_signed_perc = 100 * (cume_fas_signed / total_available_fas)) %>%
-  filter(offseason == 2017) %>% 
+  filter(offseason == 2018) %>% 
   arrange(cume_signed_perc)
 ```
 
