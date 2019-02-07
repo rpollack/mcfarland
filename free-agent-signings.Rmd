@@ -141,57 +141,36 @@ fa_signings_clean <-
          offseason = as.character(offseason),
          
          #re-order the months based on when we perceive the start of FA season to be
-         sign_month = factor(sign_month, levels=c("Oct", "Nov", "Dec", "Jan", "Feb",
-                                                    "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep"))) %>%
-  #omit partial months
-  filter(sign_month < current_month)
+         sign_month = factor(sign_month, levels=c("Sep", "Oct", "Nov", "Dec", "Jan", "Feb",
+                                                    "Mar", "Apr", "May", "Jun", "Jul", "Aug")))
 
 
 ```
 
-```{r}
-# graph cumulative FA signings by month, for each year
-fa_signings_clean %>%
-  filter(offseason >= 1998) %>%         #ensure roughly equal comparison among # of FA"s by comparing since last expansion
-  group_by(offseason, sign_month) %>%
-  summarize(num_signings = n()) %>%
-  group_by(offseason) %>%
-  
-  #label interesting years only
-  mutate(label = ifelse(offseason %in% c(2018, 1999, 2017, 2004, 2003, 1998, 1989, 1994, 1990, 1991, 1993) & 
-                          sign_month == max(sign_month), 
-                        offseason, NA_character_)) %>%
-  arrange(offseason, sign_month) %>%
-  mutate(cumulative_signings = cumsum(num_signings)) %>%
-  ggplot(aes(x = sign_month, y = cumulative_signings, color=offseason, 
-             group = offseason, label = label)) +
-  geom_point() + geom_line() +
-  labs(x="", y="Cumulative FA Signings") +
-  ggtitle("2017 is the Slowest Offseason in the Past 18 Years") +
-  geom_label_repel(aes(label=label),
-                       nudge_x = 100,
-                       na.rm = TRUE) +
-  fgt +
-  guides(color=guide_legend(ncol=2)) +
-  annotate("text", label="Data from baseball-reference.com", x=3.5, y=1, size = 2.5)
 
-
-```
 
 ```{r}
 
-# graph percentage unsigned FA's by month, for each year
-all_free_agents <- bind_rows(fa_signings_clean, unsigned_batters, unsigned_pitchers)
+# combine all tibbles into one, so each offseason has the right signed and unsigned players
+# scrub duplicates from the data; i found that, for example, the 2017 offseason has many duplicates entries that inflate
+# the real count of free agents
+
+all_free_agents <- 
+  bind_rows(fa_signings_clean, unsigned_batters, unsigned_pitchers) %>%
+  distinct(name, offseason, age, sign_date, three_year_war, sign_type, sign_month)  # remove duplicate entries; for example, 2017 has a few
+
+
 
 cumulative_sign_plt <- 
   all_free_agents %>% 
   group_by(offseason) %>%
   mutate(total_available_fas = n()) %>%  #get total available FA's in each offseason
   filter(sign_type == "signed") %>%      #now we only need to know how many signed each month
-  group_by(offseason, sign_month, total_available_fas) %>%
+  group_by(offseason, total_available_fas, sign_month) %>%
   summarize(num_signings = n()) %>%
+  filter(sign_month < current_month) %>%
   group_by(offseason) %>%
-  mutate(label = ifelse(offseason %in% c(1985, 2018, 2017, 2003) & 
+  mutate(label = ifelse(offseason %in% c(1985, 2018, 2017, 2004, 2016, 1994) & 
                           sign_month == max(sign_month), 
                         offseason, NA_character_)) %>%
   arrange(offseason, sign_month) %>%
@@ -199,9 +178,9 @@ cumulative_sign_plt <-
   ggplot(aes(x = sign_month, y = signed_perc, color=offseason, 
              group = offseason)) +
   geom_point() + geom_line() +
-  labs(x="", y="% of Available FA's Signed", caption="Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com") +
-  ggtitle("The 2018-2019 Offseason is the Second-Slowest on Record",
-          subtitle = "% of available free agents signed each year, by month ") +
+  labs(x="", y="% of FA's Signed", caption="Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com") +
+  ggtitle("The slow 2018 offseason, visualized",
+          subtitle = "% of free agents signed by month since free agency began") +
   geom_label_repel(aes(label=label),
                        nudge_x = 100,
                        na.rm = TRUE) +
@@ -214,20 +193,25 @@ cumulative_sign_plt
 
 ```
 
+
+debugging is below
+
 ```{r}
-  all_free_agents %>% 
+#debugging with the year 2017
+
+# TODO: now that the total count is correct, the next step is to manually verify all per-month signing counts
+
+
+all_free_agents %>% 
+  distinct(name, offseason, age, sign_date, three_year_war, sign_type, sign_month) %>%  # remove duplicate entries; for example, 2017 has a few
   group_by(offseason) %>%
   mutate(total_available_fas = n()) %>%  #get total available FA's in each offseason
-  filter(sign_type == "signed") %>%      #now we only need to know how many signed each month
-  group_by(offseason, sign_month, total_available_fas) %>%
+  group_by(offseason, total_available_fas, sign_month) %>%
   summarize(num_signings = n()) %>%
   group_by(offseason) %>%
-  mutate(label = ifelse(offseason %in% c(2018, 2017) & 
-                          sign_month == max(sign_month), 
-                        offseason, NA_character_)) %>%
   arrange(offseason, sign_month) %>%
   mutate(signed_perc = 100 * (cumsum(num_signings) / total_available_fas)) %>%
-  filter(sign_month == "Jan") %>% 
+  filter(offseason == 2017) %>% 
   arrange(signed_perc)
 ```
 
