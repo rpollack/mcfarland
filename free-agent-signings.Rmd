@@ -19,8 +19,8 @@ fgt = theme(
   plot.title = element_text(family = "Lato"),
   panel.grid.major = element_line(size = .1, color = "lightgrey"),
   panel.grid.minor = element_line(size = 0),
-  strip.background = element_rect(fill = "#50ae26"),
-  strip.text = element_text(color="white", family="Lato")
+ # strip.background = element_rect(fill = "#50ae26"),
+  strip.text = element_text(color="black", family="Lato")
   )
 
 
@@ -224,8 +224,7 @@ cumulative_sign_plt %>%
   facet_wrap(vars(metric), scales = "free_y") +
   fgt + geom_smooth(method = "loess", se = FALSE, linetype = "dashed") +
   ggtitle("Trends in Free Agent Signing") +
-  labs(x="Offseason", y="%")
-
+  labs(x="Offseason", y="%", caption="Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com")
 
 ```
 
@@ -235,7 +234,10 @@ cumulative_sign_plt %>%
 debugging is below
 
 ```{r}
-#debugging with the year 2017
+
+
+# TODO: verify month by month signing ounts for 2017, 2018, and 1994 
+# this will be my final verification
 
 all_free_agents %>% 
   group_by(offseason) %>%
