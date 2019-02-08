@@ -172,7 +172,8 @@ cumulative_sign_plt <-
   complete(offseason, sign_month, fill = list(num_signings = 0, war_signed = 0)) %>%  # zero-pad months where no FA's were signed
   group_by(offseason) %>%
   arrange(offseason, sign_month) %>%
-  mutate(signed_perc = 100 * (cumsum(num_signings) / total_available_fas),
+  mutate(total_signings = cumsum(num_signings),
+         signed_perc = 100 * (total_signings / total_available_fas),
          war_perc = 100 * (cumsum(war_signed) / total_war_available))
     
     
@@ -185,7 +186,7 @@ cumulative_sign_plt %>%
              group = offseason)) +
   geom_point() + geom_line() +
   labs(x="", y="% of FA's Signed", caption="Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com") +
-  ggtitle("The slow 2018 offseason, visualized",
+  ggtitle("2018 Free Agent Signing Progress, visualized",
           subtitle = "% of free agents signed by month since free agency began") +
   geom_label_repel(aes(label=label),
                        nudge_x = 100,
@@ -198,16 +199,15 @@ cumulative_sign_plt %>%
 
 ```
 
-```{r, fig.height=3}
+```{r}
 cumulative_sign_plt %>%
+  ungroup() %>%
   filter(sign_month == "Jan")  %>%
-  ggplot(aes(reorder(offseason, signed_perc), signed_perc)) + 
-  geom_col() + coord_flip() +
+  mutate(offseason = as.numeric(offseason)) %>%
+  ggplot(aes(offseason, signed_perc)) + 
+  geom_point() + geom_line() +
   ggtitle("% of Free Agents Signed through January") +
   labs(x="", y="% of Free Agents Signed") + fgt
-
-
-
 ```
 
 ```{r}
