@@ -186,8 +186,8 @@ cumulative_sign_plt %>%
              group = offseason)) +
   geom_point() + geom_line() +
   labs(x="", y="% of FA's Signed", caption="Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com") +
-  ggtitle("2018 Free Agent Signing Progress, visualized",
-          subtitle = "% of free agents signed by month since free agency began") +
+  ggtitle("Free Agent Signing Progress, Visualized",
+          subtitle = "% of free agents signed by month, through January of each year") +
   geom_label_repel(aes(label=label),
                        nudge_x = 100,
                        na.rm = TRUE) +
@@ -206,8 +206,9 @@ cumulative_sign_plt %>%
   mutate(offseason = as.numeric(offseason)) %>%
   ggplot(aes(offseason, signed_perc)) + 
   geom_point() + geom_line() +
-  ggtitle("% of Free Agents Signed through January") +
-  labs(x="", y="% of Free Agents Signed") + fgt
+  ggtitle("Free Agent Signings",
+          subtitle = "% of free agents signed through January of each offseason") +
+  labs(x="Offseason", y="% of FA's Signed", caption="Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com") + fgt + theme(legend.position = "none")
 ```
 
 ```{r}
