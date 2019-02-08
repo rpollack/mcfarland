@@ -223,7 +223,7 @@ cumulative_sign_plt %>%
   geom_point() + geom_line() +
   facet_wrap(vars(metric), scales = "free_y") +
   fgt + geom_smooth(method = "loess", se = FALSE, linetype = "dashed") +
-  ggtitle("Trends in Free Agent Signing") +
+  ggtitle("Trends in Free Agent Signing, through Janauary") +
   labs(x="Offseason", y="%", caption="Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com")
 
 ```
@@ -241,14 +241,14 @@ debugging is below
 
 all_free_agents %>% 
   group_by(offseason) %>%
-  mutate(total_available_fas = n()) %>%  #get total 255 + 95 +available FA's in each offseason
+  mutate(total_available_fas = n()) %>%  #get total available FA's in each offseason
   filter(!is.na(sign_month)) %>% # discard unsigned FA"s, now that we have the total number, don't need them anymore
   group_by(offseason, total_available_fas, sign_month) %>%
   summarize(num_signings = n()) %>%
   arrange(offseason, sign_month) %>%
   mutate(cume_fas_signed = cumsum(num_signings),
          cume_signed_perc = 100 * (cume_fas_signed / total_available_fas)) %>%
-  filter(offseason == 1989) %>% 
+  filter(offseason == 2017) %>% 
   arrange(cume_signed_perc)
 ```
 
