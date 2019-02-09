@@ -173,7 +173,8 @@ cumulative_sign_plt <-
   complete(offseason, sign_month, fill = list(num_signings = 0, war_signed = 0)) %>%  # zero-pad months where no FA's were signed
   group_by(offseason) %>%
   arrange(offseason, sign_month) %>%
-  mutate(total_signings = cumsum(num_signings),
+  mutate(percent_signed_this_month = 100 * (num_signings / total_available_fas),
+    total_signings = cumsum(num_signings),
          signed_perc = 100 * (total_signings / total_available_fas),
          war_perc = 100 * (cumsum(war_signed) / total_war_available))
     
@@ -243,13 +244,13 @@ cumulative_sign_plt %>%
 ```
 
 
-temporal distribution of signings
+temporal distribution of signing %, over time
 
-```{r, fig.height=3, fig.width=5}
+```{r, fig.height=7, fig.width=5}
 cumulative_sign_plt %>%
   ungroup() %>%
   mutate(offseason = factor(offseason)) %>%
-  ggplot(aes(x = sign_month, y = offseason, group = offseason, height = num_signings)) + 
+  ggplot(aes(x = sign_month, y = offseason, group = offseason, height = percent_signed_this_month)) + 
   geom_density_ridges(scale = 5, stat = "identity")
   
 
