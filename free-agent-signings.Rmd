@@ -6,6 +6,7 @@ library(tidyverse)
 library(lubridate)
 library(rvest)
 library(ggrepel)
+library(ggridges)
 library(plotly)
 
 fgt = theme(
@@ -209,9 +210,21 @@ cumulative_sign_plt %>%
   ggtitle("Free Agent Signings",
           subtitle = "% of free agents signed through January of each offseason") +
   labs(x="Offseason", y="% of FA's Signed", caption="Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com") + fgt + theme(legend.position = "none")
+
+cumulative_sign_plt %>%
+  ungroup() %>%
+  filter(sign_month == "Jan")  %>%
+  mutate(offseason = as.numeric(offseason)) %>%
+  ggplot(aes(offseason, war_perc)) + 
+  geom_point() + geom_line() +
+  ggtitle("Free Agent Talent",
+          subtitle = "% of free agents WAR3 signed through January of each offseason") +
+  labs(x="Offseason", y="% of FA's Signed", caption="Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com") + fgt + theme(legend.position = "none")
+
+
 ```
 
-```{r}
+```{r, fig.height=3}
 
 cumulative_sign_plt %>%
   ungroup() %>%
@@ -228,6 +241,60 @@ cumulative_sign_plt %>%
   labs(x="Offseason", y="%", caption="Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com")
 
 ```
+
+
+temporal distribution of signings
+
+```{r, fig.height=3, fig.width=5}
+cumulative_sign_plt %>%
+  ungroup() %>%
+  mutate(offseason = factor(offseason)) %>%
+  ggplot(aes(x = sign_month, y = offseason, group = offseason, height = num_signings)) + 
+  geom_density_ridges(scale = 5, stat = "identity")
+  
+
+#ggplot(iris, aes(x = Sepal.Length, y = Species)) + geom_density_ridges()
+
+```
+
+
+now do the above for "name-brand" players (those with at least 2 WAR per yer the prior 3 years)
+
+```{r}
+name_brand_fas <-
+  all_free_agents %>% 
+  filter(three_year_war >= 6) %>%
+  group_by(offseason) %>%
+  mutate(total_available_fas = n(),                        # get total available FA's in each offseason
+         total_war_available = sum(three_year_war, na.rm = TRUE)) %>%    # get total WAR available in the offseason
+  filter(!is.na(sign_month)) %>% # discard unsigned FA"s, now that we have the total number, don't need them anymore
+  group_by(offseason, total_available_fas, total_war_available, sign_month) %>%
+  summarize(num_signings = n(),
+            war_signed = sum(three_year_war)) %>%
+  complete(offseason, sign_month, fill = list(num_signings = 0, war_signed = 0)) %>%  # zero-pad months where no FA's were signed
+  group_by(offseason) %>%
+  arrange(offseason, sign_month) %>%
+  mutate(total_signings = cumsum(num_signings),
+         signed_perc = 100 * (total_signings / total_available_fas),
+         war_perc = 100 * (cumsum(war_signed) / total_war_available))
+
+
+name_brand_fas %>%
+  ungroup() %>%
+  filter(sign_month == "Jan")  %>%
+  mutate(offseason = as.numeric(offseason)) %>%
+  ggplot(aes(offseason, signed_perc)) + 
+  geom_point() + geom_line() +
+  ggtitle("Name-Brand Players are Signing Later",
+          subtitle = "% of name-brand free agents signed through January of each offseason") +
+  labs(x="Offseason", y="% of Name Brand FA's Signed", caption="Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com") + fgt + theme(legend.position = "none")
+
+# maybe bucket players into WAR3 groups (0-5, 6-11, 12-17, 18+ etc) and see which one has been hit the hardest 
+
+```
+
+
+
 
 
 
