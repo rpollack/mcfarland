@@ -9,7 +9,7 @@ library(ggrepel)
 library(ggridges)
 library(plotly)
 
-fgt = theme(
+fgt <- theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
   axis.title = element_text(family = "Lato"),
   axis.text = element_text(family = "Lato"),
@@ -20,59 +20,57 @@ fgt = theme(
   plot.title = element_text(family = "Lato"),
   panel.grid.major = element_line(size = .1, color = "lightgrey"),
   panel.grid.minor = element_line(size = 0),
- # strip.background = element_rect(fill = "#50ae26"),
-  strip.text = element_text(color="black", family="Lato")
-  )
-
-
+  # strip.background = element_rect(fill = "#50ae26"),
+  strip.text = element_text(color = "black", family = "Lato")
+)
 ```
 
 ```{r}
-get_free_agents <- function(url){
-signed_fas <- url %>%
-  read_html() %>%
-  html_node("table#fa_signings")
+get_free_agents <- function(url) {
+  signed_fas <- url %>%
+    read_html() %>%
+    html_node("table#fa_signings")
 
-# return empty tibble if no table was found
-tryCatch(html_table(signed_fas, header = TRUE),
-         error = function(e){
-           tibble()
-           }
-         )  
+  # return empty tibble if no table was found
+  tryCatch(html_table(signed_fas, header = TRUE),
+    error = function(e) {
+      tibble()
+    }
+  )
 }
 
-get_unsigned_batters <- function(url){
-unsigned_bat <- url %>%
-  read_html() %>%
-  html_nodes(xpath = "//comment()") %>%
-  html_text() %>%
-  paste(collapse = '') %>%
-  read_html() %>%
-  html_node('table#fa_batting') 
+get_unsigned_batters <- function(url) {
+  unsigned_bat <- url %>%
+    read_html() %>%
+    html_nodes(xpath = "//comment()") %>%
+    html_text() %>%
+    paste(collapse = "") %>%
+    read_html() %>%
+    html_node("table#fa_batting")
 
-# return empty tibble if no table was found
-tryCatch(html_table(unsigned_bat, header = TRUE),
-         error = function(e){
-           tibble()
-           }
-         )
+  # return empty tibble if no table was found
+  tryCatch(html_table(unsigned_bat, header = TRUE),
+    error = function(e) {
+      tibble()
+    }
+  )
 }
 
 get_unsigned_pitchers <- function(url) {
-unsigned_pit <- url %>%
-  read_html() %>%
-  html_nodes(xpath = "//comment()") %>%
-  html_text() %>%
-  paste(collapse = '') %>%
-  read_html() %>%
-  html_node('table#fa_pitching')
+  unsigned_pit <- url %>%
+    read_html() %>%
+    html_nodes(xpath = "//comment()") %>%
+    html_text() %>%
+    paste(collapse = "") %>%
+    read_html() %>%
+    html_node("table#fa_pitching")
 
-# return empty tibble if no table was found
-tryCatch(html_table(unsigned_pit, header = TRUE),
-         error = function(e){
-           tibble()
-           }
-         )
+  # return empty tibble if no table was found
+  tryCatch(html_table(unsigned_pit, header = TRUE),
+    error = function(e) {
+      tibble()
+    }
+  )
 }
 ```
 
@@ -102,8 +100,10 @@ unsigned_batters <- years %>%
   mutate(offseason = str_extract(url, "[:digit:]{4}")) %>%
   ungroup() %>%
   dplyr::select(name = Name, offseason, age = Age, three_year_war = `WAR3`) %>%
-  mutate(sign_type = "unsigned",
-         sign_date = NA_character_)
+  mutate(
+    sign_type = "unsigned",
+    sign_date = NA_character_
+  )
 
 unsigned_pitchers <- years %>%
   group_by(url) %>%
@@ -111,46 +111,55 @@ unsigned_pitchers <- years %>%
   mutate(offseason = str_extract(url, "[:digit:]{4}")) %>%
   ungroup() %>%
   dplyr::select(name = Name, offseason, age = Age, three_year_war = `WAR3`) %>%
-  mutate(sign_type = "unsigned",
-         sign_date = NA_character_)
+  mutate(
+    sign_type = "unsigned",
+    sign_date = NA_character_
+  )
 
-#check for invalid dates that month() will fail to convert. handle them manually later
-invalid_dates <- which( is.na( ymd(as.character(fa_signings$sign_date), tz="UTC") ) )
+# check for invalid dates that month() will fail to convert. handle them manually later
+invalid_dates <- which(is.na(ymd(as.character(fa_signings$sign_date), tz = "UTC")))
 fa_signings %>% filter(row_number() %in% invalid_dates) %>% View()
-
 ```
 
 ### clean data
 
 ```{r}
 
-fa_signings_clean <- 
+fa_signings_clean <-
   fa_signings %>%
   ungroup() %>%
-  #remove transactions w/no valid date attached & for which I can't find info
-  filter(!name %in% c("Doug Gwosdz", "Kurt Kepshire", "Bill Scherrer", "Darryl Motley",
-                      "Steve Carter", "Guillermo Rodriguez"),
-         !str_detect(sign_date, "-00-")) %>%
-  
-  #some guys have missing sign days, but we care only about the month, so fake it
-  mutate(sign_date = ifelse(name == "Jay Baller" & offseason == 1989, "1990-01-01", sign_date),
-         sign_date = ifelse(name == "Vic Rodriguez" & offseason == 1987, "1988-01-01", sign_date),
-         sign_date = ifelse(name == "Max Venable" & offseason == "1987", "1988-02-01", sign_date),
-         sign_date = as.Date(sign_date),
-         sign_month = (month(sign_date, label = TRUE)),
-         offseason = as.character(offseason),
-         
-         #re-order the months based on when we perceive the start of FA season to be
-         sign_month = factor(sign_month, levels=c("Sep", "Oct", "Nov", "Dec", "Jan", "Feb",
-                                                    "Mar", "Apr", "May", "Jun", "Jul", "Aug")))
+  # remove transactions w/no valid date attached & for which I can't find info
+  filter(
+    !name %in% c(
+      "Doug Gwosdz", "Kurt Kepshire", "Bill Scherrer", "Darryl Motley",
+      "Steve Carter", "Guillermo Rodriguez"
+    ),
+    !str_detect(sign_date, "-00-")
+  ) %>%
+
+  # some guys have missing sign days, but we care only about the month, so fake it
+  mutate(
+    sign_date = ifelse(name == "Jay Baller" & offseason == 1989, "1990-01-01", sign_date),
+    sign_date = ifelse(name == "Vic Rodriguez" & offseason == 1987, "1988-01-01", sign_date),
+    sign_date = ifelse(name == "Max Venable" & offseason == "1987", "1988-02-01", sign_date),
+    sign_date = as.Date(sign_date),
+    sign_month = (month(sign_date, label = TRUE)),
+    offseason = as.character(offseason),
+
+    # re-order the months based on when we perceive the start of FA season to be
+    sign_month = factor(sign_month, levels = c(
+      "Sep", "Oct", "Nov", "Dec", "Jan", "Feb",
+      "Mar", "Apr", "May", "Jun", "Jul", "Aug"
+    ))
+  )
 
 # combine all tibbles into one, so each offseason has the right signed and unsigned players
 # scrub duplicates from the data; i found that, for example, the 2017 offseason has many duplicates entries that inflate
 # the real count of free agents
 
-all_free_agents <- 
+all_free_agents <-
   bind_rows(fa_signings_clean, unsigned_batters, unsigned_pitchers) %>%
-  distinct(name, offseason, age, sign_date, three_year_war, sign_type, sign_month) %>%  # remove duplicate entries; many years have them
+  distinct(name, offseason, age, sign_date, three_year_war, sign_type, sign_month) %>% # remove duplicate entries; many years have them
   mutate(three_year_war = replace_na(three_year_war, 0)) %>%
   mutate(player_type = case_when(
     three_year_war < 3 ~ "Replacement",
@@ -158,8 +167,8 @@ all_free_agents <-
     three_year_war >= 6 & three_year_war < 9 ~ "Recognizable",
     three_year_war >= 9 & three_year_war < 12 ~ "Name-Brand",
     three_year_war >= 12 & three_year_war < 15 ~ "Star",
-    three_year_war >= 15 ~ "Superstar"))
-
+    three_year_war >= 15 ~ "Superstar"
+  ))
 ```
 
 
@@ -168,68 +177,78 @@ all_free_agents <-
 
 current_month <- "Feb"
 
-cumulative_sign_plt <- 
-  all_free_agents %>% 
+cumulative_sign_plt <-
+  all_free_agents %>%
   group_by(offseason) %>%
-  mutate(total_available_fas = n(),                        # get total available FA's in each offseason
-         total_war_available = sum(three_year_war, na.rm = TRUE)) %>%    # get total WAR available in the offseason
+  mutate(
+    total_available_fas = n(), # get total available FA's in each offseason
+    total_war_available = sum(three_year_war, na.rm = TRUE)
+  ) %>% # get total WAR available in the offseason
   filter(!is.na(sign_month)) %>% # discard unsigned FA"s, now that we have the total number, don't need them anymore
   group_by(offseason, total_available_fas, total_war_available, sign_month) %>%
-  summarize(num_signings = n(),
-            war_signed = sum(three_year_war)) %>%
-  complete(offseason, sign_month, fill = list(num_signings = 0, war_signed = 0)) %>%  # zero-pad months where no FA's were signed
+  summarize(
+    num_signings = n(),
+    war_signed = sum(three_year_war)
+  ) %>%
+  complete(offseason, sign_month, fill = list(num_signings = 0, war_signed = 0)) %>% # zero-pad months where no FA's were signed
   group_by(offseason) %>%
   arrange(offseason, sign_month) %>%
-  mutate(percent_signed_this_month = 100 * (num_signings / total_available_fas),
+  mutate(
+    percent_signed_this_month = 100 * (num_signings / total_available_fas),
     total_signings = cumsum(num_signings),
-         signed_perc = 100 * (total_signings / total_available_fas),
-         war_perc = 100 * (cumsum(war_signed) / total_war_available))
-    
-    
+    signed_perc = 100 * (total_signings / total_available_fas),
+    war_perc = 100 * (cumsum(war_signed) / total_war_available)
+  )
+
+
 cumulative_sign_plt %>%
   filter(sign_month < current_month) %>%
-  mutate(label = ifelse(offseason %in% c(1985, 2018, 2017, 2004, 2016, 1994) & 
-                          sign_month == max(sign_month), 
-                        offseason, NA_character_)) %>%
-  ggplot(aes(x = sign_month, y = signed_perc, color=offseason, 
-             group = offseason)) +
+  mutate(label = ifelse(offseason %in% c(1985, 2018, 2017, 2004, 2016, 1994) &
+    sign_month == max(sign_month),
+  offseason, NA_character_
+  )) %>%
+  ggplot(aes(
+    x = sign_month, y = signed_perc, color = offseason,
+    group = offseason
+  )) +
   geom_point() + geom_line() +
-  labs(x="", y="% of FA's Signed", caption="Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com") +
+  labs(x = "", y = "% of FA's Signed", caption = "Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com") +
   ggtitle("Free Agent Signing Progress, Visualized",
-          subtitle = "% of free agents signed by month, through January of each year") +
-  geom_label_repel(aes(label=label),
-                       nudge_x = 100,
-                       na.rm = TRUE) +
+    subtitle = "% of free agents signed by month, through January of each year"
+  ) +
+  geom_label_repel(aes(label = label),
+    nudge_x = 100,
+    na.rm = TRUE
+  ) +
   fgt +
-  guides(color=guide_legend(ncol=3)) +
+  guides(color = guide_legend(ncol = 3)) +
   theme(legend.position = "none")
 
-#ggplotly(cumulative_sign_plt)
-
+# ggplotly(cumulative_sign_plt)
 ```
 
 ```{r}
 cumulative_sign_plt %>%
   ungroup() %>%
-  filter(sign_month == "Jan")  %>%
+  filter(sign_month == "Jan") %>%
   mutate(offseason = as.numeric(offseason)) %>%
-  ggplot(aes(offseason, signed_perc)) + 
+  ggplot(aes(offseason, signed_perc)) +
   geom_point() + geom_line() +
   ggtitle("Free Agent Signings",
-          subtitle = "% of free agents signed through January of each offseason") +
-  labs(x="Offseason", y="% of FA's Signed", caption="Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com") + fgt + theme(legend.position = "none")
+    subtitle = "% of free agents signed through January of each offseason"
+  ) +
+  labs(x = "Offseason", y = "% of FA's Signed", caption = "Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com") + fgt + theme(legend.position = "none")
 
 cumulative_sign_plt %>%
   ungroup() %>%
-  filter(sign_month == "Jan")  %>%
+  filter(sign_month == "Jan") %>%
   mutate(offseason = as.numeric(offseason)) %>%
-  ggplot(aes(offseason, war_perc)) + 
+  ggplot(aes(offseason, war_perc)) +
   geom_point() + geom_line() +
   ggtitle("Free Agent Talent",
-          subtitle = "% of free agents WAR3 signed through January of each offseason") +
-  labs(x="Offseason", y="% of FA's Signed", caption="Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com") + fgt + theme(legend.position = "none")
-
-
+    subtitle = "% of free agents WAR3 signed through January of each offseason"
+  ) +
+  labs(x = "Offseason", y = "% of FA's Signed", caption = "Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com") + fgt + theme(legend.position = "none")
 ```
 
 ```{r, fig.height=3}
@@ -237,17 +256,20 @@ cumulative_sign_plt %>%
 cumulative_sign_plt %>%
   ungroup() %>%
   gather(metric, value, signed_perc, war_perc) %>%
-  mutate(metric = str_replace_all(metric, c("signed_perc" = "% of Free Agents Signed",
-                                            "war_perc" = "% of Free Agent Trailing 3-Year WAR Signed")),
-         offseason = as.numeric(offseason)) %>% 
-  filter(sign_month == "Jan")  %>%
+  mutate(
+    metric = str_replace_all(metric, c(
+      "signed_perc" = "% of Free Agents Signed",
+      "war_perc" = "% of Free Agent Trailing 3-Year WAR Signed"
+    )),
+    offseason = as.numeric(offseason)
+  ) %>%
+  filter(sign_month == "Jan") %>%
   ggplot(aes(offseason, value)) +
   geom_point() + geom_line() +
   facet_wrap(vars(metric), scales = "free_y") +
   fgt + geom_smooth(method = "loess", se = FALSE, linetype = "dashed") +
   ggtitle("Trends in Free Agent Signing, through Janauary") +
-  labs(x="Offseason", y="%", caption="Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com")
-
+  labs(x = "Offseason", y = "%", caption = "Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com")
 ```
 
 
@@ -257,12 +279,11 @@ temporal distribution of signing %, over time
 cumulative_sign_plt %>%
   ungroup() %>%
   mutate(offseason = factor(offseason)) %>%
-  ggplot(aes(x = sign_month, y = offseason, group = offseason, height = percent_signed_this_month)) + 
+  ggplot(aes(x = sign_month, y = offseason, group = offseason, height = percent_signed_this_month)) +
   geom_density_ridges(scale = 5, stat = "identity")
-  
 
-#ggplot(iris, aes(x = Sepal.Length, y = Species)) + geom_density_ridges()
 
+# ggplot(iris, aes(x = Sepal.Length, y = Species)) + geom_density_ridges()
 ```
 
 
@@ -278,11 +299,13 @@ make sure to zero-pad
 
 
 fa_types_annual <-
-  all_free_agents %>% 
+  all_free_agents %>%
   group_by(offseason, player_type) %>%
   summarize(total_available_fas = n()) %>%
-  complete(offseason, player_type = c("Replacement", "Regular", "Recognizable", "Name-Brand", "Star", "Superstar"),
-           fill = list(total_available_fas = 0))
+  complete(offseason,
+    player_type = c("Replacement", "Regular", "Recognizable", "Name-Brand", "Star", "Superstar"),
+    fill = list(total_available_fas = 0)
+  )
 
 sign_type_plt <-
   all_free_agents %>%
@@ -290,28 +313,33 @@ sign_type_plt <-
   group_by(offseason, sign_month, player_type) %>%
   summarize(num_signed = n()) %>%
   ungroup() %>%
-  complete(offseason, sign_month, player_type, fill=list(num_signed = 0)) %>%
-  left_join(fa_types_annual, by=c("offseason", "player_type")) %>%
+  complete(offseason, sign_month, player_type, fill = list(num_signed = 0)) %>%
+  left_join(fa_types_annual, by = c("offseason", "player_type")) %>%
   mutate(percent_signed = 100 * (num_signed / total_available_fas)) %>%
   group_by(offseason, player_type) %>%
   arrange(sign_month) %>%
-  mutate(cume_signed = cumsum(num_signed),
-         cume_percent_signed = 100 * (cume_signed / total_available_fas))
+  mutate(
+    cume_signed = cumsum(num_signed),
+    cume_percent_signed = 100 * (cume_signed / total_available_fas)
+  )
 
 sign_type_plt %>%
   ungroup() %>%
   filter(sign_month == "Jan") %>%
-  mutate(offseason = as.numeric(offseason),
-         player_type = factor(player_type, levels = c("Replacement", "Recognizable", "Regular", "Name-Brand", "Star", "Superstar"))) %>%
-  ggplot(aes(offseason, cume_percent_signed)) + 
+  mutate(
+    offseason = as.numeric(offseason),
+    player_type = factor(player_type, levels = c("Replacement", "Recognizable", "Regular", "Name-Brand", "Star", "Superstar"))
+  ) %>%
+  ggplot(aes(offseason, cume_percent_signed)) +
   geom_point() + geom_line() +
   ggtitle("How Each Class of Players has Fared in Free Agency",
-          subtitle = "% of free agents signed through January") +
-  labs(x="Offseason", y="% of FA's Signed", 
-       caption="Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com") + 
+    subtitle = "% of free agents signed through January"
+  ) +
+  labs(
+    x = "Offseason", y = "% of FA's Signed",
+    caption = "Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com"
+  ) +
   fgt + facet_wrap(vars(player_type)) + geom_smooth(method = "loess", linetype = "dashed", se = FALSE, lwd = 0.7)
-
-
 ```
 
 
@@ -327,19 +355,21 @@ debugging is below
 ```{r}
 
 
-# TODO: verify month by month signing ounts for 2017, 2018, and 1994 
+# TODO: verify month by month signing ounts for 2017, 2018, and 1994
 # this will be my final verification
 
-all_free_agents %>% 
+all_free_agents %>%
   group_by(offseason) %>%
-  mutate(total_available_fas = n()) %>%  #get total available FA's in each offseason
+  mutate(total_available_fas = n()) %>% # get total available FA's in each offseason
   filter(!is.na(sign_month)) %>% # discard unsigned FA"s, now that we have the total number, don't need them anymore
   group_by(offseason, total_available_fas, sign_month) %>%
   summarize(num_signings = n()) %>%
   arrange(offseason, sign_month) %>%
-  mutate(cume_fas_signed = cumsum(num_signings),
-         cume_signed_perc = 100 * (cume_fas_signed / total_available_fas)) %>%
-  filter(offseason == 2017) %>% 
+  mutate(
+    cume_fas_signed = cumsum(num_signings),
+    cume_signed_perc = 100 * (cume_fas_signed / total_available_fas)
+  ) %>%
+  filter(offseason == 2017) %>%
   arrange(cume_signed_perc)
 ```
 
