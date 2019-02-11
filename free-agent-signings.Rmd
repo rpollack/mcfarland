@@ -153,22 +153,29 @@ fa_signings_clean <-
     ))
   )
 
-# combine all tibbles into one, so each offseason has the right signed and unsigned players
-# scrub duplicates from the data; i found that, for example, the 2017 offseason has many duplicates entries that inflate
+# 1. combine all tibbles into one, so each offseason has the right signed and unsigned players
+# 2. scrub duplicates from the data; i found that, for example, the 2017 offseason has many duplicates entries that inflate
 # the real count of free agents
+# 3. assign a label to each type of player, based on their trailing three-year WAR total 
 
 all_free_agents <-
   bind_rows(fa_signings_clean, unsigned_batters, unsigned_pitchers) %>%
   distinct(name, offseason, age, sign_date, three_year_war, sign_type, sign_month) %>% # remove duplicate entries; many years have them
   mutate(three_year_war = replace_na(three_year_war, 0)) %>%
   mutate(player_type = case_when(
-    three_year_war < 3 ~ "Replacement",
-    three_year_war >= 3 & three_year_war < 6 ~ "Regular",
-    three_year_war >= 6 & three_year_war < 9 ~ "Recognizable",
-    three_year_war >= 9 & three_year_war < 12 ~ "Name-Brand",
-    three_year_war >= 12 & three_year_war < 15 ~ "Star",
-    three_year_war >= 15 ~ "Superstar"
+    three_year_war < 1.5 ~ "Scrub",
+    three_year_war >= 1.5 & three_year_war < 4.5 ~ "Role Player",
+    three_year_war >= 4.5 & three_year_war < 7.5 ~ "Solid Starter",
+    three_year_war >= 7.5 & three_year_war < 10.5 ~ "Good Player",
+    three_year_war >= 10.5 & three_year_war < 13.5 ~ "All-Star",
+    three_year_war >= 13.5 & three_year_war < 16.5 ~ "Superstar",
+    three_year_war >= 16.5 ~ "MVP"
   ))
+
+# TODO: the scale above needs to be adjusted if the player is a reliever
+# TODO: which means I need to attach positional information to everyone
+# TODO: this info will also let me split out decline by position
+
 ```
 
 
@@ -251,7 +258,7 @@ cumulative_sign_plt %>%
   labs(x = "Offseason", y = "% of FA's Signed", caption = "Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com") + fgt + theme(legend.position = "none")
 ```
 
-```{r, fig.height=3}
+```{r}
 
 cumulative_sign_plt %>%
   ungroup() %>%
@@ -280,10 +287,8 @@ cumulative_sign_plt %>%
   ungroup() %>%
   mutate(offseason = factor(offseason)) %>%
   ggplot(aes(x = sign_month, y = offseason, group = offseason, height = percent_signed_this_month)) +
-  geom_density_ridges(scale = 5, stat = "identity")
+  geom_density_ridges2(scale = 2, stat = "identity")
 
-
-# ggplot(iris, aes(x = Sepal.Length, y = Species)) + geom_density_ridges()
 ```
 
 
@@ -295,7 +300,7 @@ make sure to zero-pad
 for each offseason, for each month, for each player type, get the number of FA's signed
 make sure to zero-pad
 
-```{r, fig.height= 3}
+```{r, fig.height = 3}
 
 
 fa_types_annual <-
@@ -303,7 +308,7 @@ fa_types_annual <-
   group_by(offseason, player_type) %>%
   summarize(total_available_fas = n()) %>%
   complete(offseason,
-    player_type = c("Replacement", "Regular", "Recognizable", "Name-Brand", "Star", "Superstar"),
+    player_type = c("Scrub", "Role Player", "Solid Starter", "Good Player", "All-Star", "Superstar", "MVP"),
     fill = list(total_available_fas = 0)
   )
 
@@ -328,18 +333,18 @@ sign_type_plt %>%
   filter(sign_month == "Jan") %>%
   mutate(
     offseason = as.numeric(offseason),
-    player_type = factor(player_type, levels = c("Replacement", "Recognizable", "Regular", "Name-Brand", "Star", "Superstar"))
+    player_type = factor(player_type, levels = c("Scrub", "Role Player", "Solid Starter", "Good Player", "All-Star", "Superstar", "MVP"))
   ) %>%
   ggplot(aes(offseason, cume_percent_signed)) +
   geom_point() + geom_line() +
-  ggtitle("How Each Class of Players has Fared in Free Agency",
+  ggtitle("The Free Agency Decline has Hit All but the Very Best Players",
     subtitle = "% of free agents signed through January"
   ) +
   labs(
     x = "Offseason", y = "% of FA's Signed",
     caption = "Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com"
   ) +
-  fgt + facet_wrap(vars(player_type)) + geom_smooth(method = "loess", linetype = "dashed", se = FALSE, lwd = 0.7)
+  fgt + facet_wrap(vars(player_type), scales ="free_y") + geom_smooth(method = "loess", linetype = "dashed", se = FALSE, lwd = 0.7)
 ```
 
 
