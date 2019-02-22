@@ -533,7 +533,7 @@ warcels_team_2019 %>%
   fgt +
   scale_fill_manual(values = team_colors) + 
   labs(x="", y="Controlled Surplus Value (Millions USD)", caption="Sources: Baseball Reference, FanGraphs, & Tom Tango") +
-  ggtitle("Controlled Surplus Value, MLB Teams 2018 - 2022")
+  ggtitle("Controlled Surplus Value, MLB Teams 2019 - 2023")
 
 ```
 
@@ -651,6 +651,33 @@ warcels_full <-
   bind_rows(read_csv("warcels-2018.csv") %>%
                mutate(year_analyzed = 2018)) %>% 
   dplyr::select(PlayerId, Name, year_analyzed, everything())
+
+surplus_value_change_plt <-
+  warcels_full %>%
+  group_by(PlayerId, Name) %>%
+  arrange(year_analyzed) %>%
+  mutate(surplus_value_change = surplus_value_under_control - lag(surplus_value_under_control)) %>%
+  filter(!is.na(surplus_value_change))
+
+
+surplus_value_change_plt %>%
+  arrange(surplus_value_change) %>%
+  head(10) %>%
+  ggplot(aes(reorder(Name, surplus_value_change), surplus_value_change)) +
+  geom_col() + coord_flip() +
+  labs(x="", y="Change in Controlled Surplus Value (Millions USD)") +
+  ggtitle("Largest Reductions in Controlled Surplus Value, 2018-2019")
+
+
+surplus_value_change_plt %>%
+  arrange(desc(surplus_value_change)) %>%
+  head(10) %>%
+  ggplot(aes(reorder(Name, surplus_value_change), surplus_value_change)) +
+  geom_col() + coord_flip() +
+  labs(x="", y="Change in Controlled Surplus Value (Millions USD)") +
+  ggtitle("Largest Gains in Controlled Surplus Value, 2018-2019")
+
+  
 
 
 ```
