@@ -255,6 +255,32 @@ cumulative_sign_plt %>%
   ) +
   labs(x = "Offseason", y = "% of FA's Signed", caption = "Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com") + fgt + theme(legend.position = "none")
 
+# same plot as above, but with age buckets visualized
+# doesn't work right now
+
+# cumulative_sign_plt <-
+#   all_free_agents %>%
+#   group_by(offseason) %>%
+#   mutate(
+#     total_available_fas = n(), # get total available FA's in each offseason
+#     total_war_available = sum(three_year_war, na.rm = TRUE)
+#   ) %>% # get total WAR available in the offseason
+#   filter(!is.na(sign_month)) %>% # discard unsigned FA"s, now that we have the total number, don't need them anymore
+#   group_by(offseason, total_available_fas, total_war_available, sign_month) %>%
+#   summarize(
+#     num_signings = n(),
+#     war_signed = sum(three_year_war)
+#   ) %>%
+#   complete(offseason, sign_month, fill = list(num_signings = 0, war_signed = 0)) %>% # zero-pad months where no FA's were signed
+#   group_by(offseason) %>%
+#   arrange(offseason, sign_month) %>%
+#   mutate(
+#     percent_signed_this_month = 100 * (num_signings / total_available_fas),
+#     total_signings = cumsum(num_signings),
+#     signed_perc = 100 * (total_signings / total_available_fas),
+#     war_perc = 100 * (cumsum(war_signed) / total_war_available)
+#   )
+
 cumulative_sign_plt %>%
   ungroup() %>%
   filter(sign_month == "Jan") %>%
@@ -265,6 +291,8 @@ cumulative_sign_plt %>%
     subtitle = "% of free agents WAR3 signed through January of each offseason"
   ) +
   labs(x = "Offseason", y = "% of FA's Signed", caption = "Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com") + fgt + theme(legend.position = "none")
+
+
 ```
 
 ```{r}
@@ -345,7 +373,7 @@ sign_type_plt %>%
     x = "Offseason", y = "% of FA's Signed",
     caption = "Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com"
   ) +
-  fgt + facet_wrap(vars(player_type), scales = "free_y") + geom_smooth(method = "loess", linetype = "dashed", se = FALSE, lwd = 0.7)
+  fgt + facet_wrap(vars(player_type)) + geom_smooth(method = "loess", linetype = "dashed", se = FALSE, lwd = 0.7)
 ```
 
 
