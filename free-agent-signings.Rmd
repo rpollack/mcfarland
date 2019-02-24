@@ -182,8 +182,10 @@ all_free_agents <-
     ),
     age_bucket = factor(age_bucket, levels = c("27 and under", "Between 28 and 33", "34+")),
     offseason = as.numeric(offseason),
-    days_to_sign = as.period(interval(ymd(str_c(offseason, "11", "01", sep = "-")),
-                                      sign_date)) %/% days(1)
+    days_to_sign = as.period(interval(
+      ymd(str_c(offseason, "11", "01", sep = "-")),
+      sign_date
+    )) %/% days(1)
   )
 
 
@@ -193,63 +195,77 @@ all_free_agents <-
 # TODO: this info will also let me split out decline by position
 ```
 
+
+show the average number of days it takes players to sign a FA contract
+
 ```{r, fig.height=3}
 
-all_free_agents %>% 
-  group_by(offseason) %>% 
+# mean time to sign overall, by year
+all_free_agents %>%
+  group_by(offseason) %>%
   summarize(mean_days_to_sign = round(mean(days_to_sign, na.rm = TRUE), 1)) %>%
   ggplot(aes(offseason, mean_days_to_sign)) +
   geom_point() + geom_line() +
   ggtitle("Trends in Free Agent Signing Speed",
-          subtitle = "Avg. number of days between Nov 1st and player's sign date") + fgt +
-  expand_limits(y=0)
+    subtitle = "Avg. number of days between Nov 1st and player's sign date"
+  ) + fgt +
+  expand_limits(y = 0)
 
-all_free_agents %>% 
-  group_by(offseason, player_type) %>% 
+# mean time to sign by player talent type, by yvear
+all_free_agents %>%
+  group_by(offseason, player_type) %>%
   summarize(mean_days_to_sign = round(mean(days_to_sign, na.rm = TRUE), 1)) %>%
   ggplot(aes(offseason, mean_days_to_sign)) +
   facet_wrap(vars(player_type)) +
-  geom_point(size=0.7) + geom_line() +
+  geom_point(size = 0.7) + geom_line() +
   ggtitle("Trends in Free Agent Signing Speed",
-          subtitle = "Avg. number of days between Nov 1st and player's sign date") + fgt +
-  expand_limits(y=0) +
-  geom_smooth(method = "loess", linetype="dashed", lwd=0.7, se=FALSE)
+    subtitle = "Avg. number of days between Nov 1st and player's sign date"
+  ) + fgt +
+  expand_limits(y = 0) +
+  geom_smooth(method = "loess", linetype = "dashed", lwd = 0.7, se = FALSE)
 ```
 
+add one more facet: the player's age bucket
+
 ```{r, fig.height=4, fig.width=5}
+
+# mean time to sign by player type and age bucket, by year
 fa_diff <-
-  all_free_agents %>% 
-  group_by(offseason, player_type, age_bucket) %>% 
+  all_free_agents %>%
+  group_by(offseason, player_type, age_bucket) %>%
   summarize(mean_days_to_sign = round(mean(days_to_sign, na.rm = TRUE), 1))
 
 fa_diff %>%
   ggplot(aes(offseason, mean_days_to_sign, group = 1, color = age_bucket)) +
   facet_wrap(vars(player_type, age_bucket)) +
-  geom_point(size=0.5) + geom_line() +
+  geom_point(size = 0.5) + geom_line() +
   ggtitle("Mean Days to Sign FA Contract by Player Type",
-          subtitle = "Number of Days between Nov 1st and player's sign date") + fgt +
-  expand_limits(y=0)
+    subtitle = "Number of Days between Nov 1st and player's sign date"
+  ) + fgt +
+  expand_limits(y = 0)
 
 # find the largest year-to-year changes in mean days to sign, by player type by age bucket
-# ignore multi-year changes as fans don't perceive those as much; we remember the previous offseason mostly
+# ignore multi-year intervals as fans don't perceive those as much; we remember the previous offseason mostly
 # also ignore 1993-1994 and 1994-1995 as 1994 was a strike year
 fa_diff %>%
   filter(offseason != 1994) %>%
   group_by(player_type, age_bucket) %>%
   arrange(offseason) %>%
-  mutate(from_to = str_c(dplyr::lag(offseason), offseason, sep = " - "),
-         diff_mean_days_to_sign = mean_days_to_sign - dplyr::lag(mean_days_to_sign)) %>%
-  filter(!is.na(diff_mean_days_to_sign),
-         offseason - dplyr::lag(offseason) == 1) %>%
-  arrange(desc(diff_mean_days_to_sign)) %>% 
+  mutate(
+    from_to = str_c(dplyr::lag(offseason), offseason, sep = " - "),
+    diff_mean_days_to_sign = mean_days_to_sign - dplyr::lag(mean_days_to_sign)
+  ) %>%
+  filter(
+    !is.na(diff_mean_days_to_sign),
+    offseason - dplyr::lag(offseason) == 1
+  ) %>%
+  arrange(desc(diff_mean_days_to_sign)) %>%
   dplyr::select(from_to, player_type, age_bucket, diff_mean_days_to_sign) %>%
   View()
-  
 ```
 
 
-
-
+the chunks below are useful but not as much now. the code above, that references mean time to sign, is much more useful as it can be updated daily
 
 ```{r}
 
@@ -352,8 +368,6 @@ cumulative_sign_plt %>%
     subtitle = "% of free agents WAR3 signed through January of each offseason"
   ) +
   labs(x = "Offseason", y = "% of FA's Signed", caption = "Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com") + fgt + theme(legend.position = "none")
-
-
 ```
 
 ```{r}
@@ -436,7 +450,6 @@ sign_type_plt %>%
   ) +
   fgt + facet_wrap(vars(player_type)) + geom_smooth(method = "loess", linetype = "dashed", se = FALSE, lwd = 0.7)
 
-# TODO: number of days until signing for all types
 ```
 
 
