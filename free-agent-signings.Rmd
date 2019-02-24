@@ -72,13 +72,42 @@ get_unsigned_pitchers <- function(url) {
     }
   )
 }
-```
 
+get_fa_salaries <- function(year) {
+  # read salaries from MLB Trade Rumors trackers
+  # ignore players who didn't sign or for whom MLBTR does not know the signing amount
+  # convert all salaries to major-league guaranteed millions USD
+  # which means minor-league deals count as $0
+  url <- str_c("https://www.mlbtraderumors.com/", year, "-mlb-free-agent-tracker/")
+
+  read_html(url) %>%
+    html_nodes("table") %>%
+    .[[2]] %>%
+    html_table(header = FALSE, fill = TRUE) %>%
+    as_tibble() %>%
+    filter(
+      X1 != "Player",
+      X5 > 0,
+      X6 != "Unknown"
+    ) %>%
+    select(name = X1, sign_years = X5, sign_salary = X6) %>%
+    distinct(name, sign_years, sign_salary) %>% # remove duplicate entries
+    mutate(
+      offseason = year - 1,
+      sign_salary = case_when(
+        sign_salary == "Minor" ~ 0,
+        str_detect(sign_salary, "MM") ~ as.numeric(str_extract(sign_salary, "[:digit:]+\\.{0,1}[:digit:]*")),
+        str_detect(sign_salary, "K") ~ as.numeric(str_extract(sign_salary, "[:digit:]+")) / 1000
+      )
+    )
+}
+```
 
 ### get data
 
 ```{r}
 start_year <- 1976
+start_year_salaries <- 2011
 current_year <- 2018
 
 
@@ -119,6 +148,12 @@ unsigned_pitchers <- years %>%
 # check for invalid dates that month() will fail to convert. handle them manually later
 invalid_dates <- which(is.na(ymd(as.character(fa_signings$sign_date), tz = "UTC")))
 fa_signings %>% filter(row_number() %in% invalid_dates) %>% View()
+
+fa_salaries <-
+  seq(2011, 2019) %>%
+  map_df(get_fa_salaries) %>%
+  arrange(desc(sign_salary))
+  
 ```
 
 ### clean data
@@ -186,7 +221,8 @@ all_free_agents <-
       ymd(str_c(offseason, "11", "01", sep = "-")),
       sign_date
     )) %/% days(1)
-  )
+  ) %>%
+  left_join(fa_salaries, by=c("name", "offseason"))
 
 
 # TODO: try and get offseason_start to be the actual day after the end of the world series. fake it for 1994 or look up what it was
@@ -262,6 +298,14 @@ fa_diff %>%
   arrange(desc(diff_mean_days_to_sign)) %>%
   dplyr::select(from_to, player_type, age_bucket, diff_mean_days_to_sign) %>%
   View()
+```
+
+
+```{r, fig.height = 5, fig.width=6}
+all_free_agents %>% 
+  ggplot(aes(offseason, days_to_sign, group = offseason, color = age_bucket)) + 
+  geom_boxplot(outlier.size=0.5, na.rm = TRUE) + 
+  facet_wrap(vars(player_type, age_bucket)) + fgt
 ```
 
 
