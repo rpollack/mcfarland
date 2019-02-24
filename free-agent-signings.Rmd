@@ -149,9 +149,29 @@ unsigned_pitchers <- years %>%
 invalid_dates <- which(is.na(ymd(as.character(fa_signings$sign_date), tz = "UTC")))
 fa_signings %>% filter(row_number() %in% invalid_dates) %>% View()
 
+# get FA salaries from MLBTR
+# update some names to match formatting from baseball reference
 fa_salaries <-
   seq(2011, 2019) %>%
   map_df(get_fa_salaries) %>%
+  mutate(name = str_replace_all(name, c("Jorge de la Rosa" = "Jorge De La Rosa",
+                                        "Manual Corpas" = "Manny Corpas",
+                                        "Hong-Chih Kuo" = "Hung-Chih Kuo",
+                                        "Melvin Upton" = "Melvin Upton Jr.",
+                                        "Zach Britton" = "Zack Britton",
+                                        "Michael Dunn" = "Mike Dunn",
+                                        "Michael Fiers" = "Mike Fiers",
+                                        "Jung-ho Kang" = "Jung Ho Kang",
+                                        "Matt Joyce" = "Matthew Joyce",
+                                        "Alejandro de Aza" = "Alejandro De Aza",
+                                        "Norichika Aoki" = "Nori Aoki",
+                                        "Seung-hwan Oh" = "Seunghwan Oh",
+                                        "David Bush" = "Dave Bush",
+                                        "Samuel Deduno" = "Sam Deduno",
+                                        "Johnathon Niese" = "Jon Niese",
+                                        "J.B. Shuck" = "JB Shuck",
+                                        "Chase D'Arnaud" = "Chase d'Arnaud",
+                                        "Daniel Coulombe" = "Danny Coulombe"))) %>%
   arrange(desc(sign_salary))
   
 ```
@@ -274,7 +294,7 @@ fa_diff <-
 fa_diff %>%
   ggplot(aes(offseason, mean_days_to_sign, group = 1, color = age_bucket)) +
   facet_wrap(vars(player_type, age_bucket)) +
-  geom_point(size = 0.5) + geom_line() +
+  geom_point(size = 0.7) + geom_line() +
   ggtitle("Mean Days to Sign FA Contract by Player Type",
     subtitle = "Number of Days between Nov 1st and player's sign date"
   ) + fgt +
@@ -306,6 +326,39 @@ all_free_agents %>%
   ggplot(aes(offseason, days_to_sign, group = offseason, color = age_bucket)) + 
   geom_boxplot(outlier.size=0.5, na.rm = TRUE) + 
   facet_wrap(vars(player_type, age_bucket)) + fgt
+```
+
+
+fun with salary information
+
+```{r, fig.height = 3}
+# mean $ signed for, by player type by age bucket, over time
+all_free_agents %>%
+  filter(!is.na(sign_salary)) %>%
+  group_by(offseason, player_type, age_bucket) %>%
+  summarize(avg_signing = round(mean(sign_salary, na.rm = TRUE), 1)) %>%
+  ggplot(aes(offseason, avg_signing, group = 1, color = age_bucket)) +
+  facet_wrap(vars(player_type, age_bucket), scales = "free_y") +
+  geom_point(size=0.7) + geom_line() +
+  ggtitle("Trends in Free Agent Signing Money"
+  ) + fgt +
+  expand_limits(y = 0) +
+  labs(y="Average Signing Salary (Millions USD)", x="")
+
+```
+
+
+relationship between days to sign and salary signed for, by player type and age bucket
+
+
+```{r, fig.height=3}
+
+all_free_agents %>%
+  filter(!is.na(sign_salary)) %>%
+  ggplot(aes(days_to_sign, sign_salary, color=age_bucket)) +
+  facet_wrap(vars(player_type, age_bucket), scales = "free_y") +
+  geom_point(size=0.7)
+
 ```
 
 
