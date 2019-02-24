@@ -179,13 +179,56 @@ all_free_agents <-
       age > 33 ~ "33+"
     ),
     age_bucket = factor(age_bucket, levels = c("26 and under", "Between 27 and 32", "33+")),
-    offseason = as.numeric(offseason)
+    offseason = as.numeric(offseason),
+    offseason_start = ymd(str_c(offseason, "11", "01", sep = "-")),
+    days_to_sign = as.period(interval(offseason_start, sign_date)) %/% days(1)
   )
 
+
+# TODO: try and get offseason_start to be the actual day after the end of the world series. fake it for 1994 or look up what it was
 # TODO: the scale above needs to be adjusted if the player is a reliever
 # TODO: which means I need to attach positional information to everyone
 # TODO: this info will also let me split out decline by position
 ```
+
+```{r, fig.height = 3}
+
+all_free_agents %>% 
+  group_by(offseason) %>% 
+  summarize(mean_days_to_sign = round(mean(days_to_sign, na.rm = TRUE), 1)) %>%
+  ggplot(aes(offseason, mean_days_to_sign)) +
+  geom_point() + geom_line() +
+  ggtitle("Mean Days to Sign FA Contract",
+          subtitle = "Number of Days between Nov 1st and player's sign date") + fgt +
+  expand_limits(y=0)
+
+all_free_agents %>% 
+  group_by(offseason, player_type) %>% 
+  summarize(mean_days_to_sign = round(mean(days_to_sign, na.rm = TRUE), 1)) %>%
+  ggplot(aes(offseason, mean_days_to_sign)) +
+  facet_wrap(vars(player_type)) +
+  geom_point(size=0.7) + geom_line() +
+  ggtitle("Mean Days to Sign FA Contract by Player Type",
+          subtitle = "Number of Days between Nov 1st and player's sign date") + fgt +
+  expand_limits(y=0) +
+  geom_smooth(method = "loess", linetype="dashed", lwd=0.7, se=FALSE)
+
+all_free_agents %>% 
+  group_by(offseason, player_type, age_bucket) %>% 
+  summarize(mean_days_to_sign = round(mean(days_to_sign, na.rm = TRUE), 1)) %>%
+  ggplot(aes(offseason, mean_days_to_sign, group = 1)) +
+  facet_wrap(vars(player_type, age_bucket)) +
+  geom_point(size=0.5) + geom_line() +
+  ggtitle("Mean Days to Sign FA Contract by Player Type",
+          subtitle = "Number of Days between Nov 1st and player's sign date") + fgt +
+  expand_limits(y=0)
+
+
+  
+  # plot this
+  
+```
+
 
 
 
@@ -215,7 +258,6 @@ cumulative_sign_plt <-
     signed_perc = 100 * (total_signings / total_available_fas),
     war_perc = 100 * (cumsum(war_signed) / total_war_available)
   )
-
 
 cumulative_sign_plt %>%
   filter(sign_month < current_month) %>%
@@ -374,6 +416,8 @@ sign_type_plt %>%
     caption = "Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com"
   ) +
   fgt + facet_wrap(vars(player_type)) + geom_smooth(method = "loess", linetype = "dashed", se = FALSE, lwd = 0.7)
+
+# TODO: number of days until signing for all types
 ```
 
 
