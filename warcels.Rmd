@@ -205,7 +205,7 @@ fg_pitch <- fg_db %>%
   collect(n=Inf)
 
 fg_pitchers <- inner_join(fg_players, fg_pitch, by="PlayerId") %>%
-  filter(BISPosition %in% c("SP", "RP")) %>% #don't get pitching WAR for position players
+  filter(BISPosition %in% c("SP", "RP")) %>% #don't get pitching WAR for position players     TODO: should get both WAR projections for Ohtani though
   dplyr::select(PlayerId, FirstName, LastName, Season, BirthDate, ValueW, Position = BISPosition, 
          TeamId = TeamId.x)
 ```
@@ -216,6 +216,7 @@ fg_pitchers <- inner_join(fg_players, fg_pitch, by="PlayerId") %>%
 all_players <- 
   bind_rows(fg_batters, fg_pitchers)  %>%
   inner_join(fg_projected_teams_all, by="PlayerId") %>%
+  distinct(PlayerId, FirstName, LastName, Season, BirthDate, ValueW, Position, TeamId, Team) %>% # prevent Shohei Ohtani from having 2 team projections
   dplyr::select(-TeamId) %>%
   mutate(FullName = sprintf("%s %s", FirstName, LastName),
          birth_date = as.Date(as.POSIXct(BirthDate)),
