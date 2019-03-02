@@ -214,6 +214,7 @@ fa_signings_clean <-
 # 3. assign a label to each type of player, based on their trailing three-year WAR total
 # 4. bucket the player according to their age when they signed
 # 5. compute the number of days it took the player to sign, starting from Nov 1st of that year
+# 6. match up any salary/signing information i have with the player and the offseason
 
 all_free_agents <-
   bind_rows(fa_signings_clean, unsigned_batters, unsigned_pitchers) %>%
@@ -244,7 +245,7 @@ all_free_agents <-
   ) %>%
   left_join(fa_salaries, by=c("name", "offseason"))
 
-
+# TODO: account for inflation in sign_salary
 # TODO: try and get offseason_start to be the actual day after the end of the world series. fake it for 1994 or look up what it was
 # TODO: the scale above needs to be adjusted if the player is a reliever
 # TODO: which means I need to attach positional information to everyone
@@ -254,7 +255,7 @@ all_free_agents <-
 
 show the average number of days it takes players to sign a FA contract
 
-```{r, fig.height=3}
+```{r}
 
 # mean time to sign overall, by year
 all_free_agents %>%
@@ -277,8 +278,8 @@ all_free_agents %>%
   ggtitle("Trends in Free Agent Signing Speed",
     subtitle = "Avg. number of days between Nov 1st and player's sign date"
   ) + fgt +
-  expand_limits(y = 0) +
-  geom_smooth(method = "loess", linetype = "dashed", lwd = 0.7, se = FALSE)
+  expand_limits(y = 0)
+ # geom_smooth(method = "loess", linetype = "dashed", lwd = 0.7, se = FALSE)
 ```
 
 add one more facet: the player's age bucket
@@ -348,16 +349,36 @@ all_free_agents %>%
 ```
 
 
+
 relationship between days to sign and salary signed for, by player type and age bucket
 
 
 ```{r, fig.height=3}
 
-all_free_agents %>%
+length_salary_combined <-
+  all_free_agents %>%
+  filter(offseason >= 2010) %>%
   filter(!is.na(sign_salary)) %>%
-  ggplot(aes(days_to_sign, sign_salary, color=age_bucket)) +
-  facet_wrap(vars(player_type, age_bucket), scales = "free_y") +
-  geom_point(size=0.7)
+  group_by(offseason, player_type, age_bucket) %>%
+  summarize(avg_salary = mean(sign_salary, na.rm = TRUE),
+            avg_days_to_sign = mean(days_to_sign, na.rm = TRUE))
+
+length_salary_combined %>%
+  ggplot(aes(offseason, avg_days_to_sign, color=avg_salary, size = avg_salary)) +
+  facet_wrap(vars(player_type, age_bucket)) + expand_limits(y=0) +
+  scale_color_continuous(limits=c(0, 300), low="red", high = "green") +
+  scale_size_continuous(limits=c(0, 300)) +
+  geom_point() + fgt +
+  guides(color= guide_legend(), size=guide_legend())
+
+length_salary_combined %>%
+  group_by(player_type, age_bucket, avg_salary, avg_days_to_sign) %>%
+  arrange(offseason) %>%
+  mutate(salary_diff = avg_salary - lag(avg_salary),
+         days_to_sign_diff = avg_days_to_sign - lag(avg_days_to_sign)) %>%
+  View()
+
+
 
 ```
 
