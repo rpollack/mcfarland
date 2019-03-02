@@ -23,6 +23,7 @@ Questions:
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(rvest)
+library(glue)
 library(stringr)
 #library(plotly)
 library(ggrepel)
@@ -527,7 +528,7 @@ write_csv(warcels, "warcels-2019.csv")
 
 ### plot controlled surplus value by team
 
-```{r}
+```{r, fig.height=3}
 warcels_team_2019 <-
   warcels %>%
   group_by(Team) %>%
@@ -541,7 +542,7 @@ warcels_team_2019 %>%
   fgt +
   scale_fill_manual(values = team_colors) + 
   labs(x="", y="Controlled Surplus Value (Millions USD)", caption="Sources: Baseball Reference, FanGraphs, & Tom Tango") +
-  ggtitle("Controlled Surplus Value, MLB Teams 2019 - 2023")
+  ggtitle(glue("MLB Team Controlled Surplus Value, {next_year} – {next_year + 4}"))
 
 ```
 
@@ -669,14 +670,31 @@ surplus_value_change_plt <-
   filter(!is.na(surplus_value_change))
 
 
+warcels_full %>%
+  filter(year_analyzed == next_year) %>%
+  arrange(desc(surplus_value_under_control)) %>%
+  head(10) %>%
+  ggplot(aes(reorder(Name, surplus_value_under_control), surplus_value_under_control)) +
+  geom_col() + coord_flip() + fgt +
+  labs(x="", y="Controlled Surplus Value (Millions USD)") +
+  ggtitle(glue("Top 10 Controlled Surplus Value, {next_year}"))
+
+warcels_full %>%
+  filter(year_analyzed == next_year) %>%
+  arrange(desc(surplus_value_under_control)) %>%
+  tail(10) %>%
+  ggplot(aes(reorder(Name, surplus_value_under_control), surplus_value_under_control)) +
+  geom_col() + coord_flip() + fgt +
+  labs(x="", y="Controlled Surplus Value (Millions USD)") +
+  ggtitle(glue("Bottom 10 Controlled Surplus Value, {next_year}"))
+
 surplus_value_change_plt %>%
   arrange(surplus_value_change) %>%
   head(10) %>%
   ggplot(aes(reorder(Name, surplus_value_change), surplus_value_change)) +
   geom_col() + coord_flip() +
   labs(x="", y="Change in Controlled Surplus Value (Millions USD)") +
-  ggtitle("Largest Reductions in Controlled Surplus Value, 2018-2019") + fgt
-
+  ggtitle(glue("Largest Drops in Controlled Surplus Value, {this_year} – {next_year}")) + fgt
 
 surplus_value_change_plt %>%
   arrange(desc(surplus_value_change)) %>%
@@ -684,7 +702,7 @@ surplus_value_change_plt %>%
   ggplot(aes(reorder(Name, surplus_value_change), surplus_value_change)) +
   geom_col() + coord_flip() +
   labs(x="", y="Change in Controlled Surplus Value (Millions USD)") +
-  ggtitle("Largest Gains in Controlled Surplus Value, 2018-2019") + fgt
+  ggtitle(glue("Largest Gains in Controlled Surplus Value, {this_year} – {next_year}")) + fgt
 
   
 
