@@ -357,6 +357,10 @@ projected_war <-
     # TODO: there is a bug where players without a 2018 season are not getting projected: Yasmany, Tulo, Jacoby, etc.
     #       how do I find players who missed 2018 but whom are expected to play in 2019? perhaps join on bb-ref dataset
     #       sooner rather than later.
+    #       I can probably use complete() to ensure there are values for all the prior seasons used to project. 
+    #       I also think it makes sense to give players 0 WAR for missed seasons. This will also affect rookies but hey, you weren't in the bigs
+    #       so you shouldn't get credit for playing in them.
+    
     
     `2018` = ifelse(is.na(ValueW) == FALSE, ValueW, 1), # players w/o appearances in a season get 1 WAR for that year
     `2017` = ifelse(is.na(lag(ValueW)) == FALSE, lag(ValueW), 1),
@@ -770,7 +774,7 @@ warcels_full %>%
     color = "white",
     segment.color = "black",
     nudge_y = .1,
-    nudge_x = .1
+    nudge_x = -.05
   ) +
   scale_color_manual(values = team_colors) + fgt +
   scale_fill_manual(values = team_colors) +
