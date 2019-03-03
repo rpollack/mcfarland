@@ -353,7 +353,11 @@ projected_war <-
     age_in_five_years = age_now + 5,
 
     # retain the last 3 years of a player's WAR for the purposes of projecting forward
-    # TODO when updating for next season: update the following 3 lines each year to be the 3 most recent MLB seasons played.
+    
+    # TODO: there is a bug where players without a 2018 season are not getting projected: Yasmany, Tulo, Jacoby, etc.
+    #       how do I find players who missed 2018 but whom are expected to play in 2019? perhaps join on bb-ref dataset
+    #       sooner rather than later.
+    
     `2018` = ifelse(is.na(ValueW) == FALSE, ValueW, 1), # players w/o appearances in a season get 1 WAR for that year
     `2017` = ifelse(is.na(lag(ValueW)) == FALSE, lag(ValueW), 1),
     `2016` = ifelse(is.na(lag(ValueW, 2)) == FALSE, lag(ValueW, 2), 1)
@@ -399,13 +403,27 @@ projected_war <-
 ```{r}
 # TODO: change do() to map_df()
 
+# get payroll information for all teams, keep only the next five years of information for each player, and change players' names to match
+# how they are formatted in the FanGraphs database, so information from the two datasets can be joined together later.
+
 all_teams_payroll <- team_info %>%
   group_by(team_name) %>%
   do(getPayrolls(.$team_name, .$team_url)) %>%
   dplyr::select(Team = team_name, Name, Acquired, Age, Year, salary) %>%
   group_by(Name, Team) %>%
   top_n(-5, wt = Year) %>% # take only up to the next 5 years because that's all we can project out with WARcels
-  ungroup()
+  ungroup() %>%
+  mutate(Name = str_replace_all(Name, c("Ronald Acuna" = "Ronald Acuna Jr.",
+                                        "Danny Coulombe" = "Daniel Coulombe",
+                                        "Daniel Ponce de Leon" = "Daniel Poncedeleon",
+                                        "Gio Urshela" = "Giovanny Urshela",
+                                        "Zack Britton" = "Zach Britton"))) # incorrect name but still ensures a dataset match 
+
+
+# TODO: change Names to match those in FG. 
+# TODO: figure out why Yasmany Tomas, Jacoby Ellsbury, etc.  dropped from projected_war despite being present in fg_batters ...
+#          is it because they are missing 2018 seasons????
+# the following code finds players who are in baseball-reference but not in FG projections: anti_join(all_teams_payroll, projected_war, by=c("Name", "Team")) %>% distinct(Name)
 ```
 
 ```{r}
@@ -638,41 +656,6 @@ team_war_per_season %>%
   scale_color_manual(values = team_colors) +
   scale_fill_manual(values = team_colors)
 ```
-
-### WAR graphs for a couple divisions
-
-```{r}
-team_war_per_season %>%
-  filter(Division == "NL Central") %>%
-  ggplot(aes(Season, controlled_war, color = Team, fill = Team)) + geom_point() + geom_line() +
-  labs(y = "WAR Under Control", caption = "Sources: Baseball Reference, FanGraphs, & Tom Tango") +
-  ggtitle("NL Central Controlled WAR Per Season, 2018 - 2022") +
-  geom_label_repel(aes(label = label),
-    na.rm = TRUE,
-    show.legend = FALSE,
-    color = "white",
-    segment.color = "black"
-  ) +
-  scale_color_manual(values = team_colors) +
-  scale_fill_manual(values = team_colors)
-
-team_war_per_season %>%
-  filter(Division == "AL Central") %>%
-  ggplot(aes(Season, controlled_war, color = Team, fill = Team)) + geom_point() + geom_line() +
-  labs(y = "WAR Under Control", caption = "Sources: Baseball Reference, FanGraphs, & Tom Tango") +
-  ggtitle("AL Central Controlled WAR Per Season, 2018 - 2022") +
-  geom_label_repel(aes(label = label),
-    na.rm = TRUE,
-    show.legend = FALSE,
-    color = "white",
-    segment.color = "black"
-  ) +
-  scale_color_manual(values = team_colors) +
-  scale_fill_manual(values = team_colors)
-```
-
-### team controlled surplus value per season through 2022
-
 
 
 Graphs - Players
