@@ -237,13 +237,16 @@ fg_pitchers <- inner_join(fg_players, fg_pitch, by = "PlayerId") %>%
   )
 ```
 
-### Combine gathered data into one frame and re-format some data
+Combine gathered data into one frame and re-format some data.
+Filter out duplicate projections for players like Ohtani
+Ensure every player has a WAR value for the 3 years that'll be used for projections; fill in missing years with 0 WAR
 
 ```{r}
 all_players <-
   bind_rows(fg_batters, fg_pitchers) %>%
   inner_join(fg_projected_teams_all, by = "PlayerId") %>%
   distinct(PlayerId, FirstName, LastName, Season, BirthDate, ValueW, Position, TeamId, Team) %>% # prevent Shohei Ohtani from having 2 team projections
+  filter(Season %in% c(this_year - 2, this_year - 1, this_year)) %>% # retain only years that factor into projections
   dplyr::select(-TeamId) %>%
   mutate(
     FullName = sprintf("%s %s", FirstName, LastName),
@@ -252,9 +255,55 @@ all_players <-
     Team = ifelse(Team == "TAM", "TBR", Team)
   ) %>%
   dplyr::select(PlayerId, Name = FullName, Season, Team, ValueW, birth_year, Position) %>%
-  group_by(PlayerId) %>%
-  arrange(desc(Season)) %>%
-  filter(row_number() <= 3) # only need the most recent 3 years of each player, for projection purposes
+  complete(nesting(PlayerId, Name, birth_year, Team, Position), Season = c(
+    this_year - 2, this_year - 1, this_year,
+    next_year, next_year + 1, next_year + 2, next_year + 3,
+    next_year + 4
+  ), fill = list(ValueW = 0)) %>%
+  mutate(age = Season - as.numeric(birth_year)) %>%
+  group_by(PlayerId, Name) %>%
+  arrange(Season) %>%
+  mutate(
+    step1 = (0.6 * lag(ValueW)) + (0.3 * lag(ValueW, 2)) + (0.1 * lag(ValueW, 3)),
+    step2 = 0.8 * step1,
+    ValueW = case_when(
+      Season == next_year ~ 
+        case_when(Position %in% c("SP", "RP") ~ step2 + ((26 - age) * 0.1),
+                  TRUE ~ step2 + ((30 - age) * 0.1)),
+      TRUE ~ ValueW
+    ))
+      
+# TODO: fill in each of ths missing cases when Season == next-year + 1, etc.
+      
+      case_when(
+      
+    )
+  )
+
+
+
+
+  `2019` = round(ifelse(Position == "SP" | Position == "RP",
+      step2 + ((26 - age_next_year) * 0.1), 
+      step2 + ((30 - age_next_year) * 0.1)
+    ), 1),
+    `2020` = round(ifelse(Position == "SP" | Position == "RP",
+      `2019` - 0.4,
+      `2019` - 0.4 + ((30 - age_in_two_years) * .08)
+    ), 1),
+    `2021` = round(ifelse(Position == "SP" | Position == "RP",
+      `2020` - 0.4,
+      `2020` - 0.4 + ((30 - age_in_three_years) * .03)
+    ), 1),
+    `2022` = round(ifelse(Position == "SP" | Position == "RP",
+      `2021` - 0.4,
+      `2021` - 0.4 + ((30 - age_in_four_years) * .03)
+    ), 1),
+    `2023` = round(ifelse(Position == "SP" | Position == "RP",
+      `2022` - 0.4,
+      `2022` - 0.4 + ((30 - age_in_five_years) * .03)
+    ), 1)
+
 ```
 
 ### Figure out a rough relationship between WAR and Arb-1 salaries, for the purposes of estimating Arb-1 salaries for other players. This section only needs to be run once.
@@ -342,8 +391,10 @@ INSTRUCTIONS ON UPDATING THESE CALCULATIONS EACH YEAR:
 
 projected_war <-
   all_players %>%
+
   group_by(PlayerId, Name) %>%
   arrange(Season) %>%
+  
   mutate(
     age_now = this_year - as.integer(birth_year),
     age_next_year = age_now + 1,
@@ -351,6 +402,13 @@ projected_war <-
     age_in_three_years = age_now + 3,
     age_in_four_years = age_now + 4,
     age_in_five_years = age_now + 5,
+    war_two_years_ago = lag(ValueW),
+    war_three_years_ago = lag(ValueW, 2)) %>%
+  
+  #retain the last row, which has all the info we want
+  filter(Season == this_year) %>%
+  ant
+
 
     # retain the last 3 years of a player's WAR for the purposes of projecting forward
     
@@ -360,16 +418,9 @@ projected_war <-
     #       I can probably use complete() to ensure there are values for all the prior seasons used to project. 
     #       I also think it makes sense to give players 0 WAR for missed seasons. This will also affect rookies but hey, you weren't in the bigs
     #       so you shouldn't get credit for playing in them.
-    
-    
-    `2018` = ifelse(is.na(ValueW) == FALSE, ValueW, 1), # players w/o appearances in a season get 1 WAR for that year
-    `2017` = ifelse(is.na(lag(ValueW)) == FALSE, lag(ValueW), 1),
-    `2016` = ifelse(is.na(lag(ValueW, 2)) == FALSE, lag(ValueW, 2), 1)
-  ) %>%
-  filter(Season == this_year) %>% # the row with the player's most recent season now contains information needed to project WAR for the next 5 years, which is all we want
+
   mutate(
-    step1 = (0.6 * `2018`) + (0.3 * `2017`) + (0.1 * `2016`),
-    step2 = 0.8 * step1,
+  
     
     # TODO when updating for next season: update the following 5 columns to be the 5 years we want to project for
     # TODO: when updating for next season: update each column to calculate off the previous year's column
