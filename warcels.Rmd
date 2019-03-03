@@ -479,39 +479,28 @@ master_list <-
       salary
     ),
     # handle type 2b
-    salary = ifelse(Name == "Blake Treinen" & Year == 2019, "Arb-2", salary),
     salary = ifelse(Name == "Blake Treinen" & Year == 2020, "Arb-3", salary),
     salary = ifelse(Name == "Chris Martin" & Year == 2021, "Arb-1", salary),
     salary = ifelse(Name == "Chris Martin" & Year == 2022, "Arb-2", salary),
-    salary = ifelse(Name == "Ehire Adrianza" & Year == 2019, "Arb-2", salary),
     salary = ifelse(Name == "Ehire Adrianza" & Year == 2020, "Arb-3", salary),
     salary = ifelse(Name == "Erisbel Arruebarrena" & Year == 2021, "Arb-1", salary),
     salary = ifelse(Name == "Erisbel Arruebarrena" & Year == 2022, "Arb-2", salary),
-    salary = ifelse(Name == "Hansel Robles" & Year == 2019, "Arb-2", salary),
     salary = ifelse(Name == "Hansel Robles" & Year == 2020, "Arb-3", salary),
-    salary = ifelse(Name == "Jacob deGrom" & Year == 2019, "Arb-3", salary),
     salary = ifelse(Name == "Jacob deGrom" & Year == 2020, "Arb-4", salary),
-    salary = ifelse(Name == "Jake Smolinski" & Year == 2019, "Arb-2", salary),
     salary = ifelse(Name == "Jake Smolinski" & Year == 2020, "Arb-3", salary),
     salary = ifelse(Name == "Jorge Soler" & Year == 2021, "FA", salary), # spotrac
-    salary = ifelse(Name == "Josh Phegley" & Year == 2019, "Arb-2", salary),
     salary = ifelse(Name == "Josh Phegley" & Year == 2020, "Arb-3", salary),
-    salary = ifelse(Name == "Kendall Graveman" & Year == 2019, "Arb-2", salary),
     salary = ifelse(Name == "Kendall Graveman" & Year == 2020, "Arb-3", salary),
-    salary = ifelse(Name == "Lance McCullers" & Year == 2019, "Arb-2", salary),
     salary = ifelse(Name == "Lance McCullers" & Year == 2020, "Arb-3", salary),
     salary = ifelse(Name == "Lance McCullers" & Year == 2021, "Arb-4", salary),
     salary = ifelse(Name == "Marcus Semien" & Year == 2020, "Arb-3", salary),
     salary = ifelse(Name == "Miles Mikolas" & Year == 2020, "Arb-1", salary),
     salary = ifelse(Name == "Miles Mikolas" & Year == 2021, "Arb-2", salary),
     salary = ifelse(Name == "Miles Mikolas" & Year == 2022, "Arb-3", salary),
-    salary = ifelse(Name == "Noah Syndergaard" & Year == 2019, "Arb-2", salary),
     salary = ifelse(Name == "Noah Syndergaard" & Year == 2020, "Arb-3", salary),
-    salary = ifelse(Name == "Robbie Grossman" & Year == 2019, "Arb-2", salary),
     salary = ifelse(Name == "Robbie Grossman" & Year == 2020, "Arb-3", salary),
     salary = ifelse(Name == "Rusney Castillo" & Year == 2021, "FA", salary), # spotrac
     salary = ifelse(Name == "Rusney Castillo" & Year == 2022, "FA", salary), # spotrac
-    salary = ifelse(Name == "Trevor May" & Year == 2019, "Arb-2", salary),
     salary = ifelse(Name == "Trevor May" & Year == 2020, "Arb-3", salary),
     salary = ifelse(Name == "Yuli Gurriel" & Year == 2021, "FA", salary), # spotrac
 
