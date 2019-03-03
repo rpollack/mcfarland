@@ -786,7 +786,7 @@ warcels_full %>%
   scale_fill_manual(values = team_colors) +
   theme(legend.position = "None") +
   ggtitle(glue("MLB Team Changes"), subtitle = glue("Prior to {this_year} – Prior to {next_year}")) +
-  labs(x = "Z-score: Change in Controlled Salary (Millions USD)", y = "Z-score: Change in Controlled WAR") +
+  labs(x = "Std. Dev. Change in 5-Year Controlled Salary", y = "Std. Dev. Change in 5-Year Controlled WAR") +
   xlim(-3, 3) + ylim(-3, 3) +
   geom_hline(yintercept = 0, linetype="dashed", color="gray") + geom_vline(xintercept = 0, linetype = "dashed", color = "gray")
 
