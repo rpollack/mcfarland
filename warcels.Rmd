@@ -331,7 +331,9 @@ all_arb <- all_arb %>%
 Methodology: http://tangotiger.com/index.php/site/article/war-marcels-...-warcels
 
 
-To update this this graph for the coming season, increment all year numbers by 1.
+INSTRUCTIONS ON UPDATING THESE CALCULATIONS EACH YEAR:
+1. 
+
 
 ```{r}
 
@@ -351,6 +353,7 @@ projected_war <-
     age_in_five_years = age_now + 5,
 
     # retain the last 3 years of a player's WAR for the purposes of projecting forward
+    # TODO when updating for next season: update the following 3 lines each year to be the 3 most recent MLB seasons played.
     `2018` = ifelse(is.na(ValueW) == FALSE, ValueW, 1), # players w/o appearances in a season get 1 WAR for that year
     `2017` = ifelse(is.na(lag(ValueW)) == FALSE, lag(ValueW), 1),
     `2016` = ifelse(is.na(lag(ValueW, 2)) == FALSE, lag(ValueW, 2), 1)
@@ -359,25 +362,29 @@ projected_war <-
   mutate(
     step1 = (0.6 * `2018`) + (0.3 * `2017`) + (0.1 * `2016`),
     step2 = 0.8 * step1,
+    
+    # TODO when updating for next season: update the following 5 columns to be the 5 years we want to project for
+    # TODO: when updating for next season: update each column to calculate off the previous year's column
+
     `2019` = round(ifelse(Position == "SP" | Position == "RP",
-      step2 + ((26 - age_next_year) * 0.1), # 2019 - birth_year.   age_now = 2018-birth_year
+      step2 + ((26 - age_next_year) * 0.1), 
       step2 + ((30 - age_next_year) * 0.1)
     ), 1),
     `2020` = round(ifelse(Position == "SP" | Position == "RP",
-      `2018` - 0.4,
-      `2018` - 0.4 + ((30 - age_in_two_years) * .08)
+      `2019` - 0.4,
+      `2019` - 0.4 + ((30 - age_in_two_years) * .08)
     ), 1),
     `2021` = round(ifelse(Position == "SP" | Position == "RP",
-      `2019` - 0.4,
-      `2019` - 0.4 + ((30 - age_in_three_years) * .03)
+      `2020` - 0.4,
+      `2020` - 0.4 + ((30 - age_in_three_years) * .03)
     ), 1),
     `2022` = round(ifelse(Position == "SP" | Position == "RP",
-      `2020` - 0.4,
-      `2020` - 0.4 + ((30 - age_in_four_years) * .03)
+      `2021` - 0.4,
+      `2021` - 0.4 + ((30 - age_in_four_years) * .03)
     ), 1),
     `2023` = round(ifelse(Position == "SP" | Position == "RP",
-      `2021` - 0.4,
-      `2021` - 0.4 + ((30 - age_in_five_years) * .03)
+      `2022` - 0.4,
+      `2022` - 0.4 + ((30 - age_in_five_years) * .03)
     ), 1)
   ) %>%
   dplyr::select(PlayerId, Name, Team, birth_year, Position, `2019`, `2020`, `2021`, `2022`, `2023`) %>%
@@ -518,17 +525,17 @@ master_list <-
   dplyr::select(PlayerId, Name, Team, Acquired, Position, Season, WAR = ValueW, Salary = salary) %>%
   group_by(PlayerId, Name) %>%
   mutate( # handle type 3
-    Salary = ifelse(Salary == "Arb-1", 1.36881 + (.26896 * (cumsum(WAR))), Salary)
-  ) %>% # use linear model i computed elsewhere in this doc
+    Salary = ifelse(Salary == "Arb-1", 1.36881 + (.26896 * (cumsum(WAR))), Salary) # use linear model i computed elsewhere in this doc
+  ) %>% 
   ungroup() %>%
   arrange(PlayerId, Name, Season) %>%
-  mutate(
+  mutate( # use model from The Point of Pittsburgh to project future arb salaries
     Salary = ifelse(Salary == "Arb-2", (as.double(lag(Salary)) / .25) * .4, Salary),
     Salary = ifelse(Salary == "Arb-3", (as.double(lag(Salary)) / .4) * .6, Salary),
     Salary = ifelse(Salary == "Arb-4", (as.double(lag(Salary)) / .6) * .7, Salary),
-    Salary = as.numeric(Salary) * (1.022^(Season - next_year)), # inflate salary by 2.38% annually
-    surplus_value = ((millions_per_war * (1.05^(Season - next_year))) * WAR) - Salary
-  ) %>% # inflate $/WAR by 5% annually
+    Salary = as.numeric(Salary) * (1.022^(Season - next_year)), # inflate actual salary by 2.38% annually
+    surplus_value = ((millions_per_war * (1.05^(Season - next_year))) * WAR) - Salary # inflate $/WAR by 5% annually
+  ) %>% 
   ungroup() %>%
   mutate(Division = ifelse(Team %in% c("BAL", "BOS", "NYY", "TBR", "TOR"),
     "AL East",
@@ -817,55 +824,8 @@ warcels %>%
   theme(legend.position = "None")
 ```
 
-```{r}
-# player surplus value changes 2017 - 2017
-player_surplus_value_changes <-
-  warcels_2018_2018 %>%
-  mutate(surplus_value_change = round(surplus_value_under_control_2018 - surplus_value_under_control_2017, 1)) %>%
-  dplyr::select(
-    Name, war_under_control_2017, war_under_control_2018, salary_under_control_2017, salary_under_control_2018,
-    surplus_value_under_control_2017, surplus_value_under_control_2018, surplus_value_change
-  ) %>%
 
-  # jose ramirez has two rows in here; need to zero out one
-  mutate(surplus_value_change = ifelse(Name == "Jose Ramirez" & war_under_control_2017 == 2.0, 0, surplus_value_change)) %>%
-  arrange(desc(surplus_value_change))
 
-# largest surplus value increases
-player_surplus_value_changes %>%
-  head(10) %>%
-  ggplot(aes(reorder(Name, surplus_value_change), surplus_value_change)) + geom_col() + coord_flip() + fgt +
-  labs(x = "", y = "Surplus Value Change (Millions USD)", caption = "Sources: Baseball Reference, FanGraphs, & Tom Tango") +
-  ggtitle("Largest Increases in Controlled Surplus Value\n2017-2021 Period to 2018-2022 Period")
-
-# largest surplus value decreases
-player_surplus_value_changes %>%
-  tail(10) %>%
-  ggplot(aes(reorder(Name, -surplus_value_change), surplus_value_change)) + geom_col() + coord_flip() +
-  labs(x = "", y = "Surplus Value Change (Millions USD)", caption = "Sources: Baseball Reference, FanGraphs, & Tom Tango") +
-  ggtitle("Largest Decreases in Controlled Surplus Value\n2017-2021 Period to 2018-2022 Period")
-```
-
-### surplus value changes by team
-
-```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
-team_surplus_value_changes <-
-  read_csv("warcels-2018.csv") %>%
-  group_by(Team) %>%
-  summarize(total_surplus_value_under_control = sum(controlled_surplus_value)) %>%
-  inner_join(warcels_team_2018, by = "Team", suffix = c("_2018", "_2019")) %>%
-  mutate(surplus_value_change = total_surplus_value_under_control_2018 - total_surplus_value_under_control_2017)
-
-team_surplus_value_changes %>%
-  ggplot(aes(reorder(Team, surplus_value_change), surplus_value_change)) + geom_col() + fgt + coord_flip() +
-  labs(x = "", y = "Surplus Value Change (Millions USD)", caption = "Sources: Baseball Reference, FanGraphs, & Tom Tango") + ggtitle("MLB Team Surplus Value Changes, 2017-2021 Period to 2018-2022 Period")
-
-team_surplus_value_changes %>%
-  arrange(desc(surplus_value_change)) %>%
-  tail(10) %>%
-  ggplot(aes(reorder(Team, -surplus_value_change), surplus_value_change)) + geom_col() + coord_flip() +
-  labs(x = "", y = "Surplus Value Change (Millions USD)", caption = "Sources: Baseball Reference, FanGraphs, & Tom Tango") + ggtitle("10 Largest Drops in Controlled Surplus Value\n2017-2021 Period to 2018-2022 Period")
-```
 
 ### 2018 controlled surplus value dollar per TV household
 
