@@ -421,7 +421,7 @@ master_list <-
     Season = as.numeric(Year),
     salary = ifelse(grepl("M", salary), as.double(str_extract(salary, "(?<=\\$)[:digit:]+\\.*[:digit:]*")), salary),
     salary = ifelse(grepl("k", salary), as.double(str_extract(salary, "(?<=\\$)[:digit:]+")) / 1000, salary),
-    salary = ifelse(grepl("Pre-Arb", salary), 0.545, salary),
+    salary = ifelse(grepl("Pre-Arb", salary), 0.555, salary),
 
     # identify super two players (those w/4 years of arbitration)
     super_two = ifelse(Name %in% c(
@@ -501,7 +501,6 @@ master_list <-
     salary = ifelse(Name == "Lance McCullers" & Year == 2019, "Arb-2", salary),
     salary = ifelse(Name == "Lance McCullers" & Year == 2020, "Arb-3", salary),
     salary = ifelse(Name == "Lance McCullers" & Year == 2021, "Arb-4", salary),
-    salary = ifelse(Name == "Marcus Semien" & Year == 2019, "Arb-2", salary),
     salary = ifelse(Name == "Marcus Semien" & Year == 2020, "Arb-3", salary),
     salary = ifelse(Name == "Miles Mikolas" & Year == 2020, "Arb-1", salary),
     salary = ifelse(Name == "Miles Mikolas" & Year == 2021, "Arb-2", salary),
@@ -583,17 +582,16 @@ warcels <-
 
 # save to disk for future analysis
 write_csv(warcels, "warcels-2019.csv")
-```
 
-
-### plot controlled surplus value by team
-
-```{r, fig.height=3}
-warcels_team_2019 <-
+# combine with previous years to do YoY change analysis
+warcels_full <-
   warcels %>%
-  group_by(Team) %>%
-  summarize(total_surplus_value_under_control = sum(surplus_value_under_control, na.rm = TRUE))
+  mutate(year_analyzed = 2019) %>%
+  bind_rows(read_csv("warcels-2018.csv") %>%
+    mutate(year_analyzed = 2018)) %>%
+  dplyr::select(PlayerId, Name, year_analyzed, everything())
 ```
+
 
 ### Team WAR per Season thru 2022
 
@@ -680,24 +678,11 @@ team_war_per_season %>%
 ### team controlled surplus value per season through 2022
 
 
-### MLB Team Control over Talent
-
-
-```{r}
-
-```
 
 Graphs - Players
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 # changes from 2017
-
-warcels_full <-
-  warcels %>%
-  mutate(year_analyzed = 2019) %>%
-  bind_rows(read_csv("warcels-2018.csv") %>%
-    mutate(year_analyzed = 2018)) %>%
-  dplyr::select(PlayerId, Name, year_analyzed, everything())
 
 surplus_value_change_plt <-
   warcels_full %>%
@@ -775,14 +760,12 @@ warcels_full %>%
   ggplot(aes(reorder(Team, surplus_value_change), surplus_value_change)) +
   geom_col() + fgt + coord_flip() +
   labs(x = "", y = "Change in Controlled Surplus Value (Millions USD)", caption = "Sources: Baseball Reference, FanGraphs, & Tom Tango") +
-  ggtitle(glue("Change in MLB Team Controlled Surplus Value, {this_year} – {next_year}"))
+  ggtitle(glue("Changes in MLB Team Controlled Surplus Value, {this_year} – {next_year}"))
 
 # YoY change in controlled talent vs. change in salary
 # this graph is neat but there really is a lot to unpack
 # first off it's not really 2018 to 2019, it's ENTERING 2018 vs. ENTERING 2019. still useful though.
-# and it is the result of not just players changing teams, but players getting better.
-# still i think there are weird holes. Oakland's salary change is high - probably bc Chapman got way better. But Semien having $40m in controlled salary
-# doesn't look right. think there may be a bug there.
+# and it is the result of not just players changing teams, but arb and pre-arb players getting better OR getting raises (and thus pushing their projected salaries up).
 warcels_full %>%
   group_by(year_analyzed, Team) %>%
   summarize(
@@ -808,7 +791,7 @@ warcels_full %>%
   scale_color_manual(values = team_colors) + fgt +
   scale_fill_manual(values = team_colors) +
   theme(legend.position = "None") +
-  ggtitle(glue("MLB Team Offseason Results"), subtitle = glue("{this_year} – {next_year}")) +
+  ggtitle(glue("MLB Team Changes"), subtitle = glue("Prior to {this_year} – Prior to {next_year}")) +
   labs(x = "Change in Controlled Salary (Millions USD)", y = "Change in Controlled WAR")
 
 # team control over talent vs. the talent under control
