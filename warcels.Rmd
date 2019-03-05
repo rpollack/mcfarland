@@ -311,7 +311,7 @@ projected_war <-
       TRUE ~ war_four_years - 0.4 + ((30 - age_in_five_years) * .03)
     )
   ) %>%
-  filter(Season == 2018) %>% # this row has all the relevant WAR projections in it
+  filter(Season == this_year) %>% # this row has all the relevant WAR projections in it
   select(PlayerId, Name, Team, birth_year, Position, contains("war_")) %>%
   gather(Season, war, contains("war_")) %>%
   mutate(Season = as.numeric(str_replace_all(Season, c(
