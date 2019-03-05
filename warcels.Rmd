@@ -240,7 +240,7 @@ fg_pitchers <- inner_join(fg_players, fg_pitch, by = "PlayerId") %>%
 Combine gathered data into one frame and re-format some data.
 Filter out duplicate projections for players like Ohtani
 Ensure every player has a WAR value for the 3 years that'll be used for projections; fill in missing years with 0 WAR
-Project WAR for the 5 years going forward; I wrote the code the way I did because 
+Project WAR for the 5 years going forward
 
 
 ### Project WAR each year for the next 5 years for each player
