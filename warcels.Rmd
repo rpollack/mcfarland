@@ -163,8 +163,8 @@ getPayrolls <- function(Tm, team_name) {
 
 ```{r}
 
-this_year <- 2018
-next_year <- this_year + 1
+next_year <- 2019 # this is the year we want to start projecting in
+this_year <- next_year - 1
 
 # player ID / Name data from FG. allows distinguishing b/w players with identical names
 fg_players <- fg_db %>%
@@ -177,7 +177,7 @@ fg_projected_teams_batters <- fg_db %>%
   tbl("proj_batting") %>%
   filter(
     Type == "Steamer",
-    Season == this_year + 1
+    Season == next_year
   ) %>%
   dplyr::select(PlayerId, Team) %>%
   collect(n = Inf)
@@ -186,7 +186,7 @@ fg_projected_teams_pitchers <- fg_db %>%
   tbl("proj_pitching") %>%
   filter(
     Type == "Steamer",
-    Season == this_year + 1
+    Season == next_year
   ) %>%
   dplyr::select(PlayerId, Team) %>%
   collect(n = Inf)
@@ -240,9 +240,15 @@ fg_pitchers <- inner_join(fg_players, fg_pitch, by = "PlayerId") %>%
 Combine gathered data into one frame and re-format some data.
 Filter out duplicate projections for players like Ohtani
 Ensure every player has a WAR value for the 3 years that'll be used for projections; fill in missing years with 0 WAR
+Project WAR for the 5 years going forward; I wrote the code the way I did because 
+
+
+### Project WAR each year for the next 5 years for each player
+Methodology: http://tangotiger.com/index.php/site/article/war-marcels-...-warcels
 
 ```{r}
-all_players <-
+
+projected_war <-
   bind_rows(fg_batters, fg_pitchers) %>%
   inner_join(fg_projected_teams_all, by = "PlayerId") %>%
   distinct(PlayerId, FirstName, LastName, Season, BirthDate, ValueW, Position, TeamId, Team) %>% # prevent Shohei Ohtani from having 2 team projections
@@ -255,55 +261,67 @@ all_players <-
     Team = ifelse(Team == "TAM", "TBR", Team)
   ) %>%
   dplyr::select(PlayerId, Name = FullName, Season, Team, ValueW, birth_year, Position) %>%
+
+  # give players 0 WAR for missing years
   complete(nesting(PlayerId, Name, birth_year, Team, Position), Season = c(
-    this_year - 2, this_year - 1, this_year,
-    next_year, next_year + 1, next_year + 2, next_year + 3,
-    next_year + 4
+    this_year - 2, this_year - 1, this_year
   ), fill = list(ValueW = 0)) %>%
   mutate(age = Season - as.numeric(birth_year)) %>%
   group_by(PlayerId, Name) %>%
+
+  # add columns for player's ages and WAR projections in the next five years, then gather into tidy format
+  # the style of coding I did allows the column names to a) be years and b) vary year-to-year without having to hunt and peck thru the code
+  # i can just change the variable 'next_year' (above) and re-run the code
   arrange(Season) %>%
   mutate(
-    step1 = (0.6 * lag(ValueW)) + (0.3 * lag(ValueW, 2)) + (0.1 * lag(ValueW, 3)),
-    step2 = 0.8 * step1,
-    ValueW = case_when(
-      Season == next_year ~ 
-        case_when(Position %in% c("SP", "RP") ~ step2 + ((26 - age) * 0.1),
-                  TRUE ~ step2 + ((30 - age) * 0.1)),
-      TRUE ~ ValueW
-    ))
-      
-# TODO: fill in each of ths missing cases when Season == next-year + 1, etc.
-      
-      case_when(
-      
+    age_next_year = age + 1,
+    age_in_two_years = age + 2,
+    age_in_three_years = age + 3,
+    age_in_four_years = age + 4,
+    age_in_five_years = age + 5,
+    war_next_year = case_when(
+      Position %in% c("SP", "RP") ~
+      (((0.6 * ValueW) +
+        (0.3 * lag(ValueW)) +
+        (0.1 * lag(ValueW, 2))) * 0.8) +
+        ((26 - age_next_year) * 0.1),
+      TRUE ~ (((0.6 * ValueW) +
+        (0.3 * lag(ValueW)) +
+        (0.1 * lag(ValueW, 2))) * 0.8) +
+        ((30 - age_next_year) * 0.1)
+    ),
+    war_two_years = case_when(
+      Position %in% c("SP", "RP") ~
+      war_next_year - 0.4,
+      TRUE ~ war_next_year - 0.4 + ((30 - age_in_two_years) * .08)
+    ),
+    war_three_years = case_when(
+      Position %in% c("SP", "RP") ~
+      war_two_years - 0.4,
+      TRUE ~ war_two_years - 0.4 + ((30 - age_in_three_years) * .03)
+    ),
+    war_four_years = case_when(
+      Position %in% c("SP", "RP") ~
+      war_three_years - 0.4,
+      TRUE ~ war_three_years - 0.4 + ((30 - age_in_four_years) * .03)
+    ),
+    war_five_years = case_when(
+      Position %in% c("SP", "RP") ~
+      war_four_years - 0.4,
+      TRUE ~ war_four_years - 0.4 + ((30 - age_in_five_years) * .03)
     )
-  )
-
-
-
-
-  `2019` = round(ifelse(Position == "SP" | Position == "RP",
-      step2 + ((26 - age_next_year) * 0.1), 
-      step2 + ((30 - age_next_year) * 0.1)
-    ), 1),
-    `2020` = round(ifelse(Position == "SP" | Position == "RP",
-      `2019` - 0.4,
-      `2019` - 0.4 + ((30 - age_in_two_years) * .08)
-    ), 1),
-    `2021` = round(ifelse(Position == "SP" | Position == "RP",
-      `2020` - 0.4,
-      `2020` - 0.4 + ((30 - age_in_three_years) * .03)
-    ), 1),
-    `2022` = round(ifelse(Position == "SP" | Position == "RP",
-      `2021` - 0.4,
-      `2021` - 0.4 + ((30 - age_in_four_years) * .03)
-    ), 1),
-    `2023` = round(ifelse(Position == "SP" | Position == "RP",
-      `2022` - 0.4,
-      `2022` - 0.4 + ((30 - age_in_five_years) * .03)
-    ), 1)
-
+  ) %>%
+  filter(Season == 2018) %>% # this row has all the relevant WAR projections in it
+  select(PlayerId, Name, Team, birth_year, Position, contains("war_")) %>%
+  gather(Season, war, contains("war_")) %>%
+  mutate(Season = as.numeric(str_replace_all(Season, c(
+    "war_next_year" = glue("{next_year}"),
+    "war_two_years" = glue("{next_year + 1}"),
+    "war_three_years" = glue("{next_year + 2}"),
+    "war_four_years" = glue("{next_year + 3}"),
+    "war_five_years" = glue("{next_year + 4}")
+  )))) %>%
+  select(PlayerId, Name, Season, Team, Position, war)
 ```
 
 ### Figure out a rough relationship between WAR and Arb-1 salaries, for the purposes of estimating Arb-1 salaries for other players. This section only needs to be run once.
@@ -376,89 +394,12 @@ all_arb <- all_arb %>%
   ) # based on linear model of Arb-1 ~ WAR
 ```
 
-### Project WAR each year for the next 5 years for each player
-Methodology: http://tangotiger.com/index.php/site/article/war-marcels-...-warcels
-
-
-INSTRUCTIONS ON UPDATING THESE CALCULATIONS EACH YEAR:
-1. 
-
-
-```{r}
-
-# project five-year WAR for all players, then gather into tidy DF
-# use WARcels methodology, detailed here: http://tangotiger.com/index.php/site/comments/war-marcels-warcels
-
-projected_war <-
-  all_players %>%
-
-  group_by(PlayerId, Name) %>%
-  arrange(Season) %>%
-  
-  mutate(
-    age_now = this_year - as.integer(birth_year),
-    age_next_year = age_now + 1,
-    age_in_two_years = age_now + 2,
-    age_in_three_years = age_now + 3,
-    age_in_four_years = age_now + 4,
-    age_in_five_years = age_now + 5,
-    war_two_years_ago = lag(ValueW),
-    war_three_years_ago = lag(ValueW, 2)) %>%
-  
-  #retain the last row, which has all the info we want
-  filter(Season == this_year) %>%
-  ant
-
-
-    # retain the last 3 years of a player's WAR for the purposes of projecting forward
-    
-    # TODO: there is a bug where players without a 2018 season are not getting projected: Yasmany, Tulo, Jacoby, etc.
-    #       how do I find players who missed 2018 but whom are expected to play in 2019? perhaps join on bb-ref dataset
-    #       sooner rather than later.
-    #       I can probably use complete() to ensure there are values for all the prior seasons used to project. 
-    #       I also think it makes sense to give players 0 WAR for missed seasons. This will also affect rookies but hey, you weren't in the bigs
-    #       so you shouldn't get credit for playing in them.
-
-  mutate(
-  
-    
-    # TODO when updating for next season: update the following 5 columns to be the 5 years we want to project for
-    # TODO: when updating for next season: update each column to calculate off the previous year's column
-
-    `2019` = round(ifelse(Position == "SP" | Position == "RP",
-      step2 + ((26 - age_next_year) * 0.1), 
-      step2 + ((30 - age_next_year) * 0.1)
-    ), 1),
-    `2020` = round(ifelse(Position == "SP" | Position == "RP",
-      `2019` - 0.4,
-      `2019` - 0.4 + ((30 - age_in_two_years) * .08)
-    ), 1),
-    `2021` = round(ifelse(Position == "SP" | Position == "RP",
-      `2020` - 0.4,
-      `2020` - 0.4 + ((30 - age_in_three_years) * .03)
-    ), 1),
-    `2022` = round(ifelse(Position == "SP" | Position == "RP",
-      `2021` - 0.4,
-      `2021` - 0.4 + ((30 - age_in_four_years) * .03)
-    ), 1),
-    `2023` = round(ifelse(Position == "SP" | Position == "RP",
-      `2022` - 0.4,
-      `2022` - 0.4 + ((30 - age_in_five_years) * .03)
-    ), 1)
-  ) %>%
-  dplyr::select(PlayerId, Name, Team, birth_year, Position, `2019`, `2020`, `2021`, `2022`, `2023`) %>%
-  gather(Season, ValueW, contains("20")) %>%
-  mutate(Season = as.integer(Season)) %>%
-  dplyr::select(PlayerId, Name, Season, Team, ValueW, birth_year, Position)
-```
-
-
 ### get payroll information 
 
 ```{r}
 # TODO: change do() to map_df()
 
-# get payroll information for all teams, keep only the next five years of information for each player, and change players' names to match
+# get payroll information for all teams, keep only the next five years of information for each player, and change some players' names to match
 # how they are formatted in the FanGraphs database, so information from the two datasets can be joined together later.
 
 all_teams_payroll <- team_info %>%
@@ -468,18 +409,19 @@ all_teams_payroll <- team_info %>%
   group_by(Name, Team) %>%
   top_n(-5, wt = Year) %>% # take only up to the next 5 years because that's all we can project out with WARcels
   ungroup() %>%
-  mutate(Name = str_replace_all(Name, c("Ronald Acuna" = "Ronald Acuna Jr.",
-                                        "Danny Coulombe" = "Daniel Coulombe",
-                                        "Daniel Ponce de Leon" = "Daniel Poncedeleon",
-                                        "Gio Urshela" = "Giovanny Urshela",
-                                        "Zack Britton" = "Zach Britton"))) # incorrect name but still ensures a dataset match 
+  mutate(Name = str_replace_all(Name, c(
+    "Ronald Acuna" = "Ronald Acuna Jr.",
+    "Danny Coulombe" = "Daniel Coulombe",
+    "Daniel Ponce de Leon" = "Daniel Poncedeleon",
+    "Gio Urshela" = "Giovanny Urshela",
+    "Zack Britton" = "Zach Britton"
+  ))) # incorrect name but still ensures a dataset match
 
 
-# TODO: change Names to match those in FG. 
-# TODO: figure out why Yasmany Tomas, Jacoby Ellsbury, etc.  dropped from projected_war despite being present in fg_batters ...
-#          is it because they are missing 2018 seasons????
-# the following code finds players who are in baseball-reference but not in FG projections: anti_join(all_teams_payroll, projected_war, by=c("Name", "Team")) %>% distinct(Name)
+# TODO: change more names to match those in FG. to find names that need changing, anti_join all_teams_payroll with projected_war
 ```
+
+combine payroll information with WAR projections to produce controlled surplus value information
 
 ```{r}
 
@@ -524,7 +466,10 @@ master_list <-
       # 2017: https://www.mlbtraderumors.com/2017/10/projected-arbitration-salaries-for-2018.html
       "Andrew Heaney", "J.C. Ramirez", "Lance McCullers", "Dominic Leone", "Mike Foltynewicz", "Cory Knebel", "Kris Bryant",
       "Addison Russell", "Hunter Strickland", "Noah Syndergaard", "Matt Szczur", "Maikel Franco", "Felipe Rivero",
-      "Michael Lorenzen", "Zach Rosscup", "Yolmer Sanchez", "Chasen Shreve"
+      "Michael Lorenzen", "Zach Rosscup", "Yolmer Sanchez", "Chasen Shreve",
+      
+      # https://www.mlbtraderumors.com/2018/10/super-two-cutoff-mlb-2018-2019.html
+      "Trea Turner", "Matthew Boyd", "Carl Edwards Jr."
     ),
     TRUE, FALSE
     )
@@ -595,11 +540,11 @@ master_list <-
   ) %>%
   filter(!salary %in% c("FA", "$0 [Arb-*]", 0)) %>% # discard FA years and weird option years
   inner_join(projected_war, by = c("Name", "Team", "Season")) %>%
-  dplyr::select(PlayerId, Name, Team, Acquired, Position, Season, WAR = ValueW, Salary = salary) %>%
+  dplyr::select(PlayerId, Name, Team, Acquired, Position, Season, WAR = war, Salary = salary) %>%
   group_by(PlayerId, Name) %>%
   mutate( # handle type 3
     Salary = ifelse(Salary == "Arb-1", 1.36881 + (.26896 * (cumsum(WAR))), Salary) # use linear model i computed elsewhere in this doc
-  ) %>% 
+  ) %>%
   ungroup() %>%
   arrange(PlayerId, Name, Season) %>%
   mutate( # use model from The Point of Pittsburgh to project future arb salaries
@@ -608,7 +553,7 @@ master_list <-
     Salary = ifelse(Salary == "Arb-4", (as.double(lag(Salary)) / .6) * .7, Salary),
     Salary = as.numeric(Salary) * (1.022^(Season - next_year)), # inflate actual salary by 2.38% annually
     surplus_value = ((millions_per_war * (1.05^(Season - next_year))) * WAR) - Salary # inflate $/WAR by 5% annually
-  ) %>% 
+  ) %>%
   ungroup() %>%
   mutate(Division = ifelse(Team %in% c("BAL", "BOS", "NYY", "TBR", "TOR"),
     "AL East",
@@ -662,7 +607,7 @@ warcels_full <-
 ```
 
 
-### Team WAR per Season thru 2022
+### Team WAR and Controlled Surplus Value per season for the next five years
 
 ```{r, fig.height=3}
 
@@ -677,7 +622,7 @@ team_war_per_season <-
     controlled_war = sum(WAR),
     controlled_surplus_value = sum(surplus_value, na.rm = TRUE)
   ) %>%
-  mutate(label = ifelse(Team %in% c("NYY", "CLE", "HOU", "LAD", "CHC", "WSN") &
+  mutate(label = ifelse(Team %in% c("NYY", "CLE", "HOU", "LAD", "MIL", "WSN") &
     Season == min(Season),
   Team,
   NA_character_
@@ -686,8 +631,8 @@ team_war_per_season <-
 team_war_per_season %>%
   ggplot(aes(Season, controlled_war, color = Team, fill = Team)) + geom_point() + geom_line() +
   labs(y = "WAR Under Control", caption = "Sources: Baseball Reference, FanGraphs, & Tom Tango") +
-  facet_wrap(~Division, ncol = 2, scales = "free_y") +
-  ggtitle("Team Controlled WAR Per Season, 2019 - 2023") +
+  facet_wrap(~Division, ncol = 2) +
+  ggtitle(glue("Team Controlled WAR Per Season, {next_year} - {next_year + 4}")) +
   geom_label_repel(aes(label = label),
     na.rm = TRUE,
     show.legend = FALSE,
@@ -700,8 +645,8 @@ team_war_per_season %>%
 team_war_per_season %>%
   ggplot(aes(Season, controlled_surplus_value, color = Team, fill = Team)) + geom_point() + geom_line() + fgt +
   labs(y = "Surplus Value Under Control (Millions USD)", caption = "Sources: Baseball Reference, FanGraphs, & Tom Tango") +
-  facet_wrap(~Division, ncol = 2, scales = "free_y") +
-  ggtitle("Team Controlled Surplus Value Per Season, 2019 - 2023") +
+  facet_wrap(~Division, ncol = 2) +
+  ggtitle(glue("Team Controlled Surplus Value Per Season, {next_year} - {next_year + 4}")) +
   geom_label_repel(aes(label = label),
     na.rm = TRUE,
     show.legend = FALSE,
@@ -715,8 +660,7 @@ team_war_per_season %>%
 
 Graphs - Players
 
-```{r message=FALSE, warning=FALSE, include=FALSE}
-# changes from 2017
+```{r}
 
 surplus_value_change_plt <-
   warcels_full %>%
@@ -816,7 +760,8 @@ warcels_full %>%
   group_by(year_analyzed) %>%
   mutate(
     zcontrolled_salary_change = (controlled_salary_change - mean(controlled_salary_change)) / sd(controlled_salary_change),
-    zcontrolled_talent_change = (controlled_war_change - mean(controlled_war_change)) / sd(controlled_war_change)) %>%
+    zcontrolled_talent_change = (controlled_war_change - mean(controlled_war_change)) / sd(controlled_war_change)
+  ) %>%
   ggplot(aes(zcontrolled_salary_change, zcontrolled_talent_change, color = Team, fill = Team)) +
   geom_point() +
   geom_label_repel(aes(label = Team),
@@ -824,7 +769,7 @@ warcels_full %>%
     show.legend = FALSE,
     color = "white",
     segment.color = "black",
-    nudge_y = .1,
+    nudge_y = .2,
     nudge_x = -.05
   ) +
   scale_color_manual(values = team_colors) + fgt +
@@ -833,7 +778,7 @@ warcels_full %>%
   ggtitle(glue("MLB Team Changes"), subtitle = glue("Prior to {this_year} – Prior to {next_year}")) +
   labs(x = "Std. Dev. Change in 5-Year Controlled Salary", y = "Std. Dev. Change in 5-Year Controlled WAR") +
   xlim(-3, 3) + ylim(-3, 3) +
-  geom_hline(yintercept = 0, linetype="dashed", color="gray") + geom_vline(xintercept = 0, linetype = "dashed", color = "gray")
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray") + geom_vline(xintercept = 0, linetype = "dashed", color = "gray")
 
 # team control over talent vs. the talent under control
 warcels %>%
@@ -852,7 +797,7 @@ warcels %>%
     segment.color = "black",
     nudge_y = .1
   ) +
-  ggtitle("MLB Team Outlook, 2019 – 2023") +
+  ggtitle(glue("MLB Team Outlook, {next_year} – {next_year + 4}")) +
   scale_color_manual(values = team_colors) + fgt +
   scale_fill_manual(values = team_colors) +
   labs(
