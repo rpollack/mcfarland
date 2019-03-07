@@ -243,7 +243,19 @@ all_free_agents <-
       sign_date
     )) %/% days(1)
   ) %>%
-  left_join(fa_salaries, by=c("name", "offseason"))
+  left_join(fa_salaries, by=c("name", "offseason")) %>%
+  
+  # adjust for inflation relative to 2018. source: https://www.usinflationcalculator.com
+  mutate(sign_salary = case_when(
+    offseason == 2010 ~ sign_salary * 1.152,
+    offseason == 2011 ~ sign_salary * 1.116,
+    offseason == 2012 ~ sign_salary * 1.094,
+    offseason == 2013 ~ sign_salary * 1.078,
+    offseason == 2014 ~ sign_salary * 1.061,
+    offseason == 2015 ~ sign_salary * 1.059,
+    offseason == 2016 ~ sign_salary * 1.046,
+    offseason == 2017 ~ sign_salary * 1.024 
+  ))
 
 # TODO: account for inflation in sign_salary
 # TODO: try and get offseason_start to be the actual day after the end of the world series. fake it for 1994 or look up what it was
@@ -333,6 +345,18 @@ all_free_agents %>%
 fun with salary information
 
 ```{r, fig.height = 3}
+
+all_free_agents %>%
+  filter(!is.na(sign_salary)) %>%
+  group_by(offseason) %>%
+  summarize(avg_signing = round(mean(sign_salary, na.rm = TRUE), 1)) %>%
+  ggplot(aes(offseason, avg_signing, group = 1)) +
+  geom_point(size=0.7) + geom_line() +
+  ggtitle("Trends in Free Agent Signing Money"
+  ) + fgt +
+  expand_limits(y = 0) +
+  labs(y="Average Signing Salary (Millions USD)", x="")
+
 # mean $ signed for, by player type by age bucket, over time
 all_free_agents %>%
   filter(!is.na(sign_salary)) %>%
@@ -347,6 +371,11 @@ all_free_agents %>%
   labs(y="Average Signing Salary (Millions USD)", x="")
 
 ```
+
+```{r}
+
+```
+
 
 
 
