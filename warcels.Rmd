@@ -669,6 +669,19 @@ surplus_value_change_plt <-
   mutate(surplus_value_change = surplus_value_under_control - lag(surplus_value_under_control)) %>%
   filter(!is.na(surplus_value_change))
 
+
+# players with the most WAR under control
+warcels_full %>%
+  filter(year_analyzed == next_year) %>%
+  arrange(desc(war_under_control)) %>%
+  head(10) %>%
+  ggplot(aes(reorder(Name, war_under_control), war_under_control)) +
+  geom_col() + coord_flip() + fgt +
+  labs(x = "", y = "Controlled WAR") +
+  ggtitle(glue("Top 10 Controlled WAR, {next_year} – {next_year + 4}"))
+
+
+
 # players with the most surplus value
 warcels_full %>%
   filter(year_analyzed == next_year) %>%
@@ -677,7 +690,7 @@ warcels_full %>%
   ggplot(aes(reorder(Name, surplus_value_under_control), surplus_value_under_control)) +
   geom_col() + coord_flip() + fgt +
   labs(x = "", y = "Controlled Surplus Value (Millions USD)") +
-  ggtitle(glue("Top 10 Controlled Surplus Value, {next_year}"))
+  ggtitle(glue("Top 10 Controlled Surplus Value, {next_year} – {next_year + 4}"))
 
 # players with the least surplus value
 warcels_full %>%
@@ -687,7 +700,23 @@ warcels_full %>%
   ggplot(aes(reorder(Name, surplus_value_under_control), surplus_value_under_control)) +
   geom_col() + coord_flip() + fgt +
   labs(x = "", y = "Controlled Surplus Value (Millions USD)") +
-  ggtitle(glue("Bottom 10 Controlled \"Surplus\" Value, {next_year}"))
+  ggtitle(glue("Bottom 10 Controlled \"Surplus\" Value, {next_year} – {next_year + 4}"))
+
+# 10 players who gained the most controlled WAR YoY
+# exclude players who signed any kind of contract; 
+# they will get an artificial boost from the fact they're getting an increase in CONTROL.
+# I want to focus on an increase in projected talent.
+warcels_full %>%
+  group_by(PlayerId, Name) %>%
+  arrange(year_analyzed) %>%
+  mutate(controlled_war_change = war_under_control - lag(war_under_control)) %>%
+  arrange(desc(controlled_war_change)) %>%
+  head(10) %>%
+  ggplot(aes(reorder(Name, controlled_war_change), controlled_war_change)) +
+  geom_col() + coord_flip() + fgt +
+  labs(x="", y = "Change in Controlled WAR") +
+  ggtitle(glue("Largest Gains in Controlled WAR, {this_year} – {next_year}"),
+          subtitle = glue("Excluding {this_year} Free Agents"))
 
 # 10 players who lost the most surplus value YoY
 surplus_value_change_plt %>%
@@ -744,7 +773,8 @@ warcels_full %>%
 # this graph is neat but there really is a lot to unpack
 # first off it's not really 2018 to 2019, it's ENTERING 2018 vs. ENTERING 2019. still useful though.
 # and it is the result of not just players changing teams, but arb and pre-arb players getting better OR getting raises (and thus pushing their projected salaries up).
-warcels_full %>%
+year_to_year_team_changes <-
+  warcels_full %>%
   group_by(year_analyzed, Team) %>%
   summarize(
     controlled_war = sum(war_under_control),
@@ -761,7 +791,10 @@ warcels_full %>%
   mutate(
     zcontrolled_salary_change = (controlled_salary_change - mean(controlled_salary_change)) / sd(controlled_salary_change),
     zcontrolled_talent_change = (controlled_war_change - mean(controlled_war_change)) / sd(controlled_war_change)
-  ) %>%
+  )
+
+# graph YoY team changes in terms of standard deviation, to make the graph look neat
+year_to_year_team_changes %>%
   ggplot(aes(zcontrolled_salary_change, zcontrolled_talent_change, color = Team, fill = Team)) +
   geom_point() +
   geom_label_repel(aes(label = Team),
@@ -780,13 +813,32 @@ warcels_full %>%
   xlim(-3, 3) + ylim(-3, 3) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "gray") + geom_vline(xintercept = 0, linetype = "dashed", color = "gray")
 
+# same as the above graph but in absolute terms
+year_to_year_team_changes %>%
+  ggplot(aes(controlled_salary_change, controlled_war_change, color = Team, fill = Team)) +
+  geom_point() +
+  geom_label_repel(aes(label = Team),
+    na.rm = TRUE,
+    show.legend = FALSE,
+    color = "white",
+    segment.color = "black",
+    nudge_y = .2,
+    nudge_x = -.05
+  ) +
+  scale_color_manual(values = team_colors) + fgt +
+  scale_fill_manual(values = team_colors) +
+  theme(legend.position = "None") +
+  ggtitle(glue("MLB Team Changes"), subtitle = glue("Prior to {this_year} – Prior to {next_year}")) +
+  labs(x = "Change in 5-Year Controlled Salary (Millions USD)", y = "Change in 5-Year Controlled WAR")
+
 # team control over talent vs. the talent under control
 warcels %>%
   group_by(Team) %>%
   summarize(
     num_players = n(),
     controlled_years_per_player = sum(controlled_years) / num_players,
-    controlled_war_per_year = mean(war_per_year_of_control)
+    controlled_war_per_year = mean(war_per_year_of_control),
+    controlled_salary_per_year = sum(salary_under_control)
   ) %>%
   ggplot(aes(controlled_years_per_player, controlled_war_per_year, color = Team, fill = Team)) +
   geom_point() +
