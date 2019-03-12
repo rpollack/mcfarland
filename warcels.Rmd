@@ -602,7 +602,7 @@ warcels_full <-
   warcels %>%
   mutate(year_analyzed = 2019) %>%
   bind_rows(read_csv("warcels-2018.csv") %>%
-    mutate(year_analyzed = 2018)) %>%
+    mutate(year_analyzed = 2018)) %>%                          # how to account for inflation?
   dplyr::select(PlayerId, Name, year_analyzed, everything())
 ```
 
@@ -735,6 +735,28 @@ surplus_value_change_plt %>%
   geom_col() + coord_flip() +
   labs(x = "", y = "Change in Controlled Surplus Value (Millions USD)") +
   ggtitle(glue("Largest Gains in Controlled Surplus Value, {this_year} – {next_year}")) + fgt
+
+
+# scatterplot of players' changes, so they are broken out by WAR; current Indians players are labeled for context of an article I'm writing.
+warcels_full %>%
+  group_by(PlayerId, Name) %>%
+  arrange(year_analyzed) %>%
+  mutate(controlled_war_change = war_under_control - lag(war_under_control),
+         controlled_salary_change = salary_under_control - lag(salary_under_control),
+         label = if_else(year_analyzed == 2019 & Name %in% c("Carlos Carrasco",
+                                                             "Francisco Lindor",
+                                                             "Mike Clevinger", 
+                                                             "Jose Ramirez"), Name, NA_character_)) %>% 
+ # filter(controlled_years_change == -2)
+  ggplot(aes(controlled_salary_change, controlled_war_change)) +
+  geom_point() + fgt +
+  geom_label_repel(aes(label = label),
+    na.rm = TRUE,
+    show.legend = FALSE,
+    direction = "both",
+    nudge_x = 10
+  ) 
+
 ```
 
 
