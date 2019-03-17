@@ -872,16 +872,15 @@ year_to_year_team_changes %>%
   ggtitle(glue("MLB Team Changes"), subtitle = glue("Prior to {this_year} – Prior to {next_year}")) +
   labs(x = "Change in 5-Year Controlled Salary (Millions USD)", y = "Change in 5-Year Controlled WAR")
 
-# team control over talent vs. the talent under control
+# typical player: median years of control vs. median proj. WAR during that control
 warcels %>%
   group_by(Team) %>%
   summarize(
     num_players = n(),
-    controlled_years_per_player = sum(controlled_years) / num_players,
-    controlled_war_per_year = mean(war_per_year_of_control),
-    controlled_salary_per_year = sum(salary_under_control)
+    controlled_years_per_player = median(controlled_years),
+    controlled_war_per_player = median(war_under_control)
   ) %>%
-  ggplot(aes(controlled_years_per_player, controlled_war_per_year, color = Team, fill = Team)) +
+  ggplot(aes(controlled_years_per_player, controlled_war_per_player, color = Team, fill = Team)) +
   geom_point() +
   geom_label_repel(aes(label = Team),
     na.rm = TRUE,
@@ -890,14 +889,16 @@ warcels %>%
     segment.color = "black",
     nudge_y = .1
   ) +
-  ggtitle(glue("MLB Team Outlook, {next_year} – {next_year + 4}")) +
+  ggtitle(glue("MLB Team Outlook, {next_year} – {next_year + 4}"),
+          subtitle = "Teams' typical players: how long the team controls them vs. total WAR projected during that control") +
   scale_color_manual(values = team_colors) + fgt +
   scale_fill_manual(values = team_colors) +
   labs(
-    x = "Control of Average Player (Years)", y = "Proj. WAR per Year of Average Player",
+    x = "Median Years of Control", y = "Median Projected WAR during Control",
     caption = "\nSources: Baseball Reference (Salary & Control), FanGraphs (WAR), Tom Tango (Projections)\nBy Ryan Pollack: ryanpollack.com"
   ) +
-  theme(legend.position = "None")
+  theme(legend.position = "None") + 
+  expand_limits(y=0)
 ```
 
 
