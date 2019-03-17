@@ -637,7 +637,8 @@ team_war_per_season %>%
     na.rm = TRUE,
     show.legend = FALSE,
     color = "white",
-    segment.color = "black"
+    segment.color = "black",
+    nudge_x = 1
   ) +
   scale_color_manual(values = team_colors) +
   scale_fill_manual(values = team_colors) + fgt
@@ -655,6 +656,23 @@ team_war_per_season %>%
   ) +
   scale_color_manual(values = team_colors) +
   scale_fill_manual(values = team_colors)
+
+# team WAR per season AL Central
+team_war_per_season %>%
+  filter(Division == "AL Central") %>%
+  ggplot(aes(Season, controlled_war, color = Team, fill = Team)) + geom_point() + geom_line() +
+  labs(y = "WAR Under Control", caption = "Sources: Baseball Reference, FanGraphs, & Tom Tango") +
+  ggtitle(glue("Team Controlled WAR Per Season, {next_year} - {next_year + 4}"),
+          subtitle = "AL Central Division") +
+  geom_label_repel(aes(label = label),
+    na.rm = TRUE,
+    show.legend = FALSE,
+    color = "white",
+    segment.color = "black",
+    nudge_x = 1
+  ) +
+  scale_color_manual(values = team_colors) +
+  scale_fill_manual(values = team_colors) + fgt
 ```
 
 
