@@ -551,7 +551,8 @@ master_list <-
     Salary = ifelse(Salary == "Arb-2", (as.double(lag(Salary)) / .25) * .4, Salary),
     Salary = ifelse(Salary == "Arb-3", (as.double(lag(Salary)) / .4) * .6, Salary),
     Salary = ifelse(Salary == "Arb-4", (as.double(lag(Salary)) / .6) * .7, Salary),
-    Salary = as.numeric(Salary) * (1.022^(Season - next_year)), # inflate actual salary by 2.38% annually
+    Salary = as.numeric(Salary) * (1.0215^(Season - next_year)), # inflate actual salary each year by the average of the last 3 years' Feb-Feb YoY rates:             
+                                                                      # https://inflationdata.com/Inflation/Inflation_Rate/CurrentInflation.asp?reloaded=true
     surplus_value = ((millions_per_war * (1.05^(Season - next_year))) * WAR) - Salary # inflate $/WAR by 5% annually
   ) %>%
   ungroup() %>%
