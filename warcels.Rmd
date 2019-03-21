@@ -435,7 +435,7 @@ combine payroll information with WAR projections to produce controlled surplus v
 # 4. but, some players are labeled Arb-2 or Arb-3 salaries with no previous year's info to base a projection on.
 # you can find #4 with the following code: all_teams_payroll %>% group_by(Name, Team) %>% arrange(Year) %>% filter(Year == min(Year), str_detect(salary, "^Arb-2") | str_detect(salary, "^Arb-3") | str_detect(salary, "^Arb-4"), !str_detect(salary, "M"), !str_detect(salary, "k"))
 
-millions_per_war <- 9
+millions_per_war <- 8
 
 master_list <-
   all_teams_payroll %>%
@@ -553,7 +553,7 @@ master_list <-
     Salary = ifelse(Salary == "Arb-4", (as.double(lag(Salary)) / .6) * .7, Salary),
     Salary = as.numeric(Salary) * ((1-0.215)^(Season - next_year)), # inflate actual salary each year by the average of the last 3 years' Feb-Feb YoY rates:             
                                                                       # https://inflationdata.com/Inflation/Inflation_Rate/CurrentInflation.asp?reloaded=true
-    surplus_value = ((millions_per_war * (1.05^(Season - next_year))) * WAR) - Salary # inflate $/WAR by 5% annually
+    surplus_value = ((millions_per_war * (1.03^(Season - next_year))) * WAR) - Salary # inflate $/WAR by 5% annually
   ) %>%
   ungroup() %>%
   mutate(Division = ifelse(Team %in% c("BAL", "BOS", "NYY", "TBR", "TOR"),
@@ -889,12 +889,40 @@ warcels %>%
     segment.color = "black",
     nudge_y = .1
   ) +
-  ggtitle(glue("MLB Team Outlook, {next_year} – {next_year + 4}"),
-          subtitle = "Teams' typical players: how long the team controls them vs. total WAR projected during that control") +
+  ggtitle(glue("Teams' Typical Players, {next_year} – {next_year + 4}"),
+          subtitle = "How long the team controls them vs. total WAR projected during that control") +
   scale_color_manual(values = team_colors) + fgt +
   scale_fill_manual(values = team_colors) +
   labs(
     x = "Median Years of Control", y = "Median Projected WAR during Control",
+    caption = "\nSources: Baseball Reference (Salary & Control), FanGraphs (WAR), Tom Tango (Projections)\nBy Ryan Pollack: ryanpollack.com"
+  ) +
+  theme(legend.position = "None") + 
+  expand_limits(y=0)
+
+# how much each team is paying for its controlled talent
+warcels %>%
+  group_by(Team) %>%
+  summarize(
+    num_players = n(),
+    controlled_war_per_player = median(war_under_control),
+    controlled_salary = median(salary_under_control)
+  ) %>%
+  ggplot(aes(controlled_salary, controlled_war_per_player, color = Team, fill = Team)) +
+  geom_point() +
+  geom_label_repel(aes(label = Team),
+    na.rm = TRUE,
+    show.legend = FALSE,
+    color = "white",
+    segment.color = "black",
+    nudge_y = .1
+  ) +
+  ggtitle(glue("Value of Typical Player, {next_year} – {next_year + 4}"),
+          subtitle = "Teams' typical players: total projected salary vs. total projected WAR") +
+  scale_color_manual(values = team_colors) + fgt +
+  scale_fill_manual(values = team_colors) +
+  labs(
+    x = "Median Salary under Control (USD Millions)", y = "Median Projected WAR during Control",
     caption = "\nSources: Baseball Reference (Salary & Control), FanGraphs (WAR), Tom Tango (Projections)\nBy Ryan Pollack: ryanpollack.com"
   ) +
   theme(legend.position = "None") + 
@@ -904,48 +932,37 @@ warcels %>%
 
 
 
-### 2018 controlled surplus value dollar per TV household
+### controlled surplus value relative to media market size
 
 ```{r}
-warcels_team_2018 %>%
-  ggplot(aes(reorder(Team, total_surplus_value_under_control), total_surplus_value_under_control),
-    color = Team, fill = Team
+
+# show that teams in smaller markets tend to have more controlled surplus value
+warcels %>%
+  group_by(Team) %>%
+  summarize(total_controlled_surplus_value = sum(surplus_value_under_control)) %>%
+  inner_join(team_info, by = c("Team" = "team_name")) %>%
+  ggplot(aes(tv_households, total_controlled_surplus_value, color = Team, fill = Team)) +
+  geom_point() + fgt + scale_x_continuous(labels = comma) +
+  geom_label_repel(aes(label = Team),
+    na.rm = TRUE,
+    show.legend = FALSE,
+    color = "white",
+    segment.color = "black",
+    nudge_y = .1
   ) +
-  geom_col() +
-  coord_flip() +
-  fgt +
+  scale_color_manual(values = team_colors) +
   scale_fill_manual(values = team_colors) +
-  labs(x = "", y = "Controlled Surplus Value (Millions USD)", caption = "Sources: Baseball Reference, FanGraphs, & Tom Tango") +
-  ggtitle("Controlled Surplus Value, MLB Teams 2018 - 2022")
-
-
-inner_join(warcels_team_2018, team_info, by = c("Team" = "team_name")) %>%
-  mutate(surplus_value_per_tv_household = total_surplus_value_under_control / (tv_households / 100000)) %>%
-  ggplot(aes(reorder(Team, surplus_value_per_tv_household), surplus_value_per_tv_household)) + geom_col() +
-  coord_flip() + labs(x = "", y = "Controlled Surplus Value per 100k TV Households in DMA (Millions USD)")
-
-
+  theme(legend.position = "None")
+  
 # what does the graph above say? that the cle/mil surplus value is even stronger when you account for the team's tiny market size.
 # that's not the angle i'd hoped for ... i wanted something like, the yankees' surplus value is even more unfair because they're in a large
 # media market and as such are a very high-revenue team anyway.
 
-inner_join(warcels_team_2018, team_info, by = c("Team" = "team_name")) %>%
-  mutate(tv_households_per_csv_dollar = tv_households / total_surplus_value_under_control) %>%
-  ggplot(aes(reorder(Team, tv_households_per_csv_dollar), tv_households_per_csv_dollar)) + geom_col() +
-  coord_flip() + labs(x = "", y = "TV Households per CSV Dollar") + scale_y_continuous(labels = comma)
 
-# THIS graph shows that BAL has a large population to be saddled with so little surplus value. this tell us the team is spending disproportionately to its market size
-
-# negative numbers don't make sense though. you can't have negative TV households. how to fix?
+#the idea im trying ot convey is that surplus value means more to the Rays because they're in a smaller market
+#actually they're not ... that's the point!
 
 
-
-ggplot(team_info, aes(reorder(team_name, tv_households), tv_households)) + geom_col() + coord_flip() +
-  labs(x = "", y = "TV Households in DMA") + scale_y_continuous(labels = comma) +
-  ggtitle("TV-Viewing Households in MLB Team Markets, 2016")
-
-
-# what am i trying to demonstrate here?
 ```
 
 ```{r}
