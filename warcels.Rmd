@@ -660,7 +660,7 @@ team_war_per_season %>%
 
 # team WAR per season AL Central
 team_war_per_season %>%
-  filter(Division == "AL Central") %>%
+  filter(Division == "AL East") %>%
   ggplot(aes(Season, controlled_war, color = Team, fill = Team)) + geom_point() + geom_line() +
   labs(y = "WAR Under Control", caption = "Sources: Baseball Reference, FanGraphs, & Tom Tango") +
   ggtitle(glue("Team Controlled WAR Per Season, {next_year} - {next_year + 4}"),
