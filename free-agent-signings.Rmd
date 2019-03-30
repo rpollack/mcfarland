@@ -106,7 +106,7 @@ get_fa_salaries <- function(year) {
 ### get data
 
 ```{r}
-start_year <- 1976
+start_year <- 2019
 start_year_salaries <- 2011
 current_year <- 2018
 
@@ -119,7 +119,7 @@ fa_signings <- years %>%
   do(get_free_agents(.$url)) %>%
   mutate(offseason = str_extract(url, "[:digit:]{4}")) %>%
   ungroup() %>%
-  dplyr::select(name = Name, offseason, age = Age, sign_date = Date, three_year_war = `WAR3`) %>%
+  dplyr::select(name = Name, offseason, age = Age, sign_date = Date, three_year_war = `WAR3`, AB, G, GS) %>%
   mutate(sign_type = "signed") %>%
   arrange(sign_date)
 
@@ -128,10 +128,12 @@ unsigned_batters <- years %>%
   do(get_unsigned_batters(.$url)) %>%
   mutate(offseason = str_extract(url, "[:digit:]{4}")) %>%
   ungroup() %>%
-  dplyr::select(name = Name, offseason, age = Age, three_year_war = `WAR3`) %>%
+  dplyr::select(name = Name, offseason, age = Age, three_year_war = `WAR3`, AB) %>%
   mutate(
     sign_type = "unsigned",
-    sign_date = NA_character_
+    sign_date = NA_character_,
+    GS = NA_character_,
+    G = NA_character_
   )
 
 unsigned_pitchers <- years %>%
@@ -139,7 +141,7 @@ unsigned_pitchers <- years %>%
   do(get_unsigned_pitchers(.$url)) %>%
   mutate(offseason = str_extract(url, "[:digit:]{4}")) %>%
   ungroup() %>%
-  dplyr::select(name = Name, offseason, age = Age, three_year_war = `WAR3`) %>%
+  dplyr::select(name = Name, offseason, age = Age, three_year_war = `WAR3`, G, GS) %>%
   mutate(
     sign_type = "unsigned",
     sign_date = NA_character_
@@ -211,37 +213,51 @@ fa_signings_clean <-
 # 1. combine all tibbles into one, so each offseason has the right signed and unsigned players
 # 2. scrub duplicates from the data; i found that, for example, the 2017 offseason has many duplicates entries that inflate
 # the real count of free agents
-# 3. assign a label to each type of player, based on their trailing three-year WAR total
+# 3. assign a label to each type of player, based on their position and their trailing three-year WAR total
 # 4. bucket the player according to their age when they signed
 # 5. compute the number of days it took the player to sign, starting from Nov 1st of that year
 # 6. match up any salary/signing information i have with the player and the offseason
 
 all_free_agents <-
   bind_rows(fa_signings_clean, unsigned_batters, unsigned_pitchers) %>%
-  distinct(name, offseason, age, sign_date, three_year_war, sign_type, sign_month) %>% # remove duplicate entries; many years have them
-  mutate(three_year_war = replace_na(three_year_war, 0)) %>%
-  mutate(
-    player_type = case_when(
-      three_year_war < 1.5 ~ "Scrub",
-      three_year_war >= 1.5 & three_year_war < 4.5 ~ "Role Player",
-      three_year_war >= 4.5 & three_year_war < 7.5 ~ "Solid Starter",
-      three_year_war >= 7.5 & three_year_war < 10.5 ~ "Good Player",
-      three_year_war >= 10.5 & three_year_war < 13.5 ~ "All-Star",
-      three_year_war >= 13.5 & three_year_war < 16.5 ~ "Superstar",
-      three_year_war >= 16.5 ~ "MVP"
-    ),
-    player_type = factor(player_type, levels = c("Scrub", "Role Player", "Solid Starter", "Good Player", "All-Star", "Superstar", "MVP")),
-    age_bucket = case_when(
-      age <= 27 ~ "27 and under",
-      age >= 28 & age <= 33 ~ "Between 28 and 33",
-      age >= 34 ~ "34+"
-    ),
-    age_bucket = factor(age_bucket, levels = c("27 and under", "Between 28 and 33", "34+")),
-    offseason = as.numeric(offseason),
-    days_to_sign = as.period(interval(
-      ymd(str_c(offseason, "11", "01", sep = "-")),
-      sign_date
-    )) %/% days(1)
+  distinct(name, offseason, age, sign_date, three_year_war, sign_type, sign_month, AB, GS, G) %>% # remove duplicate entries; many years have them
+  mutate(three_year_war = replace_na(three_year_war, 0),
+         position = case_when(
+           (is.na(GS/G) | AB >= 50) ~ "Position Player",  # prevent pos. players with relief appearances from being classified as pitchers
+           GS / G >= 0.5 ~ "Starting Pitcher",
+           TRUE ~ "Relief Pitcher"
+         ),
+         position = factor(position, levels = c("Position Player", "Starting Pitcher", "Relief Pitcher")),
+         player_type = case_when(
+           position %in% c("Starting Pitcher", "Position Player") ~ case_when(
+             three_year_war < 1.5 ~ "Scrub",
+             three_year_war >= 1.5 & three_year_war < 4.5 ~ "Role Player",
+             three_year_war >= 4.5 & three_year_war < 7.5 ~ "Solid Starter",
+             three_year_war >= 7.5 & three_year_war < 10.5 ~ "Good Player",
+             three_year_war >= 10.5 & three_year_war < 13.5 ~ "All-Star",
+             three_year_war >= 13.5 & three_year_war < 16.5 ~ "Superstar",
+             three_year_war >= 16.5 ~ "MVP"
+           ),
+           position == "Relief Pitcher" ~ case_when(
+             three_year_war >= 5 ~ "Superstar",
+             three_year_war >= 2 ~ "Good Player",
+             three_year_war >= 1 ~ "Role Player",
+             TRUE ~ "Scrub"
+           ),
+         ),
+         player_type = factor(player_type, levels = c("Scrub", "Role Player", "Solid Starter", "Good Player", "All-Star", "Superstar", "MVP")),
+         age_bucket = case_when(
+           age <= 27 ~ "27 and under",
+           age >= 28 & age <= 30 ~ "Between 28 and 30",
+           age >= 31 & age <= 34 ~ "Between 31 and 33",
+           age >= 35 ~ "33+"
+         ),
+         age_bucket = factor(age_bucket, levels = c("27 and under", "Between 28 and 30", "Between 31 and 33", "33+")),
+         offseason = as.numeric(offseason),
+         days_to_sign = as.period(interval(
+           ymd(str_c(offseason, "11", "01", sep = "-")),
+           sign_date
+         )) %/% days(1)
   ) %>%
   left_join(fa_salaries, by=c("name", "offseason")) %>%
   
@@ -254,14 +270,16 @@ all_free_agents <-
     offseason == 2014 ~ sign_salary * 1.061,
     offseason == 2015 ~ sign_salary * 1.059,
     offseason == 2016 ~ sign_salary * 1.046,
-    offseason == 2017 ~ sign_salary * 1.024 
-  ))
+    offseason == 2017 ~ sign_salary * 1.024,
+    offseason == 2018 ~ sign_salary
+  ),
+  sign_years = as.numeric(sign_years),
+  sign_years = if_else(sign_salary == 0, 0, sign_years) # if player signs minor league deal, make it a 0-length deal so it'll bring down the avg
+  ) %>%
+  dplyr::select(-GS, G)
 
-# TODO: account for inflation in sign_salary
 # TODO: try and get offseason_start to be the actual day after the end of the world series. fake it for 1994 or look up what it was
-# TODO: the scale above needs to be adjusted if the player is a reliever
-# TODO: which means I need to attach positional information to everyone
-# TODO: this info will also let me split out decline by position
+
 ```
 
 
@@ -271,6 +289,7 @@ show the average number of days it takes players to sign a FA contract
 
 # mean time to sign overall, by year
 all_free_agents %>%
+  filter(offseason >= 2010) %>%
   group_by(offseason) %>%
   summarize(mean_days_to_sign = round(mean(days_to_sign, na.rm = TRUE), 1)) %>%
   ggplot(aes(offseason, mean_days_to_sign)) +
@@ -282,15 +301,17 @@ all_free_agents %>%
 
 # mean time to sign by player talent type, by yvear
 all_free_agents %>%
+  filter(offseason >= 2010) %>%
   group_by(offseason, player_type) %>%
   summarize(mean_days_to_sign = round(mean(days_to_sign, na.rm = TRUE), 1)) %>%
   ggplot(aes(offseason, mean_days_to_sign)) +
-  facet_wrap(vars(player_type)) +
+  facet_wrap(vars(player_type), scales = "free_y") +
   geom_point(size = 0.7) + geom_line() +
   ggtitle("Trends in Free Agent Signing Speed",
     subtitle = "Avg. number of days between Nov 1st and player's sign date"
   ) + fgt +
-  expand_limits(y = 0)
+  expand_limits(y = 0) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
  # geom_smooth(method = "loess", linetype = "dashed", lwd = 0.7, se = FALSE)
 ```
 
@@ -305,19 +326,21 @@ fa_diff <-
   summarize(mean_days_to_sign = round(mean(days_to_sign, na.rm = TRUE), 1))
 
 fa_diff %>%
+  filter(offseason >= 2010) %>%
   ggplot(aes(offseason, mean_days_to_sign, group = 1, color = age_bucket)) +
-  facet_wrap(vars(player_type, age_bucket)) +
+  facet_wrap(vars(player_type, age_bucket), scales = "free_y") +
   geom_point(size = 0.7) + geom_line() +
   ggtitle("Mean Days to Sign FA Contract by Player Type",
     subtitle = "Number of Days between Nov 1st and player's sign date"
   ) + fgt +
-  expand_limits(y = 0)
+  expand_limits(y = 0) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
 
 # find the largest year-to-year changes in mean days to sign, by player type by age bucket
 # ignore multi-year intervals as fans don't perceive those as much; we remember the previous offseason mostly
 # also ignore 1993-1994 and 1994-1995 as 1994 was a strike year
 fa_diff %>%
-  filter(offseason != 1994) %>%
+  filter(offseason >= 2010) %>%
   group_by(player_type, age_bucket) %>%
   arrange(offseason) %>%
   mutate(
@@ -329,8 +352,7 @@ fa_diff %>%
     offseason - dplyr::lag(offseason) == 1
   ) %>%
   arrange(desc(diff_mean_days_to_sign)) %>%
-  dplyr::select(from_to, player_type, age_bucket, diff_mean_days_to_sign) %>%
-  View()
+  dplyr::select(from_to, player_type, age_bucket, diff_mean_days_to_sign) 
 ```
 
 
@@ -342,7 +364,7 @@ all_free_agents %>%
 ```
 
 
-fun with salary information
+fun with contract information
 
 ```{r, fig.height = 3}
 
@@ -353,8 +375,7 @@ all_free_agents %>%
   ggplot(aes(offseason, avg_signing, group = 1)) +
   geom_point(size=0.7) + geom_line() +
   ggtitle("Trends in Free Agent Signing Money"
-  ) + fgt +
-  expand_limits(y = 0) +
+  ) + expand_limits(y = 0) +
   labs(y="Average Signing Salary (Millions USD)", x="")
 
 # mean $ signed for, by player type by age bucket, over time
@@ -366,9 +387,35 @@ all_free_agents %>%
   facet_wrap(vars(player_type, age_bucket), scales = "free_y") +
   geom_point(size=0.7) + geom_line() +
   ggtitle("Trends in Free Agent Signing Money"
-  ) + fgt +
+  ) +
   expand_limits(y = 0) +
-  labs(y="Average Signing Salary (Millions USD)", x="")
+  labs(y="Average Signing Salary (Millions USD, Inflation-Adjusted to 2018)", x="")
+
+# contract length
+all_free_agents %>%
+  filter(!is.na(sign_salary)) %>%
+  group_by(offseason, player_type, age_bucket) %>%
+  summarize(length_of_avg_contract = round(mean(sign_years, na.rm = TRUE), 1)) %>%
+  ggplot(aes(offseason, length_of_avg_contract, group = 1, color = age_bucket)) +
+  facet_wrap(vars(player_type, age_bucket), scales = "free_y") +
+  geom_point(size=0.7) + geom_line() +
+  ggtitle("Trends in Free Agent Contract Length"
+  ) + 
+  expand_limits(y = 0) +
+  labs(y="Length of Average Contract (Years)", x="")
+
+# minor league deals
+all_free_agents %>%
+  filter(sign_salary == 0 & sign_type == "signed") %>%
+  group_by(offseason, player_type, age_bucket) %>%
+  summarize(num_minor_league_deals = n()) %>%
+  ggplot(aes(offseason, num_minor_league_deals, group = 1, color = age_bucket)) +
+  facet_wrap(vars(player_type, age_bucket), scales = "free_y") +
+  geom_point(size=0.7) + geom_line() +
+  ggtitle("Trends in Minor-League Free Agent Deals"
+  ) + 
+  expand_limits(y = 0) +
+  labs(y="Number of Minor League Free Agent Deals", x="")
 
 ```
 
