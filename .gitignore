@@ -3,6 +3,7 @@
 .RData
 .Ruserdata
 *.csv
+!warcels-2019.csv
 *.Rproj
 cubs-rays-relative.png
 warcels-copy.Rmd
