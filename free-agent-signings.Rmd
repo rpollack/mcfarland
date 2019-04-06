@@ -444,31 +444,32 @@ money_differences <-
 # graph each group and its year-to-year change in zscore of time to sign and avg contract value. label points of interest
 money_differences %>%
   ungroup() %>%
-  mutate(label = glue("{position}
-                      {player_type}
-                      {age_bucket}")) %>%
-  # mutate(label = case_when((position == "Position Player" & player_type == "All-Star" & age_bucket == "28 - 30") |
-  #                            (position == "Relief Pitcher" & player_type == "Good Player" & age_bucket == "31 - 33") |
-  #                            (position == "Relief Pitcher" & player_type == "Superstar" & age_bucket == "31 and 33") |
-  #                            (position == "Position Player" & player_type == "Role Player" & age_bucket == "33+") |
-  #                            (position == "Starting Pitcher" & player_type == "Solid Starter" & age_bucket == "Between 28 and 30")
-  #                          ~ glue("{position}, {player_type}, {age_bucket}"),
-  #                          TRUE ~ NA_character_)
-  #        ) %>%
+  # mutate(label = glue("{position}, {player_type}, {age_bucket}")) %>%
+  mutate(label = case_when((position == "Position Player" & player_type == "All-Star" & age_bucket == "28 - 30") |
+                             (position == "Position Player" & player_type == "Superstar" & age_bucket == "31 - 33")|
+                             (position == "Relief Pitcher" & player_type == "Good Player" & age_bucket == "31 - 33") |
+                             (position == "Position Player" & player_type == "Good Player" & age_bucket == "28 - 30") |
+                             (position == "Starting Pitcher" & player_type == "Role Player" & age_bucket == "37 - 39") |
+                             (position == "Starting Pitcher" & player_type == "Solid Starter" & age_bucket == "28 - 30" )
+                           ~ glue("{position}
+                                  {player_type}
+                                  {age_bucket}"),
+                           TRUE ~ NA_character_)
+         ) %>%
   ggplot(aes(diff_mean_days_to_sign, diff_median_sign_salary)) +
  geom_point() +
   geom_label_repel(aes(label = label),
    na.rm = TRUE,
    show.legend = FALSE,
    segment.color = "black",
-   # nudge_y = 0.4
+   nudge_y = -2
  ) +
  theme(legend.position = "none") +
   fgt +
   # xlim(-3, 3) + ylim(-3, 3) +
-  # geom_hline(yintercept = 0, color = "gray") +
-  # geom_vline(xintercept = 0, color = "gray") +
-  labs(x="Difference in Mean Days to Sign", y="Difference in Median $ Signed For ")
+  geom_hline(yintercept = 0, color = "gray") +
+  geom_vline(xintercept = 0, color = "gray") +
+  labs(x="Difference in Mean Days to Sign", y="Difference in Median Amount Signed For (Millions USD)") 
 
 differences_model <- lm(diff_median_sign_salary ~ diff_mean_days_to_sign,
                         data = money_differences)
