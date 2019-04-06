@@ -469,7 +469,9 @@ money_differences %>%
   # xlim(-3, 3) + ylim(-3, 3) +
   geom_hline(yintercept = 0, color = "gray") +
   geom_vline(xintercept = 0, color = "gray") +
-  labs(x="Difference in Mean Days to Sign", y="Difference in Median Amount Signed For (Millions USD)") 
+  labs(x="Difference in Mean Days to Sign", y="Difference in Median Contract Amount (Millions USD)") +
+  ggtitle("Difference in Median Contract Amount vs. Difference in Mean Time to Sign Contract",
+          subtitle = "Free Agents, 2018 vs. 2017")
 
 differences_model <- lm(diff_median_sign_salary ~ diff_mean_days_to_sign,
                         data = money_differences)
@@ -482,8 +484,11 @@ money_differences %>%
   ungroup() %>%
   mutate(label = glue("{position}, {player_type}, Age {age_bucket}")) %>%
   ggplot(aes(reorder(label, -diff_mean_days_to_sign), diff_mean_days_to_sign)) + geom_col() + coord_flip() +
-  fgt + labs(x="", y="Difference in Average Days Elapsed Before Signing FA Contract, 2018 vs. 2017") +
-  ggtitle("The Hot Stove Thawed a Bit in 2018")
+  fgt + labs(x="", 
+             y="Difference in Average Days Elapsed Before Signing Free Agent Contract", 
+             caption = "Source: Baseball-Reference") +
+  ggtitle("Difference in Time Elapsed between November 1st and Signing a Contract",
+          subtitle = "Free Agents, 2018 vs. 2017")
 
 money_differences %>% 
   ungroup() %>%
