@@ -478,6 +478,76 @@ differences_model <- lm(diff_median_sign_salary ~ diff_mean_days_to_sign,
 
 ```
 
+```{r, fig.height=3}
+# for offseasons 2016 - 2018, find average time to sign and avg $ signed for for position players
+# only ployt groups where all 3 years are represented with data
+position_player_diff <-
+  all_free_agents %>%
+  filter(offseason %in% c(2016, 2017, 2018),
+         position == "Position Player",
+         sign_type == "signed") %>%
+  group_by(offseason, position, player_type, age_bucket) %>%
+  summarize(mean_days_to_sign = mean(days_to_sign, na.rm = TRUE),
+            median_contract_value = median(sign_salary, na.rm = TRUE)) %>%
+  group_by(position, player_type, age_bucket) %>%
+  filter((!is.na(mean_days_to_sign) & !is.na(median_contract_value))) %>%
+  filter(n() == 3)
+
+ggplot(position_player_diff, aes(factor(offseason), mean_days_to_sign, group = player_type)) +
+  facet_wrap(vars(player_type, age_bucket)) +
+  geom_point(aes(size = median_contract_value)) + geom_line() + ggtitle("Offseason vs. Average Time to Sign Contract and Median Contract Value",
+                                       subtitle = "Free Agent Position Players by Talent Level and Age at Signing, 2016 - 2018") +
+  labs(x="Offseason", y="Avg. # of Days 
+       between Nov 1st and Contract Signing", size = "Median Contract Value ($MM)") +
+  expand_limits((y=0))
+
+# starting pitchers
+starting_pitcher_diff <-
+  all_free_agents %>%
+  filter(offseason %in% c(2016, 2017, 2018),
+         position == "Starting Pitcher",
+         sign_type == "signed") %>%
+  group_by(offseason, position, player_type, age_bucket) %>%
+  summarize(mean_days_to_sign = mean(days_to_sign, na.rm = TRUE),
+            median_contract_value = median(sign_salary, na.rm = TRUE)) %>%
+  group_by(position, player_type, age_bucket) %>%
+  filter((!is.na(mean_days_to_sign) & !is.na(median_contract_value))) %>%
+  filter(n() == 3)
+
+ggplot(starting_pitcher_diff, aes(factor(offseason), mean_days_to_sign, group = player_type)) +
+  facet_wrap(vars(player_type, age_bucket)) +
+  geom_point(aes(size = median_contract_value)) + geom_line() + ggtitle("Offseason vs. Average Time to Sign Contract and Median Contract Value",
+                                       subtitle = "Free Agent Starting Pitchers by Talent Level and Age at Signing, 2016 - 2018") +
+  labs(x="Offseason", y="Avg. # of Days 
+       between Nov 1st and Contract Signing", size = "Median Contract Value ($MM)") +
+  expand_limits((y=0))
+
+# relief pitchers
+relief_pitcher_diff <-
+  all_free_agents %>%
+  filter(offseason %in% c(2016, 2017, 2018),
+         position == "Relief Pitcher",
+         sign_type == "signed") %>%
+  group_by(offseason, position, player_type, age_bucket) %>%
+  summarize(mean_days_to_sign = mean(days_to_sign, na.rm = TRUE),
+            median_contract_value = median(sign_salary, na.rm = TRUE)) %>%
+  group_by(position, player_type, age_bucket) %>%
+  filter((!is.na(mean_days_to_sign) & !is.na(median_contract_value))) %>%
+  filter(n() == 3)
+
+ggplot(relief_pitcher_diff, aes(factor(offseason), mean_days_to_sign, group = player_type)) +
+  facet_wrap(vars(player_type, age_bucket)) +
+  geom_point(aes(size = median_contract_value)) + geom_line() + ggtitle("Offseason vs. Average Time to Sign Contract and Median Contract Value",
+                                       subtitle = "Free Agent Relievers by Talent Level and Age at Signing, 2016 - 2018") +
+  labs(x="Offseason", y="Avg. # of Days 
+       between Nov 1st and Contract Signing", size = "Median Contract Value ($MM)") +
+  expand_limits((y=0))
+
+
+
+```
+
+
 
 ```{r, fig.height=3}
 money_differences %>% 
