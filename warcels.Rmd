@@ -440,6 +440,10 @@ combine payroll information with WAR projections to produce controlled surplus v
 # 4. but, some players are labeled Arb-2 or Arb-3 salaries with no previous year's info to base a projection on.
 # you can find #4 with the following code: all_teams_payroll %>% group_by(Name, Team) %>% arrange(Year) %>% filter(Year == min(Year), str_detect(salary, "^Arb-2") | str_detect(salary, "^Arb-3") | str_detect(salary, "^Arb-4"), !str_detect(salary, "M"), !str_detect(salary, "k"))
 
+
+# TODO: fix bug where Ryan o'rourke has 69.8M in salary coming his way. https://www.baseball-reference.com/teams/NYM/new-york-mets-salaries-and-contracts.shtml
+# this may be a bug in #2 or #2a. O'rourke's data says 'Arb' 'Arb' 'FA'. 
+
 millions_per_war <- 8
 
 master_list <-
@@ -516,7 +520,6 @@ master_list <-
     salary = ifelse(Name == "Erisbel Arruebarrena" & Year == 2021, "Arb-1", salary),
     salary = ifelse(Name == "Erisbel Arruebarrena" & Year == 2022, "Arb-2", salary),
     salary = ifelse(Name == "Hansel Robles" & Year == 2020, "Arb-3", salary),
-    salary = ifelse(Name == "Jacob deGrom" & Year == 2020, "Arb-4", salary),
     salary = ifelse(Name == "Jake Smolinski" & Year == 2020, "Arb-3", salary),
     salary = ifelse(Name == "Jorge Soler" & Year == 2021, "FA", salary), # spotrac
     salary = ifelse(Name == "Josh Phegley" & Year == 2020, "Arb-3", salary),
@@ -524,9 +527,6 @@ master_list <-
     salary = ifelse(Name == "Lance McCullers" & Year == 2020, "Arb-3", salary),
     salary = ifelse(Name == "Lance McCullers" & Year == 2021, "Arb-4", salary),
     salary = ifelse(Name == "Marcus Semien" & Year == 2020, "Arb-3", salary),
-    salary = ifelse(Name == "Miles Mikolas" & Year == 2020, "Arb-1", salary),
-    salary = ifelse(Name == "Miles Mikolas" & Year == 2021, "Arb-2", salary),
-    salary = ifelse(Name == "Miles Mikolas" & Year == 2022, "Arb-3", salary),
     salary = ifelse(Name == "Noah Syndergaard" & Year == 2020, "Arb-3", salary),
     salary = ifelse(Name == "Robbie Grossman" & Year == 2020, "Arb-3", salary),
     salary = ifelse(Name == "Rusney Castillo" & Year == 2021, "FA", salary), # spotrac
@@ -908,7 +908,7 @@ warcels %>%
     caption = "\nSources: Baseball Reference (Salary & Control), FanGraphs (WAR), Tom Tango (Projections)\nBy Ryan Pollack: ryanpollack.com"
   ) +
   theme(legend.position = "None") + 
-  expand_limits(y=0)
+  expand_limits(y=0, x = 0)
 
 # how much each team is paying for its controlled talent
 warcels %>%
