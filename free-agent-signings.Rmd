@@ -297,15 +297,18 @@ show the average number of days it takes players to sign a FA contract
 
 # mean time to sign overall, by year
 all_free_agents %>%
-  filter(offseason >= 2010) %>%
+  filter(offseason >= 1997 & offseason < 2018) %>%
   group_by(offseason) %>%
   summarize(mean_days_to_sign = round(mean(days_to_sign, na.rm = TRUE), 1)) %>%
   ggplot(aes(offseason, mean_days_to_sign)) +
   geom_point() + geom_line() +
-  ggtitle("Trends in Free Agent Signing Speed",
-    subtitle = "Avg. number of days between Nov 1st and player's sign date"
+  ggtitle("Offseason vs. Average Time to Sign Contract",
+    subtitle = "Free Agents"
   ) + fgt +
-  expand_limits(y = 0)
+  expand_limits(y = 0) +
+  labs(y="Avg. # of Days 
+       between Nov 1st and Contract Signing", x="Offseason",
+       caption = "Source: Baseball Reference") 
 
 all_free_agents %>%
   group_by(offseason, position) %>%
@@ -498,7 +501,8 @@ ggplot(position_player_diff, aes(factor(offseason), mean_days_to_sign, group = p
   geom_point(aes(size = median_contract_value)) + geom_line() + ggtitle("Offseason vs. Average Time to Sign Contract and Median Contract Value",
                                        subtitle = "Free Agent Position Players by Talent Level and Age at Signing, 2016 - 2018") +
   labs(x="Offseason", y="Avg. # of Days 
-       between Nov 1st and Contract Signing", size = "Median Contract Value ($MM)") +
+       between Nov 1st and Contract Signing", size = "Median Contract Value ($MM)",
+       caption="Sources: Baseball Reference, MLB Trade Rumors") +
   expand_limits((y=0))
 
 # starting pitchers
@@ -519,7 +523,8 @@ ggplot(starting_pitcher_diff, aes(factor(offseason), mean_days_to_sign, group = 
   geom_point(aes(size = median_contract_value)) + geom_line() + ggtitle("Offseason vs. Average Time to Sign Contract and Median Contract Value",
                                        subtitle = "Free Agent Starting Pitchers by Talent Level and Age at Signing, 2016 - 2018") +
   labs(x="Offseason", y="Avg. # of Days 
-       between Nov 1st and Contract Signing", size = "Median Contract Value ($MM)") +
+       between Nov 1st and Contract Signing", size = "Median Contract Value ($MM)",
+        caption="Sources: Baseball Reference, MLB Trade Rumors") +
   expand_limits((y=0))
 
 # relief pitchers
@@ -540,7 +545,8 @@ ggplot(relief_pitcher_diff, aes(factor(offseason), mean_days_to_sign, group = pl
   geom_point(aes(size = median_contract_value)) + geom_line() + ggtitle("Offseason vs. Average Time to Sign Contract and Median Contract Value",
                                        subtitle = "Free Agent Relievers by Talent Level and Age at Signing, 2016 - 2018") +
   labs(x="Offseason", y="Avg. # of Days 
-       between Nov 1st and Contract Signing", size = "Median Contract Value ($MM)") +
+       between Nov 1st and Contract Signing", size = "Median Contract Value ($MM)",
+        caption="Sources: Baseball Reference, MLB Trade Rumors") +
   expand_limits((y=0))
 
 
