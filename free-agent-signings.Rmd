@@ -120,7 +120,7 @@ fa_signings <- years %>%
   do(get_free_agents(.$url)) %>%
   mutate(offseason = str_extract(url, "[:digit:]{4}")) %>%
   ungroup() %>%
-  dplyr::select(name = Name, offseason, age = Age, sign_date = Date, three_year_war = `WAR3`, AB, G, GS) %>%
+  dplyr::select(name = Name, offseason, age = Age, sign_date = Date, three_year_war = `WAR3`, AB, G, GS, IP) %>%
   mutate(sign_type = "signed") %>%
   arrange(sign_date)
 
@@ -134,7 +134,8 @@ unsigned_batters <- years %>%
     sign_type = "unsigned",
     sign_date = NA_character_,
     GS = NA_character_,
-    G = NA_character_
+    G = NA_character_,
+    IP = 0
   )
 
 unsigned_pitchers <- years %>%
@@ -142,7 +143,7 @@ unsigned_pitchers <- years %>%
   do(get_unsigned_pitchers(.$url)) %>%
   mutate(offseason = str_extract(url, "[:digit:]{4}")) %>%
   ungroup() %>%
-  dplyr::select(name = Name, offseason, age = Age, three_year_war = `WAR3`, G, GS) %>%
+  dplyr::select(name = Name, offseason, age = Age, three_year_war = `WAR3`, G, GS, IP) %>%
   mutate(
     sign_type = "unsigned",
     sign_date = NA_character_
@@ -222,11 +223,11 @@ fa_signings_clean <-
 
 all_free_agents <-
   bind_rows(fa_signings_clean, unsigned_batters, unsigned_pitchers) %>%
-  distinct(name, offseason, age, sign_date, three_year_war, sign_type, sign_month, AB, GS, G) %>% # remove duplicate entries; many years have them
+  distinct(name, offseason, age, sign_date, three_year_war, sign_type, sign_month, AB, GS, G, IP) %>% # remove duplicate entries; many years have them
+  replace_na(list(AB = 0, GS = 0, G = 0, IP = 0, three_year_war = 0)) %>%
   mutate(
-    three_year_war = replace_na(three_year_war, 0),
     position = case_when(
-      (is.na(GS / G) | AB >= 900) ~ "Position Player", # prevent pos. players with relief appearances from being classified as pitchers #
+      (IP < 10 | AB >= 800) ~ "Position Player", # prevent pos. players with relief appearances from being classified as pitchers #
       # and NL starters with lots of AB from being classified as position players
       GS / G >= 0.5 ~ "Starting Pitcher",
       TRUE ~ "Relief Pitcher"
@@ -285,9 +286,7 @@ all_free_agents <-
     sign_years = as.numeric(sign_years),
     sign_years = if_else(sign_salary == 0, 0, sign_years) # if player signs minor league deal, make it a 0-length deal so it'll bring down the avg
   ) %>%
-  dplyr::select(-GS, -G, -AB)
-
-# TODO: try and get offseason_start to be the actual day after the end of the world series. fake it for 1994 or look up what it was
+  dplyr::select(-GS, -G, -AB, IP)
 ```
 
 
