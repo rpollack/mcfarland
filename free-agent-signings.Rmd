@@ -102,6 +102,22 @@ get_fa_salaries <- function(year) {
       )
     )
 }
+
+generate_csv <- function(df, year_min, year_max, position, player_type, age) {
+  filename <- glue("{position}-{player_type}-{age}.csv")
+  df %>%
+    filter(offseason >= as.numeric(year_min),
+           offseason <= as.numeric(year_max),
+           Position == position,
+           player_type == player_type,
+           age_bucket == age) %>%
+    dplyr::select(offseason, name, age, three_year_war, days_to_sign, sign_salary) %>%
+    arrange(offseason, days_to_sign) %>%
+    write_csv(filename)
+}
+
+generate_csv(all_free_agents, 2016, 2018, "Position Player", "Scrub", "34 - 36")
+
 ```
 
 ### get data
