@@ -313,7 +313,6 @@ show the average number of days it takes players to sign a FA contract
 
 # mean time to sign overall, by year
 all_free_agents %>%
-  filter(offseason >= 1997 & offseason < 2018) %>%
   group_by(offseason) %>%
   summarize(mean_days_to_sign = round(mean(days_to_sign, na.rm = TRUE), 1)) %>%
   ggplot(aes(offseason, mean_days_to_sign)) +
@@ -365,7 +364,8 @@ all_free_agents %>%
   ) + fgt +
   expand_limits(y = 0) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
-# geom_smooth(method = "loess", linetype = "dashed", lwd = 0.7, se = FALSE)
+
+
 ```
 
 add one more facet: the player's age bucket
@@ -589,6 +589,106 @@ ggplot(relief_pitcher_diff, aes(factor(offseason), mean_days_to_sign, group = pl
     caption = "Sources: Baseball Reference, MLB Trade Rumors"
   ) +
   expand_limits((y <- 0))
+```
+
+```{r, fig.height=3}
+everyone <-
+  bind_rows(position_player_diff, starting_pitcher_diff, relief_pitcher_diff) %>%
+  arrange(offseason) %>%
+  group_by(position, player_type, age_bucket) %>%
+  arrange(offseason, .by_group = TRUE) %>%
+  mutate(days_to_sign_diff = mean_days_to_sign - lag(mean_days_to_sign),
+         contract_diff = median_contract_value - lag(median_contract_value)) %>%
+  filter(offseason != 2016) %>%
+  unite(label, position, player_type, age_bucket, sep = ", ") %>%
+  mutate(time_direction = case_when(
+    days_to_sign_diff > 0 ~ "Waited Longer",
+    days_to_sign_diff <= 0 ~ "Waited the Same\nor Shorter"),
+    money_direction = case_when(
+      contract_diff >= 0 ~ "Received the Same\nor More Money",
+      contract_diff < 0 ~ "Received Less Money"
+    ))
+  
+# who was harmed the most in 2017?
+
+everyone %>%
+  mutate(g_label = case_when(
+    label %in% c("Position Player, All-Star, 31 - 33",
+                 "Position Player, Good Player, 28 - 30",
+                 "Starting Pitcher, Solid Starter, 28 - 30") ~ label,
+    TRUE ~ NA_character_
+  )) %>%
+  ggplot(aes(days_to_sign_diff, contract_diff)) +
+  geom_point() + fgt +
+  labs(x = "Difference in Average Time to Sign Contract (Days)",
+       y = "Difference in Median Contract Value ($M)") +
+  geom_hline(yintercept = 0, color="gray") +
+  geom_vline(xintercept = 0, color = "gray") +
+  ggtitle("Difference in Average Signing Time vs. Difference in Median Contract Value",
+          subtitle = "Free Agents, Offseason vs. the Year Prior") +
+  facet_wrap(vars(offseason)) +
+  geom_label_repel(aes(label = g_label),
+    na.rm = TRUE,
+    force = 5,
+    nudge_y = -2
+  )
+```
+
+```{r}
+everyone %>%
+  count(offseason, time_direction, money_direction) %>%
+  ggplot(aes(time_direction, n, fill = money_direction)) +
+  geom_col(position = "stack") +
+  facet_grid(vars(offseason)) +
+  coord_flip() + fgt +
+  labs(x="Length of Wait Compared to Prior Offseason", y="Number of Player Groups", fill = "Money Received\nCompared to Prior Offseason") +
+  ggtitle("Length of Wait and Contract Amount vs. Prior Offseason",
+          subtitle = "Free Agents, 2017 and 2018 Offseasons")
+  
+  # unite(compared_to_previous_offseason, time_direction, money_direction, sep = ",\n") %>%
+  # ggplot(aes(reorder(compared_to_previous_offseason, -n), n)) + geom_col() +
+  # facet_wrap(vars(offseason)) + coord_flip() +labs(x="", y="Number of Groups") +
+  # fgt
+  
+
+# +
+#   geom_label_repel(aes(label = graph_label),
+#     nudge_x = 100,
+#     na.rm = TRUE
+#   )
+
+# and how did they fare in 2018?
+
+  
+  #arrange(position, player_type, age_bucket, mean_days_to_sign, median_contract_value, offseason)
+```
+
+
+```
+
+
+
+
+# now do everyone together!
+# all_free_agents %>%
+#   filter(offseason >= 2016 & offseason <= 2018) %>%
+#   mutate(offseason = factor(offseason, levels = c(2016, 2017, 2018))) %>%
+#   group_by(offseason, position, player_type) %>%
+#   summarize(mean_days_to_sign = round(mean(days_to_sign, na.rm = TRUE), 1),
+#             median_contract = median(sign_salary, na.rm = TRUE)) %>%
+#   ggplot(aes(offseason, mean_days_to_sign, group = position)) +
+#   geom_point(aes(size = median_contract)) + geom_line() +
+#   facet_wrap(vars(position, player_type)) +
+#   ggtitle("Offseason vs. Average Time to Sign Contract",
+#     subtitle = "Free Agents"
+#   ) + fgt +
+#   expand_limits(y = 0) +
+#   labs(
+#     y = "Avg. # of Days 
+#        between Nov 1st and Contract Signing", x = "Offseason",
+#     size = "Median Contract Value ($MM)",
+#     caption = "Source: Baseball Reference"
+#   )
 ```
 
 
