@@ -21,7 +21,6 @@ PlayerId,Name,Team,Acquired,Division,controlled_years,war_under_control,salary_u
 2434,Nelson Cruz,MIN,Free Agency,AL Central,1,1.6,14,-1.0754047999999976,14,1.6
 2520,Lance Lynn,TEX,Free Agency,AL West,3,2.1,24,-7.23886144264001,8,0.7
 2530,Yonder Alonso,CHW,Traded,AL Central,1,0.7,8,-2.2397561600000007,8,0.7
-2539,Pete Kozma,DET,Free Agency,AL Central,2,-1.3,24.6,-35.710557217728,12.3,-0.6
 2608,Jhoulys Chacin,MIL,Free Agency,NL Central,1,1.3,6.8,3.8154719999999998,6.8,1.3
 2616,Zack Cozart,LAA,Free Agency,AL West,2,1.4,22.6,-11.146713251199998,11.3,0.7
 2660,Brett Cecil,STL,Free Agency,NL Central,2,-1.8,13.4,-28.395735529600003,6.7,-0.9
@@ -51,13 +50,12 @@ PlayerId,Name,Team,Acquired,Division,controlled_years,war_under_control,salary_u
 3516,Eric Hosmer,SDP,Free Agency,NL West,5,-0.1,65.5,-67.42853440898286,13.1,-0
 3531,Troy Tulowitzki,NYY,Free Agency,AL East,1,-0.2,20,-21.955507904,20,-0.2
 3542,Danny Duffy,KCR,Amateur Draft,AL Central,3,2.4,36.8,-17.245895141600002,12.266666666666666,0.8
-3543,Clay Buchholz,TOR,,AL East,1,-0,3,-3.0219283200000007,3,0
+3543,Clay Buchholz,TOR,Free Agency,AL East,1,-0,3,-3.0219283200000007,3,0
 3551,Clayton Richard,TOR,,AL East,1,-0.2,3,-4.712151680000001,3,-0.2
 3892,Josh Reddick,HOU,Free Agency,AL West,2,1.9,23.2,-7.753657663999998,11.6,1
 4020,Yusmeiro Petit,OAK,Free Agency,AL West,1,-0.1,5.5,-6.35967616,5.5,-0.1
 4062,Dexter Fowler,STL,Free Agency,NL Central,3,-1.7,39.6,-53.72420402384,13.200000000000001,-0.6
 4070,Pedro Strop,CHC,Traded,NL Central,1,-0.1,6.2,-6.7636217599999995,6.2,-0.1
-4080,Dan Runzler,BOS,,AL East,2,-3.7,13.4,-45.15442914485152,6.7,-1.8
 4090,Luke Gregerson,STL,Free Agency,NL Central,1,-0.9,5,-11.98191872,5,-0.9
 4106,Michael Brantley,HOU,Free Agency,AL West,2,3,28.6,-3.9394168582399995,14.3,1.5
 4141,Derek Holland,SFG,Free Agency,NL West,1,0.2,6.5,-4.66394368,6.5,0.2
@@ -92,7 +90,6 @@ PlayerId,Name,Team,Acquired,Division,controlled_years,war_under_control,salary_u
 4949,Giancarlo Stanton,NYY,Traded,AL East,5,14.9,90.5,35.11494581273891,18.1,3
 4962,Asdrubal Cabrera,TEX,Free Agency,AL West,1,1.5,3.5,8.4236416,3.5,1.5
 4972,Cole Hamels,CHC,Traded,NL Central,1,0.8,20,-13.858207999999998,20,0.8
-5000,Stephen Vogt,SFG,,NL West,1,-0.5,3.1,-6.7827006592,3.1,-0.5
 5038,Josh Donaldson,ATL,Free Agency,NL East,1,2.1,23,-6.560467199999998,23,2.1
 5114,Jeurys Familia,NYM,Free Agency,NL East,3,1,23,-15.116821974639993,7.666666666666667,0.3
 5209,Alex Gordon,KCR,Free Agency,AL Central,1,0.3,20,-17.48575552,20,0.3
@@ -149,7 +146,6 @@ PlayerId,Name,Team,Acquired,Division,controlled_years,war_under_control,salary_u
 6893,Johnny Cueto,SFG,Free Agency,NL West,3,-1,52.4,-60.517174707824,17.466666666666665,-0.3
 6895,Chase Anderson,MIL,Traded,NL Central,2,0.3,6.9,-4.1587452032000005,3.45,0.2
 6902,Martin Perez,MIN,Free Agency,AL Central,1,0.5,3.5,0.7202918399999998,3.5,0.5
-6938,Eric Campbell,OAK,,AL West,2,-3.3,7.5,-36.24594946704768,3.75,-1.6
 6941,Joakim Soria,OAK,Free Agency,AL West,2,0.5,13.2,-9.365347462400003,6.6,0.2
 6986,Ian Kennedy,KCR,Free Agency,AL Central,2,-0.9,29.5,-36.61950524608,14.75,-0.4
 7005,Ryan Pressly,HOU,Traded,AL West,3,0.3,15.2,-12.983898263792,5.066666666666666,0.1
@@ -157,7 +153,7 @@ PlayerId,Name,Team,Acquired,Division,controlled_years,war_under_control,salary_u
 7185,Logan Forsythe,TEX,Free Agency,AL West,1,0.4,2,0.94821248,2,0.4
 7196,Greg Holland,ARI,Free Agency,NL West,1,-0.3,3.2,-5.93479232,3.2,-0.3
 7274,Craig Stammen,SDP,Free Agency,NL West,1,0.2,2.2,-0.8467056768000001,2.2,0.2
-7287,Carlos Gonzalez,CLE,,AL Central,1,0.6,0.1,4.866674239999999,0.1,0.6
+7287,Carlos Gonzalez,CLE,Free Agency,AL Central,1,0.6,2,2.966674239999999,2,0.6
 7304,Salvador Perez,KCR,Amateur Free Agent,AL Central,3,0.7,31.1,-25.702955548096,10.366666666666667,0.2
 7410,J.A. Happ,NYY,Traded,AL East,2,2,30.3,-13.855067455999999,15.15,1
 7435,Ben Zobrist,CHC,Free Agency,NL Central,1,1.3,12.5,-1.7104108799999995,12.5,1.3
@@ -165,7 +161,6 @@ PlayerId,Name,Team,Acquired,Division,controlled_years,war_under_control,salary_u
 7448,Gio Gonzalez,NYY,,AL East,1,1.3,0.1,10.328300799999997,0.1,1.3
 7466,Anthony Swarzak,SEA,Traded,AL West,1,-0.5,8.5,-12.39625472,8.5,-0.5
 7476,Alex Avila,ARI,Free Agency,NL West,1,0.6,4.2,0.24328511999999947,4.2,0.6
-7501,Tommy Layne,STL,,NL Central,2,-2.6,13.1,-34.503225770911996,6.55,-1.3
 7531,Collin McHugh,HOU,Waivers,AL West,1,0.5,5.8,-1.4788607999999988,5.8,0.5
 7539,Neil Walker,MIA,Free Agency,NL East,1,0.5,2,1.629297664000001,2,0.5
 7550,Jake McGee,COL,Free Agency,NL West,2,-1.3,16,-26.53938112,8,-0.6
@@ -179,11 +174,10 @@ PlayerId,Name,Team,Acquired,Division,controlled_years,war_under_control,salary_u
 7870,Jonathan Lucroy,LAA,Free Agency,AL West,1,-0.1,3.4,-4.1971948800000005,3.4,-0.1
 7872,Tyson Ross,DET,Free Agency,AL Central,1,-0.1,5.8,-6.681231424,5.8,-0.1
 7949,Tim Beckham,SEA,Free Agency,AL West,2,1.1,3.8,5.474166507200003,1.9,0.6
-7982,Anthony Bass,CIN,,NL Central,1,-0.5,3.1,-6.989745184,3.1,-0.5
 7996,Jose Martinez,STL,Purchased,NL Central,4,2.5,7.3,12.822637866595837,1.825,0.6
 8044,Jason Vargas,NYM,Free Agency,NL East,1,-0.4,8,-11.303981440000001,8,-0.4
 8048,Will Smith,SFG,Traded,NL West,1,0.6,4.2,0.6869440000000004,4.2,0.6
-8090,Matt Carpenter,STL,Amateur Draft,NL Central,1,3,14.8,9.012700800000001,14.8,3
+8090,Matt Carpenter,STL,Amateur Draft,NL Central,3,6.7,40.7,14.471133402720007,13.566666666666668,2.2
 8110,Bryan Shaw,COL,Free Agency,NL West,2,-1.1,15.6,-24.6462440576,7.8,-0.6
 8202,Josh Harrison,DET,Free Agency,AL Central,1,0.7,2,3.43800832,2,0.7
 8203,Dee Gordon,SEA,Traded,AL West,2,1.2,24.1,-14.524586510079999,12.05,0.6
@@ -204,7 +198,6 @@ PlayerId,Name,Team,Acquired,Division,controlled_years,war_under_control,salary_u
 9054,Justin Smoak,TOR,Waivers,AL East,1,1.4,8,3.070176000000002,8,1.4
 9073,Kirby Yates,SDP,Waivers,NL West,2,0.3,6.7,-4.169626377600002,3.35,0.2
 9077,Lorenzo Cain,MIL,Free Agency,NL Central,4,10.6,46.7,41.319138462390406,11.675,2.6
-9080,Zach Putnam,BOS,,AL East,1,-0.5,21,-24.9170912,21,-0.5
 9111,Brad Hand,CLE,Traded,AL Central,2,1.2,13,-3.5400023360000046,6.5,0.6
 9112,Khris Davis,OAK,Traded,AL West,1,1.8,16.5,-1.7872319999999977,16.5,1.8
 9132,Nathan Eovaldi,BOS,Traded,AL East,4,0.8,49,-42.68625149523424,12.25,0.2
@@ -231,16 +224,13 @@ PlayerId,Name,Team,Acquired,Division,controlled_years,war_under_control,salary_u
 9784,Garrett Richards,SDP,,NL West,2,0.1,13.7,-13.0788134272,6.85,0
 9785,Kyle Seager,SEA,Amateur Draft,AL West,3,3.8,46.2,-15.219345454880003,15.4,1.3
 9803,Miles Mikolas,STL,Free Agency,NL Central,5,3.9,46.5,-14.217467902903081,9.3,0.8
-9807,Ryan Goins,CHW,,AL Central,1,-0.3,25.5,-28.05586624,25.5,-0.3
 9810,Brian Dozier,WSN,Free Agency,NL East,1,1.9,9,6.074453760000003,9,1.9
 9847,Andrew McCutchen,PHI,Free Agency,NL East,3,3.8,35.7,-4.811667692159991,11.9,1.3
-9856,Brandon Snyder,WSN,,NL East,2,-3.7,42.9,-74.90924190628436,21.45,-1.8
 9874,DJ LeMahieu,NYY,Free Agency,AL East,2,2.8,21.4,1.2288053119999987,10.7,1.4
 9892,Jay Bruce,SEA,Traded,AL West,2,0.3,25,-22.45343893248,12.5,0.2
 9927,Brett Gardner,NYY,Amateur Draft,AL East,1,1.7,7.5,6.406054399999999,7.5,1.7
 9939,Brandon Kintzler,CHC,Traded,NL Central,1,-0.5,5,-9.029835519999999,5,-0.5
 9948,Mike Dunn,COL,Free Agency,NL West,1,-0.8,7,-13.39298752,7,-0.8
-9952,Trayce Thompson,CLE,,AL Central,2,-2.8,15,-39.5260565224128,7.5,-1.4
 9957,Steve Pearce,BOS,Traded,AL East,1,0.3,6.2,-3.47357888,6.2,0.3
 10021,Mike Minor,TEX,Free Agency,AL West,2,1.9,17.5,-1.9985504479999996,8.75,1
 10030,Chris Owings,KCR,Free Agency,AL Central,1,-0,3,-3.1684396799999996,3,0
@@ -258,8 +248,6 @@ PlayerId,Name,Team,Acquired,Division,controlled_years,war_under_control,salary_u
 10243,Randal Grichuk,TOR,Traded,AL East,5,4.7,33.5,5.276204150979528,6.7,0.9
 10264,Brandon Belt,SFG,Amateur Draft,NL West,3,3.7,41.3,-11.338235144959995,13.766666666666666,1.2
 10310,Zack Wheeler,NYM,Traded,NL East,1,1.8,6,8.289818879999999,6,1.8
-10314,Erasmo Ramirez,BOS,,AL East,1,-0.4,4.4,-7.381921920000001,4.4,-0.4
-10322,Danny Santana,TEX,,AL West,2,-0.8,13.5,-20.5631345383936,6.75,-0.4
 10324,Marcell Ozuna,STL,Traded,NL Central,1,2.8,12.2,10.090460799999999,12.2,2.8
 10339,Scooter Gennett,CIN,Waivers,NL Central,1,2.8,9.8,12.736838400000002,9.8,2.8
 10346,John Ryan Murphy,ARI,Traded,NL West,3,0.8,3.4,3.1577312067199985,1.1333333333333333,0.3
@@ -284,15 +272,12 @@ PlayerId,Name,Team,Acquired,Division,controlled_years,war_under_control,salary_u
 10950,Adam Duvall,ATL,Traded,NL East,3,0.2,10.8,-9.59419520128,3.6,0.1
 10951,Greg Garcia,SDP,Waivers,NL West,3,0.1,3.4,-3.1833258513920004,1.1333333333333333,0
 10954,Jacob deGrom,NYM,Amateur Draft,NL East,5,21.3,80,99.88935042651701,16,4.3
-10976,Ryan O'Rourke,NYM,,NL East,2,-3,69.8,-95.5022895298208,34.9,-1.5
 11038,Kevin Kiermaier,TBR,Amateur Draft,AL East,4,5.3,28.9,15.089414641874795,7.225,1.3
-11145,Christian Colon,CIN,,NL Central,2,-2.5,26.1,-47.48871373256333,13.05,-1.2
 11189,Vince Velasquez,PHI,Traded,NL East,3,2.9,8.4,15.079897844736003,2.8000000000000003,1
 11200,Kole Calhoun,LAA,Amateur Draft,AL West,1,0.6,10.5,-5.487201536000001,10.5,0.6
 11205,Adam Eaton,WSN,Traded,NL East,1,1.4,8.4,2.838839039999998,8.4,1.4
 11265,Jonathan Schoop,MIN,Free Agency,AL Central,1,1.6,7.5,4.912826879999999,7.5,1.6
 11281,Whit Merrifield,KCR,Amateur Draft,AL Central,4,10.3,10.4,75.56670254461318,2.6,2.6
-11334,Tyler Lyons,PIT,,NL Central,1,-0.3,4.1,-6.858868544,4.1,-0.3
 11339,Jake Marisnick,HOU,Traded,AL West,2,1.8,4.8,9.679910395200002,2.4,0.9
 11342,Jesus Aguilar,MIL,Waivers,NL Central,4,4.7,0.6,13.80075744,0.15,1.2
 11368,Yasmani Grandal,MIL,Free Agency,NL Central,1,3.8,16,14.204415999999998,16,3.8
@@ -357,7 +342,6 @@ PlayerId,Name,Team,Acquired,Division,controlled_years,war_under_control,salary_u
 12664,Jerad Eickhoff,PHI,Traded,NL East,3,0.3,3.6,-1.4029062538560004,1.2,0.1
 12703,Trevor Bauer,CLE,Traded,AL Central,2,6.6,28.3,25.152000032000007,14.15,3.3
 12768,Sonny Gray,CIN,Traded,NL Central,4,2.1,26.7,-9.855070243763599,6.675,0.5
-12775,Brad Miller,CLE,Free Agency,AL Central,1,0.2,1,0.5753571840000002,1,0.2
 12808,Mike Clevinger,CLE,Traded,AL Central,4,6.6,7.8,46.75698074492301,1.95,1.6
 12856,George Springer,HOU,Amateur Draft,AL West,2,5.4,23,20.458905280000003,11.5,2.7
 12861,Anthony Rendon,WSN,Amateur Draft,NL East,1,5.1,18.8,21.630598399999993,18.8,5.1
@@ -382,7 +366,6 @@ PlayerId,Name,Team,Acquired,Division,controlled_years,war_under_control,salary_u
 13125,Gerrit Cole,HOU,Traded,AL West,1,3.5,13.5,14.893471999999996,13.5,3.5
 13145,Josh Bell,PIT,Amateur Draft,NL Central,4,1.6,5.8,7.272554033443515,1.45,0.4
 13152,Jorge Polanco,MIN,Amateur Free Agent,AL Central,5,4.2,14.8,19.79313835066378,2.96,0.8
-13153,Luis Sardinas,WSN,,NL East,2,-1,16.1,-24.444147734338305,8.05,-0.5
 13164,Eduardo Rodriguez,BOS,Traded,AL East,3,3.4,16.1,12.019066258559993,5.366666666666667,1.1
 13183,Zach Davies,MIL,Traded,NL Central,3,2.1,9.7,7.675916565504002,3.233333333333333,0.7
 13185,Orlando Arcia,MIL,Amateur Free Agent,NL Central,4,1.2,0.6,4.1393328,0.15,0.3
@@ -399,7 +382,6 @@ PlayerId,Name,Team,Acquired,Division,controlled_years,war_under_control,salary_u
 13449,Taylor Rogers,MIN,Amateur Draft,AL Central,4,0.6,6.4,-1.4856035429932186,1.6,0.2
 13475,Daniel Norris,DET,Traded,AL Central,3,0.6,4.7,-0.012429393215998452,1.5666666666666667,0.2
 13510,Jose Ramirez,CLE,Amateur Free Agent,AL Central,3,17.5,15.2,128.77732602016,5.066666666666666,5.8
-13528,Matt Bowman,CIN,,NL Central,2,-2.1,20.2,-38.07558324604544,10.1,-1.1
 13543,Blake Snell,TBR,Amateur Draft,AL East,5,9.9,27,55.8832503957261,5.4,2
 13590,Jesse Winker,CIN,Amateur Draft,NL Central,5,2,1,13.1127166288,0.2,0.4
 13593,Jose Peraza,CIN,Traded,NL Central,4,5.8,9.5,39.090795912974514,2.375,1.4
@@ -408,7 +390,6 @@ PlayerId,Name,Team,Acquired,Division,controlled_years,war_under_control,salary_u
 13611,Mookie Betts,BOS,Amateur Draft,AL East,2,14.2,43.5,71.94885728,21.75,7.1
 13613,Ketel Marte,ARI,Traded,NL West,4,5.4,13.9,31.240917155744647,3.475,1.4
 13619,Jakob Junis,KCR,Amateur Draft,AL Central,5,0.1,1,8.988684155200001,0.2,0
-13621,Jeimer Candelario,DET,Traded,AL Central,3,2.5,3.9,17.820622018177907,1.3,0.8
 13624,Corey Seager,LAD,Amateur Draft,NL West,3,7.6,14.9,47.9816687168,4.966666666666667,2.5
 13744,David Dahl,COL,Amateur Draft,NL West,5,3.2,0.6,8.1671488,0.12,0.6
 13757,Chris Taylor,LAD,Traded,NL West,3,6.9,13.1,43.88978442921601,4.366666666666666,2.3
@@ -450,7 +431,6 @@ PlayerId,Name,Team,Acquired,Division,controlled_years,war_under_control,salary_u
 14696,Keone Kela,PIT,Traded,NL Central,2,1.4,6.9,4.424605327040002,3.45,0.7
 14710,Edwin Diaz,NYM,Traded,NL East,4,6.3,7.7,44.146569065188324,1.925,1.6
 14712,Manuel Margot,SDP,Traded,NL West,4,3.9,6.5,25.40053059910433,1.625,1
-14735,Brett Phillips,KCR,Traded,AL Central,2,0.2,0,0,0,0.1
 14811,Luke Voit,NYY,Traded,AL East,5,2.2,1,15.7940050768,0.2,0.4
 14818,JaCoby Jones,DET,Traded,AL Central,5,0.5,1,9.292311968320002,0.2,0.1
 14862,Zack Godley,ARI,Traded,NL West,4,4.4,7,29.576719020885925,1.75,1.1
@@ -475,18 +455,15 @@ PlayerId,Name,Team,Acquired,Division,controlled_years,war_under_control,salary_u
 15467,Marco Gonzales,SEA,Traded,AL West,5,3.9,1.7,20.671874974719998,0.33999999999999997,0.8
 15488,Antonio Senzatela,COL,Amateur Free Agent,NL West,5,1.7,1,14.199682696,0.2,0.3
 15490,Justin Williams,STL,,NL Central,5,1.1,1.3,10.597225672187202,0.26,0.2
-15491,J.P. Crawford,SEA,,AL West,3,0.8,3.5,3.466712985532655,1.1666666666666667,0.3
 15518,Amed Rosario,NYM,Amateur Free Agent,NL East,5,5.1,1,21.371667169600002,0.2,1
 15519,Franklin Barreto,OAK,Traded,AL West,5,2.6,1.3,17.314905470152002,0.26,0.5
 15552,Chad Green,NYY,Traded,AL East,4,2.4,6.2,13.689658301566492,1.55,0.6
 15640,Aaron Judge,NYY,Amateur Draft,AL East,4,16.9,11.9,128.68430585216834,2.975,4.2
 15654,Billy McKinney,TOR,Traded,AL East,5,0.1,1.3,6.6661899485392,0.26,0
 15672,Austin Meadows,TBR,Traded,AL East,5,1.6,1.3,13.083013043144,0.26,0.3
-15674,Reese McGuire,TOR,Traded,AL East,2,0.1,0,0,0,0
 15676,Jose Abreu,CHW,Amateur Free Agent,AL Central,1,1.5,16,-3.6405568000000006,16,1.5
 15679,Rowdy Tellez,TOR,Amateur Draft,AL East,5,2.3,1.3,16.763678523080003,0.26,0.5
 15689,Luis Castillo,CIN,Traded,NL Central,5,2.9,1,18.117237256000003,0.2,0.6
-15694,Chance Sisco,BAL,Amateur Draft,AL East,2,0.2,0,0,0,0.1
 15711,Tyler O'Neill,STL,Traded,NL Central,5,4.4,1.3,26.78846399956,0.26,0.9
 15734,Brad Keller,KCR,Traded,AL Central,5,3.1,1,18.896375560000003,0.2,0.6
 15761,Joe Jimenez,DET,Amateur Free Agent,AL Central,5,0.1,1,9.1002845776,0.2,0
@@ -516,19 +493,17 @@ PlayerId,Name,Team,Acquired,Division,controlled_years,war_under_control,salary_u
 16505,Matt Chapman,OAK,Amateur Draft,AL West,5,18.1,1,65.69890976800001,0.2,3.6
 16512,Isiah Kiner-Falefa,TEX,Amateur Draft,AL West,5,1.2,1,8.795110413376001,0.2,0.2
 16535,Danny Jansen,TOR,Amateur Draft,AL East,5,3.3,1.3,21.587900811208,0.26,0.7
-16556,Ozzie Albies,ATL,Amateur Free Agent,NL East,5,14.4,1,49.829903048000006,0.2,2.9
+16556,Ozzie Albies,ATL,Amateur Free Agent,NL East,5,14.4,8.7,113.59353861872192,1.7399999999999998,2.9
 16622,Luis Urias,SDP,Amateur Free Agent,NL West,5,3.5,1.3,20.764036653256003,0.26,0.7
 16918,Luke Weaver,ARI,Traded,NL West,5,1.1,1,12.155843886399996,0.2,0.2
 16943,Sean Newcomb,ATL,Traded,NL East,5,1.7,1,14.20507364,0.2,0.3
 16977,Trevor Williams,PIT,Traded,NL Central,4,4.6,7,30.588320401687188,1.75,1.1
 16997,Gleyber Torres,NYY,Traded,AL East,5,6.8,1,25.931482440000003,0.2,1.4
 17016,Rusney Castillo,BOS,Amateur Free Agent,AL East,3,-3.5,23,-31.503666753472004,7.666666666666667,-1.2
-17022,Edmundo Sosa,STL,Amateur Free Agent,NL Central,2,0.2,1.6,0.07448258235438132,0.8,0.1
 17027,Alex Verdugo,LAD,Amateur Draft,NL West,5,2.3,1.3,15.808826021896001,0.26,0.5
 17085,Pablo Lopez,MIA,Traded,NL East,3,0.3,1.3,0.904500695496001,0.43333333333333335,0.1
-17109,Meibrys Viloria,KCR,Amateur Free Agent,AL Central,2,0.8,0,0,0,0.4
 17128,Ramon Laureano,OAK,Traded,AL West,5,5.2,1.3,31.995174494280004,0.26,1
-17130,Raisel Iglesias,CIN,Amateur Free Agent,NL Central,3,0.2,15.5,-14.3607878706,5.166666666666667,0.1
+17130,Raisel Iglesias,CIN,Amateur Free Agent,NL Central,3,0.2,21.4,-20.2745082456,7.133333333333333,0.1
 17171,Yasmany Tomas,ARI,Amateur Free Agent,NL West,3,-0.7,44.6,-50.811626234784,14.866666666666667,-0.2
 17232,Yoan Moncada,CHW,Traded,AL Central,5,7.4,1,28.844837064,0.2,1.5
 17350,Rafael Devers,BOS,Amateur Free Agent,AL East,5,5.5,1,21.580563835200003,0.2,1.1
@@ -545,7 +520,6 @@ PlayerId,Name,Team,Acquired,Division,controlled_years,war_under_control,salary_u
 18030,Harrison Bader,STL,Amateur Draft,NL Central,5,8.8,1,34.5330513104,0.2,1.8
 18289,Brian Anderson,MIA,Amateur Draft,NL East,3,5.5,1,31.183030729280006,0.3333333333333333,1.8
 18314,Dansby Swanson,ATL,Traded,NL East,4,4.4,6.7,29.429263602749177,1.675,1.1
-18345,Kyle Tucker,HOU,Amateur Draft,AL West,2,0.1,0,0,0,0
 18363,Victor Robles,WSN,Amateur Free Agent,NL East,5,4.5,1.3,25.4899511112528,0.26,0.9
 18401,Ronald Acuna Jr.,ATL,Amateur Free Agent,NL East,5,12.1,18.6,83.53522820538686,3.72,2.4
 18498,Kenta Maeda,LAD,Free Agency,NL West,5,2.5,10.2,10.058604908264401,2.04,0.5

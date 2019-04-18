@@ -399,12 +399,12 @@ all_arb <- all_arb %>%
 ```{r}
 # TODO: change do() to map_df()
 
-# get payroll information for all teams, keep only the next five years of information for each player, and change some players' names to match
-# how they are formatted in the FanGraphs database, so information from the two datasets can be joined together later.
+# get payroll information for all teams, keep only the players who have contract information, keep only the next five years of information for each player, and change some players' names to match how they are formatted in the FanGraphs database, so information from the two datasets can be joined together later.
 
 all_teams_payroll <- team_info %>%
   group_by(team_name) %>%
   do(getPayrolls(.$team_name, .$team_url)) %>%
+  filter(`Contract Status` != "") %>%
   dplyr::select(Team = team_name, Name, Acquired, Age, Year, salary) %>%
   group_by(Name, Team) %>%
   top_n(-5, wt = Year) %>% # take only up to the next 5 years because that's all we can project out with WARcels
@@ -439,10 +439,6 @@ combine payroll information with WAR projections to produce controlled surplus v
 # 3. after all Arb years are identified, we can project Arb-1 salaries based on cumulative WAR.
 # 4. but, some players are labeled Arb-2 or Arb-3 salaries with no previous year's info to base a projection on.
 # you can find #4 with the following code: all_teams_payroll %>% group_by(Name, Team) %>% arrange(Year) %>% filter(Year == min(Year), str_detect(salary, "^Arb-2") | str_detect(salary, "^Arb-3") | str_detect(salary, "^Arb-4"), !str_detect(salary, "M"), !str_detect(salary, "k"))
-
-
-# TODO: fix bug where Ryan o'rourke has 69.8M in salary coming his way. https://www.baseball-reference.com/teams/NYM/new-york-mets-salaries-and-contracts.shtml
-# this may be a bug in #2 or #2a. O'rourke's data says 'Arb' 'Arb' 'FA'. 
 
 millions_per_war <- 8
 
@@ -556,7 +552,7 @@ master_list <-
     Salary = ifelse(Salary == "Arb-2", (as.double(lag(Salary)) / .25) * .4, Salary),
     Salary = ifelse(Salary == "Arb-3", (as.double(lag(Salary)) / .4) * .6, Salary),
     Salary = ifelse(Salary == "Arb-4", (as.double(lag(Salary)) / .6) * .7, Salary),
-    Salary = as.numeric(Salary) * ((1-0.215)^(Season - next_year)), # inflate actual salary each year by the average of the last 3 years' Feb-Feb YoY rates:             
+    Salary = as.numeric(Salary) * ((1-0.215)^(Season - next_year)), # inflate actual salary each year by the average of the last 3 years' Feb-Feb YoY rates:        
                                                                       # https://inflationdata.com/Inflation/Inflation_Rate/CurrentInflation.asp?reloaded=true
     surplus_value = ((millions_per_war * (1.03^(Season - next_year))) * WAR) - Salary # inflate $/WAR by 5% annually
   ) %>%
