@@ -474,7 +474,7 @@ master_list <-
       "Michael Lorenzen", "Zach Rosscup", "Yolmer Sanchez", "Chasen Shreve",
       
       # https://www.mlbtraderumors.com/2018/10/super-two-cutoff-mlb-2018-2019.html
-      "Trea Turner", "Matthew Boyd", "Carl Edwards Jr."
+      "Trea Turner", "Matthew Boyd", "Carl Edwards Jr.", "Cody Bellinger"
     ),
     TRUE, FALSE
     )
@@ -699,12 +699,20 @@ surplus_value_change_plt <-
 warcels_full %>%
   filter(year_analyzed == next_year) %>%
   arrange(desc(war_under_control)) %>%
-  head(10) %>%
+  head(25) %>%
   ggplot(aes(reorder(Name, war_under_control), war_under_control)) +
   geom_col() + coord_flip() + fgt +
   labs(x = "", y = "Controlled WAR") +
   ggtitle(glue("Top 10 Controlled WAR, {next_year} – {next_year + 4}"))
 
+warcels_full %>%
+  filter(year_analyzed == next_year) %>%
+  arrange(desc(war_under_control)) %>%
+  tail(25) %>%
+  ggplot(aes(reorder(Name, war_under_control), war_under_control)) +
+  geom_col() + coord_flip() + fgt +
+  labs(x = "", y = "Controlled WAR") +
+  ggtitle(glue("Bottom 10 Controlled WAR, {next_year} – {next_year + 4}"))
 
 
 # players with the most surplus value
@@ -788,6 +796,59 @@ warcels_full %>%
 Graphs - Teams
 
 ```{r}
+# controlled WAR, teams
+warcels_full %>%
+  filter(year_analyzed == next_year) %>%
+  group_by(Team) %>%
+  summarize(total_controlled_war = sum(war_under_control)) %>%
+  ggplot(aes(reorder(Team, total_controlled_war), total_controlled_war),
+    color = Team, fill = Team
+  ) +
+  geom_col() +
+  coord_flip() +
+  fgt +
+  scale_fill_manual(values = team_colors) +
+  labs(x = "", y = "Controlled WAR", caption = "Sources: Baseball Reference, FanGraphs, & Tom Tango") +
+  ggtitle(glue("MLB Team Controlled WAR, {next_year} – {next_year + 4}"))
+
+# controlled salary, teams
+warcels_full %>%
+  filter(year_analyzed == next_year) %>%
+  group_by(Team) %>%
+  summarize(total_controlled_salary = sum(salary_under_control)) %>%
+  ggplot(aes(reorder(Team, total_controlled_salary), total_controlled_salary),
+         color = Team, fill = Team
+  ) +
+  geom_col() +
+  coord_flip() +
+  fgt +
+  scale_fill_manual(values = team_colors) +
+  labs(x = "", y = "Controlled Salary (Millions USD)", caption = "Sources: Baseball Reference, FanGraphs, & Tom Tango") +
+  ggtitle(glue("MLB Team Controlled Salary, {next_year} – {next_year + 4}"))
+
+```
+
+```{r}
+
+# controlled WAR vs. controlled salary
+warcels_full %>%
+  filter(year_analyzed == next_year) %>%
+  group_by(Team) %>%
+  summarize(total_controlled_salary = sum(salary_under_control),
+            total_controlled_war = sum(war_under_control)) %>%
+  ggplot(aes(total_controlled_war, total_controlled_salary), color = Team, fill = Team) +
+  geom_point() +
+  geom_label_repel(aes(label = Team),
+                   na.rm = TRUE,
+                   show.legend = FALSE
+  ) +
+  ggtitle(glue("MLB Controlled WAR vs. Controlled Salary, {next_year} – {next_year + 4}")) +
+  scale_color_manual(values = team_colors) +
+  scale_fill_manual(values = team_colors) +
+  fgt +
+  labs(x = "Controlled WAR", y = "Controlled Salary (Millions USD)", caption = "Sources: Baseball Reference, FanGraphs, & Tom Tango") +
+  theme(legend.position = "None")
+
 # Surplus value under control, Teams
 warcels_full %>%
   filter(year_analyzed == next_year) %>%
@@ -933,6 +994,9 @@ warcels %>%
   ) +
   theme(legend.position = "None") + 
   expand_limits(y=0)
+
+
+
 ```
 
 
