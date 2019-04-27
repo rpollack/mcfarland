@@ -90,12 +90,15 @@ team_info <- tibble(
     "#C41E3A", "#9ECEEE", "#BD1021", "#003DA5", "#BA122B"
   ),
   tv_households = c(
-    1890100, 2412730, 1119480, 2424240, 3463060 / 2,
-    3463060 / 2, 863800, 1498960, 1630380, 1853030,
-    2450800, 919020, 5476830 / 2, 5476830 / 2, 1696330,
-    895700, 1742530, 7348620 / 2, 7348620 / 2, 2488090 / 2,
-    2942800, 1160220, 1065700, 1808530, 2488090 / 2,
-    1215570, 1908590, 2713380, 2942800, 2476680
+    1864420, 2341390, 1084180, 2364870, 3251370 / 2,
+    3251370 / 2, 850030, 1399470, 1585270, 177240,
+    2423360, 909420, 5276600 / 2, 5276600 / 2, 1697840,
+    848420, 1713310, 7100300 / 2, 7100300 / 2, 2414470 / 2,
+    2816850, 1108780, 987760, 1854810, 2414470 / 2,
+    1164400, 1875420, 2622070, 8695652, 2482480
+    
+    # source: https://mediatracks.com/resources/nielsen-dma-rankings-2019/. 
+    # Toronto taken from https://www.newswire.ca/news-releases/the-fans-have-spoken-sportsnet-is-canadas-1-sports-media-brand-in-2016-609901805.html. Assume ALDS reached max number of people since it was massively popular. 20m canadians at 2.3 canadians per household is 8,695,652 households
   ),
   payroll_opening_day_2018 = c(
     131565116, 118284851, 148574615, 233200429, 183156139,
@@ -1018,11 +1021,22 @@ warcels %>%
     show.legend = FALSE,
     color = "white",
     segment.color = "black",
+    nudge_x = .1,
     nudge_y = .1
   ) +
   scale_color_manual(values = team_colors) +
   scale_fill_manual(values = team_colors) +
   theme(legend.position = "None")
+
+warcels %>%
+  group_by(Team) %>%
+  summarize(total_controlled_surplus_value = sum(surplus_value_under_control)) %>%
+  inner_join(team_info, by = c("Team" = "team_name")) %>%
+  mutate(csv_per_tv_household = total_controlled_surplus_value / tv_households * 1000000) %>%
+  ungroup () %>%
+  ggplot(aes(reorder(Team, csv_per_tv_household), csv_per_tv_household)) +
+  geom_col() + coord_flip() + fgt +
+  scale_y_continuous(labels = comma)
   
 # what does the graph above say? that the cle/mil surplus value is even stronger when you account for the team's tiny market size.
 # that's not the angle i'd hoped for ... i wanted something like, the yankees' surplus value is even more unfair because they're in a large
