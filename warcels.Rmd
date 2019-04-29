@@ -25,7 +25,6 @@ library(tidyverse)
 library(rvest)
 library(glue)
 library(stringr)
-# library(plotly)
 library(ggrepel)
 library(scales)
 
@@ -41,7 +40,7 @@ fgt <- theme(
   plot.title = element_text(family = "Lato"),
   panel.grid.major = element_line(size = .1, color = "lightgrey"),
   panel.grid.minor = element_line(size = 0),
-  strip.background = element_rect(fill = "#50ae26"),
+  strip.background = element_rect(fill = "#8e001c"),
   strip.text = element_text(color = "white", family = "Lato")
 )
 
@@ -58,7 +57,7 @@ fg_db <- dplyr::src_mysql(
 
 ```{r}
 
-# tv household information from http://www.nielsen.com/content/dam/corporate/us/en/docs/solutions/measurement/television/2016-2017-nielsen-local-dma-ranks.pdf
+
 # i set toronto equal to philly because the population sizes are roughly the same per https://www.worldatlas.com/articles/largest-cities-in-north-america.html
 # markets with two teams are divided in two for both teams: new york, LA, chicago, SF/OAK; this models the fact that in each market you
 # generally pick a team and stick with it
@@ -95,10 +94,10 @@ team_info <- tibble(
     2423360, 909420, 5276600 / 2, 5276600 / 2, 1697840,
     848420, 1713310, 7100300 / 2, 7100300 / 2, 2414470 / 2,
     2816850, 1108780, 987760, 1854810, 2414470 / 2,
-    1164400, 1875420, 2622070, 8695652, 2482480
+    1164400, 1875420, 2622070, 6896551, 2482480
     
     # source: https://mediatracks.com/resources/nielsen-dma-rankings-2019/. 
-    # Toronto taken from https://www.newswire.ca/news-releases/the-fans-have-spoken-sportsnet-is-canadas-1-sports-media-brand-in-2016-609901805.html. Assume ALDS reached max number of people since it was massively popular. 20m canadians at 2.3 canadians per household is 8,695,652 households
+    # Toronto taken from https://www.newswire.ca/news-releases/the-fans-have-spoken-sportsnet-is-canadas-1-sports-media-brand-in-2016-609901805.html. Assume ALDS reached max number of people since it was massively popular. 20m canadians at 2.9 canadians per household is 6,896,551 households
   ),
   payroll_opening_day_2018 = c(
     131565116, 118284851, 148574615, 233200429, 183156139,
@@ -443,7 +442,8 @@ combine payroll information with WAR projections to produce controlled surplus v
 # 4. but, some players are labeled Arb-2 or Arb-3 salaries with no previous year's info to base a projection on.
 # you can find #4 with the following code: all_teams_payroll %>% group_by(Name, Team) %>% arrange(Year) %>% filter(Year == min(Year), str_detect(salary, "^Arb-2") | str_detect(salary, "^Arb-3") | str_detect(salary, "^Arb-4"), !str_detect(salary, "M"), !str_detect(salary, "k"))
 
-millions_per_war <- 8
+millions_per_war <- 9
+# source: https://blogs.fangraphs.com/an-update-to-prospect-valuation/
 
 master_list <-
   all_teams_payroll %>%
@@ -636,8 +636,7 @@ team_war_per_season <-
 
 team_war_per_season %>%
   ggplot(aes(Season, controlled_war, color = Team, fill = Team)) + geom_point() + geom_line() +
-  labs(y = "WAR Under Control", caption = glue("Sources: Baseball Reference, FanGraphs, & Tom Tango
-                                                                        By Ryan Pollack: ryanpollack.com"
+  labs(y = "WAR Under Control", caption = glue("Sources: Baseball Reference, FanGraphs, & Tom Tango"
                                                                         )) +
   facet_wrap(~Division, ncol = 3) +
   ggtitle(glue("Team Controlled WAR Per Season, {next_year} - {next_year + 4}")) +
@@ -649,12 +648,12 @@ team_war_per_season %>%
     nudge_x = 0.5
   ) +
   scale_color_manual(values = team_colors) +
-  scale_fill_manual(values = team_colors)
+  scale_fill_manual(values = team_colors) +
+  fgt
 
 team_war_per_season %>%
   ggplot(aes(Season, controlled_surplus_value, color = Team, fill = Team)) + geom_point() + geom_line() + fgt +
-  labs(y = "Surplus Value Under Control (Millions USD)", caption = glue("Sources: Baseball Reference, FanGraphs, & Tom Tango
-                                                                        By Ryan Pollack: ryanpollack.com"
+  labs(y = "Surplus Value Under Control (Millions USD)", caption = glue("Sources: Baseball Reference, FanGraphs, & Tom Tango"
                                                                         )) +
   facet_wrap(~Division, ncol = 3) +
   ggtitle(glue("Team Controlled Surplus Value Per Season, {next_year} - {next_year + 4}")) +
@@ -705,8 +704,8 @@ warcels_full %>%
   head(25) %>%
   ggplot(aes(reorder(Name, war_under_control), war_under_control)) +
   geom_col() + coord_flip() + fgt +
-  labs(x = "", y = "Controlled WAR") +
-  ggtitle(glue("Top 10 Controlled WAR, {next_year} – {next_year + 4}"))
+  labs(x = "", y = "Controlled WAR", caption = "Sources: Baseball Reference, FanGraphs, & Tom Tango") +
+  ggtitle(glue("Top 25 Controlled WAR, {next_year} – {next_year + 4}"))
 
 warcels_full %>%
   filter(year_analyzed == next_year) %>%
@@ -715,7 +714,7 @@ warcels_full %>%
   ggplot(aes(reorder(Name, war_under_control), war_under_control)) +
   geom_col() + coord_flip() + fgt +
   labs(x = "", y = "Controlled WAR") +
-  ggtitle(glue("Bottom 10 Controlled WAR, {next_year} – {next_year + 4}"))
+  ggtitle(glue("Bottom 25 Controlled WAR, {next_year} – {next_year + 4}"))
 
 
 # players with the most surplus value
@@ -834,16 +833,17 @@ warcels_full %>%
 ```{r}
 
 # controlled WAR vs. controlled salary
-warcels_full %>%
-  filter(year_analyzed == next_year) %>%
+warcels %>%
   group_by(Team) %>%
   summarize(total_controlled_salary = sum(salary_under_control),
             total_controlled_war = sum(war_under_control)) %>%
-  ggplot(aes(total_controlled_war, total_controlled_salary), color = Team, fill = Team) +
+  ggplot(aes(total_controlled_war, total_controlled_salary, color = Team, fill = Team)) +
   geom_point() +
   geom_label_repel(aes(label = Team),
                    na.rm = TRUE,
-                   show.legend = FALSE
+                   show.legend = FALSE,
+                    color = "white",
+    segment.color = "black"
   ) +
   ggtitle(glue("MLB Controlled WAR vs. Controlled Salary, {next_year} – {next_year + 4}")) +
   scale_color_manual(values = team_colors) +
@@ -863,7 +863,6 @@ warcels_full %>%
   geom_col() +
   coord_flip() +
   fgt +
-  scale_fill_manual(values = team_colors) +
   labs(x = "", y = "Controlled Surplus Value (Millions USD)", caption = "Sources: Baseball Reference, FanGraphs, & Tom Tango") +
   ggtitle(glue("MLB Team Controlled Surplus Value, {next_year} – {next_year + 4}"))
 
@@ -1020,13 +1019,12 @@ warcels %>%
     na.rm = TRUE,
     show.legend = FALSE,
     color = "white",
-    segment.color = "black",
-    nudge_x = .1,
-    nudge_y = .1
+    segment.color = "black"
   ) +
   scale_color_manual(values = team_colors) +
   scale_fill_manual(values = team_colors) +
-  theme(legend.position = "None")
+  theme(legend.position = "None") +
+  xlim(-1000000, 7500000)
 
 warcels %>%
   group_by(Team) %>%
@@ -1036,7 +1034,7 @@ warcels %>%
   ungroup () %>%
   ggplot(aes(reorder(Team, csv_per_tv_household), csv_per_tv_household)) +
   geom_col() + coord_flip() + fgt +
-  scale_y_continuous(labels = comma)
+  scale_y_continuous(labels = comma) + labs(y="Controlled Surplus Value per TV Household ($)", x="")
   
 # what does the graph above say? that the cle/mil surplus value is even stronger when you account for the team's tiny market size.
 # that's not the angle i'd hoped for ... i wanted something like, the yankees' surplus value is even more unfair because they're in a large
