@@ -309,18 +309,76 @@ first_years <-
     TRUE ~ "Position player"
   ))
   
-first_years  %>%
-  split(.$position_class) %>%
-  map(~ lm(vote_share ~ bj_hof_monitor + narrative_score , data = .)) %>%
-  map(summary) %>%
-  map_dbl("r.squared") %>%
-  tidy()
-
+#fit the same model to different classes of players. but I want different models!
+tidied <-
+  first_years  %>%
+  group_by(position_class) %>%
+  nest() %>%
+  mutate(model = map(data, ~ lm(vote_share ~ bj_hof_monitor + narrative_score, data = .)),
+         glance = map(model, glance))
 
 # position players r^2 is 0.66. bare XGB goes to 0.94 with RMSE of 6.4
 # reliever r^2 is 0.50. 
 # starting pitcher r^2 is 0.80. quite a shock you can get that high with so little information. but the diff in R^2 shows there is value. XGB gets it to 0.9
 # in splitting them out. the numbers above are those to beat with any kind of ML model
+
+
+first_year_positon_players <-
+  first_years %>%
+  filter(position_class == "Position player") 
+
+first_year_position_player_fit <- lm(vote_share ~ narrative_score + bj_hof_monitor,
+                   data = first_year_positon_players)
+
+summary(first_year_position_player_fit)
+# 0.66
+
+# the graph below doesn't look great. this isn't a good model
+first_year_positon_players %>%
+  augment(first_year_position_player_fit, data = .) %>%
+  mutate(predicted_vote_share = .fitted) %>%
+  ggplot(aes(vote_share, predicted_vote_share)) +
+  geom_point() + geom_smooth(method = "lm") 
+```
+
+```{r}
+first_year_starters <-
+  first_years %>%
+  filter(position_class == "Starting pitcher") %>%
+  dplyr::select(Name,ERA, ERA_plus, WHIP, W, IP, H_allowed, HR_allowed, BB_allowed, SO, vote_year, jaws_plus, bj_hof_monitor, bj_hof_standards, vote_share)
+
+first_year_starters %>%	
+   cor(method="spearman") %>%		
+   as_tibble() %>%		
+   bind_cols(first_year_starters %>% 		
+               names() %>%		
+               as_tibble()) %>%		
+   dplyr::select(metric = value, everything()) %>%		
+   gather(other_metric, r, -metric) %>%
+  filter(metric == "vote_share") %>% View()
+  
+  
+  
+   ggplot(aes(metric, other_metric, fill = r, color = "black")) + geom_tile() +		
+   theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
+  scale_fill_gradient(low = "red", high = "green")
+
+splom(first_year_starters)
+
+
+first_year_starter_fit <- lm(vote_share ~ bj_hof_monitor + narrative_score,
+                   data = first_year_starters)
+
+summary(first_year_starter_fit)
+  
+first_year_starters %>%
+  augment(first_year_starter_fit, data = .) %>%
+  mutate(predicted_vote_share = .fitted) %>%
+  ggplot(aes(vote_share, predicted_vote_share)) +
+  geom_point() + geom_smooth(method = "lm") 
+
+
+
 ```
 
 
@@ -742,7 +800,7 @@ a simple linear model works amazingly well for players who've been on the ballot
 non_first_years <- hof_voting_data_historical_clean %>%
   filter(year_on_ballot != 1)
   
-fit_second_year <- lm(vote_share ~ prev_year_vote_share + year_on_ballot,
+fit_second_year <- lm(vote_share ~ prev_year_vote_share,
                       data = non_first_years)
 
 non_first_years_fitted <-
@@ -762,12 +820,17 @@ non_first_year_rmse <-
 
 ggplot(non_first_years_fitted, aes(vote_share, predicted_vote_share)) +
   geom_point() + geom_smooth(method = "lm") +
-  ggtitle("Non-first-year Players' HOF Voting Results vs. Predicted",
-          subtitle = glue("R^2: {non_first_year_r_sq}")) +
-  geom_abline(linetype = "dashed") + fgt
+  ggtitle("Predicting HOF Vote Share for Returning Players",
+          subtitle = "Modeling this year's vote share solely on last year's vote share") +
+  geom_abline(linetype = "dashed") + fgt +
+  labs(x="Vote Share", y="Predicted Vote Share", caption = "Source: HOF voting data 1966-2018
+       baseball-reference.com") +
+  annotate("text", label = glue("R^2: {non_first_year_r_sq}"), x = 80, y = 48) +
+  ggsave("hof-voting-model-returning-players.png")
 
+# plot residuals
 ggplot(non_first_years_fitted, aes(predicted_vote_share, residual)) +
-  geom_point() + geom_smooth(method = "lm") +
+  geom_point() + 
   ggtitle("Non-first-year Players' Residuals Distribution",
           subtitle = glue("RMSE: {non_first_year_rmse}")) +
   geom_hline(yintercept = 0, linetype = "dashed") + fgt
@@ -806,8 +869,10 @@ hof_voting_data_historical_clean %>%
   geom_histogram(binwidth = 1) + 
   fgt + 
   facet_wrap(vars(year_on_ballot)) +
-  labs(x="YoY HOF Vote Share Change (pp)", y="Number of Players", caption = "Source: HOF Voting Data 1966-2018") +
-  ggtitle("HOF Voters Change their Minds Gradually")
+  labs(x="YoY HOF Vote Share Change (pp)", y="Number of Players", caption = "Source: HOF voting data 1966-2018
+       baseball-reference.com") +
+  ggtitle("HOF Voters Change their Minds Gradually") +
+  ggsave("hof-yoy-vote-share-change.png", units = "in", width = 7, height = 5)
 
 ```
 
