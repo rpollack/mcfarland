@@ -74,11 +74,13 @@ sprint_speed <-
   bind_rows(read_csv("Sprint Speed - 2016.csv")) %>%
   bind_rows(read_csv("Sprint Speed - 2017.csv")) %>%
   bind_rows(read_csv("Sprint Speed - 2018.csv")) %>%
+  bind_rows(read_csv("Sprint Speed - 2019.csv")) %>%
   separate(Player, c("last_name", "first_name"), sep = ", ") %>%
   unite(batter_name, first_name, last_name, sep = " ")
 
 # get fair batted ball data from mlb gameday and join to all other data frames
-savant_data_rf <- fg_db %>%
+savant_data_full <-
+  fg_db %>%
   tbl("gd_savant_new") %>%
   filter(
     events %in% c("home_run", "triple", "double", "single", "field_out"),
@@ -109,19 +111,12 @@ savant_data_rf <- fg_db %>%
     park = factor(home_team),
     away_team = factor(away_team),
     defending_team = factor(defending_team),
-    stand = factor(stand),
+    batter_stands = factor(stand),
     game_month = factor(month(game_date))
   ) %>%
-  dplyr::select(game_year, # many baseball factors fluctuate year-to-year
-    game_month, # blunt proxy for weather on game day: cold weather in April/Oct vs hot & humid summers
-    launch_speed, # speed of ball off bat
-    launch_angle, # vertical angle of ball off bat
-    spray_angle, # horiz. angle of ball off bat
-    sprint_speed, # sprint speed of batter (statcast)
-    batter_stands = stand, # batter is lefty or righty?
-    park, # stadium where game's being played
-    # defending_team,         # team on defense. variable in quality
-    events
+  dplyr::select(
+    playerid, batter_name,
+    batter_stands, sprint_speed, park, defending_team, inning_top_bottom, game_date, game_month, game_year, pitcher, hc_x, hc_y, launch_speed, launch_angle, spray_angle, events
   )
 ```
 
@@ -139,7 +134,6 @@ regular XGBoost
 # and also: https://www.hackerearth.com/practice/machine-learning/machine-learning-algorithms/beginners-tutorial-on-xgboost-parameter-tuning-r/tutorial/
 
 # split data into training and test sets
-set.seed(46)
 sample_rows <- sample(nrow(savant_data_rf), nrow(savant_data_rf) * .75)
 
 savant_data_train <- savant_data_rf %>%
@@ -267,19 +261,24 @@ xgboost + caret
 ```{r}
 # https://stats.stackexchange.com/questions/171043/how-to-tune-hyperparameters-of-xgboost-trees
 
+# cut unneeded factors from data; retain only factors used for predicting outcome
+savant_data <-
+  savant_data_full %>%
+  dplyr::select(game_year, game_month, launch_speed, launch_angle, spray_angle, sprint_speed, batter_stands, park, defending_team, events) 
+
 # split data into 75/25 train and test sets
 batted_ball_test <-
-  createDataPartition(savant_data_rf$events, p = 0.25)
+  createDataPartition(savant_data$events, p = 0.25)
 as_tibble()
 
 # use 75% of the data for cross-validation
 savant_data_train <-
-  savant_data_rf %>%
+  savant_data %>%
   filter(!row_number() %in% batted_ball_test$Resample1)
 
 # hold out 25% of the data for testing the model
 savant_data_test <-
-  savant_data_rf %>%
+  savant_data %>%
   filter(row_number() %in% batted_ball_test$Resample1)
 
 # not run: show that training and test sets contain the same rates of events
@@ -314,21 +313,39 @@ parameter_grid <-
     subsample = 0.5
   )
 
-batted_ball_model_caret <- train(events ~ .,
-  data = savant_data_train,
-  method = "xgbTree",
-  trControl = control_parameters,
-  tuneGrid = parameter_grid,
-  metric = "logLoss"
-)
+batted_ball_model_caret <-
+  train(events ~ .,
+    data = savant_data_train,
+    method = "xgbTree",
+    trControl = control_parameters,
+    tuneGrid = parameter_grid,
+    metric = "logLoss",
+    preprocess = c("center", "scale")
+  )
 
+send_message("done training!")
+```
 # evaluate model events by applying the model to test dataset
-batted_ball_predicted <- savant_data_test %>%
-  mutate(predicted_event = predict(batted_ball_model_caret, ., type = "raw"))
+
+
+
+```{r}
+batted_ball_predicted <-
+  savant_data_test %>%
+  mutate(predicted_event = predict.train(batted_ball_model_caret, ., type = "raw"))
 
 confusionMatrix(batted_ball_predicted$events, batted_ball_predicted$predicted_event, mode = "prec_recall")
 
-send_message("done training!")
+
+```
+
+use model to predict ALL batted balls in dataset; find interesting patterns
+
+examine outliers??
+
+```{r}
+
+savant_data_rf
 ```
 
 
