@@ -269,9 +269,8 @@ savant_data <-
 # split data into 75/25 train and test sets
 batted_ball_test <-
   createDataPartition(savant_data$events, p = 0.25)
-as_tibble()
 
-# use 75% of the data for cross-validation
+# use 75% of the data for model training
 savant_data_train <-
   savant_data %>%
   filter(!row_number() %in% batted_ball_test$Resample1)
@@ -289,18 +288,6 @@ savant_data_test <-
 # https://stats.stackexchange.com/questions/171043/how-to-tune-hyperparameters-of-xgboost-trees
 # https://rstudio-pubs-static.s3.amazonaws.com/336778_d7d321fab8694292bc0531300c11b319.html
 
-control_parameters <- trainControl(
-  method = "cv",
-  number = 10,
-  search = "grid",
-  allowParallel = TRUE,
-  savePredictions = FALSE,
-  classProbs = TRUE,
-  summaryFunction = mnLogLoss
-)
-
-# TODO: probably need to do some SMOTE sampling or what-have-you
-
 
 parameter_grid <-
   expand.grid(
@@ -313,14 +300,26 @@ parameter_grid <-
     subsample = 0.5
   )
 
+control_parameters <- trainControl(
+  method = "cv",
+  number = 10,
+  search = "grid",
+  allowParallel = TRUE,
+  savePredictions = FALSE,
+  classProbs = TRUE,
+  summaryFunction = mnLogLoss,
+  sampling = "up",
+  verboseIter = TRUE
+)
+
 batted_ball_model_caret <-
   train(events ~ .,
     data = savant_data_train,
     method = "xgbTree",
     trControl = control_parameters,
     tuneGrid = parameter_grid,
-    metric = "logLoss",
-    preprocess = c("center", "scale")
+    metric = "logLoss"
+    #preprocess = c("center", "scale")
   )
 
 send_message("done training!")
@@ -336,7 +335,6 @@ batted_ball_predicted <-
 
 confusionMatrix(batted_ball_predicted$events, batted_ball_predicted$predicted_event, mode = "prec_recall")
 
-
 ```
 
 use model to predict ALL batted balls in dataset; find interesting patterns
@@ -345,7 +343,8 @@ examine outliers??
 
 ```{r}
 
-savant_data_rf
+
+
 ```
 
 
