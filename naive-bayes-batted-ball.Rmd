@@ -112,11 +112,15 @@ savant_data_full <-
     away_team = factor(away_team),
     defending_team = factor(defending_team),
     batter_stands = factor(stand),
-    game_month = factor(month(game_date))
+    game_month = factor(month(game_date)),
+    is_oracle_park = if_else(park == "SF", 1, 0),
+    is_coors = if_else(park == "DET", 1, 0),
+    is_fenway = if_else(park == "BOS", 1, 0),
+    is_comerica = if_else(park == "DET", 1, 0)
   ) %>%
   dplyr::select(
     playerid, batter_name,
-    batter_stands, sprint_speed, park, defending_team, inning_top_bottom, game_date, game_month, game_year, pitcher, hc_x, hc_y, launch_speed, launch_angle, spray_angle, events
+    batter_stands, sprint_speed, park, defending_team, inning_top_bottom, game_date, game_month, game_year, pitcher, hc_x, hc_y, launch_speed, launch_angle, spray_angle, is_oracle_park, is_coors, is_fenway, is_comerica, events
   )
 ```
 
@@ -264,7 +268,7 @@ xgboost + caret
 # cut unneeded factors from data; retain only factors used for predicting outcome
 savant_data <-
   savant_data_full %>%
-  dplyr::select(game_year, game_month, launch_speed, launch_angle, spray_angle, sprint_speed, batter_stands, park, defending_team, events) 
+  dplyr::select(launch_speed, launch_angle, spray_angle, sprint_speed, batter_stands, is_oracle_park, is_fenway, is_comerica, is_coors, events) 
 
 # split data into 75/25 train and test sets
 batted_ball_test <-
@@ -291,7 +295,7 @@ savant_data_test <-
 
 parameter_grid <-
   expand.grid(
-    nrounds = c(50, 100, 150),
+    nrounds = c(50, 100),
     eta = 0.1,
     max_depth = 10,
     gamma = 0,
@@ -308,7 +312,7 @@ control_parameters <- trainControl(
   savePredictions = FALSE,
   classProbs = TRUE,
   summaryFunction = mnLogLoss,
-  sampling = "up",
+ # sampling = "up",
   verboseIter = TRUE
 )
 
@@ -323,6 +327,8 @@ batted_ball_model_caret <-
   )
 
 send_message("done training!")
+
+# TODO: adding in hit_distance_sc might be a useful predictor
 ```
 # evaluate model events by applying the model to test dataset
 
