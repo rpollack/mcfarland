@@ -125,19 +125,42 @@ data_grouped <-
 
 
 
-```{r, fig.height=3}
+```{r}
 
 # pitchers with the highest and lowest percentages of good pitches
-data_grouped %>%
+by_pitcher <- 
+  data_grouped %>%
   group_by(player_name) %>%
   mutate(total_pitches = sum(num_pitches)) %>%
   # filter(total_pitches < 500) %>% # get starters
   filter(outcome == "good") %>%
   group_by(player_name, total_pitches) %>%
   summarize(num_good_pitches = sum(num_pitches)) %>%
-  mutate(good_pitch_percentage = round(num_good_pitches / total_pitches * 100, 1))
+  mutate(good_pitch_percentage = round(num_good_pitches / total_pitches, 3)) %>%
+  arrange(desc(good_pitch_percentage))
+
+# compute shape parameters of beta curve, given data
+mu <- mean(by_pitcher$good_pitch_percentage)
+var <- var(by_pitcher$good_pitch_percentage)
+
+alpha0 <- ((1 - mu) / var - 1 / mu) * mu ^ 2
+beta0 <- alpha0 * (1 / mu - 1)
+
+ggplot(by_pitcher, aes(good_pitch_percentage)) + geom_histogram(binwidth = .01, aes(y=..density..)) +
+  stat_function(fun = dbeta,
+                args=list(shape1 = alpha0, shape2 = beta0),
+                lwd=2,
+                aes(color = "All Pitchers")) +
+  labs(x="Good Pitches per Pitch Thrown") +
+  labs(color = "Distributions") +
+  ggtitle("Probability Distribution for Good Pitch %")
+
+# is there any confounding factor? I think there is ... good pitchers will get more chances to throw total pitches
+# so the model should account for that.
+```
 
 
+```{r}
 pitch_cutoff <- 10 # get only zones/batters who've seen at least this many pitches, from the pitcher
 
 data_grouped %>%
@@ -153,7 +176,8 @@ data_grouped %>%
     subtitle = glue("For pitches thrown at least {percentage_cutoff}% of the time in that location to batters of that hand
                           For pitchers with at least {total_pitches_to_each_side_cutoff * 2} pitches in 2019")
   ) +
-  labs(x = "", y = "Percentage of Pitches that are Good")
+  labs(x = "", y = "Percentage of Pitches that are Good",
+       caption = "Good pitch: swinging strike, called strike, or batted ball with xWOBA less than the league median xWOBA")
 
 data_grouped %>%
   filter(
