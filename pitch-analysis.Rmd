@@ -178,12 +178,14 @@ good_pitches_est <-
 # best pitchers
 ggplot(good_pitches_est %>% head(25), aes(reorder(player_name, est_good_pitch_rate), est_good_pitch_rate)) + coord_flip() +
   geom_point() + geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) +
-  labs(x = "")
+  labs(x = "", y = "Estimated Good-Pitch Rate with 95% Credible Interval") +
+  ggtitle("Highest Good-Pitch Rates, 2019")
 
 # worst pitchers
 ggplot(good_pitches_est %>% tail(25), aes(reorder(player_name, est_good_pitch_rate), est_good_pitch_rate)) + coord_flip() +
   geom_point() + geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) +
-  labs(x = "")
+  labs(x = "", y = "Estimated Good-Pitch Rate with 95% Credible Interval") +
+  ggtitle("Lowest Good-Pitch Rates, 2019")
 
 # TODO:
 # ---- also, probably need to separate relievers from starters. they have a different number of pitches ...
