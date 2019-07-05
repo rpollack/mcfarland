@@ -176,7 +176,7 @@ ggplot(good_pitches_est %>% head(25), aes(reorder(player_name, est_good_pitch_pe
   labs(x = "")
 
 # worst pitchers
-ggplot(good_pitches_est %>% tail(25), aes(reorder(player_name, -est_good_pitch_percentage), est_good_pitch_percentage)) + coord_flip() +
+ggplot(good_pitches_est %>% tail(25), aes(reorder(player_name, -st_good_pitch_percentage), est_good_pitch_percentage)) + coord_flip() +
   geom_point() + geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) +
   labs(x = "")
 
