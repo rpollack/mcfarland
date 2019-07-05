@@ -66,12 +66,6 @@ data <-
 
 ```{r}
 
-
-# mark good outcomes as: swinging strike or called strike. in 'description' field.
-# then compute percentage of pitches that resulted in a good outcome
-# this does not incorporate weakly hit balls ... perhaps I can do CALLED STRIKE, SWINGING STRIKE, OR xwOBA < lg average.
-
-
 total_pitches_to_each_side_cutoff <- 25
 
 # find median xwoba of all batted balls. the histogram is skewed so the median is more appropriate than the mean here
@@ -129,8 +123,7 @@ data_grouped <-
 
 
 ```{r}
-
-# pitchers with the highest and lowest percentages of good pitches
+# compute good-pitch rate per pitcher for 2019
 by_pitcher <-
   data_grouped %>%
   group_by(player_name) %>%
