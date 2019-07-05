@@ -135,49 +135,57 @@ by_pitcher <-
   mutate(good_pitch_percentage = round(num_good_pitches / total_pitches, 3)) %>%
   arrange(desc(good_pitch_percentage))
 
-# compute shape parameters of beta curve, given data
-mu <- mean(by_pitcher$good_pitch_percentage)
-var <- var(by_pitcher$good_pitch_percentage)
+# when estimating good-pitch rates, take into account the total number of pitches thrown
+# good pitchers will get more chances
+fit <- gamlss(cbind(num_good_pitches, total_pitches - num_good_pitches) ~ log(total_pitches),
+              data = by_pitcher,
+              family = BB(mu.link = "identity"))
 
-alpha0 <- ((1 - mu) / var - 1 / mu) * mu^2
-beta0 <- alpha0 * (1 / mu - 1)
+td <- tidy(fit)
 
-ggplot(by_pitcher, aes(good_pitch_percentage)) + geom_histogram(binwidth = .01, aes(y = ..density..)) +
-  stat_function(
-    fun = dbeta,
-    args = list(shape1 = alpha0, shape2 = beta0),
-    lwd = 2,
-    aes(color = "All Pitchers")
-  ) +
-  labs(x = "Good Pitches per Pitch Thrown") +
-  labs(color = "Distributions") +
-  ggtitle("Probability Distribution for Good Pitch %")
+mu <- fitted(fit, parameter = "mu")
+sigma <- fitted(fit, parameter="sigma")
 
-# estimate good-pitch-rate by applying priors to all pitchers. also compute credible intervals
+# compute shape parameters of posterior beta curves, given data
 good_pitches_est <-
   by_pitcher %>%
+  ungroup() %>%
   mutate(
-    est_good_pitch_percentage = (num_good_pitches + alpha0) / (total_pitches + alpha0 + beta0),
-    alpha1 = alpha0 + num_good_pitches,
-    beta1 = beta0 + total_pitches - num_good_pitches,
-    low_credible = qbeta(.025, alpha1, beta1),
-    high_credible = qbeta(.975, alpha1, beta1)
-  ) %>%
-  arrange(desc(est_good_pitch_percentage))
+    mu = mu,
+     alpha0 = mu / sigma,
+     beta0 = (1 - mu) / sigma,
+         alpha1 = alpha0 + num_good_pitches,
+         beta1 = beta0 + total_pitches - num_good_pitches,
+         est_good_pitch_rate = alpha1 / (alpha1 + beta1),
+         low_credible = qbeta(.025, alpha1, beta1), 
+         high_credible = qbeta(.975, alpha1, beta1)) %>%
+  arrange(desc(est_good_pitch_rate))
+
+# ggplot(by_pitcher, aes(good_pitch_percentage)) + geom_histogram(binwidth = .01, aes(y = ..density..)) +
+#   stat_function(
+#     fun = dbeta,
+#     args = list(shape1 = alpha0, shape2 = beta0),
+#     lwd = 2,
+#     aes(color = "All Pitchers")
+#   ) +
+#   labs(x = "Good Pitches per Pitch Thrown") +
+#   labs(color = "Distributions") +
+#   ggtitle("Probability Distribution for Good Pitch %")
+
+# estimate good-pitch-rate by applying priors to all pitchers. also compute credible intervals
+
 
 # best pitchers
-ggplot(good_pitches_est %>% head(25), aes(reorder(player_name, est_good_pitch_percentage), est_good_pitch_percentage)) + coord_flip() +
+ggplot(good_pitches_est %>% head(25), aes(reorder(player_name, est_good_pitch_rate), est_good_pitch_rate)) + coord_flip() +
   geom_point() + geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) +
   labs(x = "")
 
 # worst pitchers
-ggplot(good_pitches_est %>% tail(25), aes(reorder(player_name, est_good_pitch_percentage), est_good_pitch_percentage)) + coord_flip() +
+ggplot(good_pitches_est %>% tail(25), aes(reorder(player_name, est_good_pitch_rate), est_good_pitch_rate)) + coord_flip() +
   geom_point() + geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) +
   labs(x = "")
 
 # TODO:
-# is there any confounding factor? I think there is ... good pitchers will get more chances to throw total pitches
-# so the model should account for that.
 # ---- also, probably need to separate relievers from starters. they have a different number of pitches ...
 # OR maybe let the credible intervals handle it ... starters will have smaller ones because they've thrown
 # more pitches. ... I think this is the right decision.
