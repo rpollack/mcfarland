@@ -60,11 +60,11 @@ data <-
     game_type %in% c("R", "F", "D", "L", "W"), # ignore spring training, etc. games
     zone != 0 # ignore invalid strikezone data
   ) %>%
-  select(player_name, game_year, p_throws, pitch_type, balls, strikes, zone, stand, description, xwoba) %>%
+  dplyr::select(player_name, game_year, p_throws, pitch_type, balls, strikes, zone, stand, description, xwoba) %>%
   collect(n = Inf)
 ```
 
-```{r, fig.height=3}
+```{r}
 
 
 # mark good outcomes as: swinging strike or called strike. in 'description' field.
@@ -88,7 +88,8 @@ median_xwoba_2019 <-
 
 data_grouped <-
   data %>%
-  filter(game_year == 2019) %>% # filter to 2019 to focus on advice that's immediately actionable
+  filter(game_year == 2019,      # filter to 2019 to focus on advice that's immediately actionable
+         description != "foul") %>%   # do not count foul balls as either good or bad
   mutate(
     zone_type_vertical = case_when(
       zone %in% c(11, 12, 1, 2, 3) ~ "High",
@@ -108,6 +109,7 @@ data_grouped <-
     ),
 
     # define a good pitch as one that is either a called/swinging strike or gets hit for a sub-median xWOBA
+    # remember, foul balls are not counted as either good or bad
     outcome = if_else(str_detect(description, "strike") |
       (str_detect(description, "hit_into_play") & xwoba <= median_xwoba_2019), "good", "bad")
   ) %>%
@@ -176,7 +178,7 @@ ggplot(good_pitches_est %>% head(25), aes(reorder(player_name, est_good_pitch_pe
   labs(x = "")
 
 # worst pitchers
-ggplot(good_pitches_est %>% tail(25), aes(reorder(player_name, -st_good_pitch_percentage), est_good_pitch_percentage)) + coord_flip() +
+ggplot(good_pitches_est %>% tail(25), aes(reorder(player_name, est_good_pitch_percentage), est_good_pitch_percentage)) + coord_flip() +
   geom_point() + geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) +
   labs(x = "")
 
