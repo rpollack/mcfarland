@@ -50,6 +50,20 @@ look for pitchers to throw a high % of pitch types, in certain zones, to certain
 get data
 
 ```{r}
+
+#get MLBAM ID's and FG Player ID's, so I can get FG stats and position info using the player's MLBAM ID
+id_info <- fg_db %>%
+  tbl("playerid_lookup") %>%
+  dplyr::select(mlbamid, playerid) %>%
+  collect(n=Inf)
+
+# get player ID's of pitchers and whether they are a starter or reliever.
+pitcher_type <- fg_db %>%
+  tbl("player_info") %>%
+  filter(BISPosition %in% c("SP", "RP")) %>%
+  dplyr::select(playerid = PlayerId, position = BISPosition) %>%
+  collect(n=Inf)
+
 data <-
   fg_db %>%
   tbl("gd_savant_new") %>%
@@ -60,13 +74,16 @@ data <-
     game_type %in% c("R", "F", "D", "L", "W"), # ignore spring training, etc. games
     zone != 0 # ignore invalid strikezone data
   ) %>%
-  dplyr::select(player_name, game_year, p_throws, pitch_type, balls, strikes, zone, stand, description, xwoba) %>%
-  collect(n = Inf)
+  dplyr::select(pitcher, player_name, game_year, p_throws, pitch_type, balls, strikes, zone, stand, description, xwoba) %>%
+  collect(n = Inf) %>%
+  inner_join(id_info, by=c("pitcher" = "mlbamid")) %>%
+  inner_join(pitcher_type, by="playerid")
+  
 ```
 
 ```{r}
 
-total_pitches_to_each_side_cutoff <- 25
+total_pitches_to_each_side_cutoff <- 15
 
 # find median xwoba of all batted balls. the histogram is skewed so the median is more appropriate than the mean here
 # batted balls that produce a value less than this are considered 'good'
@@ -82,8 +99,10 @@ median_xwoba_2019 <-
 
 data_grouped <-
   data %>%
-  filter(game_year == 2019,      # filter to 2019 to focus on advice that's immediately actionable
-         description != "foul") %>%   # do not count foul balls as either good or bad
+  filter(
+    game_year == 2019, # filter to 2019 to focus on advice that's immediately actionable
+    description != "foul"
+  ) %>% # do not count foul balls as either good or bad
   mutate(
     zone_type_vertical = case_when(
       zone %in% c(11, 12, 1, 2, 3) ~ "High",
@@ -112,7 +131,7 @@ data_grouped <-
   group_by(player_name, game_year, p_throws, stand) %>%
   mutate(total_pitches_to_batters_of_this_hand = n()) %>%
   filter(total_pitches_to_batters_of_this_hand >= total_pitches_to_each_side_cutoff) %>% # try to get only full time pitchers
-  group_by(player_name, game_year, p_throws, count, zone_desc, stand, pitch_type, outcome) %>%
+  group_by(player_name, game_year, p_throws, position, count, zone_desc, stand, pitch_type, outcome) %>%
   summarize(
     num_pitches = n()
   ) %>%
@@ -130,21 +149,22 @@ by_pitcher <-
   mutate(total_pitches = sum(num_pitches)) %>%
   # filter(total_pitches < 500) %>% # get starters
   filter(outcome == "good") %>%
-  group_by(player_name, total_pitches) %>%
+  group_by(player_name, position, total_pitches) %>%
   summarize(num_good_pitches = sum(num_pitches)) %>%
   mutate(good_pitch_percentage = round(num_good_pitches / total_pitches, 3)) %>%
   arrange(desc(good_pitch_percentage))
 
 # when estimating good-pitch rates, take into account the total number of pitches thrown
 # good pitchers will get more chances
-fit <- gamlss(cbind(num_good_pitches, total_pitches - num_good_pitches) ~ log(total_pitches),
-              data = by_pitcher,
-              family = BB(mu.link = "identity"))
+fit <- gamlss(cbind(num_good_pitches, total_pitches - num_good_pitches) ~ log(total_pitches) + position,
+  data = by_pitcher,
+  family = BB(mu.link = "identity")
+)
 
 td <- tidy(fit)
 
 mu <- fitted(fit, parameter = "mu")
-sigma <- fitted(fit, parameter="sigma")
+sigma <- fitted(fit, parameter = "sigma")
 
 # compute shape parameters of posterior beta curves, given data
 good_pitches_est <-
@@ -152,13 +172,15 @@ good_pitches_est <-
   ungroup() %>%
   mutate(
     mu = mu,
-     alpha0 = mu / sigma,
-     beta0 = (1 - mu) / sigma,
-         alpha1 = alpha0 + num_good_pitches,
-         beta1 = beta0 + total_pitches - num_good_pitches,
-         est_good_pitch_rate = alpha1 / (alpha1 + beta1),
-         low_credible = qbeta(.025, alpha1, beta1), 
-         high_credible = qbeta(.975, alpha1, beta1)) %>%
+    alpha0 = mu / sigma,
+    beta0 = (1 - mu) / sigma,
+    alpha1 = alpha0 + num_good_pitches,
+    beta1 = beta0 + total_pitches - num_good_pitches,
+    est_good_pitch_rate = alpha1 / (alpha1 + beta1),
+    low_credible = qbeta(.025, alpha1, beta1),
+    high_credible = qbeta(.975, alpha1, beta1)
+  ) %>%
+  group_by(position) %>%
   arrange(desc(est_good_pitch_rate))
 
 # ggplot(by_pitcher, aes(good_pitch_percentage)) + geom_histogram(binwidth = .01, aes(y = ..density..)) +
@@ -174,23 +196,44 @@ good_pitches_est <-
 
 # estimate good-pitch-rate by applying priors to all pitchers. also compute credible intervals
 
+# plot prior distributions for different numbers of pitches thrown
+# mu_0 <- td$estimate[1]
+# mu_pitches <- td$estimate[2]
+# sigma <- exp(td$estimate[3])
+# 
+# # compute prior distributions for several values of total pitch count
+# good_pitch_rate_priors <- crossing(x = seq(0.1, .6, .01), total_pitches = c(50, 500, 1000, 1500)) %>%
+#   mutate(density = dbeta(
+#     x, (mu_0 + mu_pitches * log(total_pitches)) / sigma,
+#     (1 - (mu_0 + mu_pitches * log(total_pitches))) / sigma
+#   )) %>%
+#   mutate(total_pitches = factor(total_pitches))
+# 
+# # plot prior distributions
+# ggplot(good_pitch_rate_priors, aes(x, density, color = total_pitches, group = total_pitches)) +
+#   geom_line(group = 1) + labs(x = "Estimated Good-Pitch Rate", y = "Prior Density") +
+#   ggtitle("More Pitches Thrown = Increased Probability of Higher Good-Pitch Rate") +
+#   xlim(0.3, 0.55)
 
-# best pitchers
-ggplot(good_pitches_est %>% head(25), aes(reorder(player_name, est_good_pitch_rate), est_good_pitch_rate)) + coord_flip() +
-  geom_point() + geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) +
+# plot the 10 best relievers and the 10 best starters
+good_pitches_est %>%
+  group_by(position) %>%
+  arrange(desc(est_good_pitch_rate)) %>%
+  filter(row_number() <= 10) %>%
+  ggplot(aes(reorder(player_name, est_good_pitch_rate), est_good_pitch_rate)) + coord_flip() +
+  geom_point() + geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) + facet_grid(vars(position), scales = "free_y") +
   labs(x = "", y = "Estimated Good-Pitch Rate with 95% Credible Interval") +
   ggtitle("Highest Good-Pitch Rates, 2019")
 
 # worst pitchers
-ggplot(good_pitches_est %>% tail(25), aes(reorder(player_name, est_good_pitch_rate), est_good_pitch_rate)) + coord_flip() +
-  geom_point() + geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) +
+good_pitches_est %>%
+  group_by(position) %>%
+  arrange(est_good_pitch_rate) %>%
+  filter(row_number() <= 10) %>%
+  ggplot(aes(reorder(player_name, est_good_pitch_rate), est_good_pitch_rate)) + coord_flip() +
+  geom_point() + geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) + facet_grid(vars(position), scales = "free_y") +
   labs(x = "", y = "Estimated Good-Pitch Rate with 95% Credible Interval") +
   ggtitle("Lowest Good-Pitch Rates, 2019")
-
-# TODO:
-# ---- also, probably need to separate relievers from starters. they have a different number of pitches ...
-# OR maybe let the credible intervals handle it ... starters will have smaller ones because they've thrown
-# more pitches. ... I think this is the right decision.
 ```
 
 
