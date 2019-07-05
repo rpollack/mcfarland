@@ -72,7 +72,7 @@ data <-
 # this does not incorporate weakly hit balls ... perhaps I can do CALLED STRIKE, SWINGING STRIKE, OR xwOBA < lg average.
 
 
-total_pitches_to_each_side_cutoff <- 5
+total_pitches_to_each_side_cutoff <- 25
 
 # find median xwoba of all batted balls. the histogram is skewed so the median is more appropriate than the mean here
 # batted balls that produce a value less than this are considered 'good'
