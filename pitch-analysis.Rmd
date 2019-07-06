@@ -83,18 +83,18 @@ data <-
 
 ```{r}
 
-total_pitches_to_each_side_cutoff <- 15
+total_pitches_to_each_side_cutoff <- 1
 
-# find median xwoba of all batted balls. the histogram is skewed so the median is more appropriate than the mean here
-# batted balls that produce a value less than this are considered 'good'
+# compute median xWOBA of each pitch type for both starters and relievers. we'll use this value later to determine
+# whether a pitch produced a 'good' result or not
 median_xwoba_2019 <-
   data %>%
   filter(
     str_detect(description, "hit_into_play"),
     game_year == 2019
   ) %>%
-  summarize(median_xwoba = median(xwoba)) %>%
-  as.numeric()
+  group_by(position, pitch_type) %>%
+  summarize(median_xwoba = median(xwoba))
 
 
 data_grouped <-
@@ -103,6 +103,7 @@ data_grouped <-
     game_year == 2019, # filter to 2019 to focus on advice that's immediately actionable
     description != "foul"
   ) %>% # do not count foul balls as either good or bad
+  inner_join(median_xwoba_2019, by=c("position", "pitch_type")) %>%  # add median xWOBA for each position type
   mutate(
     zone_type_vertical = case_when(
       zone %in% c(11, 12, 1, 2, 3) ~ "High",
@@ -124,7 +125,7 @@ data_grouped <-
     # define a good pitch as one that is either a called/swinging strike or gets hit for a sub-median xWOBA
     # remember, foul balls are not counted as either good or bad
     outcome = if_else(str_detect(description, "strike") |
-      (str_detect(description, "hit_into_play") & xwoba <= median_xwoba_2019), "good", "bad")
+      (str_detect(description, "hit_into_play") & xwoba <= median_xwoba), "good", "bad")
   ) %>%
   unite(zone_desc, zone_type_vertical, zone_type_horizontal, sep = " and ") %>%
   unite(count, balls, strikes, sep = "-") %>%
