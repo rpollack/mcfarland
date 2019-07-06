@@ -51,18 +51,18 @@ get data
 
 ```{r}
 
-#get MLBAM ID's and FG Player ID's, so I can get FG stats and position info using the player's MLBAM ID
+# get MLBAM ID's and FG Player ID's, so I can get FG stats and position info using the player's MLBAM ID
 id_info <- fg_db %>%
   tbl("playerid_lookup") %>%
   dplyr::select(mlbamid, playerid) %>%
-  collect(n=Inf)
+  collect(n = Inf)
 
 # get player ID's of pitchers and whether they are a starter or reliever.
 pitcher_type <- fg_db %>%
   tbl("player_info") %>%
   filter(BISPosition %in% c("SP", "RP")) %>%
   dplyr::select(playerid = PlayerId, position = BISPosition) %>%
-  collect(n=Inf)
+  collect(n = Inf)
 
 data <-
   fg_db %>%
@@ -76,9 +76,8 @@ data <-
   ) %>%
   dplyr::select(pitcher, player_name, game_year, p_throws, pitch_type, balls, strikes, zone, stand, description, xwoba) %>%
   collect(n = Inf) %>%
-  inner_join(id_info, by=c("pitcher" = "mlbamid")) %>%
-  inner_join(pitcher_type, by="playerid")
-  
+  inner_join(id_info, by = c("pitcher" = "mlbamid")) %>%
+  inner_join(pitcher_type, by = "playerid")
 ```
 
 ```{r}
@@ -103,7 +102,7 @@ data_grouped <-
     game_year == 2019, # filter to 2019 to focus on advice that's immediately actionable
     description != "foul"
   ) %>% # do not count foul balls as either good or bad
-  inner_join(median_xwoba_2019, by=c("position", "pitch_type")) %>%  # add median xWOBA for each position type
+  inner_join(median_xwoba_2019, by = c("position", "pitch_type")) %>% # add median xWOBA for each position type
   mutate(
     zone_type_vertical = case_when(
       zone %in% c(11, 12, 1, 2, 3) ~ "High",
@@ -130,8 +129,8 @@ data_grouped <-
   unite(zone_desc, zone_type_vertical, zone_type_horizontal, sep = " and ") %>%
   unite(count, balls, strikes, sep = "-") %>%
   group_by(player_name, game_year, p_throws, stand) %>%
-  mutate(total_pitches_to_batters_of_this_hand = n()) %>%
-  filter(total_pitches_to_batters_of_this_hand >= total_pitches_to_each_side_cutoff) %>% # try to get only full time pitchers
+  # mutate(total_pitches_to_batters_of_this_hand = n()) %>%
+  # filter(total_pitches_to_batters_of_this_hand >= total_pitches_to_each_side_cutoff) %>% # try to get only full time pitchers
   group_by(player_name, game_year, p_throws, position, count, zone_desc, stand, pitch_type, outcome) %>%
   summarize(
     num_pitches = n()
@@ -148,7 +147,7 @@ by_pitcher <-
   data_grouped %>%
   group_by(player_name) %>%
   mutate(total_pitches = sum(num_pitches)) %>%
-  # filter(total_pitches < 500) %>% # get starters
+  filter(total_pitches >= 2) %>% # get all pitchers with at least 2 pitches
   filter(outcome == "good") %>%
   group_by(player_name, position, total_pitches) %>%
   summarize(num_good_pitches = sum(num_pitches)) %>%
@@ -201,7 +200,7 @@ good_pitches_est <-
 # mu_0 <- td$estimate[1]
 # mu_pitches <- td$estimate[2]
 # sigma <- exp(td$estimate[3])
-# 
+#
 # # compute prior distributions for several values of total pitch count
 # good_pitch_rate_priors <- crossing(x = seq(0.1, .6, .01), total_pitches = c(50, 500, 1000, 1500)) %>%
 #   mutate(density = dbeta(
@@ -209,12 +208,27 @@ good_pitches_est <-
 #     (1 - (mu_0 + mu_pitches * log(total_pitches))) / sigma
 #   )) %>%
 #   mutate(total_pitches = factor(total_pitches))
-# 
+#
 # # plot prior distributions
 # ggplot(good_pitch_rate_priors, aes(x, density, color = total_pitches, group = total_pitches)) +
 #   geom_line(group = 1) + labs(x = "Estimated Good-Pitch Rate", y = "Prior Density") +
 #   ggtitle("More Pitches Thrown = Increased Probability of Higher Good-Pitch Rate") +
 #   xlim(0.3, 0.55)
+
+# show that a beta-binomial distribution is appropriate to model good-pitch % by position
+by_pitcher %>% ggplot(aes(good_pitch_percentage)) + geom_histogram() + facet_wrap(vars(position))
+
+# plot the 25 best relievers
+good_pitches_est %>%
+  filter(position == "RP") %>%
+  arrange(desc(est_good_pitch_rate)) %>%
+  filter(row_number() <= 25) %>%
+  ggplot(aes(reorder(player_name, est_good_pitch_rate), est_good_pitch_rate)) + coord_flip() +
+  geom_point() + geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) +
+  labs(x = "", y = "Estimated Good-Pitch Rate with 95% Credible Interval") +
+  ggtitle("Highest Good-Pitch Rates",
+    subtitle = "Relievers, 2019, min. 2 pitches thrown"
+  )
 
 # plot the 10 best relievers and the 10 best starters
 good_pitches_est %>%
