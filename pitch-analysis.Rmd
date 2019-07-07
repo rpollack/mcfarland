@@ -43,11 +43,7 @@ send_message <- function(msg) {
 ```
 
 
-who is throwing pitches they shouldn't? or who needs to re-sequence, or adjust mechanics/spin/velo/etc. of a certain pitch?
-
-look for pitchers to throw a high % of pitch types, in certain zones, to certain-handed batters, that get smacked for a high xWOBA
-
-get data
+gather data from statcast
 
 ```{r}
 
@@ -80,6 +76,11 @@ data <-
   inner_join(pitcher_type, by = "playerid")
 ```
 
+
+group and clean data
+
+add zone and count information for other analysis
+
 ```{r}
 
 total_pitches_to_each_side_cutoff <- 1
@@ -95,6 +96,9 @@ median_xwoba_2019 <-
   group_by(position, pitch_type) %>%
   summarize(median_xwoba = median(xwoba))
 
+
+# add strikezone and count descriptions to data, whether the pitcher is a starter or reliever, classify pitches as good or bad,
+# and compute the total number (and percentage) of good & bad pitches thrown by the pitcher
 
 data_grouped <-
   data %>%
@@ -128,7 +132,7 @@ data_grouped <-
   ) %>%
   unite(zone_desc, zone_type_vertical, zone_type_horizontal, sep = " and ") %>%
   unite(count, balls, strikes, sep = "-") %>%
-  group_by(player_name, game_year, p_throws, stand) %>%
+  # group_by(player_name, game_year, p_throws, stand) %>%
   # mutate(total_pitches_to_batters_of_this_hand = n()) %>%
   # filter(total_pitches_to_batters_of_this_hand >= total_pitches_to_each_side_cutoff) %>% # try to get only full time pitchers
   group_by(player_name, game_year, p_throws, position, count, zone_desc, stand, pitch_type, outcome) %>%
@@ -142,17 +146,19 @@ data_grouped <-
 
 
 ```{r}
-# compute good-pitch rate per pitcher for 2019
+# compute good-pitch rates for each pitcher in 2019
 by_pitcher <-
   data_grouped %>%
   group_by(player_name) %>%
   mutate(total_pitches = sum(num_pitches)) %>%
- # filter(total_pitches >= 2) %>% # get all pitchers with at least 2 pitches
   filter(outcome == "good") %>%
   group_by(player_name, position, total_pitches) %>%
   summarize(num_good_pitches = sum(num_pitches)) %>%
   mutate(good_pitch_percentage = round(num_good_pitches / total_pitches, 3)) %>%
   arrange(desc(good_pitch_percentage))
+
+# the following code uses a hierarchical beta-binomial regression model to estimate the prior expectations
+# of good-pitch rates for each pitcher
 
 # when estimating good-pitch rates, take into account the total number of pitches thrown
 # good pitchers will get more chances
@@ -182,38 +188,6 @@ good_pitches_est <-
   ) %>%
   group_by(position) %>%
   arrange(desc(est_good_pitch_rate))
-
-# ggplot(by_pitcher, aes(good_pitch_percentage)) + geom_histogram(binwidth = .01, aes(y = ..density..)) +
-#   stat_function(
-#     fun = dbeta,
-#     args = list(shape1 = alpha0, shape2 = beta0),
-#     lwd = 2,
-#     aes(color = "All Pitchers")
-#   ) +
-#   labs(x = "Good Pitches per Pitch Thrown") +
-#   labs(color = "Distributions") +
-#   ggtitle("Probability Distribution for Good Pitch %")
-
-# estimate good-pitch-rate by applying priors to all pitchers. also compute credible intervals
-
-# plot prior distributions for different numbers of pitches thrown
-# mu_0 <- td$estimate[1]
-# mu_pitches <- td$estimate[2]
-# sigma <- exp(td$estimate[3])
-#
-# # compute prior distributions for several values of total pitch count
-# good_pitch_rate_priors <- crossing(x = seq(0.1, .6, .01), total_pitches = c(50, 500, 1000, 1500)) %>%
-#   mutate(density = dbeta(
-#     x, (mu_0 + mu_pitches * log(total_pitches)) / sigma,
-#     (1 - (mu_0 + mu_pitches * log(total_pitches))) / sigma
-#   )) %>%
-#   mutate(total_pitches = factor(total_pitches))
-#
-# # plot prior distributions
-# ggplot(good_pitch_rate_priors, aes(x, density, color = total_pitches, group = total_pitches)) +
-#   geom_line(group = 1) + labs(x = "Estimated Good-Pitch Rate", y = "Prior Density") +
-#   ggtitle("More Pitches Thrown = Increased Probability of Higher Good-Pitch Rate") +
-#   xlim(0.3, 0.55)
 
 # show that a beta-binomial distribution is appropriate to model good-pitch % by position
 by_pitcher %>% ggplot(aes(good_pitch_percentage)) + geom_histogram() + facet_wrap(vars(position))
@@ -250,6 +224,11 @@ good_pitches_est %>%
   labs(x = "", y = "Estimated Good-Pitch Rate with 95% Credible Interval") +
   ggtitle("Lowest Good-Pitch Rates, 2019")
 ```
+
+
+the following code is not really appropriate anymore - it was an attempt to find pitches that needed improving, based on the pitch type, count, zone, and handedness of the batter. the data gathering and grouping above was originally intended to showcase this, but i changed it to a straight-up 'good pitch' rate instead.
+
+to fix the graphs below I need to bring back a lot of the commented-out groupings so they line up with the graphs below.
 
 
 ```{r, fig.height=5}
