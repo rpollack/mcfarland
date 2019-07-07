@@ -1,14 +1,14 @@
 
 
 ```{r}
-library(tidyverse)
+#library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(broom)
 library(stringr)
 library(RMySQL)
 library(lubridate)
-library(xgboost)
-library(caret)
-library(e1071)
-library(twilio)
+library(gamlss)
 library(styler)
 
 fgt <- theme(
@@ -215,7 +215,8 @@ good_pitches_est %>%
   ggtitle("Highest Good-Pitch Rates, 2019")
 
 # worst pitchers
-good_pitches_est %>%
+plt <-
+  good_pitches_est %>%
   group_by(position) %>%
   arrange(est_good_pitch_rate) %>%
   filter(row_number() <= 10) %>%
