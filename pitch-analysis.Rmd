@@ -147,7 +147,7 @@ by_pitcher <-
   data_grouped %>%
   group_by(player_name) %>%
   mutate(total_pitches = sum(num_pitches)) %>%
-  filter(total_pitches >= 2) %>% # get all pitchers with at least 2 pitches
+ # filter(total_pitches >= 2) %>% # get all pitchers with at least 2 pitches
   filter(outcome == "good") %>%
   group_by(player_name, position, total_pitches) %>%
   summarize(num_good_pitches = sum(num_pitches)) %>%
@@ -227,7 +227,7 @@ good_pitches_est %>%
   geom_point() + geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) +
   labs(x = "", y = "Estimated Good-Pitch Rate with 95% Credible Interval") +
   ggtitle("Highest Good-Pitch Rates",
-    subtitle = "Relievers, 2019, min. 2 pitches thrown"
+    subtitle = "Relievers in 2019"
   )
 
 # plot the 10 best relievers and the 10 best starters
