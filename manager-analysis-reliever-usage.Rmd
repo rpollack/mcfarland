@@ -1,0 +1,152 @@
+---
+title: "manager-analysis"
+output: html_document
+---
+
+
+
+```{r}
+# library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(broom)
+library(stringr)
+library(RMySQL)
+library(lubridate)
+library(gamlss)
+library(styler)
+
+fgt <- theme(
+  panel.background = element_rect(color = "lightgrey", fill = "white"),
+  axis.title = element_text(family = "Lato"),
+  axis.text = element_text(family = "Lato"),
+  legend.title = element_text(family = "Lato"),
+  legend.text = element_text(family = "Lato"),
+  legend.background = element_rect(fill = "white"),
+  legend.key = element_rect(fill = "white"),
+  plot.title = element_text(family = "Lato"),
+  panel.grid.major = element_line(size = .1, color = "lightgrey"),
+  panel.grid.minor = element_line(size = 0),
+  # strip.background = element_rect(fill = "#50ae26"),
+  strip.text = element_text(family = "Lato")
+)
+
+fg_db <- dplyr::src_mysql(
+  dbname = Sys.getenv("FG_DB"),
+  host = Sys.getenv("FG_HOST"),
+  user = Sys.getenv("FG_USER"),
+  password = Sys.getenv("FG_PW")
+)
+
+TWILIO_SID <- Sys.getenv("TWILIO_SID")
+TWILIO_TOKEN <- Sys.getenv("TWILIO_TOKEN")
+twilio_number <- Sys.getenv("twilio_number")
+
+send_message <- function(msg) {
+  tw_send_message(from = twilio_number, to = "5123505107", body = msg)
+}
+```
+
+
+- quantify good bullpen decisions by:
+- examining wpa/li for the first 2 months of a season
+- correlating to gmLI for the last 4 months of a season
+- understanding who else the manager had available
+
+
+- maybe correlation between first-half K-BB% and second-half gmLI?
+
+get data
+
+```{r}
+
+players <- fg_db %>%
+  tbl("player_info") %>%
+  filter(BISPosition == "RP") %>%
+  dplyr::select(playerid = PlayerId, FirstName, LastName) %>%
+  collect(n = Inf) %>%
+  unite(player_name, FirstName, LastName, sep = " ")
+
+teams <-
+  fg_db %>%
+  tbl("season_team") %>%
+  dplyr::select(Season, TeamId, AbbName) %>%
+  collect(n = Inf)
+
+# get k-bb% for pitchers in the first half of the season who faced at least 50 batters from march - june
+reliver_performance <-
+  fg_db %>%
+  tbl("splits_pitching") %>%
+  filter(Split %in% c("Mar/Apr", "May", "Jun"),
+         PlayerId %in% !!players$playerid) %>%
+  dplyr::select(Season, PlayerId, SO, BB, TBF) %>%
+  collect(n=Inf) %>%
+  group_by(Season, PlayerId) %>%
+  filter(sum(TBF) >= 50) %>%
+  summarize(k_perc = sum(SO) / sum(TBF),
+            bb_perc = sum(BB) / sum(TBF)) %>%
+  mutate(first_half_K_BB_perc = round((k_perc - bb_perc) * 100, 1))
+
+
+wpa_data <- fg_db %>%
+  tbl("wpa_log") %>%
+  filter(!is.na(PitcherSubId), str_detect(GameDate, "2018")) %>%
+  collect(n = Inf)
+```
+
+K-BB% for 1st Half vs. gmLI for second half
+
+```{r}
+
+
+
+# get the average LI when entering a game, for pitchers in the 2nd half of the season July thru September
+li_individual <-
+  wpa_data %>%
+  inner_join(players, by = c("P" = "playerid")) %>%
+  mutate(Season = year(GameDate),
+         game_month = month(GameDate)) %>%
+  filter(game_month %in% c(7, 8, 9)) %>%
+  inner_join(teams, by = c("Season",
+    "HomeTeamId" = "TeamId"
+  )) %>%
+  mutate(home_team = AbbName) %>%
+  inner_join(teams, by = c("Season",
+    "AwayTeamId" = "TeamId"
+  )) %>%
+  mutate(
+    away_team = AbbName.y,
+    inning_half = if_else(InningHalf == 0, "Top", "Bottom"),
+    pitching_team = if_else(inning_half == "Top", home_team, away_team),
+    pitching_team_score = if_else(inning_half == "Top", HomeScore, AwayScore),
+    batting_team_score = if_else(inning_half == "Bottom", HomeScore, AwayScore),
+    pitching_team_lead = pitching_team_score - batting_team_score
+  ) %>%
+  dplyr::select(Season, GameDate, game_month, home_team, away_team, inning_half,
+    inning = Inning, outs = Outs, pitching_team_score, batting_team_score, pitching_team_lead, pitching_team, pitcher_playerid = P,
+    pitcher_subbed_in = player_name, LI
+  )
+
+li_grouped <-
+  li_individual %>%
+  group_by(Season, pitching_team, pitcher_playerid, pitcher_subbed_in) %>%
+  summarize(second_half_num_appearances = n(),
+            second_half_mean_gmLI = round(mean(LI), 2)) %>%
+  inner_join(reliver_performance, by=c("Season", "pitcher_playerid" = "PlayerId")) %>%
+  group_by(Season) %>%
+  mutate(first_half_K_BB_perc_plus = round(first_half_K_BB_perc / mean(first_half_K_BB_perc) * 100, 0))
+```
+
+```{r, fig.height=3}
+reliever_use_plt <-
+  ggplot(li_grouped, aes(first_half_K_BB_perc_plus, second_half_mean_gmLI, text = pitcher_subbed_in)) +
+  geom_point() + 
+  facet_wrap(vars(pitching_team)) + geom_smooth(method = "lm")
+
+reliever_use_plt
+
+#ggplotly(reliever_use_plt, tooltip = c("text", "first_half_K_BB_perc_plus", "second_half_mean_gmLI"))
+
+# get k-bb% for first half
+```
+
