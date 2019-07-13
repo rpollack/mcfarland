@@ -120,14 +120,11 @@ K-BB%+ for 1st Half vs. gmLI for second half
 ```{r}
 
 
+
 # TODO: how to handle relievers who switched teams mid-season? 2008 Nick Masset is an example. he shows up with both CWS and CIN
 # maybe remove them, as doing this will keep the manager constant
 # TODO: speaking of managers: can we hold them constant as well? avoid teams who switched managers mid-season?
-# TODO: 2006 Brian Sanches is showing as having a 500+ K-BB+ in the first half. but it should be 45.  he and madson are the only 2 pitchers there,
-# sanches has -8.8 and madson has 5.6. 
-# i may have to compile first-half K-BB% manually thru tables like wpa_daily_pitching. this way I can associate team ID's with pitching lines
-# the code i have now attributes player's first-half K-BB% to their second-half teams, and THEN computes K-BB%+, which isn't right
-# K-BB%+ should be computed based on the team the player was pitching for in the first half
+
 
 # get the average LI when entering a game, for pitchers in the 2nd half of the season July thru September
 li_individual <-
