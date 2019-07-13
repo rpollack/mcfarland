@@ -134,7 +134,8 @@ li_grouped <-
             second_half_mean_gmLI = round(mean(LI), 2)) %>%
   inner_join(reliver_performance, by=c("Season", "pitcher_playerid" = "PlayerId")) %>%
   group_by(Season) %>%
-  mutate(first_half_K_BB_perc_plus = round(first_half_K_BB_perc / mean(first_half_K_BB_perc) * 100, 0))
+  mutate(first_half_K_BB_perc_plus = round(first_half_K_BB_perc / mean(first_half_K_BB_perc) * 100, 0)) %>%
+  mutate(label = glue("{Season} {pitching_team} - {pitcher_subbed_in}"))
 
 # for each season-team, identify its correlation between first-half K-BB% and second-half gmLI
 correlations <-
@@ -165,13 +166,10 @@ correlations
 
 ```{r, fig.height=3}
 reliever_use_plt <-
-  ggplot(li_grouped, aes(first_half_K_BB_perc_plus, second_half_mean_gmLI, text = pitcher_subbed_in)) +
-  geom_point() + 
-  facet_wrap(vars(pitching_team)) + geom_smooth(method = "lm")
+  ggplot(li_grouped, aes(first_half_K_BB_perc_plus, second_half_mean_gmLI, text = label)) +
+  geom_point()
 
-reliever_use_plt
-
-#ggplotly(reliever_use_plt, tooltip = c("text", "first_half_K_BB_perc_plus", "second_half_mean_gmLI"))
+ggplotly(reliever_use_plt, tooltip = c("text", "first_half_K_BB_perc_plus", "second_half_mean_gmLI"))
 
 # get k-bb% for first half
 ```
