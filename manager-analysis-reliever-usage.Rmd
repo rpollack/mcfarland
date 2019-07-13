@@ -90,7 +90,7 @@ reliver_performance <-
 
 wpa_data <- fg_db %>%
   tbl("wpa_log") %>%
-  filter(!is.na(PitcherSubId), str_detect(GameDate, "2018")) %>%
+  filter(!is.na(PitcherSubId)) %>%
   collect(n = Inf)
 ```
 
@@ -135,6 +135,32 @@ li_grouped <-
   inner_join(reliver_performance, by=c("Season", "pitcher_playerid" = "PlayerId")) %>%
   group_by(Season) %>%
   mutate(first_half_K_BB_perc_plus = round(first_half_K_BB_perc / mean(first_half_K_BB_perc) * 100, 0))
+
+# for each season-team, identify its correlation between first-half K-BB% and second-half gmLI
+correlations <-
+  li_grouped %>%
+  filter(Season >= 2008,
+         Season < 2019) %>%
+  unite(season_team, Season, pitching_team, sep = "-") %>%
+  split(.$season_team) %>%
+  map(~ lm(second_half_mean_gmLI ~ first_half_K_BB_perc_plus, data = .)) %>%
+  map(summary) %>%
+  map_dbl("r.squared") %>%
+  tidy() %>%
+  mutate(r_squared = round(x, 2)) %>%
+  dplyr::select(names, r_squared)
+
+correlations
+
+
+# 
+# split(.$model_type) %>%
+#   map(~ lm(vote_share ~ predicted_vote_share, data = .)) %>%
+#   map(summary) %>%
+#   map_dbl("r.squared") %>%
+#   tidy() 
+
+
 ```
 
 ```{r, fig.height=3}
