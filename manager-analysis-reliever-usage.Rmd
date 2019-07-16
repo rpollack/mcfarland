@@ -49,13 +49,7 @@ send_message <- function(msg) {
 ```
 
 
-- quantify good bullpen decisions by:
-- examining wpa/li for the first 2 months of a season
-- correlating to gmLI for the last 4 months of a season
-- understanding who else the manager had available
-
-
-- maybe correlation between first-half K-BB% and second-half gmLI?
+- quantify good bullpen decisions by correlating k-bb% for the first 3 months of the season with average gmLI for the second half of the season
 
 get data
 
@@ -74,26 +68,13 @@ teams <-
   dplyr::select(Season, TeamId, AbbName) %>%
   collect(n = Inf)
 
-# get k-bb% for pitchers in the first half of the season who faced at least 25 batters from march - june
-reliver_performance <-
-  fg_db %>%
-  tbl("splits_pitching") %>%
-  filter(Split %in% c("Mar/Apr", "May", "Jun"),
-         PlayerId %in% !!players$playerid) %>%
-  dplyr::select(Season, PlayerId, SO, BB, TBF) %>%
-  collect(n=Inf) %>%
-  group_by(Season, PlayerId) %>%
-  filter(sum(TBF) >= 25) %>%
-  summarize(k_perc = sum(SO) / sum(TBF),
-            bb_perc = sum(BB) / sum(TBF)) %>%
-  mutate(first_half_K_BB_perc = round((k_perc - bb_perc) * 100, 1))
 
 # get k-bb% for pitchers who faced at least 25 batters in the first half, computed relative to the other pitchers on their team
 # who faced at least 25 batters. this is a way to get the manager's options for whom to put into a game
 reliever_perf2 <-
   fg_db %>%
   tbl("wpa_daily_pitching") %>%
-  filter(GameDate >= "2008-01-01") %>%
+ # filter(GameDate >= "2008-01-01") %>%
   dplyr::select(GameDate, PlayerId, TeamId, SO, BB, TBF) %>%
   collect(n=Inf) %>%
   mutate(Season = year(GameDate),
@@ -122,6 +103,7 @@ K-BB%+ for 1st Half vs. gmLI for second half
 
 
 # TODO: how to handle relievers who switched teams mid-season? 2008 Nick Masset is an example. he shows up with both CWS and CIN
+# 2018 Zach Britton is another example. he should not get a data point with 2018 BAL, but he has one.
 # maybe remove them, as doing this will keep the manager constant
 # TODO: speaking of managers: can we hold them constant as well? avoid teams who switched managers mid-season?
 
@@ -153,7 +135,8 @@ li_individual <-
     pitcher_subbed_in = player_name, LI
   )
 
-
+# for season-teams who had at least 5 pitchers appear at least 5 times each in the 2nd half,
+# find the mean gmLI for each pitcher and add in first-half K-BB% data
 li_grouped <-
   li_individual %>%
   group_by(Season, pitching_team, pitcher_playerid, pitcher_subbed_in) %>%
@@ -161,13 +144,18 @@ li_grouped <-
             second_half_mean_gmLI = round(mean(LI), 2)) %>%
   inner_join(reliever_perf2, by=c("Season", "pitcher_playerid" = "PlayerId")) %>%  # attach first-half k-bb rates to second-half gmLI stats
   mutate(label = glue("{Season} {pitching_team} - {pitcher_subbed_in}")) %>%
-  filter(second_half_num_appearances >= 10)
+  filter(second_half_num_appearances >= 5) %>%
+  group_by(Season, pitching_team) %>%
+  filter(n() >= 5)  %>%  # condense to only teams who had 5 relievers who appeared at least 5 times each in the 2nd half
+  group_by(Season, pitcher_playerid) %>%
+  filter(n() == 1)  # keep only players who played for one team in the season. this filters out guys like 2018 zach britton, who had 7 app for BAL and 25 app
+                    # for NYY in the second half
 
 # for each season-team, identify its correlation between first-half K-BB% and second-half gmLI.
 # this speaks to managers' rigidity
 correlations <-
   li_grouped %>%
-  filter(Season >= 2008) %>%
+#  filter(Season >= 2008) %>%
   unite(season_team, Season, pitching_team, sep = " ") %>%
   split(.$season_team) %>%
   map(~ lm(second_half_mean_gmLI ~ first_half_K_BB_perc_plus, data = .)) %>%
@@ -198,6 +186,42 @@ reliever_use_plt <-
 
 ggplotly(reliever_use_plt, tooltip = c("text", "first_half_K_BB_perc_plus", "second_half_mean_gmLI"))
 
-# get k-bb% for first half
+
+top_10_names <-
+  correlations %>%
+  head(10)
+
+bottom_10_names <-
+  correlations %>%
+  tail(10)
+
+# graph plots of top 10 teams
+top_10_plt <-
+  li_grouped %>%
+  unite(season_team, Season, pitching_team, sep = " ") %>%
+  filter(season_team %in% top_10_names$names) %>%
+  ggplot(aes(first_half_K_BB_perc_plus, second_half_mean_gmLI, text = pitcher_subbed_in)) +
+  geom_point() +
+  facet_wrap(vars(season_team), scales = "free_x") +
+  ggtitle("Best Bullpen Usage")
+
+bottom_10_plt <-
+  li_grouped %>%
+  unite(season_team, Season, pitching_team, sep = " ") %>%
+  filter(season_team %in% bottom_10_names$names) %>%
+  ggplot(aes(first_half_K_BB_perc_plus, second_half_mean_gmLI, text = pitcher_subbed_in)) +
+  geom_point() +
+  facet_wrap(vars(season_team), scales = "free_x") +
+  ggtitle("Worst Bullpen Usage")
+
+ggplotly(top_10_plt, tooltip = c("text", "first_half_K_BB_perc_plus", "second_half_mean_gmLI"))
+
+ggplotly(bottom_10_plt, tooltip = c("text", "first_half_K_BB_perc_plus", "second_half_mean_gmLI"))
+
+# not fair to managers really ... they can't control who's on their roster, so they can't control 
+
+# so like 2011 SFG ... Romo was much better as a pitcher than anyone else in the bullpen. yet Wilson and Affeldt got the highest leverage opportunities. 
+# but 2013 MIA didn't have much of a choice ... 
+
 ```
 
