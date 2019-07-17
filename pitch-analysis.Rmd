@@ -7,6 +7,7 @@ library(tidyr)
 library(broom)
 library(stringr)
 library(RMySQL)
+library(tidytext) # for reorder_within: https://juliasilge.com/blog/reorder-within/
 library(lubridate)
 library(gamlss)
 library(styler)
@@ -74,6 +75,20 @@ data <-
   collect(n = Inf) %>%
   inner_join(id_info, by = c("pitcher" = "mlbamid")) %>%
   inner_join(pitcher_type, by = "playerid")
+
+# get RA9 data for pitchers for correlation purposes
+pitcher_ra9 <-
+  fg_db %>%
+  tbl("stats_pitching") %>%
+  filter(Type == 0) %>%
+  dplyr::select(PlayerId, Season, ERA, R, IP) %>%
+  collect(n=Inf) %>%
+  mutate(ra9 = R / IP * 9) %>%
+  group_by(PlayerId) %>%
+  arrange(Season) %>%
+  mutate(next_ra9 = lead(ra9)) %>%
+  filter(!is.na(next_ra9))
+
 ```
 
 
@@ -87,13 +102,12 @@ total_pitches_to_each_side_cutoff <- 1
 
 # compute median xWOBA of each pitch type for both starters and relievers. we'll use this value later to determine
 # whether a pitch produced a 'good' result or not
-median_xwoba_2019 <-
+median_xwoba <-
   data %>%
   filter(
     str_detect(description, "hit_into_play"),
-    game_year == 2019
   ) %>%
-  group_by(position, pitch_type) %>%
+  group_by(game_year, position, pitch_type) %>%
   summarize(median_xwoba = median(xwoba))
 
 
@@ -103,10 +117,9 @@ median_xwoba_2019 <-
 data_grouped <-
   data %>%
   filter(
-    game_year == 2019, # filter to 2019 to focus on advice that's immediately actionable
     description != "foul"
   ) %>% # do not count foul balls as either good or bad
-  inner_join(median_xwoba_2019, by = c("position", "pitch_type")) %>% # add median xWOBA for each position type
+  inner_join(median_xwoba, by = c("game_year", "position", "pitch_type")) %>% # add median xWOBA for each position type
   mutate(
     zone_type_vertical = case_when(
       zone %in% c(11, 12, 1, 2, 3) ~ "High",
@@ -135,7 +148,7 @@ data_grouped <-
   # group_by(player_name, game_year, p_throws, stand) %>%
   # mutate(total_pitches_to_batters_of_this_hand = n()) %>%
   # filter(total_pitches_to_batters_of_this_hand >= total_pitches_to_each_side_cutoff) %>% # try to get only full time pitchers
-  group_by(player_name, game_year, p_throws, position, count, zone_desc, stand, pitch_type, outcome) %>%
+  group_by(pitcher, player_name, game_year, p_throws, position, count, zone_desc, stand, pitch_type, outcome) %>%
   summarize(
     num_pitches = n()
   ) %>%
@@ -146,16 +159,17 @@ data_grouped <-
 
 
 ```{r}
-# compute good-pitch rates for each pitcher in 2019
+# compute good-pitch rates for each pitcher in 2019. attach RA/9 information from FanGraphs
 by_pitcher <-
   data_grouped %>%
-  group_by(player_name) %>%
+  group_by(game_year, pitcher, player_name) %>%
   mutate(total_pitches = sum(num_pitches)) %>%
   filter(outcome == "good") %>%
-  group_by(player_name, position, total_pitches) %>%
+  group_by(game_year, pitcher, player_name, position, total_pitches) %>%
   summarize(num_good_pitches = sum(num_pitches)) %>%
   mutate(good_pitch_percentage = round(num_good_pitches / total_pitches, 3)) %>%
-  arrange(desc(good_pitch_percentage))
+  arrange(desc(good_pitch_percentage)) %>%
+  inner_join(id_info, by=c("pitcher" = "mlbamid"))
 
 # the following code uses a hierarchical beta-binomial regression model to estimate the prior expectations
 # of good-pitch rates for each pitcher
@@ -189,30 +203,39 @@ good_pitches_est <-
   group_by(position) %>%
   arrange(desc(est_good_pitch_rate))
 
-# show that a beta-binomial distribution is appropriate to model good-pitch % by position
 by_pitcher %>% ggplot(aes(good_pitch_percentage)) + geom_histogram() + facet_wrap(vars(position))
 
-# plot the 25 best relievers
-good_pitches_est %>%
-  filter(position == "RP") %>%
-  arrange(desc(est_good_pitch_rate)) %>%
-  filter(row_number() <= 25) %>%
-  ggplot(aes(reorder(player_name, est_good_pitch_rate), est_good_pitch_rate)) + coord_flip() +
-  geom_point() + geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) +
-  labs(x = "", y = "Estimated Good-Pitch Rate with 95% Credible Interval") +
-  ggtitle("Highest Good-Pitch Rates",
-    subtitle = "Relievers in 2019"
-  )
+```
 
-# plot the 10 best relievers and the 10 best starters
+```{r, fig.height = 5}
+# show that a beta-binomial distribution is appropriate to model good-pitch % by position
+
+# # plot the 25 best relievers
+# good_pitches_est %>%
+#   filter(position == "RP") %>%
+#   arrange(desc(est_good_pitch_rate)) %>%
+#   filter(row_number() <= 25) %>%
+#   ggplot(aes(reorder(player_name, est_good_pitch_rate), est_good_pitch_rate)) + coord_flip() +
+#   geom_point() + geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) +
+#   labs(x = "", y = "Estimated Good-Pitch Rate with 95% Credible Interval") +
+#   ggtitle("Highest Good-Pitch Rates",
+#     subtitle = "Relievers"
+#   ) + facet_wrap(vars(game_year), scales = "free_y")
+
+# plot the 10 best relievers and the 10 best starters each year
+# TODO: find the function online that lets you reorder bars within facets. 
 good_pitches_est %>%
-  group_by(position) %>%
+  group_by(game_year, position) %>%
   arrange(desc(est_good_pitch_rate)) %>%
   filter(row_number() <= 10) %>%
+  ungroup() %>%
+  unite(facet, position, game_year, sep = " ") %>%
+  mutate(player_name = reorder_within(player_name, est_good_pitch_rate, facet)) %>%
   ggplot(aes(reorder(player_name, est_good_pitch_rate), est_good_pitch_rate)) + coord_flip() +
-  geom_point() + geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) + facet_grid(vars(position), scales = "free_y") +
+  geom_point() + geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) + facet_wrap(vars(facet), scales = "free_y") +
   labs(x = "", y = "Estimated Good-Pitch Rate with 95% Credible Interval") +
-  ggtitle("Highest Good-Pitch Rates, 2019")
+  ggtitle("Highest Good-Pitch Rates") +
+  scale_x_reordered()
 
 # worst pitchers
 plt <-
@@ -224,6 +247,17 @@ plt <-
   geom_point() + geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) + facet_grid(vars(position), scales = "free_y") +
   labs(x = "", y = "Estimated Good-Pitch Rate with 95% Credible Interval") +
   ggtitle("Lowest Good-Pitch Rates, 2019")
+
+# 
+# ggplot(good_pitches_est %>% filter(total_pitches > 250), aes(est_good_pitch_rate, next_ra9)) + geom_point() + geom_smooth(method = "lm")
+# 
+# 
+# filtered <- good_pitches_est %>%
+#   filter(total_pitches >= 100)
+# 
+# mdl <- lm(next_ra9 ~ est_good_pitch_rate,
+#           data = filtered)
+
 ```
 
 
