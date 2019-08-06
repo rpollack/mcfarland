@@ -1,10 +1,7 @@
 
 
 ```{r}
-#library(tidyverse)
-library(dplyr)
-library(tidyr)
-library(broom)
+library(tidyverse)
 library(stringr)
 library(RMySQL)
 library(tidytext) # for reorder_within: https://juliasilge.com/blog/reorder-within/
@@ -203,11 +200,12 @@ good_pitches_est <-
   group_by(position) %>%
   arrange(desc(est_good_pitch_rate))
 
+# show that distributions of good-pitch rates are normal
 by_pitcher %>% ggplot(aes(good_pitch_percentage)) + geom_histogram() + facet_wrap(vars(position))
 
 ```
 
-```{r, fig.height = 5}
+```{r, fig.height = 3}
 # show that a beta-binomial distribution is appropriate to model good-pitch % by position
 
 # # plot the 25 best relievers
