@@ -2,12 +2,11 @@
 
 ```{r}
 library(tidyverse)
-library(stringr)
 library(RMySQL)
 library(tidytext) # for reorder_within: https://juliasilge.com/blog/reorder-within/
-library(lubridate)
 library(gamlss)
 library(styler)
+library(ggridges)
 
 fgt <- theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
@@ -68,7 +67,7 @@ data <-
     game_type %in% c("R", "F", "D", "L", "W"), # ignore spring training, etc. games
     zone != 0 # ignore invalid strikezone data
   ) %>%
-  dplyr::select(pitcher, player_name, game_year, p_throws, pitch_type, balls, strikes, zone, stand, description, xwoba) %>%
+  dplyr::select(pitcher, player_name, game_year, p_throws, pitch_type, plate_x, plate_z, release_spin_rate, balls, strikes, zone, stand, description, xwoba) %>%
   collect(n = Inf) %>%
   inner_join(id_info, by = c("pitcher" = "mlbamid")) %>%
   inner_join(pitcher_type, by = "playerid")
@@ -86,6 +85,36 @@ pitcher_ra9 <-
   mutate(next_ra9 = lead(ra9)) %>%
   filter(!is.na(next_ra9))
 
+```
+
+code for emilio pagan article.
+
+```{r}
+
+data %>%
+  filter(player_name == "Emilio Pagan") %>%
+  filter(pitch_type == "FF") %>%
+  ggplot(aes(plate_x, plate_z)) + geom_point() + facet_wrap(vars(game_year)) + ggtitle("Horizontal Plate Location vs. Vertical Plate Location", subtitle = "Emilio Pagan, Four-seam Fastballs") + ggsave("pagan-plate-location-fastball.png")
+
+
+data %>%
+  filter(player_name == "Emilio Pagan") %>%
+  filter(pitch_type == "FF") %>%
+  ggplot(aes(x = as.numeric(release_spin_rate))) +
+  geom_histogram(binwidth = 10) +
+  facet_grid(vars(game_year)) +
+  ggtitle("Spin Rate vs. Number of Pitches",
+    subtitle = "Emilio Pagan, Four-seam Fastballs"
+  ) +
+  labs(x = "Spin Rate (RPM)", y = "Number of Pitches", caption = "Source: Baseball Savant") +
+  ggsave("pagan-spin-rate.png")
+
+read_csv("~/Downloads/Pagan Pitches - Sheet1.csv") %>%
+  mutate(`Whiff%` = `Whiff%` / 100) %>%
+  gather(stat, value, -Year, -`Pitch Type`) %>%
+  ggplot(aes(as.character(Year), value, color = stat, group = stat)) + geom_point() + geom_line() + facet_wrap(vars(`Pitch Type`)) +
+  labs(x = "", caption = "Source: Baseball Savant") + ggtitle("Year vs. Effectiveness", subtitle = "Emilio Pagan, All Pitch Types") +
+  ggsave("pagan-pitch-effectiveness.png")
 ```
 
 
