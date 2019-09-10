@@ -67,7 +67,7 @@ data <-
     game_type %in% c("R", "F", "D", "L", "W"), # ignore spring training, etc. games
     zone != 0 # ignore invalid strikezone data
   ) %>%
-  dplyr::select(pitcher, player_name, game_year, p_throws, pitch_type, plate_x, plate_z, release_spin_rate, balls, strikes, zone, stand, description, xwoba) %>%
+  dplyr::select(pitcher, player_name, game_year, p_throws, pitch_type, plate_x, plate_z, release_speed, release_spin_rate, balls, strikes, zone, stand, description, xwoba) %>%
   collect(n = Inf) %>%
   inner_join(id_info, by = c("pitcher" = "mlbamid")) %>%
   inner_join(pitcher_type, by = "playerid")
@@ -94,8 +94,13 @@ code for emilio pagan article.
 data %>%
   filter(player_name == "Emilio Pagan") %>%
   filter(pitch_type == "FF") %>%
-  ggplot(aes(plate_x, plate_z)) + geom_point() + facet_wrap(vars(game_year)) + ggtitle("Horizontal Plate Location vs. Vertical Plate Location", subtitle = "Emilio Pagan, Four-seam Fastballs") + ggsave("pagan-plate-location-fastball.png")
+  ggplot(aes(plate_x, plate_z)) + geom_point() + facet_wrap(vars(game_year)) + ggtitle("Horizontal Plate Location vs. Vertical Plate Location", subtitle = "Emilio Pagan, Four-seam Fastballs") + labs(x="Pitch Horizontal Location", y = "Pitch Vertical Location", caption = "Source: Baseball Savant") + ggsave("pagan-plate-location-fastball.png")
 
+data %>%
+  filter(player_name == "Emilio Pagan") %>%
+  filter(pitch_type == "FF") %>%
+  group_by(game_year) %>%
+  summarize(mean_vertical_height = mean(plate_z))
 
 data %>%
   filter(player_name == "Emilio Pagan") %>%
@@ -115,6 +120,20 @@ read_csv("~/Downloads/Pagan Pitches - Sheet1.csv") %>%
   ggplot(aes(as.character(Year), value, color = stat, group = stat)) + geom_point() + geom_line() + facet_wrap(vars(`Pitch Type`)) +
   labs(x = "", caption = "Source: Baseball Savant") + ggtitle("Year vs. Effectiveness", subtitle = "Emilio Pagan, All Pitch Types") +
   ggsave("pagan-pitch-effectiveness.png")
+```
+
+```{r}
+data %>%
+  filter(pitch_type == "FF") %>%
+  mutate(bauer_units = as.numeric(release_spin_rate) / release_speed) %>%
+  group_by(game_year) %>%
+  mutate(lg_bauer_units = mean(bauer_units, na.rm = TRUE)) %>%
+  group_by(game_year, pitcher, player_name) %>%
+  summarize(bauer_units_plus = mean(bauer_units, na.rm = TRUE) / mean(lg_bauer_units) * 100) %>%
+  group_by(game_year) %>%
+  filter(game_year == 2019) %>% 
+  mutate(rank = percent_rank(bauer_units_plus)) %>% View()
+
 ```
 
 
