@@ -5,11 +5,11 @@ library(lubridate)
 library(xgboost)
 library(caret)
 library(twilio)
-library(pROC) #for ROC curve
-library(PRROC) #for P-R curve
+library(pROC) # for ROC curve
+library(PRROC) # for P-R curve
 
 
-fgt = theme(
+fgt <- theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
   axis.title = element_text(family = "Lato"),
   axis.text = element_text(family = "Lato"),
@@ -21,75 +21,84 @@ fgt = theme(
   panel.grid.major = element_line(size = .1, color = "lightgrey"),
   panel.grid.minor = element_line(size = 0),
   # strip.background = element_rect(fill = "#8e001c"),
-  strip.text = element_text(family="Lato")
+  strip.text = element_text(family = "Lato")
 )
 
-fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"), 
-                          host = Sys.getenv("FG_HOST"), 
-                          user = Sys.getenv("FG_USER"),
-                          password = Sys.getenv("FG_PW"))
+fg_db <- dplyr::src_mysql(
+  dbname = Sys.getenv("FG_DB"),
+  host = Sys.getenv("FG_HOST"),
+  user = Sys.getenv("FG_USER"),
+  password = Sys.getenv("FG_PW")
+)
 
 TWILIO_SID <- Sys.getenv("TWILIO_SID")
 TWILIO_TOKEN <- Sys.getenv("TWILIO_TOKEN")
 twilio_number <- Sys.getenv("twilio_number")
 
-send_message <- function(msg){
+send_message <- function(msg) {
   tw_send_message(from = twilio_number, to = "5123505107", body = msg)
 }
-
-
-
 ```
 
 get, clean, mutate, and join data
 
 ```{r, message=FALSE}
 
-year_to_predict <- 2018
+year_to_predict <- 2019
 data_min <- year_to_predict - 11
 data_max <- year_to_predict - 1
 
 player_info <- fg_db %>%
   tbl("player_info") %>%
-  filter(Position != "P") %>% #TODO: add pitchers in later
+  filter(Position != "P") %>% # TODO: add pitchers in later
   dplyr::select(playerid = PlayerId, FirstName, LastName) %>%
-  collect(n=Inf) %>%
+  collect(n = Inf) %>%
   unite(player_name, FirstName, LastName, sep = " ")
 
 team_info <- fg_db %>%
   tbl("season_team") %>%
-  filter(Season >= data_min,
-         Season <= year_to_predict) %>%   
+  filter(
+    Season >= data_min,
+    Season <= year_to_predict
+  ) %>%
   select(teamid = TeamId, Season, League, team_games = G, team_wins = W, team_losses = L) %>%
-  collect(n=Inf) %>%
-  mutate(team_PCT = team_wins / (team_wins + team_losses),
-         League = factor(League)) %>%
+  collect(n = Inf) %>%
+  mutate(
+    team_PCT = team_wins / (team_wins + team_losses),
+    League = factor(League)
+  ) %>%
   select(-team_wins, -team_losses)
 
 player_stats <- fg_db %>%
   tbl("stats_batting_master_pfx") %>%
-  filter(Type == 0,
-         Season >= data_min,
-         Season <= year_to_predict) %>%
-  select(playerid, Season, teamid, batting_average = AVG, plate_appearances = PA,
-         home_runs = HR, rbi = RBI, ops = OPS, stolen_bases = SB, defense = Fielding, games_played = G,
-         WAR = ValueW) %>%
-  collect(n=Inf) %>%
-  inner_join(player_info, by="playerid") %>%
+  filter(
+    Type == 0,
+    Season >= data_min,
+    Season <= year_to_predict
+  ) %>%
+  select(playerid, Season, teamid,
+    batting_average = AVG, plate_appearances = PA,
+    home_runs = HR, rbi = RBI, ops = OPS, stolen_bases = SB, defense = Fielding, games_played = G,
+    WAR = ValueW
+  ) %>%
+  collect(n = Inf) %>%
+  inner_join(player_info, by = "playerid") %>%
   select(playerid, player_name, everything())
 
 # compute total games playes in field as well as primary position. the former will be used to
 # identify DH's
 fielding_info <- fg_db %>%
   tbl("stats_fielding") %>%
-  filter(Season >= data_min,
-         Season <= year_to_predict,
-         Position != "OF",      # omit these rows; they're totals of distinct LF/CF/RF playing time
-         Position != "P",
-         Type == 0) %>%  
+  filter(
+    Season >= data_min,
+    Season <= year_to_predict,
+    Position != "OF", # omit these rows; they're totals of distinct LF/CF/RF playing time
+    Position != "P",
+    Type == 0
+  ) %>%
   select(Season, playerid = PlayerId, Position, innings = Inn, G) %>%
-  collect(n=Inf) %>%
-  group_by(Season, playerid) %>% 
+  collect(n = Inf) %>%
+  group_by(Season, playerid) %>%
   mutate(games_in_field = sum(G)) %>%
   arrange(desc(innings)) %>%
   filter(row_number() == 1) %>%
@@ -98,24 +107,33 @@ fielding_info <- fg_db %>%
 # read in list of MVP's. this is from wikipedia so need to clean up some of the names to match FanGraphs
 # the if_else lines deal with players with accented characters in their names
 # also mark each player as mvp for when we join this DF to the main stats DF later
-mvp_list <- read_csv("mlb season awards - MVP's.csv") %>% 
-  mutate(player_name = str_replace_all(player_name,
-                                       c("Cal Ripken, Jr." = "Cal Ripken",
-                                         "Ken Griffey, Jr." = "Ken Griffey Jr.")),
-         player_name = if_else(Season %in% c(1996, 1998) & League == "AL", "Juan Gonzalez",
-                               if_else(Season == 1999 & League == "AL", "Ivan Rodriguez",
-                                       if_else(Season == 2017 & League == "AL", "Jose Altuve",
-                                               player_name))),
-         League = factor(League),
-         is_mvp = "Yes")
+mvp_list <- read_csv("mlb season awards - MVP's.csv") %>%
+  mutate(
+    player_name = str_replace_all(
+      player_name,
+      c(
+        "Cal Ripken, Jr." = "Cal Ripken",
+        "Ken Griffey, Jr." = "Ken Griffey Jr."
+      )
+    ),
+    player_name = if_else(Season %in% c(1996, 1998) & League == "AL", "Juan Gonzalez",
+      if_else(Season == 1999 & League == "AL", "Ivan Rodriguez",
+        if_else(Season == 2017 & League == "AL", "Jose Altuve",
+          player_name
+        )
+      )
+    ),
+    League = factor(League),
+    is_mvp = "Yes"
+  )
 
-master_df <- inner_join(player_stats, team_info, by=c("Season", "teamid")) %>%
-  inner_join(fielding_info, by=c("playerid", "Season")) %>%
-  full_join(mvp_list, by=c("Season", "player_name", "League")) %>%
+master_df <- inner_join(player_stats, team_info, by = c("Season", "teamid")) %>%
+  inner_join(fielding_info, by = c("playerid", "Season")) %>%
+  full_join(mvp_list, by = c("Season", "player_name", "League")) %>%
   replace_na(list(is_mvp = "No")) %>%
-  filter(plate_appearances >= 2.93 * (team_games))  %>% # fewest PA/game who won the MVP was Stargell in 1979
-  group_by(Season, League) %>%    
-  arrange(desc(ops)) %>%   
+  filter(plate_appearances >= 2.93 * (team_games)) %>% # fewest PA/game who won the MVP was Stargell in 1979
+  group_by(Season, League) %>%
+  arrange(desc(ops)) %>%
   mutate(ops_rank_league = row_number()) %>%
   arrange(desc(home_runs)) %>%
   mutate(hr_rank_league = row_number()) %>%
@@ -132,123 +150,132 @@ master_df <- inner_join(player_stats, team_info, by=c("Season", "teamid")) %>%
   ungroup() %>%
   mutate(Position = if_else(games_in_field <= .5 * games_played, "DH", Position)) %>%
   select(-plate_appearances)
-
 ```
 
 ```{r, message=FALSE, echo=FALSE}
 
-
-set.seed(4)
-
-# best seed so far: 4
-
-# remove informational paramters i don't want the model to look at
-# cross-validate model on data from 2017 and prior so we can apply it to 2018 data
-train_df <- master_df %>%
-  filter(Season != year_to_predict) %>% # train & test on data prior to prediction year
-  select(-playerid, -player_name, -teamid, -team_games, -ops, -home_runs, -rbi, -stolen_bases, -batting_average,
-         -defense, -games_played, -games_in_field, -WAR)
-
-control_parameters <- trainControl(method = "repeatedcv",
-                                   repeats = 5,
-                                   number = 10,
-                                   search = "grid",
-                                   allowParallel = TRUE,
-                                   classProbs = TRUE,
-                                   summaryFunction = twoClassSummary)
-
-parameter_grid <- expand.grid(
-  nrounds = c(50, 100, 150), 
-  eta = c(0, .01, 0.1),
-  max_depth = c(5, 10, 15, 20),
-  gamma = c(0, 1, 2, 5),
-  colsample_bytree = c(0.1, 0.5, 0.9),
-  min_child_weight = c(0, 0.1),
-  subsample = c(0.1, 0.2, 0.5, 0.7))
-
-mvp_predictor <- train(is_mvp ~ .,
-                       data = train_df, 
-                       method = "xgbTree", 
-                       trControl = control_parameters,
-                       tuneGrid = parameter_grid,
-                       metric = "ROC")
-
-send_message("MVP predictor model is finished training!")
-
-
-```
-
-evaluate model using "most likely MVP season" as "predicted MVP". favor using precision/recall/F1 over sens/spec/AUC due to strong class imbalance.
-
-```{r}
-
-# predict probability of MVP election for each player-season
-evaluation_prediction <-
+# make testing partition
+# remove informational paramters i don't want the model to look at as well as the year we're predicting
+filtered_data <-
   master_df %>%
   filter(Season != year_to_predict) %>%
-  predict(mvp_predictor, newdata = ., type = "prob")
+  select(
+    -playerid, -teamid, -team_games, -ops, -home_runs, -rbi, -stolen_bases, -batting_average,
+    -defense, -games_played, -games_in_field, -WAR
+  )
 
-# within each season-league, find the MVP player-season with the highest probability. That is the predicted MVP.
-# omit 2011 AL and 2014 NL predictions; pitchers won those years. model doesn't know about pitchers, so don't evaluate on them. 
-eval_df <-
-  master_df %>% 
-  filter(Season != year_to_predict) %>% 
-  bind_cols(evaluation_prediction) %>%
+# create data partition of 25% of the dataset. 
+test_partition <- createDataPartition(filtered_data$is_mvp, p = 0.25)
+
+# use 75% of the data for model training
+train_df <-
+  filtered_data %>%
+  filter(!row_number() %in% test_partition$Resample1) %>%
+  select(-Season, -player_name) # remove Season and players' names factors. we leave them in the test DF, so I can correctly predict MVP's
+
+# hold out 25% of the data for testing the model
+test_df <-
+  filtered_data %>%
+  filter(row_number() %in% test_partition$Resample1)
+
+# cross-validate model on data from previous years so we can apply it to 2018 data
+control_parameters <- trainControl(
+  method = "repeatedcv",
+  repeats = 5,
+  number = 10,
+  search = "grid",
+  allowParallel = TRUE,
+  classProbs = TRUE,
+  summaryFunction = twoClassSummary
+)
+
+parameter_grid <- expand.grid(
+  nrounds = c(1, 50, 100),
+  eta = c(.001, .001, 0.1),
+  max_depth = c(5, 15),
+  gamma = 10,
+  colsample_bytree = c(0.5, 0.9),
+  min_child_weight = c(0.5, 1),
+  subsample = c(0.2, 0.5, 0.7)
+)
+
+mvp_predictor <- train(is_mvp ~ .,
+  data = train_df,
+  method = "xgbTree",
+  trControl = control_parameters,
+  tuneGrid = parameter_grid,
+  metric = "ROC"
+)
+
+send_message("MVP predictor model is finished training!")
+```
+
+
+evaluate model on test dataset
+
+```{r}
+mvp_model_test <-
+  test_df %>%
+  select(-Season, -player_name) %>% # remove variables not used in model
+  predict.train(mvp_predictor, newdata = ., type = "prob") %>%
+  bind_cols(test_df) %>%
   group_by(Season, League) %>%
-  mutate(pred_mvp = if_else(Yes == max(Yes), "Yes", "No"),
-         is_mvp = factor(is_mvp, levels = c("Yes", "No")),
-         pred_mvp = factor(pred_mvp, levels=c("Yes", "No"))) %>%
-  filter(Season != 2011 | League != "AL",
-         Season != 2014 | League != "NL")
+  mutate(
+    pred_mvp = if_else(Yes == max(Yes), "Yes", "No"),
+    is_mvp = factor(is_mvp, levels = c("Yes", "No")),
+    pred_mvp = factor(pred_mvp, levels = c("Yes", "No"))
+  ) %>%
 
-confusionMatrix(eval_df$is_mvp, 
-                eval_df$pred_mvp,
-                mode = "everything")
+  # filter out seasons with pitcher MVP's, since my model doesn't know about them
+  filter(
+    Season != 2011 | League != "AL",
+    Season != 2014 | League != "NL"
+  ) %>%
+  select(player_name, Season, League, is_mvp, pred_mvp, No, Yes, everything())
 
-mvp_roc <- roc(eval_df$is_mvp,
-    as.numeric(eval_df$pred_mvp),
-    auc = TRUE)
+# then do confusion matrix 
+confusionMatrix(mvp_model_test$is_mvp,
+  mvp_model_test$pred_mvp,
+  mode = "everything"
+)
 
-ggroc(mvp_roc) + fgt +
-  geom_abline(intercept = 1, linetype="dashed") +
-  labs(caption=sprintf("AUC: %s", round(mvp_roc$auc, 3))) + 
-  ggtitle("MVP Predictor Model ROC Curve")
-
-# precision-recall curve adapted from https://stackoverflow.com/questions/25020788/in-r-calculate-area-under-precision-recall-curve-aupr
-# note that a predicted result of "MVP" is considered a "positive" result
-mvp_scores <- eval_df %>%
+mvp_scores <-
+  mvp_model_test %>%
   ungroup() %>%
   select(prob_mvp = Yes, is_mvp) %>%
   mutate(is_mvp = if_else(is_mvp == "Yes", 1, 0)) %>%
   as.data.frame()
-  
-mvp_pr_curve <- pr.curve(
-  scores.class0 = mvp_scores[mvp_scores$is_mvp == "1",]$prob_mvp,
-  scores.class1 = mvp_scores[mvp_scores$is_mvp == "0",]$prob_mvp,
-  curve = TRUE,
-  rand.compute = TRUE)
+
+mvp_pr_curve <-
+  pr.curve(
+    scores.class0 = mvp_scores[mvp_scores$is_mvp == "1", ]$prob_mvp,
+    scores.class1 = mvp_scores[mvp_scores$is_mvp == "0", ]$prob_mvp,
+    curve = TRUE,
+    rand.compute = TRUE
+  )
 
 y <- as.data.frame(mvp_pr_curve$curve)
 
-
-ggplot(y, aes(y$V1, y$V2))+
-  geom_path(color="#8e001c")+
-  ylim(0,1) + fgt + 
-  labs(x="Recall", y="Precision", caption=sprintf("Area Under Precision-Recall Curve: %s", round(mvp_pr_curve$auc.integral, 3))) +
-  ggtitle("Precision vs. Recall for MVP Predictor Model") 
-
+ggplot(y, aes(y$V1, y$V2)) +
+  geom_path(color = "#8e001c") +
+  ylim(0, 1) + fgt +
+  labs(x = "Recall", y = "Precision", caption = sprintf("Area Under Precision-Recall Curve: %s", round(mvp_pr_curve$auc.integral, 3))) +
+  ggtitle("Precision vs. Recall for MVP Predictor Model")
 ```
 
-show importance plot and top 10 predictions
+make predictions for current year
 
-```{r, message=FALSE}
-
-predict_df <- master_df %>%
+```{r}
+predict_df <-
+  master_df %>%
   filter(Season == year_to_predict) %>%
-  select(-playerid, -player_name, -teamid, -team_games, -ops, -home_runs, -rbi, -batting_average, -is_mvp,
-         -defense, -games_played, -games_in_field)
+  select(
+    -playerid, -player_name, -teamid, -team_games, -ops, -home_runs, -rbi, -batting_average, -is_mvp,
+    -defense, -games_played, -games_in_field
+  )
 
-mvp_predictions <- predict(mvp_predictor, newdata = predict_df, type ="prob") %>%
+mvp_predictions <-
+  predict(mvp_predictor, newdata = predict_df, type = "prob") %>%
   mutate(prob_mvp = round(100 * Yes, 2)) %>%
   as_tibble() %>%
   select(prob_mvp) %>%
@@ -258,45 +285,56 @@ mvp_predictions <- predict(mvp_predictor, newdata = predict_df, type ="prob") %>
   select(-is_mvp) %>%
   arrange(desc(prob_mvp))
 
-# plot variable importance
-bind_cols(row.names(varImp(mvp_predictor)$importance) %>% 
-            as_tibble(), 
-          varImp(mvp_predictor)$importance %>% 
-            as_tibble()) %>%
-  filter(value != "PositionP") %>% # spurious data %>%
-  mutate(value = str_replace_all(value,
-                                 c("team_PCT" = "Team Winning Percentage",
-                                   "rbi_rank_league" = "RBI Rank",
-                                   "ops_rank_league" = "OPS Rank",
-                                   "sb_rank_league" = "SB Rank",
-                                   "avg_rank_league" = "AVG Rank",
-                                   "hr_rank_league" = "HR Rank",
-                                   "PositionCF" = "Is Center Fielder?",
-                                   "PositionLF" = "Is Left Fielder?",
-                                   "PositionRF" = "Is Right Fielder?",
-                                   "PositionC" = "Is Catcher?",
-                                   "Position2B" = "Is Second Baseman?",
-                                   "PositionSS" = "Is Shortstop?",
-                                   "PositionDH" = "Is Designated Hitter?",
-                                   "Position3B" = "Is Third Baseman?",
-                                   "pa_rank_league" = "PA Rank",
-                                   "defense_rank_league" = "DEF Rank",
-                                   "LeagueNL" = "Is National League?",
-                                   "war_rank_league" = "WAR Rank"))) %>%
-  ggplot(aes(reorder(value, Overall), Overall)) + geom_col(fill="#8e001c") + coord_flip() + fgt +
-  labs(x="", y="Relative Importance") + ggtitle(sprintf("What Factors are Important in MVP Voting? (%s - %s)", data_min, data_max))
-
-# top 10 contenders in each league
+# plot top 10 predictions in each league
 mvp_predictions %>%
   group_by(League) %>%
   filter(row_number() <= 10) %>%
-  ggplot(aes(reorder(player_name, prob_mvp), prob_mvp)) + geom_col(fill="#8e001c") + coord_flip() + 
-  facet_wrap(~League, scales = "free_y") + fgt + labs(x="", y="Probability of Season Winning the MVP (%)") +
+  ggplot(aes(reorder(player_name, prob_mvp), prob_mvp)) + geom_col(fill = "#8e001c") + coord_flip() +
+  facet_wrap(~League, scales = "free_y") + fgt + labs(x = "", y = "Probability of Season Winning the MVP (%)") +
   ggtitle(sprintf("%s Player-Seasons with the Highest MVP Probabilities", year_to_predict))
 
 # these probabilities don't sum to 1 because they're framed as being focused on individual players. the question I'm answering here is not "who will win the MVP?" but "if a player had a season like this, what's the probability that player will win the MVP?"
+```
 
+show predictor importance plot 
 
+```{r, message=FALSE}
+
+# plot variable importance
+bind_cols(
+  row.names(varImp(mvp_predictor)$importance) %>%
+    as_tibble(),
+  varImp(mvp_predictor)$importance %>%
+    as_tibble()
+) %>%
+  filter(value != "PositionP") %>% # spurious data %>%
+  mutate(value = str_replace_all(
+    value,
+    c(
+      "team_PCT" = "Team Winning Percentage",
+      "rbi_rank_league" = "RBI Rank",
+      "ops_rank_league" = "OPS Rank",
+      "sb_rank_league" = "SB Rank",
+      "avg_rank_league" = "AVG Rank",
+      "hr_rank_league" = "HR Rank",
+      "PositionCF" = "Is Center Fielder?",
+      "PositionLF" = "Is Left Fielder?",
+      "PositionRF" = "Is Right Fielder?",
+      "PositionC" = "Is Catcher?",
+      "Position2B" = "Is Second Baseman?",
+      "PositionSS" = "Is Shortstop?",
+      "PositionDH" = "Is Designated Hitter?",
+      "Position3B" = "Is Third Baseman?",
+      "pa_rank_league" = "PA Rank",
+      "defense_rank_league" = "DEF Rank",
+      "LeagueNL" = "Is National League?",
+      "war_rank_league" = "WAR Rank"
+    )
+  )) %>%
+  ggplot(aes(reorder(value, Overall), Overall)) + geom_col(fill = "#8e001c") + coord_flip() + fgt +
+  labs(x = "", y = "Relative Importance") + ggtitle(sprintf("What Factors are Important in MVP Voting? (%s - %s)", data_min, data_max))
+
+# top 10 contenders in each league
 ```
 
 for informational purposes, show the kind of data the model is trained on
@@ -306,12 +344,12 @@ for informational purposes, show the kind of data the model is trained on
 master_df %>%
   filter(Season != year_to_predict) %>%
   mutate(team_PCT = round(team_PCT, 3)) %>%
-  select(Player = player_name, League, Season, Position, `Team Winning Percentage` = team_PCT,
-         `RBI Rank` = rbi_rank_league, `OPS Rank` = ops_rank_league, `SB Rank` = sb_rank_league,
-         `AVG Rank` = avg_rank_league, `HR Rank` = hr_rank_league, `WAR Rank` = war_rank_league, 
-         `DEF Rank` = defense_rank_league) %>%
+  select(
+    Player = player_name, League, Season, Position, `Team Winning Percentage` = team_PCT,
+    `RBI Rank` = rbi_rank_league, `OPS Rank` = ops_rank_league, `SB Rank` = sb_rank_league,
+    `AVG Rank` = avg_rank_league, `HR Rank` = hr_rank_league, `WAR Rank` = war_rank_league,
+    `DEF Rank` = defense_rank_league
+  ) %>%
   sample_n(5) %>%
   write_csv("mvp_predictor_informational.csv")
- 
-
 ```
