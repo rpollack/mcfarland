@@ -5,6 +5,7 @@ library(lubridate)
 library(xgboost)
 library(caret)
 library(twilio)
+library(MLmetrics)
 library(pROC) # for ROC curve
 library(PRROC) # for P-R curve
 
@@ -38,6 +39,7 @@ twilio_number <- Sys.getenv("twilio_number")
 send_message <- function(msg) {
   tw_send_message(from = twilio_number, to = "5123505107", body = msg)
 }
+
 ```
 
 get, clean, mutate, and join data
@@ -45,7 +47,7 @@ get, clean, mutate, and join data
 ```{r, message=FALSE}
 
 year_to_predict <- 2019
-data_min <- year_to_predict - 11
+data_min <- year_to_predict - 16
 data_max <- year_to_predict - 1
 
 player_info <- fg_db %>%
@@ -186,11 +188,11 @@ control_parameters <- trainControl(
   search = "grid",
   allowParallel = TRUE,
   classProbs = TRUE,
-  summaryFunction = twoClassSummary
+  summaryFunction = prSummary
 )
 
 parameter_grid <- expand.grid(
-  nrounds = c(1, 50, 100),
+  nrounds = c(50, 100),
   eta = c(.001, .001, 0.1),
   max_depth = c(5, 15),
   gamma = 10,
@@ -204,8 +206,8 @@ mvp_predictor <- train(is_mvp ~ .,
   method = "xgbTree",
   trControl = control_parameters,
   tuneGrid = parameter_grid,
-  metric = "ROC"
-)
+  metric="AUC"
+  )
 
 send_message("MVP predictor model is finished training!")
 ```
