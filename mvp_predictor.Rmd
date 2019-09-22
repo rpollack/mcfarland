@@ -209,12 +209,9 @@ mvp_predictor <- train(is_mvp ~ .,
   )
 
 send_message("MVP predictor model is finished training!")
-```
 
+# evaluate model on test dataset
 
-evaluate model on test dataset
-
-```{r}
 mvp_model_test <-
   test_df %>%
   select(-Season, -player_name) %>% # remove variables not used in model
@@ -262,11 +259,8 @@ ggplot(y, aes(y$V1, y$V2)) +
   ylim(0, 1) + fgt +
   labs(x = "Recall", y = "Precision", caption = sprintf("Area Under Precision-Recall Curve: %s", round(mvp_pr_curve$auc.integral, 3))) +
   ggtitle("Precision vs. Recall for MVP Predictor Model")
-```
 
-make predictions for current year
-
-```{r}
+# make predictions for current year
 predict_df <-
   master_df %>%
   filter(Season == year_to_predict) %>%
