@@ -5,7 +5,6 @@ library(RMySQL)
 library(lubridate)
 library(xgboost)
 library(caret)
-library(e1071)
 library(twilio)
 library(styler)
 
@@ -266,8 +265,10 @@ xgboost + caret
 # https://stats.stackexchange.com/questions/171043/how-to-tune-hyperparameters-of-xgboost-trees
 
 # cut unneeded factors from data; retain only factors used for predicting outcome
+
 savant_data <-
   savant_data_full %>%
+  filter(game_year == 2019) %>%
   dplyr::select(launch_speed, launch_angle, spray_angle, sprint_speed, batter_stands, is_oracle_park, is_fenway, is_comerica, is_coors, events)
 
 # split data into 75/25 train and test sets
@@ -295,18 +296,18 @@ savant_data_test <-
 
 parameter_grid <-
   expand.grid(
-    nrounds = 100,
-    eta = 0.1,
-    max_depth = 10,
-    gamma = 0,
-    colsample_bytree = 1,
-    min_child_weight = 0,
+    nrounds = c(10, 100),
+    eta = c(0.001, 0.01, 0.1),
+    max_depth = c(5, 10),
+    gamma = 10,
+    colsample_bytree = c(0.5, 1),
+    min_child_weight = c(1, 5),
     subsample = 0.5
   )
 
 control_parameters <- trainControl(
   method = "cv",
-  number = 10,
+  number = 5,
   search = "grid",
   allowParallel = TRUE,
   savePredictions = FALSE,
@@ -322,8 +323,8 @@ batted_ball_model_caret <-
     method = "xgbTree",
     trControl = control_parameters,
     tuneGrid = parameter_grid,
-    metric = "logLoss"
-    # preprocess = c("center", "scale")
+    metric = "logLoss",
+    preprocess = c("center", "scale")
   )
 
 send_message("done training!")
@@ -344,9 +345,65 @@ confusionMatrix(batted_ball_predicted$events, batted_ball_predicted$predicted_ev
 
 use model to predict ALL batted balls in dataset; find interesting patterns
 
-examine outliers??
 
 ```{r}
+#predict all batted balls in 2019
+
+base_data <- 
+  savant_data_full %>%
+  filter(game_year == 2019)
+
+batted_ball_predictions_2019 <-
+  base_data %>%
+  dplyr::select(launch_speed, launch_angle, spray_angle, sprint_speed, batter_stands, is_oracle_park, is_fenway, is_comerica, is_coors, events) %>%
+  mutate(predicted_event = predict.train(batted_ball_model_caret, ., type = "raw")) %>%
+  inner_join(base_data)
+```
+
+explore data
+
+```{r}
+
+failed_homers <-
+  batted_ball_predictions_2019 %>%
+  filter(events != "home_run" & predicted_event == "home_run") %>%
+  group_by(batter_name) %>%
+  filter(n() >= 10) %>%
+  summarize(num_pred_homers_but_not = n()) %>%
+  arrange(desc(num_pred_homers_but_not))
+
+failed_homers %>%
+  head(20) %>% 
+  ggplot(aes(reorder(batter_name, num_pred_homers_but_not), num_pred_homers_but_not)) +
+  geom_col() + coord_flip() +
+  labs(x="", y = "Number of Predicted Home Runs that Weren't")
+
+failed_homers %>%
+  ggplot(aes(num_pred_homers_but_not)) + geom_histogram(bins = 10)
+
+bases_lost <-
+  batted_ball_predictions_2019 %>%
+  mutate(actual_bases = case_when(
+    events == "field_out" ~ 0,
+    events == "single" ~ 1,
+    events == "double" ~ 2,
+    events == "triple" ~ 3,
+    events == "home_run" ~ 4
+  ),
+  predicted_bases = case_when(
+    predicted_event == "field_out" ~ 0,
+    predicted_event == "single" ~ 1,
+    predicted_event == "double" ~ 2,
+    predicted_event == "triple" ~ 3,
+    predicted_event == "home_run" ~ 4
+  ),
+  bases_lost = predicted_bases - actual_bases) %>%
+  group_by(batter_name) %>%
+  filter(n() >= 350) %>%
+  summarize(total_bases_lost = sum(bases_lost)) %>%
+  arrange(desc(total_bases_lost))
+
+ggplot(bases_lost)
 
 ```
 
