@@ -62,6 +62,7 @@ fg_info <- fg_db %>%
 
 savant_data <- fg_db %>%
   tbl("gd_savant_new") %>%
+  filter(pitch_type != "null") %>%  # games played on 3-20-2019 and 3-21-2019 were in japan & not tracked. data is bad
   select(
     batter, player_name, game_date, game_year, pitch_type, release_speed, events, description, des, plate_x, plate_z,
     hc_x, hc_y, launch_speed, launch_angle, hit_distance_sc, home_team, away_team, inning_top_bottom, xwoba
@@ -355,7 +356,7 @@ year_diff_mean_launch_speed <- hard_hit_outs %>%
     diff_mad_launch_speed_of_outs = median_abs_deviation_of_outs - lag(median_abs_deviation_of_outs),
     diff_mad_xwoba_of_outs = mad_xwoba_of_outs - lag(mad_xwoba_of_outs)
   ) %>%
-  filter(game_year == 2016)
+  filter(game_year == 2019)
 
 # show diff in MAD launch speed of outs -- indicating teams are getting to a wider or smaller distribution of launch speeds
 # and converting them into outs
