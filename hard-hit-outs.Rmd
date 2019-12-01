@@ -214,10 +214,10 @@ team_colors
 xwoba_offense <- savant_data %>%
   filter(des != "") %>%
   group_by(game_year) %>%
-  mutate(xwoba_plus = 100 * xwoba / mean(xwoba)) %>%
+  mutate(xwoba_plus = 100 * xwoba / mean(xwoba, na.rm = TRUE)) %>%
   ungroup() %>%
   group_by(batting_team, game_year) %>%
-  summarize(mean_xwoba_plus = round(mean(xwoba_plus), 0)) %>%
+  summarize(mean_xwoba_plus = round(mean(xwoba_plus, na.rm = TRUE), 0)) %>%
   mutate(division = ifelse(batting_team %in% c("BAL", "NYY", "TOR", "BOS", "TB"), "AL East",
     ifelse(batting_team %in% c("CLE", "MIN", "CWS", "DET", "KC"), "AL Central",
       ifelse(batting_team %in% c("LAA", "OAK", "SEA", "TEX", "HOU"), "AL West",
@@ -243,10 +243,10 @@ ggplotly(xwoba_offense_plt)
 xwoba_allowed <- savant_data %>%
   filter(des != "") %>%
   group_by(game_year) %>%
-  mutate(xwoba_allowed_plus = 100 * xwoba / mean(xwoba)) %>%
+  mutate(xwoba_allowed_plus = 100 * xwoba / mean(xwoba, na.rm = TRUE)) %>%
   ungroup() %>%
   group_by(fielding_team, game_year) %>%
-  summarize(mean_xwoba_allowed_plus = round(mean(xwoba_allowed_plus), 0)) %>%
+  summarize(mean_xwoba_allowed_plus = round(mean(xwoba_allowed_plus, na.rm = TRUE), 0)) %>%
   mutate(division = ifelse(fielding_team %in% c("BAL", "NYY", "TOR", "BOS", "TB"), "AL East",
     ifelse(fielding_team %in% c("CLE", "MIN", "CWS", "DET", "KC"), "AL Central",
       ifelse(fielding_team %in% c("LAA", "OAK", "SEA", "TEX", "HOU"), "AL West",
@@ -268,7 +268,7 @@ xwoba_allowed_plt <- ggplot(xwoba_allowed, aes(as.character(game_year), mean_xwo
 ggplotly(xwoba_allowed_plt)
 
 xwoba_diff <- inner_join(xwoba_allowed, xwoba_offense, by = c("fielding_team" = "batting_team", "game_year")) %>%
-  mutate(xwoba_plus_diff = round(mean_xwoba_plus - mean_xwoba_allowed_plus, 5) + 100) %>%
+  mutate(xwoba_plus_diff = round(mean_xwoba_plus - mean_xwoba_allowed_plus, 5)) %>%
   select(
     team = fielding_team, game_year, mean_xwoba_plus, mean_xwoba_allowed_plus, xwoba_plus_diff, division = division.y,
     pct = pct.x, run_diff = run_diff.x, R_plus = R_plus.x, RA_plus = RA_plus.x
