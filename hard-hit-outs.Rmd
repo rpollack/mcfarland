@@ -213,11 +213,11 @@ team_colors
 # compute offensive xwoba relative to lg average, each year
 xwoba_offense <- savant_data %>%
   filter(des != "") %>%
-  group_by(game_year) %>%
-  mutate(xwoba_plus = 100 * xwoba / mean(xwoba, na.rm = TRUE)) %>%
-  ungroup() %>%
+  #group_by(game_year) %>%
+  #mutate(xwoba_plus = 100 * xwoba / mean(xwoba, na.rm = TRUE)) %>%
+  #ungroup() %>%
   group_by(batting_team, game_year) %>%
-  summarize(mean_xwoba_plus = round(mean(xwoba_plus, na.rm = TRUE), 0)) %>%
+  summarize(mean_xwoba = round(mean(xwoba, na.rm = TRUE), 3)) %>%
   mutate(division = ifelse(batting_team %in% c("BAL", "NYY", "TOR", "BOS", "TB"), "AL East",
     ifelse(batting_team %in% c("CLE", "MIN", "CWS", "DET", "KC"), "AL Central",
       ifelse(batting_team %in% c("LAA", "OAK", "SEA", "TEX", "HOU"), "AL West",
@@ -235,18 +235,18 @@ xwoba_offense <- savant_data %>%
   inner_join(team_lookup, by = c("batting_team" = "AbbName", "game_year" = "Season"))
 
 
-xwoba_offense_plt <- ggplot(xwoba_offense, aes(as.character(game_year), mean_xwoba_plus, color = batting_team, group = 1)) + geom_point() + geom_line() + facet_wrap(~division)
+xwoba_offense_plt <- ggplot(xwoba_offense, aes(as.character(game_year), mean_xwoba, color = batting_team, group = 1)) + geom_point() + geom_line() + facet_wrap(~division)
 
 ggplotly(xwoba_offense_plt)
 
 # compute xwoba allowed relative to lg average, each year
 xwoba_allowed <- savant_data %>%
   filter(des != "") %>%
-  group_by(game_year) %>%
-  mutate(xwoba_allowed_plus = 100 * xwoba / mean(xwoba, na.rm = TRUE)) %>%
-  ungroup() %>%
+  #group_by(game_year) %>%
+  #mutate(xwoba_allowed_plus = 100 * xwoba / mean(xwoba, na.rm = TRUE)) %>%
+  #ungroup() %>%
   group_by(fielding_team, game_year) %>%
-  summarize(mean_xwoba_allowed_plus = round(mean(xwoba_allowed_plus, na.rm = TRUE), 0)) %>%
+  summarize(mean_xwoba_allowed = round(mean(xwoba, na.rm = TRUE), 3)) %>%
   mutate(division = ifelse(fielding_team %in% c("BAL", "NYY", "TOR", "BOS", "TB"), "AL East",
     ifelse(fielding_team %in% c("CLE", "MIN", "CWS", "DET", "KC"), "AL Central",
       ifelse(fielding_team %in% c("LAA", "OAK", "SEA", "TEX", "HOU"), "AL West",
@@ -262,19 +262,19 @@ xwoba_allowed <- savant_data %>%
   )) %>%
   inner_join(team_lookup, by = c("fielding_team" = "AbbName", "game_year" = "Season"))
 
-xwoba_allowed_plt <- ggplot(xwoba_allowed, aes(as.character(game_year), mean_xwoba_allowed_plus, color = fielding_team, group = 1)) +
+xwoba_allowed_plt <- ggplot(xwoba_allowed, aes(as.character(game_year), mean_xwoba_allowed, color = fielding_team, group = 1)) +
   geom_point() + geom_line() + facet_wrap(~division)
 
 ggplotly(xwoba_allowed_plt)
 
 xwoba_diff <- inner_join(xwoba_allowed, xwoba_offense, by = c("fielding_team" = "batting_team", "game_year")) %>%
-  mutate(xwoba_plus_diff = round(mean_xwoba_plus - mean_xwoba_allowed_plus, 5)) %>%
+  mutate(xwoba_diff = round(mean_xwoba - mean_xwoba_allowed, 3)) %>%
   select(
-    team = fielding_team, game_year, mean_xwoba_plus, mean_xwoba_allowed_plus, xwoba_plus_diff, division = division.y,
+    team = fielding_team, game_year, mean_xwoba, mean_xwoba_allowed, xwoba_diff, division = division.y,
     pct = pct.x, run_diff = run_diff.x, R_plus = R_plus.x, RA_plus = RA_plus.x
   )
 
-xwoba_diff_plt <- ggplot(xwoba_diff, aes(as.character(game_year), xwoba_plus_diff, color = team, group = 1)) +
+xwoba_diff_plt <- ggplot(xwoba_diff, aes(as.character(game_year), xwoba_diff, color = team, group = 1)) +
   geom_point() + geom_line() + facet_wrap(~division)
 
 ggplotly(xwoba_diff_plt)
@@ -283,6 +283,25 @@ run_diff_plt <- ggplot(xwoba_diff, aes(as.character(game_year), run_diff, color 
   geom_point() + geom_line() + facet_wrap(~division)
 ggplotly(run_diff_plt)
 ```
+
+print correlation matrix
+
+```{r}
+xwoba_diff %>% 
+  ungroup() %>%
+  select_if(is.numeric) %>%
+  cor(method="spearman") %>%
+  as_tibble() %>%
+  bind_cols(xwoba_diff %>% ungroup() %>% select_if(is.numeric) %>% names() %>% as_tibble()) %>%
+  dplyr::select(metric = value, everything()) %>%
+  pivot_longer(-metric, names_to = "other_metric", values_to = "r") %>%
+  filter(metric %in% c("run_diff", "pct")) %>%
+  ggplot(aes(metric, other_metric, fill = r)) + geom_tile() 
+  
+```
+
+
+
 
 ```{r}
 ggplot(xwoba_diff %>% filter(division == "AL West"), aes(as.character(game_year), run_diff_plus, group = team, color = team)) + geom_point() + geom_line() + ggtitle("Run Differential+, AL West, 2015 - 2017") + labs(y = "Run Differential+ (0 = league average)", x = "Year")
