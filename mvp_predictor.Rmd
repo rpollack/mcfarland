@@ -63,13 +63,13 @@ team_info <- fg_db %>%
     Season >= data_min,
     Season <= year_to_predict
   ) %>%
-  select(teamid = TeamId, Season, League, team_games = G, team_wins = W, team_losses = L) %>%
+  dplyr::select(teamid = TeamId, Season, League, team_games = G, team_wins = W, team_losses = L) %>%
   collect(n = Inf) %>%
   mutate(
     team_PCT = team_wins / (team_wins + team_losses),
     League = factor(League)
   ) %>%
-  select(-team_wins, -team_losses)
+  dplyr::select(-team_wins, -team_losses)
 
 player_stats <- fg_db %>%
   tbl("stats_batting_master_pfx") %>%
@@ -78,14 +78,14 @@ player_stats <- fg_db %>%
     Season >= data_min,
     Season <= year_to_predict
   ) %>%
-  select(playerid, Season, teamid,
+  dplyr::select(playerid, Season, teamid,
     batting_average = AVG, plate_appearances = PA,
     home_runs = HR, rbi = RBI, ops = OPS, stolen_bases = SB, defense = Fielding, games_played = G,
     WAR = ValueW
   ) %>%
   collect(n = Inf) %>%
   inner_join(player_info, by = "playerid") %>%
-  select(playerid, player_name, everything())
+  dplyr::select(playerid, player_name, everything())
 
 # compute total games playes in field as well as primary position. the former will be used to
 # identify DH's
@@ -98,13 +98,13 @@ fielding_info <- fg_db %>%
     Position != "P",
     Type == 0
   ) %>%
-  select(Season, playerid = PlayerId, Position, innings = Inn, G) %>%
+  dplyr::select(Season, playerid = PlayerId, Position, innings = Inn, G) %>%
   collect(n = Inf) %>%
   group_by(Season, playerid) %>%
   mutate(games_in_field = sum(G)) %>%
   arrange(desc(innings)) %>%
   filter(row_number() == 1) %>%
-  select(Season, playerid, Position, games_in_field)
+  dplyr::select(Season, playerid, Position, games_in_field)
 
 # read in list of MVP's. this is from wikipedia so need to clean up some of the names to match FanGraphs
 # the if_else lines deal with players with accented characters in their names
@@ -129,29 +129,22 @@ mvp_list <- read_csv("mlb season awards - MVP's.csv") %>%
     is_mvp = "Yes"
   )
 
-master_df <- inner_join(player_stats, team_info, by = c("Season", "teamid")) %>%
+master_df <- 
+  inner_join(player_stats, team_info, by = c("Season", "teamid")) %>%
   inner_join(fielding_info, by = c("playerid", "Season")) %>%
   full_join(mvp_list, by = c("Season", "player_name", "League")) %>%
   replace_na(list(is_mvp = "No")) %>%
   filter(plate_appearances >= 2.93 * (team_games)) %>% # fewest PA/game who won the MVP was Stargell in 1979
   group_by(Season, League) %>%
-  arrange(desc(ops)) %>%
-  mutate(ops_rank_league = row_number()) %>%
-  arrange(desc(home_runs)) %>%
-  mutate(hr_rank_league = row_number()) %>%
-  arrange(desc(rbi)) %>%
-  mutate(rbi_rank_league = row_number()) %>%
-  arrange(desc(batting_average)) %>%
-  mutate(avg_rank_league = row_number()) %>%
-  arrange(desc(stolen_bases)) %>%
-  mutate(sb_rank_league = row_number()) %>%
-  arrange(desc(defense)) %>%
-  mutate(defense_rank_league = row_number()) %>%
-  arrange(desc(WAR)) %>%
-  mutate(war_rank_league = row_number()) %>%
-  ungroup() %>%
-  mutate(Position = if_else(games_in_field <= .5 * games_played, "DH", Position)) %>%
-  select(-plate_appearances)
+  mutate(ops_dist_from_lead = max(ops) - ops,
+         hr_dist_from_lead = max(home_runs) - home_runs,
+         rbi_dist_from_lead = max(rbi) - rbi,
+         ba_dist_from_lead = max(batting_average) - batting_average,
+         sb_dist_from_lead = max(stolen_bases) - stolen_bases,
+    #     def_dist_from_lead = max(defense) - defense,
+         war_dist_from_lead = max(WAR) - WAR,
+         pa_dist_from_lead = max(plate_appearances) - plate_appearances)
+
 ```
 
 ```{r, message=FALSE, echo=FALSE}
@@ -161,10 +154,7 @@ master_df <- inner_join(player_stats, team_info, by = c("Season", "teamid")) %>%
 filtered_data <-
   master_df %>%
   filter(Season != year_to_predict) %>%
-  select(
-    -playerid, -teamid, -team_games, -ops, -home_runs, -rbi, -stolen_bases, -batting_average,
-    -defense, -games_played, -games_in_field, -WAR, -Position
-  )
+  dplyr::select(Season, League, player_name, team_PCT, contains("dist_from_lead"), is_mvp)
 
 # create data partition of 25% of the dataset. 
 test_partition <- createDataPartition(filtered_data$is_mvp, p = 0.25)
@@ -173,7 +163,7 @@ test_partition <- createDataPartition(filtered_data$is_mvp, p = 0.25)
 train_df <-
   filtered_data %>%
   filter(!row_number() %in% test_partition$Resample1) %>%
-  select(-Season, -player_name) # remove Season and players' names factors. we leave them in the test DF, so I can correctly predict MVP's
+  dplyr::select(-Season, -player_name) # remove Season and players' names factors. we leave them in the test DF, so I can correctly predict MVP's
 
 # hold out 25% of the data for testing the model
 test_df <-
@@ -214,7 +204,7 @@ send_message("MVP predictor model is finished training!")
 
 mvp_model_test <-
   test_df %>%
-  select(-Season, -player_name) %>% # remove variables not used in model
+  dplyr::select(-Season, -player_name) %>% # remove variables not used in model
   predict.train(mvp_predictor, newdata = ., type = "prob") %>%
   bind_cols(test_df) %>%
   group_by(Season, League) %>%
@@ -229,7 +219,7 @@ mvp_model_test <-
     Season != 2011 | League != "AL",
     Season != 2014 | League != "NL"
   ) %>%
-  select(player_name, Season, League, is_mvp, pred_mvp, No, Yes, everything())
+  dplyr::select(player_name, Season, League, is_mvp, pred_mvp, No, Yes, everything())
 
 # then do confusion matrix 
 confusionMatrix(mvp_model_test$is_mvp,
@@ -240,7 +230,7 @@ confusionMatrix(mvp_model_test$is_mvp,
 mvp_scores <-
   mvp_model_test %>%
   ungroup() %>%
-  select(prob_mvp = Yes, is_mvp) %>%
+  dplyr::select(prob_mvp = Yes, is_mvp) %>%
   mutate(is_mvp = if_else(is_mvp == "Yes", 1, 0)) %>%
   as.data.frame()
 
@@ -264,20 +254,17 @@ ggplot(y, aes(y$V1, y$V2)) +
 predict_df <-
   master_df %>%
   filter(Season == year_to_predict) %>%
-  select(
-    -playerid, -player_name, -teamid, -team_games, -ops, -home_runs, -rbi, -batting_average, -is_mvp,
-    -defense, -games_played, -games_in_field, -Position
-  )
+  dplyr::select(League, team_PCT, contains("dist_from_lead"), is_mvp)
 
 mvp_predictions <-
   predict(mvp_predictor, newdata = predict_df, type = "prob") %>%
   mutate(prob_mvp = round(100 * Yes, 2)) %>%
   as_tibble() %>%
-  select(prob_mvp) %>%
+  dplyr::select(prob_mvp) %>%
   bind_cols(predict_df) %>%
   inner_join(master_df) %>%
-  select(playerid, player_name, League, prob_mvp, everything()) %>%
-  select(-is_mvp) %>%
+  dplyr::select(playerid, player_name, League, prob_mvp, everything()) %>%
+  dplyr::select(-is_mvp) %>%
   arrange(desc(prob_mvp))
 
 # plot top 10 predictions in each league
@@ -339,7 +326,7 @@ for informational purposes, show the kind of data the model is trained on
 master_df %>%
   filter(Season != year_to_predict) %>%
   mutate(team_PCT = round(team_PCT, 3)) %>%
-  select(
+  dplyr::select(
     Player = player_name, League, Season, Position, `Team Winning Percentage` = team_PCT,
     `RBI Rank` = rbi_rank_league, `OPS Rank` = ops_rank_league, `SB Rank` = sb_rank_league,
     `AVG Rank` = avg_rank_league, `HR Rank` = hr_rank_league, `WAR Rank` = war_rank_league,
