@@ -100,18 +100,18 @@ seasonal_war <- player_info %>%
 
 
 ```{r}
-prob_war_thru_age <- function(playerid, age, war, position, floor, ceiling) {
+prob_war_thru_age <- function(PlayerId, Age, war, position, floor, ceiling, ... ) {
   # number of players (all-time HOF eligible and HOF inductees) who, at age X,
   # have accumulated between Y and Z WAR at that position. only look at players who retired 5 years ago or earlier.
   # these are the players we should be comparing to.
   # also remove the player themselves from the analysis. otherwise if the player is eligible but not inducted (like Barry Bonds), they're compared to themselves and that lowers their probability, since they are not HOF by definition
 
-  print(playerid)
+  print(PlayerId)
 
   tryCatch(
     hof_eligible_players %>%
       filter(
-        PlayerId != playerid,
+        PlayerId != PlayerId,
         Age == age,
         Position == position,
         cumulative_war <= ceiling,
@@ -121,7 +121,8 @@ prob_war_thru_age <- function(playerid, age, war, position, floor, ceiling) {
       count(HOF) %>%
       spread(HOF, n) %>%
       mutate(num_eligible_players_who_meet_criteria = No + Yes) %>%
-      dplyr::select(num_eligible_players_who_meet_criteria, num_hof_players_who_meet_criteria = Yes),
+      dplyr::select(num_eligible_players_who_meet_criteria, num_hof_players_who_meet_criteria = Yes) %>%
+      as_tibble(),
     error = function(e) {
       print("no one found")
       tibble()
@@ -129,8 +130,6 @@ prob_war_thru_age <- function(playerid, age, war, position, floor, ceiling) {
   )
 }
 
-
-prob_war_thru_age <- Vectorize(prob_war_thru_age)
 ```
 
 # compute Bayesian parameters
@@ -195,20 +194,26 @@ hof_eligible_players <- war_through_age %>%
 # then use totals to compute Bayesian parameters & finally the probability of that player reaching HOF
 # focus on the latest seasons for non-HOF players
 
-war_age_combinations <- war_through_age %>%
-  filter(
-    Age == max(Age),
-    HOF == "No"
-  ) %>%
+war_age_combinations <- 
+  war_through_age %>%
   ungroup() %>%
-  head(1) %>%
+  filter(HOF == "No") %>%
   dplyr::select(PlayerId, Age, cumulative_war, Position, war_floor, war_ceiling) %>%
-  do(prob_war_thru_age(.$PlayerId, .$Age, .$cumulative_war, .$Position, .$war_floor, .$war_ceiling))
+  head(100) %>%
+  group_by(PlayerId) %>%
+  filter(Age == max(Age)) %>%
+  ungroup() %>%
+  pmap_dfc(prob_war_thru_age)
+```
+
+#  do(prob_war_thru_age(.$PlayerId, .$Age, .$cumulative_war, .$Position, .$war_floor, .$war_ceiling))
 
 # %>%
 #   mutate(num_eligible_players_who_meet_criteria = as.numeric(num_eligible_players_who_meet_criteria),
 #          num_hof_players_who_meet_criteria = as.numeric(num_hof_players_who_meet_criteria))
 
+
+```{r}
 bayes_hof <- war_through_age %>%
   group_by(PlayerId) %>%
   ungroup() %>%
