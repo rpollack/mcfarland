@@ -278,7 +278,7 @@ good_pitches_est %>%
   unite(facet, position, game_year, sep = " ") %>%
   mutate(player_name = reorder_within(player_name, est_good_pitch_rate, facet)) %>%
   ggplot(aes(reorder(player_name, est_good_pitch_rate), est_good_pitch_rate)) + coord_flip() +
-  geom_point() + geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) + facet_wrap(vars(facet), scales = "free_y") +
+  geom_point(size = 0.7) + geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) + facet_wrap(vars(facet), scales = "free_y") +
   labs(x = "", y = "Estimated Good-Pitch Rate with 95% Credible Interval") +
   ggtitle("Highest Good-Pitch Rates") +
   scale_x_reordered()
@@ -290,7 +290,7 @@ plt <-
   arrange(est_good_pitch_rate) %>%
   filter(row_number() <= 10) %>%
   ggplot(aes(reorder(player_name, est_good_pitch_rate), est_good_pitch_rate)) + coord_flip() +
-  geom_point() + geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) + facet_grid(vars(position), scales = "free_y") +
+  geom_point(size = 0.7) + geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) + facet_grid(vars(position), scales = "free_y") +
   labs(x = "", y = "Estimated Good-Pitch Rate with 95% Credible Interval") +
   ggtitle("Lowest Good-Pitch Rates, 2019")
 
