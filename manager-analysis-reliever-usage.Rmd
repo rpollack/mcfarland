@@ -214,13 +214,29 @@ li_grouped <-
   mutate(label = glue("{Season} {pitching_team} - {pitcher_subbed_in}")) %>%
   filter(second_half_num_appearances >= 5) %>%
   group_by(Season, pitching_team) %>%
-  filter(n() >= 5) # condense to only teams who had 5 relievers who appeared at least 5 times each in the 2nd half
+  filter(n() >= 5) %>% # condense to only teams who had 5 relievers who appeared at least 5 times each in the 2nd half
+  inner_join(team_managers, by=c("Season", "pitching_team" = "Team"))
+
+
+# correlations should be done by YEAR and MANAGER, not team necessarily. 
+
+manager_correlations <-
+  li_grouped %>%
+  ungroup() %>%
+  split(.$Manager) %>%
+  map(~ lm(second_half_mean_gmLI ~ first_half_K_BB_perc_plus, data = .)) %>%
+  map(summary) %>%
+  map_dbl("r.squared") %>%
+  tidy() %>%
+  mutate(r_squared = round(x, 2)) %>%
+  dplyr::select(names, r_squared) %>%
+  arrange(desc(r_squared))
 
 # for each season-team, identify its correlation between first-half K-BB% and second-half gmLI.
 # this speaks to managers' rigidity
 correlations <-
   li_grouped %>%
-  unite(season_team, Season, pitching_team, sep = " ") %>%
+  unite(season_team_manager, Season, pitching_team, Manager, sep = "-") %>%
   split(.$season_team) %>%
   map(~ lm(second_half_mean_gmLI ~ first_half_K_BB_perc_plus, data = .)) %>%
   map(summary) %>%
