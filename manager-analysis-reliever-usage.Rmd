@@ -141,7 +141,7 @@ reliever_perf2 <-
     Season = year(GameDate),
     month = month(GameDate)
   ) %>%
-  inner_join(single_team_players, by = c("PlayerId", "Season")) %>% # remove player-seasons with more than one team
+ # inner_join(single_team_players, by = c("PlayerId", "Season")) %>% # remove player-seasons with more than one team
   filter(month %in% c(3, 4, 5, 6)) %>%
   group_by(Season, PlayerId, TeamId) %>%
   filter(sum(TBF) >= 25) %>%
@@ -166,11 +166,6 @@ wpa_data <- fg_db %>%
 K-BB%+ for 1st Half vs. gmLI for second half
 
 ```{r}
-
-
-
-# TODO: speaking of managers: can we hold them constant as well? avoid teams who switched managers mid-season?
-
 
 # get the average LI when entering a game, for pitchers in the 2nd half of the season July thru September
 li_individual <-
@@ -234,19 +229,19 @@ manager_correlations <-
 
 # for each season-team, identify its correlation between first-half K-BB% and second-half gmLI.
 # this speaks to managers' rigidity
-correlations <-
-  li_grouped %>%
-  unite(season_team_manager, Season, pitching_team, Manager, sep = "-") %>%
-  split(.$season_team) %>%
-  map(~ lm(second_half_mean_gmLI ~ first_half_K_BB_perc_plus, data = .)) %>%
-  map(summary) %>%
-  map_dbl("r.squared") %>%
-  tidy() %>%
-  mutate(r_squared = round(x, 2)) %>%
-  dplyr::select(names, r_squared) %>%
-  arrange(desc(r_squared))
+# correlations <-
+#   li_grouped %>%
+#   unite(season_team_manager, Season, pitching_team, Manager, sep = "-") %>%
+#   split(.$season_team) %>%
+#   map(~ lm(second_half_mean_gmLI ~ first_half_K_BB_perc_plus, data = .)) %>%
+#   map(summary) %>%
+#   map_dbl("r.squared") %>%
+#   tidy() %>%
+#   mutate(r_squared = round(x, 2)) %>%
+#   dplyr::select(names, r_squared) %>%
+#   arrange(desc(r_squared))
 
-correlations
+manager_correlations
 ```
 
 ```{r, fig.height=3}
