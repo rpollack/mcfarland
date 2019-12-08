@@ -50,6 +50,8 @@ send_message <- function(msg) {
 
 
 - quantify good bullpen decisions by correlating k-bb% for the first 3 months of the season with average gmLI for the second half of the season
+- player assumptions: player stayed with same team entire year, faced at least 25 batters in the first half. k-bb%+ is computed relative to others on team that year
+- team assumptions: at least 5 relievers appeared for them 5 times in the 2nd half
 
 get data
 
@@ -68,6 +70,17 @@ teams <-
   dplyr::select(Season, TeamId, AbbName) %>%
   collect(n = Inf)
 
+# find players who stayed with their team the entire season. find all non-projection, non-playoff stats
+single_team_players <- 
+  fg_db %>% 
+  tbl("stats_pitching") %>% 
+  filter(TeamId > 0, 
+         Type != 900,
+         Season >= 2007) %>%
+  collect(n=Inf) %>% 
+  group_by(PlayerId, Season) %>%
+  filter(n() == 1) %>%
+  dplyr::select(PlayerId, Season)
 
 # get k-bb% for pitchers who faced at least 25 batters in the first half, computed relative to the other pitchers on their team
 # who faced at least 25 batters. this is a way to get the manager's options for whom to put into a game
@@ -79,6 +92,7 @@ reliever_perf2 <-
   collect(n=Inf) %>%
   mutate(Season = year(GameDate),
          month = month(GameDate)) %>%
+  inner_join(single_team_players, by=c("PlayerId", "Season")) %>%   # remove player-seasons with more than one team
   filter(month %in% c(3, 4, 5, 6)) %>%
   group_by(Season, PlayerId, TeamId) %>%
   filter(sum(TBF) >= 25) %>%
@@ -88,11 +102,11 @@ reliever_perf2 <-
   group_by(Season, TeamId) %>%
   mutate(first_half_K_BB_perc_plus = round(first_half_K_BB_perc / mean(first_half_K_BB_perc) * 100, 0))
 
-
 # get plate appearances that began with a pitcher who was subbed in for another pitcher
 wpa_data <- fg_db %>%
   tbl("wpa_log") %>%
-  filter(!is.na(PitcherSubId)) %>%
+  filter(!is.na(PitcherSubId),
+         GameDate >= "2007-01-01") %>%
   collect(n = Inf)
 ```
 
@@ -102,9 +116,6 @@ K-BB%+ for 1st Half vs. gmLI for second half
 
 
 
-# TODO: how to handle relievers who switched teams mid-season? 2008 Nick Masset is an example. he shows up with both CWS and CIN
-# 2018 Zach Britton is another example. he should not get a data point with 2018 BAL, but he has one.
-# maybe remove them, as doing this will keep the manager constant
 # TODO: speaking of managers: can we hold them constant as well? avoid teams who switched managers mid-season?
 
 
@@ -146,16 +157,12 @@ li_grouped <-
   mutate(label = glue("{Season} {pitching_team} - {pitcher_subbed_in}")) %>%
   filter(second_half_num_appearances >= 5) %>%
   group_by(Season, pitching_team) %>%
-  filter(n() >= 5)  %>%  # condense to only teams who had 5 relievers who appeared at least 5 times each in the 2nd half
-  group_by(Season, pitcher_playerid) %>%
-  filter(n() == 1)  # keep only players who played for one team in the season. this filters out guys like 2018 zach britton, who had 7 app for BAL and 25 app
-                    # for NYY in the second half
+  filter(n() >= 5)   # condense to only teams who had 5 relievers who appeared at least 5 times each in the 2nd half
 
 # for each season-team, identify its correlation between first-half K-BB% and second-half gmLI.
 # this speaks to managers' rigidity
 correlations <-
   li_grouped %>%
-#  filter(Season >= 2008) %>%
   unite(season_team, Season, pitching_team, sep = " ") %>%
   split(.$season_team) %>%
   map(~ lm(second_half_mean_gmLI ~ first_half_K_BB_perc_plus, data = .)) %>%
@@ -167,14 +174,6 @@ correlations <-
   arrange(desc(r_squared))
 
 correlations
-
-
-# 
-# split(.$model_type) %>%
-#   map(~ lm(vote_share ~ predicted_vote_share, data = .)) %>%
-#   map(summary) %>%
-#   map_dbl("r.squared") %>%
-#   tidy() 
 
 
 ```
