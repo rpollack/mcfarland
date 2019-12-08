@@ -257,8 +257,8 @@ showalter_plt <-
   filter(Manager == "B.Showalter",
          pitching_team == "BAL") %>%
   ggplot(aes(first_half_K_BB_perc_plus, second_half_mean_gmLI, text = pitcher_subbed_in)) + geom_point() +
-  labs(x="First-Half K-BB% Relative to Other Relievers", y="Second Half Mean gmLI") +
-  facet_wrap(vars(Season)) + ggtitle("First-half K-BB%+ vs. Second-Half gmLI, Relievers: Buck Showalter,Orioles", 
+  labs(x="Reliever First-Half K-BB%+", y="Reliever Second Half Mean gmLI") +
+  facet_wrap(vars(Season)) + ggtitle("Decision-Making in the Second Half, Buck Showalter,Orioles", 
                                      subtitle = "Buck Showalter, Baltimore Orioles")
 
 ggplotly(showalter_plt, tooltip = c("text", "first_half_K_BB_perc_plus", "second_half_mean_gmLI"))
