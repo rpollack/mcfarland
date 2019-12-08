@@ -112,8 +112,10 @@ players <- fg_db %>%
 teams <-
   fg_db %>%
   tbl("season_team") %>%
-  dplyr::select(Season, TeamId, AbbName) %>%
-  collect(n = Inf)
+  filter(Season >= 2007) %>%
+  dplyr::select(Season, TeamId, AbbName, W, L) %>%
+  collect(n = Inf) %>%
+  mutate(pct = W / (W + L))
 
 # get k-bb% for pitchers who faced at least 25 batters in the first half, computed relative to the other pitchers that year (who also
 # faced at least 25 batters in the first half).
@@ -190,7 +192,9 @@ li_grouped <-
     second_half_mean_gmLI = round(mean(LI), 2)
   ) %>%
   inner_join(reliever_perf2, by = c("Season", "pitcher_playerid" = "PlayerId")) %>% # attach first-half k-bb rates to second-half gmLI stats
-  inner_join(team_managers, by=c("Season", "pitching_team" = "Team"))
+  inner_join(team_managers, by=c("Season", "pitching_team" = "Team")) %>%
+  inner_join(teams, by=c("Season", "pitching_team" = "AbbName")) %>%
+  dplyr::select(-W, -L, -TeamId)
 
 
 # correlations should be done by YEAR and MANAGER, not team necessarily. 
