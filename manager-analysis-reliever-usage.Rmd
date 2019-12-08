@@ -95,7 +95,7 @@ team_managers <- c(
 
 
 - quantify good bullpen decisions by correlating k-bb% for the first 3 months of the season with average gmLI for the second half of the season
-- player assumptions: player stayed with same team entire year, faced at least 25 batters in the first half. k-bb%+ is computed relative to others on team that year
+- player assumptions: player faced at least 25 batters in the first half. k-bb%+ is computed relative to others on team that year
 - team assumptions: at least 5 relievers appeared for them 5 times in the 2nd half
 
 get data
@@ -116,25 +116,25 @@ teams <-
   collect(n = Inf)
 
 # find players who stayed with their team the entire season. find all non-projection, non-playoff stats
-single_team_players <-
-  fg_db %>%
-  tbl("stats_pitching") %>%
-  filter(
-    TeamId > 0,
-    Type != 900,
-    Season >= 2007
-  ) %>%
-  collect(n = Inf) %>%
-  group_by(PlayerId, Season) %>%
-  filter(n() == 1) %>%
-  dplyr::select(PlayerId, Season)
+# single_team_players <-
+#   fg_db %>%
+#   tbl("stats_pitching") %>%
+#   filter(
+#     TeamId > 0,
+#     Type != 900,
+#     Season >= 2007
+#   ) %>%
+#   collect(n = Inf) %>%
+#   group_by(PlayerId, Season) %>%
+#   filter(n() == 1) %>%
+#   dplyr::select(PlayerId, Season)
 
 # get k-bb% for pitchers who faced at least 25 batters in the first half, computed relative to the other pitchers on their team
 # who faced at least 25 batters. this is a way to get the manager's options for whom to put into a game
 reliever_perf2 <-
   fg_db %>%
   tbl("wpa_daily_pitching") %>%
-  # filter(GameDate >= "2008-01-01") %>%
+  filter(GameDate >= "2007-01-01") %>%
   dplyr::select(GameDate, PlayerId, TeamId, SO, BB, TBF) %>%
   collect(n = Inf) %>%
   mutate(
@@ -223,9 +223,12 @@ manager_correlations <-
   map(summary) %>%
   map_dbl("r.squared") %>%
   tidy() %>%
-  mutate(r_squared = round(x, 2)) %>%
-  dplyr::select(names, r_squared) %>%
+  mutate(r_squared = round(x, 2),
+         r = sqrt(r_squared)) %>%
+  dplyr::select(names, r_squared, r) %>%
   arrange(desc(r_squared))
+
+manager_correlations
 
 # for each season-team, identify its correlation between first-half K-BB% and second-half gmLI.
 # this speaks to managers' rigidity
@@ -241,7 +244,6 @@ manager_correlations <-
 #   dplyr::select(names, r_squared) %>%
 #   arrange(desc(r_squared))
 
-manager_correlations
 ```
 
 ```{r, fig.height=3}
