@@ -115,20 +115,6 @@ teams <-
   dplyr::select(Season, TeamId, AbbName) %>%
   collect(n = Inf)
 
-# find players who stayed with their team the entire season. find all non-projection, non-playoff stats
-# single_team_players <-
-#   fg_db %>%
-#   tbl("stats_pitching") %>%
-#   filter(
-#     TeamId > 0,
-#     Type != 900,
-#     Season >= 2007
-#   ) %>%
-#   collect(n = Inf) %>%
-#   group_by(PlayerId, Season) %>%
-#   filter(n() == 1) %>%
-#   dplyr::select(PlayerId, Season)
-
 # get k-bb% for pitchers who faced at least 25 batters in the first half, computed relative to the other pitchers that year (who also
 # faced at least 25 batters in the first half).
 reliever_perf2 <-
@@ -141,7 +127,6 @@ reliever_perf2 <-
     Season = year(GameDate),
     month = month(GameDate)
   ) %>%
- # inner_join(single_team_players, by = c("PlayerId", "Season")) %>% # remove player-seasons with more than one team
   filter(month %in% c(3, 4, 5, 6)) %>%
   group_by(Season, PlayerId) %>%
   filter(sum(TBF) >= 25) %>%
@@ -196,8 +181,7 @@ li_individual <-
     pitcher_subbed_in = player_name, LI
   )
 
-# for season-teams who had at least 5 pitchers appear at least 5 times each in the 2nd half,
-# find the mean gmLI for each pitcher and add in first-half K-BB% data
+# find the mean gmLI for each pitcher in the second half and add in their first-half K-BB% data and who their manager was
 li_grouped <-
   li_individual %>%
   group_by(Season, pitching_team, pitcher_playerid, pitcher_subbed_in) %>%
@@ -206,10 +190,6 @@ li_grouped <-
     second_half_mean_gmLI = round(mean(LI), 2)
   ) %>%
   inner_join(reliever_perf2, by = c("Season", "pitcher_playerid" = "PlayerId")) %>% # attach first-half k-bb rates to second-half gmLI stats
-  # mutate(label = glue("{Season} {pitching_team} - {pitcher_subbed_in}")) %>%
-  # filter(second_half_num_appearances >= 5) %>%
-  # group_by(Season, pitching_team) %>%
-  # filter(n() >= 5) %>% # condense to only teams who had 5 relievers who appeared at least 5 times each in the 2nd half
   inner_join(team_managers, by=c("Season", "pitching_team" = "Team"))
 
 
@@ -262,6 +242,28 @@ showalter_plt <-
                                      subtitle = "Buck Showalter, Baltimore Orioles")
 
 ggplotly(showalter_plt, tooltip = c("text", "first_half_K_BB_perc_plus", "second_half_mean_gmLI"))
+
+cooper_plt <-
+  li_grouped %>%
+  filter(Manager == "C.Cooper") %>%
+  ggplot(aes(first_half_K_BB_perc_plus, second_half_mean_gmLI, text = pitcher_subbed_in)) + geom_point() +
+  labs(x="Reliever First-Half K-BB%+", y="Reliever Second Half Mean gmLI") +
+  facet_wrap(vars(Season)) + ggtitle("Decision-Making in the Second Half, Cecil Cooper", 
+                                     subtitle = "Buck Showalter, Baltimore Orioles")
+
+ggplotly(cooper_plt, tooltip = c("text", "first_half_K_BB_perc_plus", "second_half_mean_gmLI"))
+
+
+roberts_plt <-
+  li_grouped %>%
+  filter(Manager == "D.Roberts") %>%
+  ggplot(aes(first_half_K_BB_perc_plus, second_half_mean_gmLI, text = pitcher_subbed_in)) + geom_point() +
+  labs(x="Reliever First-Half K-BB%+", y="Reliever Second Half Mean gmLI") +
+  facet_wrap(vars(Season)) + ggtitle("Decision-Making in the Second Half, Dave Roberts", 
+                                     subtitle = "Buck Showalter, Baltimore Orioles")
+
+ggplotly(roberts_plt, tooltip = c("text", "first_half_K_BB_perc_plus", "second_half_mean_gmLI"))
+
 ```
 
 
