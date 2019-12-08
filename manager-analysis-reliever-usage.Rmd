@@ -48,6 +48,73 @@ send_message <- function(msg) {
 }
 ```
 
+single function to test getting managers from bb-ref
+```{r}
+
+url <- "https://www.baseball-reference.com/teams/BAL/index.shtml"
+
+ tryCatch(
+    url %>%
+  read_html() %>%
+   html_nodes("table") %>%
+    .[[1]] %>%
+    html_table(header = TRUE) %>%
+    as_tibble() %>%
+  dplyr::select(Season = Year, Manager = Managers) %>%
+  filter(!str_detect(Manager, "and")) %>%               # remove years with more than one manager
+  mutate(Manager = str_extract(Manager, "[A-Z].[:graph:]*"))
+    error = function(e) {
+      print(glue("No such URL for team abbreviation: {team}"))
+    }
+  )
+}
+
+
+
+
+```
+
+
+```{r}
+get_team_managers <- function(team) {
+  # this function takes a team as an input and returns a list of manager names, given the season is 2007 or later
+  # and the team had only one manager that year
+
+  url <- glue("https://www.baseball-reference.com/teams/{team}/index.shtml")
+  
+  tryCatch(
+     url %>%
+    read_html() %>%
+    html_nodes("table") %>%
+    .[[1]] %>%
+    html_table(header = TRUE) %>%
+    as_tibble() %>%
+    dplyr::select(Season = Year, Manager = Managers) %>%
+    filter(
+      !str_detect(Manager, "and"),
+      Season >= 2007
+    ) %>%
+    mutate(Manager = str_extract(Manager, "[A-Z].[:graph:]*"),
+           Team = team) %>%
+    dplyr::select(Season, Team, Manager),
+    error = function(e) {
+      print(glue("No such URL for team abbreviation: {team}"))
+    }
+  )
+
+}
+  
+teams <- c(
+    "ARI", "ATL", "BAL", "BOS", "CHC",
+    "CHW", "CIN", "CLE", "COL", "DET",
+    "HOU", "KCR", "ANA", "LAD", "FLA",
+    "MIL", "MIN", "NYM", "NYY", "OAK",
+    "PHI", "PIT", "SDP", "SEA", "SFG",
+    "STL", "TBD", "TEX", "TOR", "WSN"
+  ) %>% map_df(get_team_managers)
+
+```
+
 
 - quantify good bullpen decisions by correlating k-bb% for the first 3 months of the season with average gmLI for the second half of the season
 - player assumptions: player stayed with same team entire year, faced at least 25 batters in the first half. k-bb%+ is computed relative to others on team that year
