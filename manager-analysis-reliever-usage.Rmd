@@ -78,6 +78,7 @@ get_team_managers <- function(team) {
   )
 }
 
+# get managers for teams since 2007 that've had only one manager per year. replace a few team names to match FanGraphs'
 team_managers <- c(
   "ARI", "ATL", "BAL", "BOS", "CHC",
   "CHW", "CIN", "CLE", "COL", "DET",
@@ -85,7 +86,11 @@ team_managers <- c(
   "MIL", "MIN", "NYM", "NYY", "OAK",
   "PHI", "PIT", "SDP", "SEA", "SFG",
   "STL", "TBD", "TEX", "TOR", "WSN"
-) %>% map_df(get_team_managers)
+) %>% map_df(get_team_managers) %>%
+  mutate(Team = case_when(
+    "ANA" ~ "LAA",
+    "TBD" ~ "TBR"
+  ))
 ```
 
 
