@@ -48,71 +48,44 @@ send_message <- function(msg) {
 }
 ```
 
-single function to test getting managers from bb-ref
-```{r}
-
-url <- "https://www.baseball-reference.com/teams/BAL/index.shtml"
-
- tryCatch(
-    url %>%
-  read_html() %>%
-   html_nodes("table") %>%
-    .[[1]] %>%
-    html_table(header = TRUE) %>%
-    as_tibble() %>%
-  dplyr::select(Season = Year, Manager = Managers) %>%
-  filter(!str_detect(Manager, "and")) %>%               # remove years with more than one manager
-  mutate(Manager = str_extract(Manager, "[A-Z].[:graph:]*"))
-    error = function(e) {
-      print(glue("No such URL for team abbreviation: {team}"))
-    }
-  )
-}
-
-
-
-
-```
-
-
 ```{r}
 get_team_managers <- function(team) {
   # this function takes a team as an input and returns a list of manager names, given the season is 2007 or later
   # and the team had only one manager that year
 
   url <- glue("https://www.baseball-reference.com/teams/{team}/index.shtml")
-  
+
   tryCatch(
-     url %>%
-    read_html() %>%
-    html_nodes("table") %>%
-    .[[1]] %>%
-    html_table(header = TRUE) %>%
-    as_tibble() %>%
-    dplyr::select(Season = Year, Manager = Managers) %>%
-    filter(
-      !str_detect(Manager, "and"),
-      Season >= 2007
-    ) %>%
-    mutate(Manager = str_extract(Manager, "[A-Z].[:graph:]*"),
-           Team = team) %>%
-    dplyr::select(Season, Team, Manager),
+    url %>%
+      read_html() %>%
+      html_nodes("table") %>%
+      .[[1]] %>%
+      html_table(header = TRUE) %>%
+      as_tibble() %>%
+      dplyr::select(Season = Year, Manager = Managers) %>%
+      filter(
+        !str_detect(Manager, "and"),
+        Season >= 2007
+      ) %>%
+      mutate(
+        Manager = str_extract(Manager, "[A-Z].[:graph:]*"),
+        Team = team
+      ) %>%
+      dplyr::select(Season, Team, Manager),
     error = function(e) {
       print(glue("No such URL for team abbreviation: {team}"))
     }
   )
-
 }
-  
-teams <- c(
-    "ARI", "ATL", "BAL", "BOS", "CHC",
-    "CHW", "CIN", "CLE", "COL", "DET",
-    "HOU", "KCR", "ANA", "LAD", "FLA",
-    "MIL", "MIN", "NYM", "NYY", "OAK",
-    "PHI", "PIT", "SDP", "SEA", "SFG",
-    "STL", "TBD", "TEX", "TOR", "WSN"
-  ) %>% map_df(get_team_managers)
 
+team_managers <- c(
+  "ARI", "ATL", "BAL", "BOS", "CHC",
+  "CHW", "CIN", "CLE", "COL", "DET",
+  "HOU", "KCR", "ANA", "LAD", "FLA",
+  "MIL", "MIN", "NYM", "NYY", "OAK",
+  "PHI", "PIT", "SDP", "SEA", "SFG",
+  "STL", "TBD", "TEX", "TOR", "WSN"
+) %>% map_df(get_team_managers)
 ```
 
 
@@ -138,13 +111,15 @@ teams <-
   collect(n = Inf)
 
 # find players who stayed with their team the entire season. find all non-projection, non-playoff stats
-single_team_players <- 
-  fg_db %>% 
-  tbl("stats_pitching") %>% 
-  filter(TeamId > 0, 
-         Type != 900,
-         Season >= 2007) %>%
-  collect(n=Inf) %>% 
+single_team_players <-
+  fg_db %>%
+  tbl("stats_pitching") %>%
+  filter(
+    TeamId > 0,
+    Type != 900,
+    Season >= 2007
+  ) %>%
+  collect(n = Inf) %>%
   group_by(PlayerId, Season) %>%
   filter(n() == 1) %>%
   dplyr::select(PlayerId, Season)
@@ -154,17 +129,21 @@ single_team_players <-
 reliever_perf2 <-
   fg_db %>%
   tbl("wpa_daily_pitching") %>%
- # filter(GameDate >= "2008-01-01") %>%
+  # filter(GameDate >= "2008-01-01") %>%
   dplyr::select(GameDate, PlayerId, TeamId, SO, BB, TBF) %>%
-  collect(n=Inf) %>%
-  mutate(Season = year(GameDate),
-         month = month(GameDate)) %>%
-  inner_join(single_team_players, by=c("PlayerId", "Season")) %>%   # remove player-seasons with more than one team
+  collect(n = Inf) %>%
+  mutate(
+    Season = year(GameDate),
+    month = month(GameDate)
+  ) %>%
+  inner_join(single_team_players, by = c("PlayerId", "Season")) %>% # remove player-seasons with more than one team
   filter(month %in% c(3, 4, 5, 6)) %>%
   group_by(Season, PlayerId, TeamId) %>%
   filter(sum(TBF) >= 25) %>%
-  summarize(k_perc = sum(SO) / sum(TBF),
-            bb_perc = sum(BB) / sum(TBF)) %>%
+  summarize(
+    k_perc = sum(SO) / sum(TBF),
+    bb_perc = sum(BB) / sum(TBF)
+  ) %>%
   mutate(first_half_K_BB_perc = round((k_perc - bb_perc) * 100, 1)) %>%
   group_by(Season, TeamId) %>%
   mutate(first_half_K_BB_perc_plus = round(first_half_K_BB_perc / mean(first_half_K_BB_perc) * 100, 0))
@@ -172,8 +151,10 @@ reliever_perf2 <-
 # get plate appearances that began with a pitcher who was subbed in for another pitcher
 wpa_data <- fg_db %>%
   tbl("wpa_log") %>%
-  filter(!is.na(PitcherSubId),
-         GameDate >= "2007-01-01") %>%
+  filter(
+    !is.na(PitcherSubId),
+    GameDate >= "2007-01-01"
+  ) %>%
   collect(n = Inf)
 ```
 
@@ -190,8 +171,10 @@ K-BB%+ for 1st Half vs. gmLI for second half
 li_individual <-
   wpa_data %>%
   inner_join(players, by = c("P" = "playerid")) %>%
-  mutate(Season = year(GameDate),
-         game_month = month(GameDate)) %>%
+  mutate(
+    Season = year(GameDate),
+    game_month = month(GameDate)
+  ) %>%
   filter(game_month %in% c(7, 8, 9)) %>%
   inner_join(teams, by = c("Season",
     "HomeTeamId" = "TeamId"
@@ -218,13 +201,15 @@ li_individual <-
 li_grouped <-
   li_individual %>%
   group_by(Season, pitching_team, pitcher_playerid, pitcher_subbed_in) %>%
-  summarize(second_half_num_appearances = n(),
-            second_half_mean_gmLI = round(mean(LI), 2)) %>%
-  inner_join(reliever_perf2, by=c("Season", "pitcher_playerid" = "PlayerId")) %>%  # attach first-half k-bb rates to second-half gmLI stats
+  summarize(
+    second_half_num_appearances = n(),
+    second_half_mean_gmLI = round(mean(LI), 2)
+  ) %>%
+  inner_join(reliever_perf2, by = c("Season", "pitcher_playerid" = "PlayerId")) %>% # attach first-half k-bb rates to second-half gmLI stats
   mutate(label = glue("{Season} {pitching_team} - {pitcher_subbed_in}")) %>%
   filter(second_half_num_appearances >= 5) %>%
   group_by(Season, pitching_team) %>%
-  filter(n() >= 5)   # condense to only teams who had 5 relievers who appeared at least 5 times each in the 2nd half
+  filter(n() >= 5) # condense to only teams who had 5 relievers who appeared at least 5 times each in the 2nd half
 
 # for each season-team, identify its correlation between first-half K-BB% and second-half gmLI.
 # this speaks to managers' rigidity
@@ -241,8 +226,6 @@ correlations <-
   arrange(desc(r_squared))
 
 correlations
-
-
 ```
 
 ```{r, fig.height=3}
@@ -284,10 +267,9 @@ ggplotly(top_10_plt, tooltip = c("text", "first_half_K_BB_perc_plus", "second_ha
 
 ggplotly(bottom_10_plt, tooltip = c("text", "first_half_K_BB_perc_plus", "second_half_mean_gmLI"))
 
-# not fair to managers really ... they can't control who's on their roster, so they can't control 
+# not fair to managers really ... they can't control who's on their roster, so they can't control
 
-# so like 2011 SFG ... Romo was much better as a pitcher than anyone else in the bullpen. yet Wilson and Affeldt got the highest leverage opportunities. 
-# but 2013 MIA didn't have much of a choice ... 
-
+# so like 2011 SFG ... Romo was much better as a pitcher than anyone else in the bullpen. yet Wilson and Affeldt got the highest leverage opportunities.
+# but 2013 MIA didn't have much of a choice ...
 ```
 
