@@ -183,7 +183,7 @@ li_individual <-
     pitcher_subbed_in = player_name, LI
   )
 
-# find the mean gmLI for each pitcher in the second half and add in their first-half K-BB% data and who their manager was
+# find the mean gmLI for each pitcher in the second half and add in their first-half K-BB% data, who their manager was, and the team's performance that year
 li_grouped <-
   li_individual %>%
   group_by(Season, pitching_team, pitcher_playerid, pitcher_subbed_in) %>%
