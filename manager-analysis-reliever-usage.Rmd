@@ -101,9 +101,10 @@ teams <-
   fg_db %>%
   tbl("season_team") %>%
   filter(Season >= 2012) %>%
-  dplyr::select(Season, TeamId, AbbName, W, L) %>%
+  dplyr::select(Season, TeamId, AbbName, W, L, R, RA) %>%
   collect(n = Inf) %>%
-  mutate(pct = W / (W + L))
+  mutate(pct = W / (W + L),
+         pythag_pct = (R * R)/((R * R) + (RA * RA)))
 
 reliever_projections <-
   fg_db %>%
@@ -223,7 +224,7 @@ manager_correlations
 manager_correlations_annual <-
   li_grouped %>%
   ungroup() %>%
-  split(list(.$Manager, .$Season), drop = TRUE, sep = "_") %>%
+  split(list(.$Manager, .$pitching_team, .$Season), drop = TRUE, sep = "_") %>%
   map(~ lm(mean_gmLI ~ proj_k_minus_bb, data = .)) %>%
   map(summary) %>%
   map_dbl("r.squared") %>%
@@ -231,15 +232,61 @@ manager_correlations_annual <-
   mutate(r_squared = round(x, 2),
          r = sqrt(r_squared)) %>%
   dplyr::select(names, r_squared, r) %>%
-  separate(names, c("manager", "year"), sep = "_") %>%
+  separate(names, c("manager", "team", "Season"), sep = "_", convert = TRUE) %>%
+  inner_join(teams, by=c("Season", "team" = "AbbName")) %>%
+  pivot_longer(contains("pct"), names_to = "wins_metric", values_to = "percentage") %>%
+  dplyr::select(-TeamId, -W, -L, -R, -RA) %>%
   arrange(desc(r_squared))
 
 manager_correlations_annual
 
 ```
 
+```{r}
+# plot each manager year to year ... 
+manager_plot <-
+  manager_correlations_annual %>%
+  distinct(manager, team, Season, r) %>%
+  ggplot(aes(Season, r, color = manager, group = manager)) + 
+  geom_point() + 
+  geom_line()
+
+ggplotly(manager_plot, tooltip=c("manager", "Season", "r"))
+
+
+# how strongly does the r each year correlate to winning % (regular and pythagorean) ?
+manager_correlations_annual %>%
+  split(.$wins_metric) %>%
+  map(~ lm(percentage ~ r, data = .)) %>%
+  map(summary) %>%
+  map_dbl("r.squared") %>%
+  tidy() %>%
+  mutate(r_squared = round(x, 2),
+         r = sqrt(r_squared)) %>%
+  dplyr::select(names, r_squared, r) %>%
+  arrange(desc(r_squared))
+
+# plot the above
+manager_correlations_annual %>%
+  ggplot(aes(r, percentage)) + 
+  geom_point() + 
+  geom_smooth(method="lm") + 
+  facet_wrap(vars(wins_metric))
+
+
+
+# most consistent managers year-to-year
+
+
+# plot individual seasons
+
+
+```
+
+
+
 plot buck showalter's usage for each year he was in charge of the Orioles
-t
+
 ```{r}
 showalter_plt <-
   li_grouped %>%
