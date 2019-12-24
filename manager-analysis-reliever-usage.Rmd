@@ -200,10 +200,10 @@ li_grouped <-
   inner_join(team_managers, by=c("Season", "pitching_team" = "Team")) %>%
   inner_join(teams, by=c("Season", "pitching_team" = "AbbName")) %>%
   dplyr::select(-W, -L, -TeamId) %>%
-  mutate(manager_team_year = glue("{Manager} {pitching_team} {Season}"))
+  group_by(Manager) %>% 
+  mutate(num_pitcher_substitutions = n())
 
-# correlations should be done by YEAR and MANAGER, not team necessarily. 
-
+# produce overall correlations for managers given all data in the set
 manager_correlations_overall <-
   li_grouped %>%
   ungroup() %>%
@@ -217,14 +217,13 @@ manager_correlations_overall <-
   dplyr::select(names, r_squared, r) %>%
   arrange(desc(r_squared))
 
-
-
 manager_correlations
 
+# product annual correlations for each manager. this way we can see managers' tendencies evolve over time
 manager_correlations_annual <-
   li_grouped %>%
   ungroup() %>%
-  split(.$manager_team_year) %>%
+  split(list(.$Manager, .$Season), drop = TRUE) %>%
   map(~ lm(mean_gmLI ~ proj_k_minus_bb, data = .)) %>%
   map(summary) %>%
   map_dbl("r.squared") %>%
@@ -232,24 +231,10 @@ manager_correlations_annual <-
   mutate(r_squared = round(x, 2),
          r = sqrt(r_squared)) %>%
   dplyr::select(names, r_squared, r) %>%
+  separate(names, c("Manager", "Year"), sep = "\\.[,2]") %>%
   arrange(desc(r_squared))
 
 manager_correlations_annual
-
-
-# for each season-team, identify its correlation between first-half K-BB% and second-half gmLI.
-# this speaks to managers' rigidity
-# correlations <-
-#   li_grouped %>%
-#   unite(season_team_manager, Season, pitching_team, Manager, sep = "-") %>%
-#   split(.$season_team) %>%
-#   map(~ lm(second_half_mean_gmLI ~ first_half_K_BB_perc_plus, data = .)) %>%
-#   map(summary) %>%
-#   map_dbl("r.squared") %>%
-#   tidy() %>%
-#   mutate(r_squared = round(x, 2)) %>%
-#   dplyr::select(names, r_squared) %>%
-#   arrange(desc(r_squared))
 
 ```
 
