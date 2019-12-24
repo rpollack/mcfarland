@@ -223,7 +223,7 @@ manager_correlations
 manager_correlations_annual <-
   li_grouped %>%
   ungroup() %>%
-  split(list(.$Manager, .$Season), drop = TRUE) %>%
+  split(list(.$Manager, .$Season), drop = TRUE, sep = "_") %>%
   map(~ lm(mean_gmLI ~ proj_k_minus_bb, data = .)) %>%
   map(summary) %>%
   map_dbl("r.squared") %>%
@@ -231,7 +231,7 @@ manager_correlations_annual <-
   mutate(r_squared = round(x, 2),
          r = sqrt(r_squared)) %>%
   dplyr::select(names, r_squared, r) %>%
-  separate(names, c("Manager", "Year"), sep = "\\.[,2]") %>%
+  separate(names, c("manager", "year"), sep = "_") %>%
   arrange(desc(r_squared))
 
 manager_correlations_annual
