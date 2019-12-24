@@ -78,21 +78,6 @@ get_team_managers <- function(team) {
   )
 }
 
-# get managers for teams since 2007 that've had only one manager per year. replace a few team names to match FanGraphs'
-team_managers <- c(
-  "ARI", "ATL", "BAL", "BOS", "CHC",
-  "CHW", "CIN", "CLE", "COL", "DET",
-  "HOU", "KCR", "ANA", "LAD", "FLA",
-  "MIL", "MIN", "NYM", "NYY", "OAK",
-  "PHI", "PIT", "SDP", "SEA", "SFG",
-  "STL", "TBD", "TEX", "TOR", "WSN"
-) %>% 
-  map_df(get_team_managers) %>%
-  mutate(Team = case_when(
-    Team == "ANA" ~ "LAA",
-    Team == "TBD" ~ "TBR",
-    TRUE ~ Team
-  ))
 ```
 
 
@@ -115,7 +100,7 @@ players <-
 teams <-
   fg_db %>%
   tbl("season_team") %>%
-  filter(Season >= 2007) %>%
+  filter(Season >= 2012) %>%
   dplyr::select(Season, TeamId, AbbName, W, L) %>%
   collect(n = Inf) %>%
   mutate(pct = W / (W + L))
@@ -131,31 +116,23 @@ reliever_projections <-
          proj_k_minus_bb = (k_perc - bb_perc) * 100) %>%
   dplyr::select(PlayerId, Season, k_perc, bb_perc, proj_k_minus_bb)
 
+# get managers for teams that've had only one manager per year. replace a few team names to match FanGraphs' names
+team_managers <- c(
+  "ARI", "ATL", "BAL", "BOS", "CHC",
+  "CHW", "CIN", "CLE", "COL", "DET",
+  "HOU", "KCR", "ANA", "LAD", "FLA",
+  "MIL", "MIN", "NYM", "NYY", "OAK",
+  "PHI", "PIT", "SDP", "SEA", "SFG",
+  "STL", "TBD", "TEX", "TOR", "WSN"
+) %>% 
+  map_df(get_team_managers) %>%
+  mutate(Team = case_when(
+    Team == "ANA" ~ "LAA",
+    Team == "TBD" ~ "TBR",
+    TRUE ~ Team
+  ))
 
-# get k-bb% for pitchers who faced at least 25 batters in the first half, computed relative to the other pitchers that year (who also
-# faced at least 25 batters in the first half).
-# reliever_perf2 <-
-#   fg_db %>%
-#   tbl("wpa_daily_pitching") %>%
-#   filter(GameDate >= "2007-01-01") %>%
-#   dplyr::select(GameDate, PlayerId, TeamId, SO, BB, TBF) %>%
-#   collect(n = Inf) %>%
-#   mutate(
-#     Season = year(GameDate),
-#     month = month(GameDate)
-#   ) %>%
-#   filter(month %in% c(3, 4, 5, 6)) %>%
-#   group_by(Season, PlayerId) %>%
-#   filter(sum(TBF) >= 25) %>%
-#   summarize(
-#     k_perc = sum(SO) / sum(TBF),
-#     bb_perc = sum(BB) / sum(TBF)
-#   ) %>%
-#   mutate(first_half_K_BB_perc = round((k_perc - bb_perc) * 100, 1)) %>%
-#   group_by(Season) %>%
-#   mutate(first_half_K_BB_perc_plus = round(first_half_K_BB_perc / mean(first_half_K_BB_perc) * 100, 0))
-
-# get plate appearances that began with a pitcher who was subbed in for another pitcher
+# gmLI data: get plate appearances that began with a pitcher who was subbed in for another pitcher
 wpa_data <- fg_db %>%
   tbl("wpa_log") %>%
   filter(
@@ -165,11 +142,11 @@ wpa_data <- fg_db %>%
   collect(n = Inf)
 ```
 
-K-BB%+ for 1st Half vs. gmLI for second half
+mash together datasets and compute
 
 ```{r}
 
-# get the average LI when entering a game per pitcher per year
+# extract individual gmLI, clean data, and add some other variables
 li_individual <-
   wpa_data %>%
   inner_join(players, by = c("P" = "playerid")) %>%
@@ -177,7 +154,6 @@ li_individual <-
     Season = year(GameDate),
     game_month = month(GameDate)
   ) %>%
-#  filter(game_month %in% c(7, 8, 9)) %>%
   inner_join(teams, by = c("Season",
     "HomeTeamId" = "TeamId"
   )) %>%
@@ -209,14 +185,15 @@ li_grouped <-
   inner_join(reliever_projections, by = c("Season", "pitcher_playerid" = "PlayerId")) %>%
   inner_join(team_managers, by=c("Season", "pitching_team" = "Team")) %>%
   inner_join(teams, by=c("Season", "pitching_team" = "AbbName")) %>%
-  dplyr::select(-W, -L, -TeamId)
+  dplyr::select(-W, -L, -TeamId) %>%
+  mutate(manager_team_year = glue("{Manager} {pitching_team} {Season}"))
 
 # correlations should be done by YEAR and MANAGER, not team necessarily. 
 
-manager_correlations <-
+manager_correlations_overall <-
   li_grouped %>%
   ungroup() %>%
-  split(.$Manager, .$Season) %>%
+  split(.$Manager) %>%
   map(~ lm(mean_gmLI ~ proj_k_minus_bb, data = .)) %>%
   map(summary) %>%
   map_dbl("r.squared") %>%
@@ -227,6 +204,21 @@ manager_correlations <-
   arrange(desc(r_squared))
 
 manager_correlations
+
+manager_correlations_annual <-
+  li_grouped %>%
+  ungroup() %>%
+  split(.$manager_team_year) %>%
+  map(~ lm(mean_gmLI ~ proj_k_minus_bb, data = .)) %>%
+  map(summary) %>%
+  map_dbl("r.squared") %>%
+  tidy() %>%
+  mutate(r_squared = round(x, 2),
+         r = sqrt(r_squared)) %>%
+  dplyr::select(names, r_squared, r) %>%
+  arrange(desc(r_squared))
+
+manager_correlations_annual
 
 
 # for each season-team, identify its correlation between first-half K-BB% and second-half gmLI.
