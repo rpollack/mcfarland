@@ -102,7 +102,8 @@ get data
 
 ```{r}
 
-players <- fg_db %>%
+players <- 
+  fg_db %>%
   tbl("player_info") %>%
   filter(BISPosition == "RP") %>%
   dplyr::select(playerid = PlayerId, FirstName, LastName) %>%
@@ -117,28 +118,40 @@ teams <-
   collect(n = Inf) %>%
   mutate(pct = W / (W + L))
 
+reliever_projections <-
+  fg_db %>%
+  tbl("proj_pitching") %>%
+  filter(Type == "Steamer",
+         PlayerId %in% !!players$playerid) %>%
+  collect(n = Inf) %>%
+  mutate(k_perc = SO / TBF, 
+         bb_perc = BB / TBF,
+         proj_k_minus_bb = (k_perc - bb_perc) * 100) %>%
+  dplyr::select(PlayerId, Season, k_perc, bb_perc, proj_k_minus_bb)
+
+
 # get k-bb% for pitchers who faced at least 25 batters in the first half, computed relative to the other pitchers that year (who also
 # faced at least 25 batters in the first half).
-reliever_perf2 <-
-  fg_db %>%
-  tbl("wpa_daily_pitching") %>%
-  filter(GameDate >= "2007-01-01") %>%
-  dplyr::select(GameDate, PlayerId, TeamId, SO, BB, TBF) %>%
-  collect(n = Inf) %>%
-  mutate(
-    Season = year(GameDate),
-    month = month(GameDate)
-  ) %>%
-  filter(month %in% c(3, 4, 5, 6)) %>%
-  group_by(Season, PlayerId) %>%
-  filter(sum(TBF) >= 25) %>%
-  summarize(
-    k_perc = sum(SO) / sum(TBF),
-    bb_perc = sum(BB) / sum(TBF)
-  ) %>%
-  mutate(first_half_K_BB_perc = round((k_perc - bb_perc) * 100, 1)) %>%
-  group_by(Season) %>%
-  mutate(first_half_K_BB_perc_plus = round(first_half_K_BB_perc / mean(first_half_K_BB_perc) * 100, 0))
+# reliever_perf2 <-
+#   fg_db %>%
+#   tbl("wpa_daily_pitching") %>%
+#   filter(GameDate >= "2007-01-01") %>%
+#   dplyr::select(GameDate, PlayerId, TeamId, SO, BB, TBF) %>%
+#   collect(n = Inf) %>%
+#   mutate(
+#     Season = year(GameDate),
+#     month = month(GameDate)
+#   ) %>%
+#   filter(month %in% c(3, 4, 5, 6)) %>%
+#   group_by(Season, PlayerId) %>%
+#   filter(sum(TBF) >= 25) %>%
+#   summarize(
+#     k_perc = sum(SO) / sum(TBF),
+#     bb_perc = sum(BB) / sum(TBF)
+#   ) %>%
+#   mutate(first_half_K_BB_perc = round((k_perc - bb_perc) * 100, 1)) %>%
+#   group_by(Season) %>%
+#   mutate(first_half_K_BB_perc_plus = round(first_half_K_BB_perc / mean(first_half_K_BB_perc) * 100, 0))
 
 # get plate appearances that began with a pitcher who was subbed in for another pitcher
 wpa_data <- fg_db %>%
