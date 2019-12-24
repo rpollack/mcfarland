@@ -7,8 +7,7 @@ output: html_document
 
 ```{r}
 # library(tidyverse)
-library(dplyr)
-library(tidyr)
+library(tidyverse)
 library(broom)
 library(stringr)
 library(RMySQL)
@@ -167,7 +166,7 @@ K-BB%+ for 1st Half vs. gmLI for second half
 
 ```{r}
 
-# get the average LI when entering a game, for pitchers in the 2nd half of the season July thru September
+# get the average LI when entering a game per pitcher per year
 li_individual <-
   wpa_data %>%
   inner_join(players, by = c("P" = "playerid")) %>%
@@ -175,7 +174,7 @@ li_individual <-
     Season = year(GameDate),
     game_month = month(GameDate)
   ) %>%
-  filter(game_month %in% c(7, 8, 9)) %>%
+#  filter(game_month %in% c(7, 8, 9)) %>%
   inner_join(teams, by = c("Season",
     "HomeTeamId" = "TeamId"
   )) %>%
@@ -196,16 +195,16 @@ li_individual <-
     pitcher_subbed_in = player_name, LI
   )
 
-# find the mean gmLI for each pitcher in the second half and add in their first-half K-BB% data, who their manager was, and the team's performance that year
+# find the mean gmLI for each pitcher in each seaosn and add in projected K-BB%, the team's manager, and the team's performance that year
 li_grouped <-
   li_individual %>%
   group_by(Season, pitching_team, pitcher_playerid, pitcher_subbed_in) %>%
   summarize(
-    second_half_num_appearances = n(),
-    second_half_mean_gmLI = round(mean(LI), 2)
+    num_appearances = n(),
+    mean_gmLI = round(mean(LI), 2)
   ) %>%
-  inner_join(reliever_perf2, by = c("Season", "pitcher_playerid" = "PlayerId")) %>% # attach first-half k-bb rates to second-half gmLI stats
-  inner_join(team_managers, by=c("Season", "pitching_team" = "Team")) %>%
+  inner_join(reliever_projections, by = c("Season", "pitcher_playerid" = "PlayerId")) %>%
+  #inner_join(team_managers, by=c("Season", "pitching_team" = "Team")) %>%
   inner_join(teams, by=c("Season", "pitching_team" = "AbbName")) %>%
   dplyr::select(-W, -L, -TeamId)
 
