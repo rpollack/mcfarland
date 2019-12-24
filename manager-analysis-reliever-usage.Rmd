@@ -154,6 +154,20 @@ li_individual <-
     Season = year(GameDate),
     game_month = month(GameDate)
   ) %>%
+  
+  # label regular & postseason data for later use
+  mutate(season_type = if_else(
+    Season == 2012 & GameDate <= "2012-10-03" |
+      Season == 2013 & GameDate <= "2013-09-30" |
+      Season == 2014 & GameDate <= "2014-09-28" |
+      Season == 2015 & GameDate <= "2015-10-04" |
+      Season == 2016 & GameDate <= "2016-10-02" |
+      Season == 2017 & GameDate <= "2017-10-01" |
+      Season == 2018 & GameDate <= "2018-10-01" |
+      Season == 2019 & GameDate <= "2019-09-29",
+    "regular", "postseason"
+    )) %>%
+  
   inner_join(teams, by = c("Season",
     "HomeTeamId" = "TeamId"
   )) %>%
@@ -171,7 +185,7 @@ li_individual <-
   ) %>%
   dplyr::select(Season, GameDate, game_month, home_team, away_team, inning_half,
     inning = Inning, outs = Outs, pitching_team_score, batting_team_score, pitching_team_lead, pitching_team, pitcher_playerid = P,
-    pitcher_subbed_in = player_name, LI
+    pitcher_subbed_in = player_name, LI, season_type
   )
 
 # find the mean gmLI for each pitcher in each seaosn and add in projected K-BB%, the team's manager, and the team's performance that year
@@ -202,6 +216,8 @@ manager_correlations_overall <-
          r = sqrt(r_squared)) %>%
   dplyr::select(names, r_squared, r) %>%
   arrange(desc(r_squared))
+
+
 
 manager_correlations
 
