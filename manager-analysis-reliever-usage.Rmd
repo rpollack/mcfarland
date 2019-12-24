@@ -199,8 +199,6 @@ li_grouped <-
   ) %>%
   inner_join(reliever_projections, by = c("Season", "pitcher_playerid" = "PlayerId")) %>%
   inner_join(team_managers, by=c("Season", "pitching_team" = "Team")) %>%
-  inner_join(teams, by=c("Season", "pitching_team" = "AbbName")) %>%
-  dplyr::select(-W, -L, -TeamId) %>%
   group_by(Manager) %>% 
   mutate(num_pitcher_substitutions = n())
 
