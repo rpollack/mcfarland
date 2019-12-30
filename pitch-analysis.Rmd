@@ -122,6 +122,39 @@ read_csv("~/Downloads/Pagan Pitches - Sheet1.csv") %>%
   ggsave("pagan-pitch-effectiveness.png")
 ```
 
+Elieser Hernandez
+
+```{r}
+data %>%
+  filter(player_name == "Elieser Hernandez") %>%
+  filter(pitch_type == "FF") %>%
+  group_by(game_year) %>%
+  summarize(mean_vertical_height = mean(plate_z))
+
+#build tibble from statcast data and plot YoY changes. source: https://baseballsavant.mlb.com/savant-player/elieser-hernandez-622694?stats=statcast-r-pitching-mlb
+crossing(Season = c("2018", "2019"),
+       pitch_type = c("FF", "SL", "CH", "SI")) %>%
+  mutate(
+    freq = c(.15, .621, 0, .229, .114, .536, .017, .333),
+    xWOBA = c(.323, .356, NA_character_, .332, .261, .341, .271, .206),
+    `Whiff%` = c(.342, .161, NA_character_, .279, .145, .205, .091, .374)) %>%
+  pivot_longer(xWOBA:`Whiff%`, names_to = "metric", values_to = "value", values_drop_na = TRUE, values_ptypes = list(value= double())) %>%
+  mutate(weighted_val = freq * value) %>%
+  ggplot(aes(Season, weighted_val, color = pitch_type, group = pitch_type)) + facet_wrap(vars(metric), scales = "free_y") + geom_point() + geom_line() +
+  labs(y="Value (Weighted by Pitch Frequency)")
+
+# focus on changes to slider
+#https://www.beyondtheboxscore.com/2019/7/10/20688274/elieser-hernandez-miami-marlins-rule-5-draft-slider-movement-caleb-smith-sandy-alcantara
+
+# https://prospects365.com/2019/09/09/elieser-hernandez-is-worthy-of-your-consideration/
+
+
+
+
+```
+
+
+
 ```{r}
 data %>%
   filter(pitch_type == "FF") %>%
@@ -132,7 +165,8 @@ data %>%
   summarize(bauer_units_plus = mean(bauer_units, na.rm = TRUE) / mean(lg_bauer_units) * 100) %>%
   group_by(game_year) %>%
   filter(game_year == 2019) %>% 
-  mutate(rank = percent_rank(bauer_units_plus)) %>% View()
+  mutate(rank = percent_rank(bauer_units_plus)) %>% 
+  View()
 
 ```
 
@@ -182,6 +216,11 @@ data_grouped <-
       stand == "L" & zone %in% c(3, 6, 9) ~ "In",
       stand == "L" & zone %in% c(12, 14) ~ "Inside"
     ),
+    count_type = case_when(
+      balls == strikes ~ "Even",
+      balls > strikes ~ "Batter Ahead",
+      balls < strikes ~ "Pitcher Ahead"
+    ),
 
     # define a good pitch as one that is either a called/swinging strike or gets hit for a sub-median xWOBA
     # remember, foul balls are not counted as either good or bad
@@ -189,11 +228,11 @@ data_grouped <-
       (str_detect(description, "hit_into_play") & xwoba <= median_xwoba), "good", "bad")
   ) %>%
   unite(zone_desc, zone_type_vertical, zone_type_horizontal, sep = " and ") %>%
-  unite(count, balls, strikes, sep = "-") %>%
+#  unite(count, balls, strikes, sep = "-") %>%
   # group_by(player_name, game_year, p_throws, stand) %>%
   # mutate(total_pitches_to_batters_of_this_hand = n()) %>%
   # filter(total_pitches_to_batters_of_this_hand >= total_pitches_to_each_side_cutoff) %>% # try to get only full time pitchers
-  group_by(pitcher, player_name, game_year, p_throws, position, count, zone_desc, stand, pitch_type, outcome) %>%
+  group_by(pitcher, player_name, game_year, p_throws, position, count_type, zone_desc, stand, pitch_type, outcome) %>%
   summarize(
     num_pitches = n()
   ) %>%
@@ -245,6 +284,7 @@ good_pitches_est <-
     low_credible = qbeta(.025, alpha1, beta1),
     high_credible = qbeta(.975, alpha1, beta1)
   ) %>%
+  left_join(pitcher_ra9, by=c("playerid" = "PlayerId", "game_year" = "Season")) %>%
   group_by(position) %>%
   arrange(desc(est_good_pitch_rate))
 
@@ -254,7 +294,6 @@ by_pitcher %>% ggplot(aes(good_pitch_percentage)) + geom_histogram() + facet_wra
 ```
 
 ```{r, fig.height = 3}
-# show that a beta-binomial distribution is appropriate to model good-pitch % by position
 
 # # plot the 25 best relievers
 # good_pitches_est %>%
@@ -312,20 +351,29 @@ the following code is not really appropriate anymore - it was an attempt to find
 to fix the graphs below I need to bring back a lot of the commented-out groupings so they line up with the graphs below.
 
 
-```{r, fig.height=5}
+```{r}
 pitch_cutoff <- 2 # get only zones/batters who've seen at least this many pitches, from the pitcher in this count
 
 # how to incorporate the count in it? that matters
 
 data_grouped %>%
-  filter(
-    outcome == "good",
-    num_pitches >= pitch_cutoff
-  ) %>%
-  unite(label, player_name, pitch_type, count, zone_desc, stand, sep = " - ") %>%
+  filter(game_year == 2019,
+         outcome == "good") %>%
+  group_by(p_throws, pitch_type, count_type, zone_desc, stand) %>%
+  top_n(10, wt = percentage) %>%
+
+  
+
+  
+  
+#  unite(label, player_name, pitch_type, count, zone_desc, stand, sep = " - ") %>%
+ 
+
+
   arrange(desc(percentage)) %>%
-  head(25) %>%
-  ggplot(aes(reorder(label, percentage), percentage)) + geom_col() + coord_flip() +
+  head(10) %>%
+  ggplot(aes(reorder(player_name, percentage), percentage)) + geom_col() + coord_flip() +
+  facet_wrap(vars(pitch_type, zone_desc, stand)) +
   ggtitle("Mean xWOBA by Pitch Type, Location, and Batter Handedness",
     subtitle = glue("For pitches thrown at least {percentage_cutoff}% of the time in that location to batters of that hand
                           For pitchers with at least {total_pitches_to_each_side_cutoff * 2} pitches in 2019")
@@ -334,6 +382,10 @@ data_grouped %>%
     x = "", y = "Percentage of Pitches that are Good",
     caption = "Good pitch: swinging strike, called strike, or batted ball with xWOBA less than the league median xWOBA"
   )
+
+```
+
+```{r}
 
 data_grouped %>%
   filter(
