@@ -140,15 +140,14 @@ crossing(Season = c("2018", "2019"),
     `Whiff%` = c(.342, .161, NA_character_, .279, .145, .205, .091, .374)) %>%
   pivot_longer(xWOBA:`Whiff%`, names_to = "metric", values_to = "value", values_drop_na = TRUE, values_ptypes = list(value= double())) %>%
   mutate(weighted_val = freq * value) %>%
-  ggplot(aes(Season, weighted_val, color = pitch_type, group = pitch_type)) + facet_wrap(vars(metric), scales = "free_y") + geom_point() + geom_line() +
-  labs(y="Value (Weighted by Pitch Frequency)")
+  ggplot(aes(Season, value, color = pitch_type, group = pitch_type)) + facet_wrap(vars(metric), scales = "free_y") + geom_point() + geom_line() +
+  labs(y="Value (Weighted by Pitch Frequency)") +
+  scale_y_continuous(labels = function(x) (sprintf("%.3f", x))) + expand_limits(y=0)
 
 # focus on changes to slider
 #https://www.beyondtheboxscore.com/2019/7/10/20688274/elieser-hernandez-miami-marlins-rule-5-draft-slider-movement-caleb-smith-sandy-alcantara
 
 # https://prospects365.com/2019/09/09/elieser-hernandez-is-worthy-of-your-consideration/
-
-
 
 
 ```
