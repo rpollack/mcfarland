@@ -91,6 +91,14 @@ code for emilio pagan article.
 
 ```{r}
 
+hernandez_gameday_data <-
+  fg_db %>%
+  tbl("gd_savant_new") %>%
+  filter(player_name == "Elieser Hernandez",
+         pitch_type %in% c("FF", "SL", "CH", "SI")) %>%
+  collect(n=Inf)
+
+
 data %>%
   filter(player_name == "Emilio Pagan") %>%
   filter(pitch_type == "FF") %>%
@@ -132,22 +140,44 @@ data %>%
   summarize(mean_vertical_height = mean(plate_z))
 
 #build tibble from statcast data and plot YoY changes. source: https://baseballsavant.mlb.com/savant-player/elieser-hernandez-622694?stats=statcast-r-pitching-mlb
+hernandez_pitch_data <-
 crossing(Season = c("2018", "2019"),
        pitch_type = c("FF", "SL", "CH", "SI")) %>%
   mutate(
     freq = c(.15, .621, 0, .229, .114, .536, .017, .333),
     xWOBA = c(.323, .356, NA_character_, .332, .261, .341, .271, .206),
-    `Whiff%` = c(.342, .161, NA_character_, .279, .145, .205, .091, .374)) %>%
-  pivot_longer(xWOBA:`Whiff%`, names_to = "metric", values_to = "value", values_drop_na = TRUE, values_ptypes = list(value= double())) %>%
-  mutate(weighted_val = freq * value) %>%
+    `Whiff%` = c(.342, .161, NA_character_, .279, .145, .205, .091, .374),
+    `% Horiz. Break vs. Average (in)` = c(11, -24, NA_character_, -25, 3, -5, -6, -4),
+    `% Vert. Drop vs. Average (in)` = c(2, 12, NA_character_, -6, -6, 11, -14, -26)) %>%
+  pivot_longer(xWOBA:`% Vert. Drop vs. Average (in)`, names_to = "metric", values_to = "value", values_drop_na = TRUE, values_ptypes = list(value= double())) %>%
+  mutate(weighted_val = freq * value)
+
+# outcomes
+hernandez_pitch_data %>%
+  filter(metric %in% c("xWOBA", "Whiff%")) %>%
   ggplot(aes(Season, value, color = pitch_type, group = pitch_type)) + facet_wrap(vars(metric), scales = "free_y") + geom_point() + geom_line() +
-  labs(y="Value (Weighted by Pitch Frequency)") +
-  scale_y_continuous(labels = function(x) (sprintf("%.3f", x))) + expand_limits(y=0)
+  labs(y="Value", caption = "Source: Statcast") +
+  scale_y_continuous(labels = function(x) (sprintf("%.3f", x))) + expand_limits(y=0) +
+  ggtitle("Season vs. Whiff Rate and xWOBA", subtitle = "Elieser Hernandez")
+
+
+# changes to individual pitches
+hernandez_pitch_data %>%
+  filter(str_detect(metric, "vs.")) %>%
+  ggplot(aes(Season, value, color = pitch_type, group = pitch_type)) + facet_wrap(vars(metric), scales = "free_y") + geom_point() + geom_line() +
+  labs(y="Value", caption = "Source: Statcast") +
+  scale_y_continuous(labels = function(x) (sprintf("%.3f", x))) + expand_limits(y=0) +
+  ggtitle("Season vs. Horizontal and Vertcal Movement vs. Average Pitch", subtitle = "Elieser Hernandez")
+
 
 # focus on changes to slider
 #https://www.beyondtheboxscore.com/2019/7/10/20688274/elieser-hernandez-miami-marlins-rule-5-draft-slider-movement-caleb-smith-sandy-alcantara
 
 # https://prospects365.com/2019/09/09/elieser-hernandez-is-worthy-of-your-consideration/
+
+# to achieve this effectiveness, hernandez drastically improved the horizontal break on his slider compared to the break of the average pitcher's slider:
+
+
 
 
 ```
