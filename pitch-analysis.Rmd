@@ -146,10 +146,13 @@ crossing(Season = c("2018", "2019"),
   mutate(
     freq = c(.15, .621, 0, .229, .114, .536, .017, .333),
     xWOBA = c(.323, .356, NA_character_, .332, .261, .341, .271, .206),
-    `Whiff%` = c(.342, .161, NA_character_, .279, .145, .205, .091, .374),
+    `Whiff%` = c(34.2, 16.1, NA_character_, 27.9, 14.5, 20.5, 9.1, 37.4),
     `% Horiz. Break vs. Average (in)` = c(11, -24, NA_character_, -25, 3, -5, -6, -4),
-    `% Vert. Drop vs. Average (in)` = c(2, 12, NA_character_, -6, -6, 11, -14, -26)) %>%
-  pivot_longer(xWOBA:`% Vert. Drop vs. Average (in)`, names_to = "metric", values_to = "value", values_drop_na = TRUE, values_ptypes = list(value= double())) %>%
+    `% Vert. Drop vs. Average (in)` = c(2, 12, NA_character_, -6, -6, 11, -14, -26),
+    `Average Velo (MPH)` = c(82.8, 90.6, NA_character_, 80.3, 82.2, 90.6, 89.3, 78.5),
+    `Average Spin Rate (RPM)` = c(1642, 2203, NA_character_, 2045, 1886, 2247, 2174, 2245),
+    `Spin Axis (Degrees)` = c(250.5, 202.28, NA_character_, 119.13, 239.28, 205.5, 229.72, 142.84)) %>%
+  pivot_longer(xWOBA:`Spin Axis (Degrees)`, names_to = "metric", values_to = "value", values_drop_na = TRUE, values_ptypes = list(value= double())) %>%
   mutate(weighted_val = freq * value)
 
 # outcomes
@@ -162,12 +165,7 @@ hernandez_pitch_data %>%
 
 
 # changes to individual pitches
-hernandez_pitch_data %>%
-  filter(str_detect(metric, "vs.")) %>%
-  ggplot(aes(Season, value, color = pitch_type, group = pitch_type)) + facet_wrap(vars(metric), scales = "free_y") + geom_point() + geom_line() +
-  labs(y="Value", caption = "Source: Statcast") +
-  scale_y_continuous(labels = function(x) (sprintf("%.3f", x))) + expand_limits(y=0) +
-  ggtitle("Season vs. Horizontal and Vertcal Movement vs. Average Pitch", subtitle = "Elieser Hernandez")
+
 
 
 # focus on changes to slider
@@ -177,6 +175,20 @@ hernandez_pitch_data %>%
 
 # to achieve this effectiveness, hernandez drastically improved the horizontal break on his slider compared to the break of the average pitcher's slider:
 
+hernandez_pitch_data %>%
+  filter(str_detect(metric, "vs.")) %>%
+  ggplot(aes(Season, value, color = pitch_type, group = pitch_type)) + facet_wrap(vars(metric), scales = "free_y") + geom_point() + geom_line() +
+  labs(y="Value", caption = "Source: Statcast") +
+  scale_y_continuous(labels = function(x) (sprintf("%.3f", x))) + expand_limits(y=0) +
+  ggtitle("Season vs. Horizontal and Vertical Movement vs. Average Pitch", subtitle = "Elieser Hernandez")
+
+# velo and spin
+hernandez_pitch_data %>%
+  filter(str_detect(metric, "Velo|Spin")) %>%
+  ggplot(aes(Season, value, color = pitch_type, group = pitch_type)) + facet_wrap(vars(metric), scales = "free_y") + geom_point() + geom_line() +
+  labs(y="Value", caption = "Source: Statcast (Velo and Spin Rate), Brooks Baseball (Spin Axis)") +
+  scale_y_continuous(labels = function(x) (sprintf("%.0f", x))) + expand_limits(y=0) +
+  ggtitle("Season vs. Spin and Velocity", subtitle = "Elieser Hernandez")
 
 
 
