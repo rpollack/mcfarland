@@ -200,7 +200,21 @@ hernandez_gameday_data %>%
 # release points
 hernandez_gameday_data %>%
   ggplot(aes(release_pos_x, release_pos_z, group = pitch_type, color = pitch_type)) + 
-  geom_point() + facet_wrap(vars(game_year)) + expand_limits(y = 0) 
+  geom_point() + facet_wrap(vars(game_year)) + expand_limits(y = 0) + xlim(-5,5) + ylim(0, 10) +
+  ggtitle("Horizontal Release Point vs. Vertical Release Point", subtitle = "Elieser Hernandez, All Pitches") +
+  labs(x="Horizontal Release Point (ft)", y = "Vertical Release Point (ft)")
+
+# show release points becoming more consistent
+hernandez_gameday_data %>%
+  group_by(game_year) %>%
+  summarize(`Horizontal Release Point` = mad(release_pos_x),
+            `Vertical Release Point` = mad(release_pos_z)) %>%
+  pivot_longer(-game_year, names_to = "metric", values_to = "value") %>%
+  mutate(value_in = value * 12) %>%
+  ggplot(aes(as.character(game_year), value_in, group = metric, color = metric)) + geom_point() + geom_line() +
+  labs(x="Season", y = "Median Absolute Deviation (in)", caption = "Source: Statcast") +
+  ggtitle("Season vs. Median Absolute Deviation of Release Points", subtitle = "Elieser Hernandez")
+
 
 hernandez_gameday_data %>%
   filter(pitch_type == "FF") %>%
@@ -210,7 +224,7 @@ hernandez_gameday_data %>%
   mutate(percentage = n / sum(n) * 100) %>%
 #  filter(description %in% c("called_strike", "foul", "foul_bunt", "foul_tip", "swinging_strike")) %>%
   ggplot(aes(as.character(game_year), percentage, group = description, color = description)) + geom_point() + geom_line() +
-  labs(x="Season", y="Percentage of Outcomes") +
+  labs(x="Season", y="Percentage of Outcomes", caption = "Source: Statcast") +
   ggtitle("Season vs. Percentage of Outcomes", subtitle = "Elieser Hernandez, Fastballs")
 
 ```
