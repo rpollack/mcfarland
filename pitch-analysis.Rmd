@@ -91,14 +91,6 @@ code for emilio pagan article.
 
 ```{r}
 
-hernandez_gameday_data <-
-  fg_db %>%
-  tbl("gd_savant_new") %>%
-  filter(player_name == "Elieser Hernandez",
-         pitch_type %in% c("FF", "SL", "CH", "SI")) %>%
-  collect(n=Inf)
-
-
 data %>%
   filter(player_name == "Emilio Pagan") %>%
   filter(pitch_type == "FF") %>%
@@ -133,6 +125,14 @@ read_csv("~/Downloads/Pagan Pitches - Sheet1.csv") %>%
 Elieser Hernandez
 
 ```{r}
+
+hernandez_gameday_data <-
+  fg_db %>%
+  tbl("gd_savant_new") %>%
+  filter(player_name == "Elieser Hernandez",
+         pitch_type %in% c("FF", "SL", "CH", "SI")) %>%
+  collect(n=Inf)
+
 data %>%
   filter(player_name == "Elieser Hernandez") %>%
   filter(pitch_type == "FF") %>%
@@ -190,7 +190,28 @@ hernandez_pitch_data %>%
   scale_y_continuous(labels = function(x) (sprintf("%.0f", x))) + expand_limits(y=0) +
   ggtitle("Season vs. Spin and Velocity", subtitle = "Elieser Hernandez")
 
+# fastball locations
+hernandez_gameday_data %>%
+  filter(pitch_type == "FF") %>%
+  ggplot(aes(plate_x, plate_z)) + geom_point() + facet_wrap(vars(game_year, stand)) +
+  ggtitle("Season vs. Pitch Location", subtitle = "Elieser Hernandez, Fastballs") +
+  labs(x = "Horizontal Pitch Location (ft)", y = "Vertical Pitch Location (ft)")
 
+# release points
+hernandez_gameday_data %>%
+  ggplot(aes(release_pos_x, release_pos_z, group = pitch_type, color = pitch_type)) + 
+  geom_point() + facet_wrap(vars(game_year)) + expand_limits(y = 0) 
+
+hernandez_gameday_data %>%
+  filter(pitch_type == "FF") %>%
+  group_by(game_year, description) %>%
+  count() %>%
+  group_by(game_year) %>%
+  mutate(percentage = n / sum(n) * 100) %>%
+#  filter(description %in% c("called_strike", "foul", "foul_bunt", "foul_tip", "swinging_strike")) %>%
+  ggplot(aes(as.character(game_year), percentage, group = description, color = description)) + geom_point() + geom_line() +
+  labs(x="Season", y="Percentage of Outcomes") +
+  ggtitle("Season vs. Percentage of Outcomes", subtitle = "Elieser Hernandez, Fastballs")
 
 ```
 
