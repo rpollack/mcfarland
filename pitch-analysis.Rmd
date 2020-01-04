@@ -7,6 +7,7 @@ library(tidytext) # for reorder_within: https://juliasilge.com/blog/reorder-with
 library(gamlss)
 library(styler)
 library(ggridges)
+library(glue)
 
 fgt <- theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
@@ -369,25 +370,30 @@ by_pitcher %>% ggplot(aes(good_pitch_percentage)) + geom_histogram() + facet_wra
 
 ```
 
+graphs and such
+
 ```{r, fig.height = 3}
+# 10 players who improved the most from 2018 to 2019, grouped by position
 
-# # plot the 25 best relievers
-# good_pitches_est %>%
-#   filter(position == "RP") %>%
-#   arrange(desc(est_good_pitch_rate)) %>%
-#   filter(row_number() <= 25) %>%
-#   ggplot(aes(reorder(player_name, est_good_pitch_rate), est_good_pitch_rate)) + coord_flip() +
-#   geom_point() + geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) +
-#   labs(x = "", y = "Estimated Good-Pitch Rate with 95% Credible Interval") +
-#   ggtitle("Highest Good-Pitch Rates",
-#     subtitle = "Relievers"
-#   ) + facet_wrap(vars(game_year), scales = "free_y")
+current_year <- 2019
 
-# plot the 10 best relievers and the 10 best starters each year
-# TODO: find the function online that lets you reorder bars within facets. 
+good_pitches_est %>%
+  group_by(player_name, pitcher) %>%
+  arrange(game_year, player_name, .by_group = TRUE) %>%
+  mutate(good_pitch_change = est_good_pitch_rate - lag(est_good_pitch_rate)) %>%
+  filter(game_year == current_year, !is.na(good_pitch_change)) %>%
+  group_by(position) %>%
+  top_n(10, wt = good_pitch_change) %>%
+  mutate(player_name = reorder_within(player_name, good_pitch_change, position)) %>%
+  ggplot(aes(reorder(player_name, good_pitch_change), good_pitch_change)) + geom_col() +
+  coord_flip() + facet_wrap(vars(position), scales = "free_y") +
+  scale_x_reordered() + labs(x="") +
+  ggtitle(glue("Most Improved Pitchers, {current_year - 1} - {current_year}"))
+
+# best pitchers of each type each year
 good_pitches_est %>%
   group_by(game_year, position) %>%
-  arrange(desc(est_good_pitch_rate)) %>%
+  arrange(desc(est_good_pitch_rate, .by_group = TRUE)) %>%
   filter(row_number() <= 10) %>%
   ungroup() %>%
   unite(facet, position, game_year, sep = " ") %>%
@@ -398,26 +404,22 @@ good_pitches_est %>%
   ggtitle("Highest Good-Pitch Rates") +
   scale_x_reordered()
 
-# worst pitchers
-plt <-
-  good_pitches_est %>%
-  group_by(position) %>%
-  arrange(est_good_pitch_rate) %>%
-  filter(row_number() <= 10) %>%
-  ggplot(aes(reorder(player_name, est_good_pitch_rate), est_good_pitch_rate)) + coord_flip() +
-  geom_point(size = 0.7) + geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) + facet_grid(vars(position), scales = "free_y") +
-  labs(x = "", y = "Estimated Good-Pitch Rate with 95% Credible Interval") +
-  ggtitle("Lowest Good-Pitch Rates, 2019")
+# worst pitchers of each type each year
+# THIS IS NOT WORKING YET
+# good_pitches_est %>%
+#   group_by(game_year, position) %>%
+#   arrange(est_good_pitch_rate, .by_group = TRUE) %>%
+#   filter(row_number() >= 10) %>%
+#   ungroup() %>%
+#   unite(facet, position, game_year, sep = " ") %>%
+#   mutate(player_name = reorder_within(player_name, est_good_pitch_rate, facet)) %>%
+#   ggplot(aes(reorder(player_name, est_good_pitch_rate), est_good_pitch_rate)) + coord_flip() +
+#   geom_point(size = 0.7) + geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) + facet_wrap(vars(facet), scales = "free_y") +
+#   labs(x = "", y = "Estimated Good-Pitch Rate with 95% Credible Interval") +
+#   ggtitle("Lowest Good-Pitch Rates") +
+#   scale_x_reordered()
 
-# 
-# ggplot(good_pitches_est %>% filter(total_pitches > 250), aes(est_good_pitch_rate, next_ra9)) + geom_point() + geom_smooth(method = "lm")
-# 
-# 
-# filtered <- good_pitches_est %>%
-#   filter(total_pitches >= 100)
-# 
-# mdl <- lm(next_ra9 ~ est_good_pitch_rate,
-#           data = filtered)
+
 
 ```
 
