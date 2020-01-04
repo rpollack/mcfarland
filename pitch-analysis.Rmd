@@ -194,7 +194,7 @@ hernandez_pitch_data %>%
 # fastball locations
 hernandez_gameday_data %>%
   filter(pitch_type == "FF") %>%
-  ggplot(aes(plate_x, plate_z)) + geom_point() + facet_wrap(vars(game_year, stand)) +
+  ggplot(aes(plate_x, plate_z)) + geom_point() + facet_wrap(vars(game_year)) +
   ggtitle("Season vs. Pitch Location", subtitle = "Elieser Hernandez, Fastballs") +
   labs(x = "Horizontal Pitch Location (ft)", y = "Vertical Pitch Location (ft)")
 
