@@ -140,7 +140,10 @@ data %>%
   group_by(game_year) %>%
   summarize(mean_vertical_height = mean(plate_z))
 
-#build tibble from statcast data and plot YoY changes. source: https://baseballsavant.mlb.com/savant-player/elieser-hernandez-622694?stats=statcast-r-pitching-mlb
+#build tibble from statcast data and plot YoY changes. 
+
+#source: https://baseballsavant.mlb.com/savant-player/elieser-hernandez-622694?stats=statcast-r-pitching-mlb, except for vertical drop, which is from http://www.brooksbaseball.net/velo.php?player=622694&b_hand=-1&time=year&minmax=ci&var=pfx_z&s_type=2&startDate=03/30/2007&endDate=01/06/2020&gFilt=&pFilt=FA|SL because it does not include gravity. i removed gravity in order to match eno's chart at The Athletic (linked below)
+
 hernandez_pitch_data <-
 crossing(Season = c("2018", "2019"),
        pitch_type = c("FF", "SL", "CH", "SI")) %>%
@@ -148,8 +151,9 @@ crossing(Season = c("2018", "2019"),
     freq = c(.15, .621, 0, .229, .114, .536, .017, .333),
     xWOBA = c(.323, .356, NA_character_, .332, .261, .341, .271, .206),
     `Whiff%` = c(34.2, 16.1, NA_character_, 27.9, 14.5, 20.5, 9.1, 37.4),
-    `% Horiz. Break vs. Average (in)` = c(11, -24, NA_character_, -25, 3, -5, -6, -4),
-    `% Vert. Drop vs. Average (in)` = c(2, 12, NA_character_, -6, -6, 11, -14, -26),
+    `Vertical Drop (in.)` = c(NA_character_, 9.98, NA_character_, 1.32, NA_character_, 9.52, NA_character_, 5.98),
+    `% Horiz. Break vs. Average` = c(11, -24, NA_character_, -25, 3, -5, -6, -4),
+    `% Vert. Drop vs. Average` = c(2, 12, NA_character_, -6, -6, 11, -14, -26),
     `Average Velo (MPH)` = c(82.8, 90.6, NA_character_, 80.3, 82.2, 90.6, 89.3, 78.5),
     `Average Spin Rate (RPM)` = c(1642, 2203, NA_character_, 2045, 1886, 2247, 2174, 2245),
     `Spin Axis (Degrees)` = c(250.5, 202.28, NA_character_, 119.13, 239.28, 205.5, 229.72, 142.84)) %>%
@@ -216,7 +220,7 @@ hernandez_gameday_data %>%
   labs(x="Season", y = "Median Absolute Deviation (in)", caption = "Source: Statcast") +
   ggtitle("Season vs. Median Absolute Deviation of Release Points", subtitle = "Elieser Hernandez")
 
-
+# graph fastball outcomes
 hernandez_gameday_data %>%
   filter(pitch_type == "FF") %>%
   group_by(game_year, description) %>%
@@ -227,6 +231,24 @@ hernandez_gameday_data %>%
   ggplot(aes(as.character(game_year), percentage, group = description, color = description)) + geom_point() + geom_line() +
   labs(x="Season", y="Percentage of Outcomes", caption = "Source: Statcast") +
   ggtitle("Season vs. Percentage of Outcomes", subtitle = "Elieser Hernandez, Fastballs")
+
+# graph differences in various metrics for fastball & slider. reference: https://theathletic.com/1133082/2019/08/13/sarris-what-makes-a-slider-good/
+hernandez_pitch_data %>% 
+  dplyr::select(-weighted_val, -freq) %>%
+  filter(metric %in% c("Vertical Drop (in.)", "Average Velo (MPH)", "Spin Axis (Degrees)"),
+         pitch_type %in% c("FF", "SL")) %>%
+  group_by(Season, metric) %>%
+  arrange(pitch_type, .by_group = TRUE) %>%
+  mutate(Difference = abs(value - lead(value))) %>%
+  filter(!is.na(Difference)) %>%
+  ggplot(aes(Season, Difference, group = 1)) + geom_point() + geom_line() + facet_wrap(vars(metric), scales = "free_y") +
+  expand_limits(y=0) +
+  ggtitle("Season vs. Difference in Fastball/Slider Metrics", subtitle = "Elieser Hernandez") +
+  labs(caption = "Source: Statcast")
+  
+#2018 est run value: light blue, estimated in the low 90's. 
+
+#2019 est run value:  
 
 ```
 
