@@ -1,0 +1,162 @@
+---
+title: "eliser-hernandez-2019"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(RMySQL)
+library(tidytext) # for reorder_within: https://juliasilge.com/blog/reorder-within/
+library(gamlss)
+library(styler)
+library(ggridges)
+library(glue)
+
+fgt <- theme(
+  panel.background = element_rect(color = "lightgrey", fill = "white"),
+  axis.title = element_text(family = "Lato"),
+  axis.text = element_text(family = "Lato"),
+  legend.title = element_text(family = "Lato"),
+  legend.text = element_text(family = "Lato"),
+  legend.background = element_rect(fill = "white"),
+  legend.key = element_rect(fill = "white"),
+  plot.title = element_text(family = "Lato"),
+  panel.grid.major = element_line(size = .1, color = "lightgrey"),
+  panel.grid.minor = element_line(size = 0),
+  # strip.background = element_rect(fill = "#50ae26"),
+  strip.text = element_text(family = "Lato")
+)
+
+fg_db <- dplyr::src_mysql(
+  dbname = Sys.getenv("FG_DB"),
+  host = Sys.getenv("FG_HOST"),
+  user = Sys.getenv("FG_USER"),
+  password = Sys.getenv("FG_PW")
+)
+```
+
+
+```{r}
+
+hernandez_gameday_data <-
+  fg_db %>%
+  tbl("gd_savant_new") %>%
+  filter(player_name == "Elieser Hernandez",
+         pitch_type %in% c("FF", "SL", "CH", "SI")) %>%
+  collect(n=Inf)
+
+data %>%
+  filter(player_name == "Elieser Hernandez") %>%
+  filter(pitch_type == "FF") %>%
+  group_by(game_year) %>%
+  summarize(mean_vertical_height = mean(plate_z))
+
+#build tibble from statcast data and plot YoY changes. 
+
+#source: https://baseballsavant.mlb.com/savant-player/elieser-hernandez-622694?stats=statcast-r-pitching-mlb, except for vertical drop, which is from http://www.brooksbaseball.net/velo.php?player=622694&b_hand=-1&time=year&minmax=ci&var=pfx_z&s_type=2&startDate=03/30/2007&endDate=01/06/2020&gFilt=&pFilt=FA|SL because it does not include gravity. i removed gravity in order to match eno's chart at The Athletic (linked below)
+
+hernandez_pitch_data <-
+crossing(Season = c("2018", "2019"),
+       pitch_type = c("FF", "SL", "CH", "SI")) %>%
+  mutate(
+    freq = c(.15, .621, 0, .229, .114, .536, .017, .333),
+    xWOBA = c(.323, .356, NA_character_, .332, .261, .341, .271, .206),
+    `Whiff%` = c(34.2, 16.1, NA_character_, 27.9, 14.5, 20.5, 9.1, 37.4),
+    `Vertical Drop (in.)` = c(NA_character_, 9.98, NA_character_, 1.32, NA_character_, 9.52, NA_character_, 5.98),
+    `% Horiz. Break vs. Average` = c(11, -24, NA_character_, -25, 3, -5, -6, -4),
+    `% Vert. Drop vs. Average` = c(2, 12, NA_character_, -6, -6, 11, -14, -26),
+    `Average Velo (MPH)` = c(82.8, 90.6, NA_character_, 80.3, 82.2, 90.6, 89.3, 78.5),
+    `Average Spin Rate (RPM)` = c(1642, 2203, NA_character_, 2045, 1886, 2247, 2174, 2245),
+    `Spin Axis (Degrees)` = c(250.5, 202.28, NA_character_, 119.13, 239.28, 205.5, 229.72, 142.84)) %>%
+  pivot_longer(xWOBA:`Spin Axis (Degrees)`, names_to = "metric", values_to = "value", values_drop_na = TRUE, values_ptypes = list(value= double())) %>%
+  mutate(weighted_val = freq * value)
+
+# outcomes
+hernandez_pitch_data %>%
+  filter(metric %in% c("xWOBA", "Whiff%")) %>%
+  ggplot(aes(Season, value, color = pitch_type, group = pitch_type)) + facet_wrap(vars(metric), scales = "free_y") + geom_point() + geom_line() +
+  labs(y="Value", caption = "Source: Statcast") +
+  scale_y_continuous(labels = function(x) (sprintf("%.3f", x))) + expand_limits(y=0) +
+  ggtitle("Season vs. Whiff Rate and xWOBA", subtitle = "Elieser Hernandez")
+
+
+# changes to individual pitches
+
+
+
+# focus on changes to slider
+#https://www.beyondtheboxscore.com/2019/7/10/20688274/elieser-hernandez-miami-marlins-rule-5-draft-slider-movement-caleb-smith-sandy-alcantara
+
+# https://prospects365.com/2019/09/09/elieser-hernandez-is-worthy-of-your-consideration/
+
+# to achieve this effectiveness, hernandez drastically improved the horizontal break on his slider compared to the break of the average pitcher's slider:
+
+hernandez_pitch_data %>%
+  filter(str_detect(metric, "vs.")) %>%
+  ggplot(aes(Season, value, color = pitch_type, group = pitch_type)) + facet_wrap(vars(metric), scales = "free_y") + geom_point() + geom_line() +
+  labs(y="Value", caption = "Source: Statcast") +
+  scale_y_continuous(labels = function(x) (sprintf("%.3f", x))) + expand_limits(y=0) +
+  ggtitle("Season vs. Horizontal and Vertical Movement vs. Average Pitch", subtitle = "Elieser Hernandez")
+
+# velo and spin
+hernandez_pitch_data %>%
+  filter(str_detect(metric, "Velo|Spin")) %>%
+  ggplot(aes(Season, value, color = pitch_type, group = pitch_type)) + facet_wrap(vars(metric), scales = "free_y") + geom_point() + geom_line() +
+  labs(y="Value", caption = "Source: Statcast (Velo and Spin Rate), Brooks Baseball (Spin Axis)") +
+  scale_y_continuous(labels = function(x) (sprintf("%.0f", x))) + expand_limits(y=0) +
+  ggtitle("Season vs. Spin and Velocity", subtitle = "Elieser Hernandez")
+
+# fastball locations
+hernandez_gameday_data %>%
+  filter(pitch_type == "FF") %>%
+  ggplot(aes(plate_x, plate_z)) + geom_point() + facet_wrap(vars(game_year)) +
+  ggtitle("Season vs. Pitch Location", subtitle = "Elieser Hernandez, Fastballs") +
+  labs(x = "Horizontal Pitch Location (ft)", y = "Vertical Pitch Location (ft)")
+
+# release points
+hernandez_gameday_data %>%
+  ggplot(aes(release_pos_x, release_pos_z, group = pitch_type, color = pitch_type)) + 
+  geom_point(alpha = 0.25) + facet_wrap(vars(game_year)) + expand_limits(y = 0) + xlim(-5,5) + ylim(0, 10) +
+  ggtitle("Horizontal Release Point vs. Vertical Release Point", subtitle = "Elieser Hernandez, All Pitches") +
+  labs(x="Horizontal Release Point (ft)", y = "Vertical Release Point (ft)")
+
+# show release points becoming more consistent
+hernandez_gameday_data %>%
+  group_by(game_year) %>%
+  summarize(`Horizontal Release Point` = mad(release_pos_x),
+            `Vertical Release Point` = mad(release_pos_z)) %>%
+  pivot_longer(-game_year, names_to = "metric", values_to = "value") %>%
+  mutate(value_in = value * 12) %>%
+  ggplot(aes(as.character(game_year), value_in, group = metric, color = metric)) + geom_point() + geom_line() +
+  labs(x="Season", y = "Median Absolute Deviation (in)", caption = "Source: Statcast") +
+  ggtitle("Season vs. Median Absolute Deviation of Release Points", subtitle = "Elieser Hernandez")
+
+# graph fastball outcomes
+hernandez_gameday_data %>%
+  filter(pitch_type == "FF") %>%
+  group_by(game_year, description) %>%
+  count() %>%
+  group_by(game_year) %>%
+  mutate(percentage = n / sum(n) * 100) %>%
+#  filter(description %in% c("called_strike", "foul", "foul_bunt", "foul_tip", "swinging_strike")) %>%
+  ggplot(aes(as.character(game_year), percentage, group = description, color = description)) + geom_point() + geom_line() +
+  labs(x="Season", y="Percentage of Outcomes", caption = "Source: Statcast") +
+  ggtitle("Season vs. Percentage of Outcomes", subtitle = "Elieser Hernandez, Fastballs")
+
+# graph differences in various metrics for fastball & slider. reference: https://theathletic.com/1133082/2019/08/13/sarris-what-makes-a-slider-good/
+hernandez_pitch_data %>% 
+  dplyr::select(-weighted_val, -freq) %>%
+  filter(metric %in% c("Vertical Drop (in.)", "Average Velo (MPH)", "Spin Axis (Degrees)"),
+         pitch_type %in% c("FF", "SL")) %>%
+  group_by(Season, metric) %>%
+  arrange(pitch_type, .by_group = TRUE) %>%
+  mutate(Difference = abs(value - lead(value))) %>%
+  filter(!is.na(Difference)) %>%
+  ggplot(aes(Season, Difference, group = 1)) + geom_point() + geom_line() + facet_wrap(vars(metric), scales = "free_y") +
+  expand_limits(y=0) +
+  ggtitle("Season vs. Difference in Fastball/Slider Metrics", subtitle = "Elieser Hernandez") +
+  labs(caption = "Source: Statcast (Velo & Spin Axis), Brooks Baseball (Vertical Drop)")
+  
+
+
+```
