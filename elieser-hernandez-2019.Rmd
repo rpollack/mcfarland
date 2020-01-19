@@ -71,13 +71,16 @@ crossing(Season = c("2018", "2019"),
   pivot_longer(xWOBA:`Spin Axis (Degrees)`, names_to = "metric", values_to = "value", values_drop_na = TRUE, values_ptypes = list(value= double())) %>%
   mutate(weighted_val = freq * value)
 
+
+
 # outcomes
 hernandez_pitch_data %>%
   filter(metric %in% c("xWOBA", "Whiff%")) %>%
   ggplot(aes(Season, value, color = pitch_type, group = pitch_type)) + facet_wrap(vars(metric), scales = "free_y") + geom_point() + geom_line() +
   labs(y="Value", caption = "Source: Statcast") +
   scale_y_continuous(labels = function(x) (sprintf("%.3f", x))) + expand_limits(y=0) +
-  ggtitle("Season vs. Whiff Rate and xWOBA", subtitle = "Elieser Hernandez")
+  ggtitle("Season vs. Whiff Rate and xWOBA", subtitle = "Elieser Hernandez") +
+  ggsave("hernandez-pitch-outcomes.png")
 
 
 # changes to individual pitches
@@ -96,7 +99,8 @@ hernandez_pitch_data %>%
   ggplot(aes(Season, value, color = pitch_type, group = pitch_type)) + facet_wrap(vars(metric), scales = "free_y") + geom_point() + geom_line() +
   labs(y="Value", caption = "Source: Statcast") +
   scale_y_continuous(labels = function(x) (sprintf("%.3f", x))) + expand_limits(y=0) +
-  ggtitle("Season vs. Horizontal and Vertical Movement vs. Average Pitch", subtitle = "Elieser Hernandez")
+  ggtitle("Season vs. Horizontal and Vertical Movement vs. Average Pitch", subtitle = "Elieser Hernandez") +
+  ggsave("hernandez-movement-vs-average.png")
 
 # velo and spin
 hernandez_pitch_data %>%
@@ -104,21 +108,24 @@ hernandez_pitch_data %>%
   ggplot(aes(Season, value, color = pitch_type, group = pitch_type)) + facet_wrap(vars(metric), scales = "free_y") + geom_point() + geom_line() +
   labs(y="Value", caption = "Source: Statcast (Velo and Spin Rate), Brooks Baseball (Spin Axis)") +
   scale_y_continuous(labels = function(x) (sprintf("%.0f", x))) + expand_limits(y=0) +
-  ggtitle("Season vs. Spin and Velocity", subtitle = "Elieser Hernandez")
+  ggtitle("Season vs. Spin and Velocity", subtitle = "Elieser Hernandez") +
+  ggsave("hernandez-velo-and-spin.png")
 
 # fastball locations
 hernandez_gameday_data %>%
   filter(pitch_type == "FF") %>%
   ggplot(aes(plate_x, plate_z)) + geom_point() + facet_wrap(vars(game_year)) +
   ggtitle("Season vs. Pitch Location", subtitle = "Elieser Hernandez, Fastballs") +
-  labs(x = "Horizontal Pitch Location (ft)", y = "Vertical Pitch Location (ft)")
+  labs(x = "Horizontal Pitch Location (ft)", y = "Vertical Pitch Location (ft)", caption = "Source: Statcast") +
+  ggsave("hernandez-fastball-locations.png")
 
 # release points
 hernandez_gameday_data %>%
   ggplot(aes(release_pos_x, release_pos_z, group = pitch_type, color = pitch_type)) + 
   geom_point(alpha = 0.25) + facet_wrap(vars(game_year)) + expand_limits(y = 0) + xlim(-5,5) + ylim(0, 10) +
   ggtitle("Horizontal Release Point vs. Vertical Release Point", subtitle = "Elieser Hernandez, All Pitches") +
-  labs(x="Horizontal Release Point (ft)", y = "Vertical Release Point (ft)")
+  labs(x="Horizontal Release Point (ft)", y = "Vertical Release Point (ft)", caption = "Source: Statcast") +
+  ggsave("hernandez-release-points.png")
 
 # show release points becoming more consistent
 hernandez_gameday_data %>%
@@ -129,7 +136,8 @@ hernandez_gameday_data %>%
   mutate(value_in = value * 12) %>%
   ggplot(aes(as.character(game_year), value_in, group = metric, color = metric)) + geom_point() + geom_line() +
   labs(x="Season", y = "Median Absolute Deviation (in)", caption = "Source: Statcast") +
-  ggtitle("Season vs. Median Absolute Deviation of Release Points", subtitle = "Elieser Hernandez")
+  ggtitle("Season vs. Median Absolute Deviation of Release Points", subtitle = "Elieser Hernandez") +
+  ggsave("hernandez-release-point-mad.png")
 
 # graph fastball outcomes
 hernandez_gameday_data %>%
@@ -155,7 +163,8 @@ hernandez_pitch_data %>%
   ggplot(aes(Season, Difference, group = 1)) + geom_point() + geom_line() + facet_wrap(vars(metric), scales = "free_y") +
   expand_limits(y=0) +
   ggtitle("Season vs. Difference in Fastball/Slider Metrics", subtitle = "Elieser Hernandez") +
-  labs(caption = "Source: Statcast (Velo & Spin Axis), Brooks Baseball (Vertical Drop)")
+  labs(caption = "Source: Statcast (Velocity), Brooks Baseball (Spin Axis, Vertical Drop)") +
+  ggsave("hernandez-sl-ff-differentials.png")
   
 
 
