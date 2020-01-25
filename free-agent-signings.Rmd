@@ -311,22 +311,23 @@ show the average number of days it takes players to sign a FA contract
 
 ```{r}
 
-# mean time to sign overall, by year
+# median time to sign, by offseason. using median since most years are skewed left or right
 all_free_agents %>%
   group_by(offseason) %>%
-  summarize(mean_days_to_sign = round(mean(days_to_sign, na.rm = TRUE), 1)) %>%
-  ggplot(aes(offseason, mean_days_to_sign)) +
-  geom_point() + geom_line() +
-  ggtitle("Offseason vs. Average Time to Sign Contract",
-    subtitle = "Free Agents"
-  ) + fgt +
-  expand_limits(y = 0) +
-  labs(
-    y = "Avg. # of Days 
+  summarize(median_sign_days = median(days_to_sign, na.rm = TRUE)) %>%
+  ggplot(aes(offseason, median_sign_days)) + geom_point() + geom_line() +
+  expand_limits(y=0) + fgt +
+    labs(
+    y = "Median # of Days 
        between Nov 1st and Contract Signing", x = "Offseason",
     caption = "Source: Baseball Reference"
   ) +
-  scale_x_continuous(breaks=seq(start_year, current_year))
+  scale_x_continuous(breaks=seq(start_year, current_year)) +
+  ggtitle("Offseason vs. Median Time to Sign Contract",
+    subtitle = "Free Agents through January 25, 2020"
+  ) + 
+  ggsave("free-agents-median-time-to-sign.png")
+
 
 all_free_agents %>%
   group_by(offseason, position) %>%
@@ -455,7 +456,7 @@ money_differences <-
   all_free_agents %>%
   group_by(offseason, position, player_type, age_bucket) %>%
   summarize(median_signing_salary = round(median(sign_salary, na.rm = TRUE), 1)) %>%
-  filter(offseason %in% c(2017, 2018)) %>%
+  filter(offseason %in% c(2019, 2018)) %>%
   group_by(position, player_type, age_bucket) %>%
   arrange(offseason) %>%
   mutate(
