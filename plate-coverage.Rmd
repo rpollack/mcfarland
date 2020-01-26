@@ -43,21 +43,21 @@ id_info <- fg_db %>%
 
 fg_info <- fg_db %>%
   tbl("player_info") %>%
-  select(PlayerId, FirstName, LastName, BISPosition) %>%
+  dplyr::select(PlayerId, FirstName, LastName, BISPosition) %>%
   collect(n=Inf)
 
 batting_war <- fg_db %>%
   tbl("stats_batting") %>%
   filter(Type == 0, 
          Season >= 2015) %>%
-  select(playerid, Season, wrc_plus = `wRC+`) %>%
+  dplyr::select(playerid, Season, wrc_plus = `wRC+`) %>%
   collect(n=Inf)
 
 savant_data_plate_coverage <- fg_db %>%
   tbl("gd_savant_new") %>%
-  select(batter, player_name, game_year, description, plate_x, plate_z) %>%
-  inner_join(id_info, by=c("batter" = "mlbamid")) %>%
+  dplyr::select(batter, player_name, game_year, description, plate_x, plate_z) %>%
   collect(n=Inf) %>%
+  inner_join(id_info, by=c("batter" = "mlbamid")) %>%
   filter(str_detect(description, "hit_into_play")) %>%
   mutate(plate_x = as.numeric(plate_x),
          plate_z = as.numeric(plate_z)) %>%
@@ -90,17 +90,17 @@ plate_coverage_raw <- savant_data_plate_coverage %>%
 
 high_achievers <- plate_coverage_raw %>%
   filter(wrc_plus >= 160,
-         game_year < 2017) %>%
+         game_year < 2020) %>%
   ungroup() %>%
-  select(-zCoverage) %>%
+  dplyr::select(-zCoverage) %>%
   mutate(wrc_plus = round(wrc_plus, 0)) %>%
   summarize(mean_dist_from_optimal = mean(dist_from_optimal))
 
 normies <- plate_coverage_raw %>%
   filter(wrc_plus < 160,
-         game_year < 2017) %>%
+         game_year < 2020) %>%
   ungroup() %>%
-  select(-zCoverage) %>%
+  dplyr::select(-zCoverage) %>%
   mutate(wrc_plus = round(wrc_plus, 0)) %>%
   summarize(mean_dist_from_optimal = mean(dist_from_optimal))
 
@@ -126,14 +126,14 @@ The following boxplot shows the players with the worst and best horizontal plate
 
 ```{r}
 example_horiz_coverage <- savant_data_plate_coverage %>%
-  filter(game_year == 2016,
+  filter(game_year == 2019,
          Name %in% c("Caleb Joseph", "Delino DeShields")) %>%
-  select(Name, px_in)
+  dplyr::select(Name, px_in)
 
 example_vertical_coverage <- savant_data_plate_coverage %>%
-  filter(game_year == 2016,
+  filter(game_year == 2019,
          Name %in% c("Taylor Motter", "Corey Dickerson")) %>%
-  select(Name, pz_in)
+  dplyr::select(Name, pz_in)
 
 ```
 
@@ -173,12 +173,12 @@ ggplot(example_vertical_coverage, aes(y=pz_in, x=Name)) + geom_boxplot() + geom_
 Multiplaying horizontal by vertical coverage tells us who had the most overall coverage in 2016, with a minimum of 50 contacted balls. The leaders:
 
 ```{r}
-top_10_zone_2016 <- plate_coverage_raw %>%
-  filter(game_year == 2016) %>%
-  select(Name, `Plate Coverage (sq. in)` = total_coverage) %>%
+top_10_zone_2019 <- plate_coverage_raw %>%
+  filter(game_year == 2019) %>%
+  dplyr::select(Name, `Plate Coverage (sq. in)` = total_coverage) %>%
   arrange(desc(`Plate Coverage (sq. in)`))
 
-ggplot(top_10_zone_2016 %>% head(10), aes(reorder(Name, `Plate Coverage (sq. in)`), `Plate Coverage (sq. in)`)) + geom_bar(stat="identity") + coord_flip()  + labs(x="") + ggtitle("Largest Plate Coverage, 2016") + fgt
+ggplot(top_10_zone_2019 %>% head(10), aes(reorder(Name, `Plate Coverage (sq. in)`), `Plate Coverage (sq. in)`)) + geom_bar(stat="identity") + coord_flip()  + labs(x="") + ggtitle("Largest Plate Coverage, 2019") + fgt
 ```
 
 Joseph and Dickerson lead the list, as does free-swinger Salvador Perez. (Former) teammates Matt Wieters and Adam Jones, another free-swinger, come in next. Except for Joseph, these guys are all full-time players. Their bats can reach a large variety of pitches in the strike zone.
@@ -190,12 +190,12 @@ When thinking about plate coverage, consider that a baseball is about 2.9 inches
 Now the 2016 laggards, those with the smallest plate coverage in 2016:
 
 ```{r}
-bottom_10_zone_2016 <- plate_coverage_raw %>%
-  filter(game_year == 2016) %>%
-  select(Name, `Plate Coverage (sq. in)` = total_coverage) %>%
-  arrange(desc(`Plate Coverage (sq. in)`))
-
-ggplot(top_10_zone_2016 %>% tail(10), aes(reorder(Name, `Plate Coverage (sq. in)`), `Plate Coverage (sq. in)`)) + geom_bar(stat="identity") + coord_flip()  + labs(x="") + ggtitle("Smallest Plate Coverage, 2016") + fgt
+plate_coverage_raw %>%
+  filter(game_year == 2019) %>%
+  dplyr::select(Name, `Plate Coverage (sq. in)` = total_coverage) %>%
+  arrange(desc(`Plate Coverage (sq. in)`)) %>%
+  tail(10) %>%
+  ggplot(aes(reorder(Name, `Plate Coverage (sq. in)`), -`Plate Coverage (sq. in)`)) + geom_bar(stat="identity") + coord_flip()  + labs(x="") + ggtitle("Smallest Plate Coverage, 2016") + fgt
 ```
 
 This list contains up-the-middle players galore: Alex Avila, Josh Phegley, Greg Garcia, Francisco Cervelli, Tommy La Stella, Nick Hundley, and Delino DeShields. Motter is a utility player but has spent most of his time at shortstop. None of these guys are particularly good hitters. Now we may have an idea as to why. Pitchers have an easier time with these guys because they can't reach as many balls. The guys in this list mostly rely on their defense to stick in the majors. Alex Avila's coverage fits about 8.6 baseballs in it.
@@ -208,7 +208,7 @@ Compariing league-worst Avila to league-best Joseph, we see the differences visu
 joseph_avila <- savant_data_plate_coverage %>%
   filter(game_year == 2016,
          Name %in% c("Caleb Joseph", "Alex Avila")) %>%
-  select(Name, px_in, pz_in)
+  dplyr::select(Name, px_in, pz_in)
 
 ggplot(joseph_avila, aes(px_in, pz_in)) + geom_point() + facet_grid(~Name) + ggtitle("Locations of Pitches Hit Fair, 2016") +
   labs(x="Horizontal location (inches, catcher's perspective)", y="Vertical location (inches)") + fgt
@@ -224,7 +224,7 @@ The following graph gives us an idea:
 ```{r}
 
 plate_coverage_2016 <- plate_coverage_raw %>%
-  filter(game_year <= 2016)
+  filter(game_year <= 2020)
 
 plate_coverage_model <- lm(plate_coverage_2016$wrc_plus ~ plate_coverage_2016$total_coverage)
 summary(plate_coverage_model)
@@ -237,7 +237,7 @@ summary(plate_coverage_ex)
 
 ggplot(plate_coverage_2016, aes(total_coverage, wrc_plus)) + geom_point() + 
   geom_smooth(method="lm", formula = y ~ poly(x, 2)) + 
-  ggtitle("Plate Coverage vs. wRC+, 2015 - 2016") + labs(y="wRC+", x="Plate Coverage (sq. in)") + fgt
+  ggtitle("Plate Coverage vs. wRC+, 2015 - 2019") + labs(y="wRC+", x="Plate Coverage (sq. in)") + fgt
 
 
 
@@ -259,9 +259,9 @@ Eyeballing the peak of 60 square inches, here are the players who came closest t
 
 ```{r}
 peak_2016 <- plate_coverage_raw %>%
-  filter(game_year == 2016) %>%
+  filter(game_year == 2019) %>%
   ungroup() %>%
-  select(Name, dist_from_optimal, wrc_plus) %>%
+  dplyr::select(Name, dist_from_optimal, wrc_plus) %>%
   mutate(wrc_plus = round(wrc_plus, 0)) %>%
   arrange(dist_from_optimal, wrc_plus) %>%
   head(10) %>%
@@ -277,10 +277,10 @@ Now those furthest from the optimal plate coverage:
 
 ```{r}
 worst_2016 <- plate_coverage_raw %>%
-  filter(game_year == 2016) %>% 
+  filter(game_year == 2019) %>% 
   ungroup() %>%
   mutate(wrc_plus = round(wrc_plus, 0)) %>%
-  select(Name, dist_from_optimal, wrc_plus) %>%
+  dplyr::select(Name, dist_from_optimal, wrc_plus) %>%
   arrange(dist_from_optimal) %>%
   tail(10) %>%
   write_csv("plate-coverage-sucks.csv")
@@ -309,7 +309,7 @@ plate_coverage_change <- plate_coverage_raw %>%
   filter(!is.na(total_coverage_diff))
 
 plate_coverage_change_best <- plate_coverage_change %>%
-  select(Name, optim_diff, wrc_diff) %>%
+  dplyr::select(Name, optim_diff, wrc_diff) %>%
   arrange(optim_diff) 
 
 ggplot(plate_coverage_change, aes(optim_diff, wrc_diff)) + geom_point() + geom_smooth(method="lm") +
@@ -330,7 +330,7 @@ On the x-axis, negative numbers indicate plate coverages that moved closer to th
 peraza_yoy <- savant_data_plate_coverage %>%
   filter(game_year >= 2016,
          Name == "Jose Peraza") %>%
-  select(Name, game_year, px_in, pz_in)
+  dplyr::select(Name, game_year, px_in, pz_in)
 
 ggplot(peraza_yoy, aes(px_in, pz_in)) + geom_point() + facet_grid(~game_year) + ggtitle("Jose Peraza's Plate Coverage") +
   labs(x="Horizontal location (inches, catcher's perspective)", y="Vertical location (inches)") + fgt
@@ -338,7 +338,7 @@ ggplot(peraza_yoy, aes(px_in, pz_in)) + geom_point() + facet_grid(~game_year) + 
 jones_yoy <- savant_data_plate_coverage %>%
   filter(game_year >= 2016,
          Name == "Adam Jones") %>%
-  select(Name, game_year, px_in, pz_in)
+  dplyr::select(Name, game_year, px_in, pz_in)
 
 ggplot(jones_yoy, aes(px_in, pz_in)) + geom_point() + facet_grid(~game_year) + ggtitle("Adam Jones' Plate Coverage") +
   labs(x="Horizontal location (inches, catcher's perspective)", y="Vertical location (inches)") + fgt
@@ -399,8 +399,8 @@ Let's return to the notion that Mike Trout, with his plate coverage of 53 inches
 The following graph reveals this curve:
 
 ```{r}
-ggplot(plate_coverage_raw %>% filter(game_year == 2016), aes(total_coverage, wrc_plus)) + geom_point() + geom_smooth(method="loess")  + 
-  ggtitle("Plate Coverage vs. wRC+, 2016") + labs(y="wRC+", x="Plate Coverage (sq. in)")
+ggplot(plate_coverage_raw %>% filter(game_year == 2019), aes(total_coverage, wrc_plus)) + geom_point() + geom_smooth(method="loess")  + 
+  ggtitle("Plate Coverage vs. wRC+, 2019") + labs(y="wRC+", x="Plate Coverage (sq. in)")
 ```
 
 Our hypothesis appears validated. As plate coverage rises towards 60 square inches, wRC+ rises as well. As plate coverage increases beyond 60 square inches, wRC+ tends to drop. This curve matches our logic. You want your plate coverage to be large enough that you can hit a lot of pitches fair, but not so large you're lunging and making weak contact.
@@ -453,14 +453,14 @@ inciarte_plate_coverage <- savant_data %>%
          str_detect(description, "In play"),
          Name == "Ender Inciarte",
          pz > 0) %>%
-  select(game_year, px, pz)
+  dplyr::select(game_year, px, pz)
 
 franco_plate_coverage <- savant_data %>%
   filter(game_year >= 2016,
          str_detect(description, "In play"),
          Name == "Maikel Franco",
          pz > 0) %>%
-  select(game_year, px, pz)
+  dplyr::select(game_year, px, pz)
 
 
 peraza_plate_coverage <- savant_data %>%
@@ -468,14 +468,14 @@ peraza_plate_coverage <- savant_data %>%
          str_detect(description, "In play"),
          Name == "Jose Peraza",
          pz > 0) %>%
-  select(game_year, px, pz)
+  dplyr::select(game_year, px, pz)
 
 shaw_plate_coverage <- savant_data %>%
   filter(game_year >= 2016,
          str_detect(description, "In play"),
          Name == "Travis Shaw",
          pz > 0) %>%
-  select(game_year, px, pz)
+  dplyr::select(game_year, px, pz)
 
 ggplot(inciarte_plate_coverage, aes(y=px, x=as.character(game_year)))+ 
   geom_boxplot() + geom_jitter() + coord_flip()  + ggtitle("Ender Inciarte Horizontal Plate Coverage, 2016 - 2017") +
