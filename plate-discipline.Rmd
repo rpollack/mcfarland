@@ -113,7 +113,7 @@ plate_discipline_overall <-
   dplyr::select(playerid, batter_name, game_year, everything())
 
 plate_discipline_annual <- savant_data %>%
-  group_by(batter_name) %>%
+  group_by(batter) %>%
   summarize(num_swings = n(),
             horiz_disc = round(mad(px_in), 3),
             vertical_disc = round(mad(pz_in), 3)) %>%
@@ -204,12 +204,12 @@ The following plot shows the 25 least aggressive hitter-seasons in this dataset:
 least_aggressive <- plate_discipline_overall %>%
   mutate(wrc_plus = round(wrc_plus, 0),
          aggression_factor = round(aggression_factor, 1)) %>%
-  dplyr::select(Name = batter_name, Season = game_year, `wRC+` = wrc_plus, `Aggression Factor` = aggression_factor) %>%
+  dplyr::select(Name = batter_name, Season = game_year, `wRC+` = wrc_plus, `Aggression Factor+` = af_plus) %>%
   unite(name_season, Name, Season, sep = ", ") %>%
   head(15)
 
-ggplot(least_aggressive, aes(reorder(name_season, -`Aggression Factor`), `Aggression Factor`)) + geom_bar(stat="identity", fill="#8e001c") + 
-  coord_flip() + fgt + labs(x="") + ggtitle("Least Aggressive Hitter-Seasons, 2015 - 2019")
+ggplot(least_aggressive, aes(reorder(name_season, -`Aggression Factor+`), `Aggression Factor+`)) + geom_bar(stat="identity", fill="#8e001c") + 
+  coord_flip() + fgt + labs(x="") + ggtitle("Most Selective Hitter-Seasons, 2015 - 2019")
 
 ```
 
@@ -220,22 +220,22 @@ And now the most aggressive hitters in this dataset:
 most_aggressive <- plate_discipline_overall %>%
   mutate(wrc_plus = round(wrc_plus, 0),
          aggression_factor = round(aggression_factor, 1)) %>%
-  dplyr::select(Name = batter_name, Season = game_year, `wRC+` = wrc_plus, `Aggression Factor` = aggression_factor) %>%
+  dplyr::select(Name = batter_name, Season = game_year, `wRC+` = wrc_plus, `Aggression Factor+` = af_plus) %>%
   unite(name_season, Name, Season, sep = ", ") %>%
   tail(15)
 
-ggplot(most_aggressive, aes(reorder(name_season, -`Aggression Factor`), `Aggression Factor`)) + geom_bar(stat="identity", fill="#8e001c") + 
+ggplot(most_aggressive, aes(reorder(name_season, -`Aggression Factor+`), `Aggression Factor+`)) + geom_bar(stat="identity", fill="#8e001c") + 
   coord_flip() + fgt + labs(x="") + ggtitle("Most Aggressive Hitter-Seasons, 2015 - 2019")
 ```
 
-These hitter-seasons aren't so notable. The mean wRC+ of this group is just 91.
+These hitter-seasons aren't so notable. The mean wRC+ of this group is just 87.2
 
 Looking at these two graphs, you might conclude that Aggression Factor correlates with offense. And you'd be right. The following scatterplot and parabola of best-fit show that the more aggressive a hitter becomes, the more his offense drops:
 
 ```{r}
-ggplot(plate_discipline_overall, aes(aggression_factor, wrc_plus)) + geom_point(color="#8e001c") + 
+ggplot(plate_discipline_overall, aes(af_plus, wrc_plus)) + geom_point(color="#8e001c") + 
   geom_smooth(method = "lm") +
-  labs(x="Aggression Factor", y="wRC+") + 
+  labs(x="Aggression Factor+", y="wRC+") + 
   ggtitle("It Pays to be Patient at the Plate") + fgt
 
 aggression_factor_model <- lm(plate_discipline_overall$wrc_plus ~ plate_discipline_overall$aggression_factor)
