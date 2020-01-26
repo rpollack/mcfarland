@@ -36,7 +36,7 @@ fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"),
 ```{r}
 fg_info <- fg_db %>%
   tbl("player_info") %>%
-  select(PlayerId, FirstName, LastName, BirthDate) %>%
+  dplyr::select(PlayerId, FirstName, LastName, BirthDate) %>%
   collect(n=Inf) %>%
   unite(Name, FirstName, LastName, sep = " ") %>%
   mutate(birth_year = year(BirthDate))
@@ -46,7 +46,7 @@ gmli <- fg_db %>%
   filter(Type == 0,
          Season >= 1974,
          Season <= 2016) %>%
-  select(PlayerId, Season, Age, G, GS, TBF, SO, BB, ValueW, gmLI) %>%
+  dplyr::select(PlayerId, Season, Age, G, GS, TBF, SO, BB, ValueW, gmLI) %>%
   collect(n=Inf) %>%
   inner_join(fg_info, by="PlayerId") %>%
   filter(GS/G < .5) %>%   #get relievers only
@@ -54,7 +54,7 @@ gmli <- fg_db %>%
          proj_age = Season - birth_year) %>%    
   group_by(Season) %>%
   #mutate(k_minus_bb_plus_relief = 100 * (k_minus_bb_relief / mean(k_minus_bb_relief))) %>%
-  select(PlayerId, Name, Season, proj_age, GS, G, TBF, k_minus_bb_relief, ValueW, gmLI)
+  dplyr::select(PlayerId, Name, Season, proj_age, GS, G, TBF, k_minus_bb_relief, ValueW, gmLI)
 
 ```
 
@@ -82,7 +82,7 @@ reliever_trust_changes <- gmli %>%
            ((proj_age - 26) * .1),
          actual_war_after_trust_change = lead(ValueW),
          war_diff_year_after_trust_change = actual_war_after_trust_change - proj_war_after_trust_change) %>%
-  select(PlayerId, Name, from_year, to_year, proj_age, gmli_diff, ValueW, actual_war_after_trust_change, proj_war_after_trust_change,
+  dplyr::select(PlayerId, Name, from_year, to_year, proj_age, gmli_diff, ValueW, actual_war_after_trust_change, proj_war_after_trust_change,
          war_diff_year_after_trust_change) %>%
   arrange(desc(gmli_diff)) %>%
   filter(!is.na(war_diff_year_after_trust_change)) %>%
