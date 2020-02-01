@@ -89,6 +89,11 @@ get data
 
 ```{r}
 
+id_info <- fg_db %>%
+  tbl("playerid_lookup") %>%
+  dplyr::select(mlbamid, playerid) %>%
+  collect(n=Inf)
+
 players <- 
   fg_db %>%
   tbl("player_info") %>%
@@ -141,7 +146,63 @@ wpa_data <- fg_db %>%
     GameDate >= "2012-01-01"
   ) %>%
   collect(n = Inf)
+
+transactions <- 
+  fg_db %>%
+  tbl("gd_transactions") %>%
+  collect(n = Inf)
 ```
+
+let's follow zach britton's history
+
+```{r}
+
+
+player_availability <-
+  transactions %>%
+  # want to filter down to relievers here
+  
+#  filter(mlbamid %in% c(592518, 502154)) %>%
+  dplyr::select(trans_date, type, note, everything()) %>%
+  mutate(
+
+    # based on correlating data columns with news articles, trans_date seems to be the right one.
+    trans_date = ymd(trans_date),
+    is_active = case_when(
+      str_detect(note, "signed free agent|recalled|selected the contract") ~ TRUE,
+
+      # check that a major league team is activating the player. minor league teams can activate players too
+      str_detect(note, "activated") & str_detect(team, "Baltimore|New York|Boston|Tampa|Toronto|Chicago|Kansas|Detroit|
+                                                 Minnesota|Cleveland|Houston|Oakland|Los Angeles|Seattle|Texas|
+                                                 Washington|Atlanta|Philadelphia|St. Louis|Milwaukee|Pittsburgh|Cincinnati|
+                                                 Colorado|Arizona|San Diego|San Francisco") ~ TRUE,
+      TRUE ~ FALSE
+    )
+  ) %>%
+  arrange(trans_date) %>%
+  mutate(interval = if_else(is.na(lead(trans_date)), trans_date %--% ymd(Sys.Date()),
+    trans_date %--% lead(trans_date)
+  )) %>%
+  filter(is_active) %>% # retain only intervals where the player is active
+  group_by(mlbamid, team) %>%
+  arrange(trans_date, .by_group = TRUE)
+  
+
+
+# TODO:
+# 0. when grouping, intervals seem to be assigned numeric units(seconds?) rather than dates. since this won't work i will have to test that the player is available for that team iff. pitching_team == transactions$team & game_date %within% transactions$interval. 
+
+# this will give me a tibble
+
+# 1. it is not catching Zach Britton's activation in June 2018. he pitched on 6/12 through 7/21. the entry with trans_date 6/11/2/18 just reads "Zach Britton roster status changed by Baltimore Orioles." there is nothing to tell that he was activated. i can't use "roster status changed" because on 7-2-2019, the same text appears for Manny Machado when he was suspended: "SS Manny Machado roster status changed by San Diego Padres." there is a corresponding "activated" entry the next day. 
+# 2. may need to futz with intervals some more. for example Manny Machado was not available on 7-2-2019; he was suspended. but his active intervals give that date as active. 
+
+
+```
+
+i have availability dates and i have substitution dates. i want to know the list of actual dates each players were available
+
+
 
 mash together datasets and compute
 
