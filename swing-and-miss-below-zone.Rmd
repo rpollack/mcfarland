@@ -1,0 +1,151 @@
+```{r}
+library(tidyverse)
+library(rvest)
+library(broom)
+library(stringr)
+library(RMySQL)
+library(lubridate)
+library(plotly)
+library(glue)
+library(styler)
+
+fgt <- theme(
+  panel.background = element_rect(color = "lightgrey", fill = "white"),
+  axis.title = element_text(family = "Lato"),
+  axis.text = element_text(family = "Lato"),
+  legend.title = element_text(family = "Lato"),
+  legend.text = element_text(family = "Lato"),
+  legend.background = element_rect(fill = "white"),
+  legend.key = element_rect(fill = "white"),
+  plot.title = element_text(family = "Lato"),
+  panel.grid.major = element_line(size = .1, color = "lightgrey"),
+  panel.grid.minor = element_line(size = 0),
+  # strip.background = element_rect(fill = "#50ae26"),
+  strip.text = element_text(family = "Lato")
+)
+
+fg_db <- dplyr::src_mysql(
+  dbname = Sys.getenv("FG_DB"),
+  host = Sys.getenv("FG_HOST"),
+  user = Sys.getenv("FG_USER"),
+  password = Sys.getenv("FG_PW")
+)
+
+
+```
+
+
+```{r}
+swinging_data <-
+  fg_db %>%
+  tbl("gd_savant_new") %>% 
+  select(pitch_type, game_date, pitcher = player_name, pitcher_id = pitcher, batter_mlbam = batter, description, p_throws, balls, strikes, sz_top, sz_bot, plate_x, plate_z, events) %>%
+  collect(n=Inf)
+
+
+id_info <- fg_db %>%
+  tbl("playerid_lookup") %>%
+  dplyr::select(mlbamid, playerid) %>%
+  collect(n=Inf)
+
+players <- 
+  fg_db %>%
+  tbl("player_info") %>%
+  dplyr::select(playerid = PlayerId, FirstName, LastName) %>%
+  collect(n = Inf) %>%
+  unite(player_name, FirstName, LastName, sep = " ")
+
+# create full dataset and add some variables
+
+full_swinging_data <-
+  inner_join(swinging_data, id_info, by=c("batter_mlbam" = "mlbamid")) %>%
+  inner_join(players, by="playerid") %>%
+  select(game_date, pitcher_id, pitcher, batter_id = playerid, batter = player_name, everything()) %>%
+  mutate(is_breaking_or_offspeed = if_else(pitch_type %in% c("SL", "CU", "KC"), TRUE, FALSE),
+         is_below_zone = if_else(plate_z < sz_bot, TRUE, FALSE),
+         is_swinging_strike = if_else(description %in% c("swinging_strike", "swinging_strike_blocked"), TRUE, FALSE))
+
+# group & filter data according to the criteria we want
+
+num_non_fastball_pitches_threshold <- 25
+
+data_grouped <-
+  full_swinging_data %>%
+  count(game_date, pitcher_id, pitcher, p_throws, is_breaking_or_offspeed, is_swinging_strike, name="num_pitches") %>%
+  group_by(game_date, pitcher_id, pitcher, p_throws, is_breaking_or_offspeed) %>%
+  mutate(percentage = num_pitches / sum(num_pitches) * 100,
+         percentage = round(percentage, 0), 
+         total_pitches_that_day = sum(num_pitches)) %>%
+  filter(num_pitches >= num_non_fastball_pitches_threshold, is_breaking_or_offspeed, !is_swinging_strike)
+
+```
+
+```{r}
+
+# analysis:
+
+# show clayton kershaw, 2017
+
+# show all lefties
+
+# show all pitchers LIKE kershaw (similar arsenal ..? is there anyone?)
+
+# TODO: need to add a 'complete' somewhere
+
+# CAN I CITE VERDUCCI'S ORIGINAL CLAIM? WHERE IS IT??
+
+# kershaw on the date in question
+full_swinging_data %>% filter(pitcher == "Clayton Kershaw", game_date == "2017-10-29")
+
+# show take & contact rates for all pitcher-games
+data_grouped %>%
+  ggplot(aes(percentage, x=1)) + geom_boxplot() +
+  expand_limits(y=0) +
+  ggtitle("BLAH", subtitle = "2015-2019, at least 25 sliders or curveballs thrown in a game") +
+  labs(y="% sliders & curveballs either taken or contacted", x="")
+
+# ... now just kershaw. is this typical for him? 
+data_grouped %>%
+  filter(pitcher == "Clayton Kershaw") %>%
+  ggplot(aes(percentage, x=1)) + geom_boxplot() +
+  expand_limits(y=0) +
+  ggtitle("BLAH", subtitle = "Kershaw, 2015-2019, at least 25 sliders or curveballs thrown in a game") +
+  labs(y="% sliders & curveballs either taken or contacted", x="")
+
+# max scherzer
+data_grouped %>%
+  filter(pitcher == "Max Scherzer") %>%
+  ggplot(aes(percentage, x=1)) + geom_boxplot() +
+  expand_limits(y=0) +
+  ggtitle("BLAH", subtitle = "Scherzer, 2015-2019, at least 25 sliders or curveballs thrown in a game") +
+  labs(y="% sliders & curveballs either taken or contacted", x="")
+
+# chris sale
+data_grouped %>%
+  filter(pitcher == "Chris Sale") %>%
+  ggplot(aes(percentage, x=1)) + geom_boxplot() +
+  expand_limits(y=0) +
+  ggtitle("BLAH", subtitle = "Sale, 2015-2019, at least 25 sliders or curveballs thrown in a game") +
+  labs(y="% sliders & curveballs either taken or contacted", x="")
+
+# JV
+data_grouped %>%
+  filter(pitcher == "Justin Verlander") %>%
+  ggplot(aes(percentage, x=1)) + geom_boxplot() +
+  expand_limits(y=0) +
+  ggtitle("BLAH", subtitle = "Verlander, 2015-2019, at least 25 sliders or curveballs thrown in a game") +
+  labs(y="% sliders & curveballs either taken or contacted", x="")
+
+  
+# what about for pitchers of his caliber?  
+
+data_grouped %>%
+  top_n(25, percentage) %>%
+  arrange(desc(percentage))
+
+
+
+# but kershaw has GOOD breaking balls. I don't care if Mike Leake can't get a swing and miss ... but pitchers the caliber of Kershaw???  
+  
+```
+
