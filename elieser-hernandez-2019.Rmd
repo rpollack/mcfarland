@@ -166,6 +166,31 @@ hernandez_pitch_data %>%
   labs(caption = "Source: Statcast (Velocity), Brooks Baseball (Spin Axis, Vertical Drop)") +
   ggsave("hernandez-sl-ff-differentials.png")
   
+# graph pitch locations, per season, per pitch type
+```
 
+```{r, height = 7, width = 7}
+hernandez_gameday_data %>%
+  filter(pitch_type == "FF") %>%
+  ggplot(aes(plate_x, plate_z)) + geom_density_2d() + facet_wrap(vars(game_year, pitch_type, stand)) +
+  ggtitle("Season vs. Pitch Location", subtitle = "Elieser Hernandez, Fastballs") +
+  labs(x = "Horizontal Pitch Location (ft)", y = "Vertical Pitch Location (ft)", caption = "Source: Statcast") +
+  coord_fixed()
+
+hernandez_gameday_data %>%
+  filter(pitch_type == "SL") %>%
+  ggplot(aes(plate_x, plate_z)) + geom_density_2d() + facet_wrap(vars(game_year, pitch_type, stand)) +
+  ggtitle("Season vs. Pitch Location", subtitle = "Elieser Hernandez, Sliders") +
+  labs(x = "Horizontal Pitch Location (ft)", y = "Vertical Pitch Location (ft)", caption = "Source: Statcast") + 
+  coord_fixed(expand = TRUE) +
+  ggsave("hernandez_sl.png", height = 7, width = 7)
+
+hernandez_gameday_data %>%
+  filter(pitch_type == "SL") %>%
+  ggplot(aes(plate_x, plate_z)) + geom_bin2d(bins=9) + facet_wrap(vars(game_year, pitch_type, stand)) +
+  ggtitle("Season vs. Pitch Location", subtitle = "Elieser Hernandez, Sliders") +
+  labs(x = "Horizontal Pitch Location (ft)", y = "Vertical Pitch Location (ft)", caption = "Source: Statcast") + 
+  coord_fixed(expand = TRUE) + scale_fill_continuous(type="viridis") +
+  ggsave("hernandez_sl_binned.png", height = 7, width = 7)
 
 ```
