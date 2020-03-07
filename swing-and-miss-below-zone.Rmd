@@ -115,8 +115,8 @@ breaking_pitches_threshold <- 10
 # verducci framed his data as NO swings and misses, but it's easier to understand when framed as just SwStr%
 data_grouped <-
   full_swinging_data %>%
-  count(game_date, pitcher_id, pitcher, p_throws, is_swinging_strike, name="num_pitches") %>%
-  group_by(game_date, pitcher_id, pitcher, p_throws) %>%
+  count(game_date, pitcher_id, pitcher, p_throws, is_swinging_strike, season_type, name="num_pitches") %>%
+  group_by(game_date, pitcher_id, pitcher, p_throws, season_type) %>%
   mutate(total_breaking_pitches_that_day = sum(num_pitches)) %>%
   ungroup() %>%
   mutate(percentage = num_pitches / total_breaking_pitches_that_day * 100,
@@ -148,10 +148,12 @@ data_grouped %>%
   filter(pitcher %in% c("Clayton Kershaw", "Justin Verlander", "Chris Sale", "Max Scherzer", "Jacob deGrom",
                         "Corey Kluber", "Luis Severino", "Stephen Strasburg", "Ervin Santana", "Marcus Stroman",
                         "Zack Greinke"),
-         str_detect(game_date, "2017")) %>%
+         str_detect(game_date, "2017"),
+         season_type == "regular") %>%
 #  count(pitcher_id, pitcher, p_throws, percentage) %>%
   ggplot(aes(x=percentage, y = pitcher, height = stat(density))) + geom_density_ridges(stat = "binline", bins = 15) +
-  labs(y="", x="Swinging Strike Rate on Breaking Pitches")
+  labs(y="", x="Swinging Strike Rate on Breaking Pitches") +
+  ggtitle("Whiff Rate on Breaking Pitches, Cy Young Contenders 2017 Regular Season")
 
 ```
 
