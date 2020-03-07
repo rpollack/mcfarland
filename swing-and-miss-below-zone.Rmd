@@ -127,7 +127,7 @@ data_grouped <-
 
 ```
 
-```{r}
+```{r, fig.height=3}
 
 # analysis: all pitchers
 data_grouped %>% 
@@ -151,9 +151,10 @@ data_grouped %>%
          str_detect(game_date, "2017"),
          season_type == "regular") %>%
 #  count(pitcher_id, pitcher, p_throws, percentage) %>%
-  ggplot(aes(x=percentage, y = pitcher, height = stat(density))) + geom_density_ridges(stat = "binline", bins = 15) +
-  labs(y="", x="Swinging Strike Rate on Breaking Pitches") +
-  ggtitle("Whiff Rate on Breaking Pitches, Cy Young Contenders 2017 Regular Season")
+  ggplot(aes(x=percentage, y = pitcher, height = stat(density))) + 
+  geom_density_ridges(stat = "binline", bins = 15, scale = 3) +
+  labs(y="", x="Whiff Rate on Breaking Pitches (%)") +
+  ggtitle("Whiff Rate on Breaking Pitches", subtitle="Cy Young Contenders, 2017 Regular Season")
 
 ```
 
