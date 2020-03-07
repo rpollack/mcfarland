@@ -8,6 +8,7 @@ library(lubridate)
 library(plotly)
 library(glue)
 library(styler)
+library(ggridges)
 
 fgt <- theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
@@ -36,11 +37,53 @@ fg_db <- dplyr::src_mysql(
 
 
 ```{r}
+
+# get data from FB db. also load spreadsheets that were downloaded from baseball savant. ensure all data types match
 swinging_data <-
   fg_db %>%
   tbl("gd_savant_new") %>% 
   select(pitch_type, game_date, pitcher = player_name, pitcher_id = pitcher, batter_mlbam = batter, description, p_throws, balls, strikes, sz_top, sz_bot, plate_x, plate_z, events) %>%
-  collect(n=Inf)
+  collect(n=Inf) %>%
+  mutate(season_type = "regular") %>%
+  bind_rows(read_csv("playoff-pitch-data-2015-16.csv",
+                     col_names = TRUE,
+                     cols(pitch_type = col_character(),
+                          game_date = col_character(),
+                          player_name = col_character(),
+                          pitcher = col_integer(),
+                          batter = col_integer(),
+                          description = col_character(),
+                          p_throws = col_character(),
+                          balls = col_integer(),
+                          strikes = col_integer(),
+                          sz_top = col_number(),
+                          sz_bot = col_number(),
+                          plate_x = col_number(),
+                          plate_z = col_number(),
+                          events = col_character())) %>%
+              select(pitch_type, game_date, pitcher = player_name, pitcher_id = pitcher, batter_mlbam = batter, description,
+                      p_throws, balls, strikes, sz_top, sz_bot, plate_x, plate_z, events) %>%
+              mutate(season_type = "playoff")) %>%
+  bind_rows(read_csv("playoff-pitch-data-2017-18-19.csv",
+                     col_names = TRUE,
+                     cols(pitch_type = col_character(),
+                          game_date = col_character(),
+                          player_name = col_character(),
+                          pitcher = col_integer(),
+                          batter = col_integer(),
+                          description = col_character(),
+                          p_throws = col_character(),
+                          balls = col_integer(),
+                          strikes = col_integer(),
+                          sz_top = col_number(),
+                          sz_bot = col_number(),
+                          plate_x = col_number(),
+                          plate_z = col_number(),
+                          events = col_character())) %>%
+              select(pitch_type, game_date, pitcher = player_name, pitcher_id = pitcher, batter_mlbam = batter, description,
+                      p_throws, balls, strikes, sz_top, sz_bot, plate_x, plate_z, events) %>%
+              mutate(season_type = "playoff")) 
+  
 
 
 id_info <- fg_db %>%
@@ -61,30 +104,56 @@ full_swinging_data <-
   inner_join(swinging_data, id_info, by=c("batter_mlbam" = "mlbamid")) %>%
   inner_join(players, by="playerid") %>%
   select(game_date, pitcher_id, pitcher, batter_id = playerid, batter = player_name, everything()) %>%
-  mutate(is_breaking_or_offspeed = if_else(pitch_type %in% c("SL", "CU", "KC"), TRUE, FALSE),
-         is_below_zone = if_else(plate_z < sz_bot, TRUE, FALSE),
-         is_swinging_strike = if_else(description %in% c("swinging_strike", "swinging_strike_blocked"), TRUE, FALSE))
+  filter(pitch_type %in% c("SL", "CU", "KC")) %>%
+  mutate(is_swinging_strike = if_else(description %in% c("swinging_strike", "swinging_strike_blocked"), TRUE, FALSE))
 
 # group & filter data according to the criteria we want
 
-num_non_fastball_pitches_threshold <- 25
+breaking_pitches_threshold <- 10
 
+# compute swinging strike rate for all pitcher-games where the pitcher threw at least 25 breaking pitches
+# verducci framed his data as NO swings and misses, but it's easier to understand when framed as just SwStr%
 data_grouped <-
   full_swinging_data %>%
-  count(game_date, pitcher_id, pitcher, p_throws, is_breaking_or_offspeed, is_swinging_strike, name="num_pitches") %>%
-  group_by(game_date, pitcher_id, pitcher, p_throws, is_breaking_or_offspeed) %>%
-  mutate(percentage = num_pitches / sum(num_pitches) * 100,
-         percentage = round(percentage, 0), 
-         total_pitches_that_day = sum(num_pitches)) %>%
-  filter(num_pitches >= num_non_fastball_pitches_threshold, is_breaking_or_offspeed, !is_swinging_strike)
+  count(game_date, pitcher_id, pitcher, p_throws, is_swinging_strike, name="num_pitches") %>%
+  group_by(game_date, pitcher_id, pitcher, p_throws) %>%
+  mutate(total_breaking_pitches_that_day = sum(num_pitches)) %>%
+  ungroup() %>%
+  mutate(percentage = num_pitches / total_breaking_pitches_that_day * 100,
+         percentage = round(percentage, 1)) %>%
+  filter(is_swinging_strike,
+         total_breaking_pitches_that_day >= breaking_pitches_threshold)
+
 
 ```
 
 ```{r}
 
-# analysis:
+# analysis: all pitchers
+data_grouped %>% 
+  ggplot(aes(percentage)) + 
+  geom_histogram(binwidth = 5)
+
 
 # show clayton kershaw, 2017
+data_grouped %>% 
+  filter(pitcher == "Clayton Kershaw",
+         str_detect(game_date, "2017")) %>%
+  ggplot(aes(percentage)) + 
+  geom_histogram(binwidth = 5) +
+  ggtitle("Kershaw 2017")
+
+# other good pitchers that year
+data_grouped %>% 
+  filter(pitcher %in% c("Clayton Kershaw", "Justin Verlander", "Chris Sale", "Max Scherzer", "Jacob deGrom",
+                        "Corey Kluber", "Luis Severino", "Stephen Strasburg", "Ervin Santana", "Marcus Stroman",
+                        "Zack Greinke"),
+         str_detect(game_date, "2017")) %>%
+#  count(pitcher_id, pitcher, p_throws, percentage) %>%
+  ggplot(aes(x=percentage, y = pitcher, height = stat(density))) + geom_density_ridges(stat = "binline", bins = 15) +
+  labs(y="", x="Swinging Strike Rate on Breaking Pitches")
+
+```
 
 # show all lefties
 
