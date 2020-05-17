@@ -31,8 +31,6 @@ fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"),
 
 
 
-
-
 ```{r}
 fg_info <- fg_db %>%
   tbl("player_info") %>%
@@ -45,7 +43,7 @@ gmli <- fg_db %>%
   tbl("stats_pitching_master") %>%
   filter(Type == 0,
          Season >= 1974,
-         Season <= 2016) %>%
+         Season <= 2019) %>%
   dplyr::select(PlayerId, Season, Age, G, GS, TBF, SO, BB, ValueW, gmLI) %>%
   collect(n=Inf) %>%
   inner_join(fg_info, by="PlayerId") %>%
