@@ -11,7 +11,7 @@ library(tidyverse)
 library(rvest)
 library(broom)
 library(stringr)
-library(RMySQL)
+library(RMariaDB)
 library(lubridate)
 library(plotly)
 library(glue)
@@ -32,12 +32,13 @@ fgt <- theme(
   strip.text = element_text(family = "Lato")
 )
 
-fg_db <- dplyr::src_mysql(
-  dbname = Sys.getenv("FG_DB"),
-  host = Sys.getenv("FG_HOST"),
-  user = Sys.getenv("FG_USER"),
-  password = Sys.getenv("FG_PW")
-)
+fg_db <-
+  DBI::dbConnect(RMariaDB::MariaDB(),
+    dbname = Sys.getenv("FG_DB"),
+    host = Sys.getenv("FG_HOST"),
+    user = Sys.getenv("FG_USER"),
+    password = Sys.getenv("FG_PW")
+  )
 
 TWILIO_SID <- Sys.getenv("TWILIO_SID")
 TWILIO_TOKEN <- Sys.getenv("TWILIO_TOKEN")
@@ -202,6 +203,10 @@ player_availability <-
 
 i have availability dates and i have substitution dates. i want to know the list of actual dates each players were available
 
+```{r}
+availability <-
+  read_csv("reliever_availability.csv")
+```
 
 
 mash together datasets and compute
