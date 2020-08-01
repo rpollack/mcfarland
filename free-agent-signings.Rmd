@@ -154,7 +154,8 @@ unsigned_batters <-
     sign_date = NA_character_,
     GS = NA_character_,
     G = NA_character_,
-    IP = 0
+    IP = 0,
+    `To Team` = NA_character_
   )
 
 unsigned_pitchers <- years %>%
@@ -165,7 +166,8 @@ unsigned_pitchers <- years %>%
   dplyr::select(name = Name, offseason, age = Age, three_year_war = `WAR3`, G, GS, IP) %>%
   mutate(
     sign_type = "unsigned",
-    sign_date = NA_character_
+    sign_date = NA_character_,
+    `To Team` = NA_character_
   )
 
 # check for invalid dates that month() will fail to convert. handle them manually later
@@ -256,7 +258,7 @@ unsigned_pitchers_clean <-
 
 all_free_agents <-
   bind_rows(fa_signings_clean, unsigned_batters_clean, unsigned_pitchers_clean) %>%
-  distinct(name, offseason, age, sign_date, three_year_war, sign_type, sign_month, AB, GS, G, IP) %>% # remove duplicate entries; many years have them
+  distinct() %>% # remove duplicate entries; many years have them
   replace_na(list(AB = 0, GS = 0, G = 0, IP = 0, three_year_war = 0)) %>%
   mutate(
     position = case_when(
@@ -321,7 +323,39 @@ all_free_agents <-
     sign_years = as.numeric(sign_years),
     sign_years = if_else(sign_salary == 0, 0, sign_years) # if player signs minor league deal, make it a 0-length deal so it'll bring down the avg
   ) %>%
+  mutate(`To Team` = str_replace_all(`To Team`, 
+                                     c("Florida" = "Miami",
+                                       "of Anahaeim" = ""))) %>%
   dplyr::select(-GS, -G, -AB, IP)
+```
+
+
+# by team, over time
+```{r, fig.height=3}
+
+
+# TODO idea: concatenate player-salaries and show them as part of the labels. This way when you hover over
+# a point on the plot, you see the player AND their salary in that signing year.
+
+# TODO fix "LA Angels" matching up with "... OF Anaheim"
+
+# TODO fix blank and NA teams. 
+
+fa_signing_plt <-
+  all_free_agents %>%
+  filter(sign_type == "signed") %>%
+  group_by(offseason, `To Team`) %>%
+  summarize(num_players_signed = n(),
+            total_salary = round(sum(sign_salary, na.rm = TRUE), 1),
+            players_signed = paste(name, collapse = "\n")) %>%
+  ggplot(aes(as.character(offseason), total_salary, group = 1, label = players_signed)) +
+  geom_point() + geom_line() +
+  facet_wrap(vars(`To Team`)) +
+  scale_x_discrete(breaks=c("2010", "2015", "2019")) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  labs(x="", y="Total FA Contracts Signed (USD Million, Adj. for Inflation")
+
+ggplotly(fa_signing_plt)
 ```
 
 
