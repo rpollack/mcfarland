@@ -138,7 +138,7 @@ fa_signings <-
   do(get_free_agents(.$url)) %>%
   mutate(offseason = str_extract(url, "[:digit:]{4}")) %>%
   ungroup() %>%
-  dplyr::select(name = Name, offseason, age = Age, sign_date = Date, three_year_war = `WAR3`, AB, G = `G...10`, GS, IP) %>%
+  dplyr::select(name = Name, offseason, `To Team`, age = Age, sign_date = Date, three_year_war = `WAR3`, AB, G = `G...10`, GS, IP) %>%
   mutate(sign_type = "signed") %>%
   arrange(sign_date)
 
@@ -396,7 +396,7 @@ all_free_agents %>%
 
 ```
 
-```{r, fig.height=3}
+```{r}
 signing_timeline <-
   all_free_agents %>%
   filter(sign_type == "signed", player_type != "Scrub", days_to_sign >= 0) %>%
@@ -412,13 +412,17 @@ signing_timeline <-
   ggtitle("Offseason vs. Month when Free Agent Signed, by Player Talent Level",
           subtitle = "player_type calculated based on position & WAR total in the three years befor signing")
 
+# a ggplot with facets doesn't work with dynamic tick marks. sad. https://github.com/ropensci/plotly/issues/1416
+
 ggplotly(signing_timeline, tooltip = c("player_type", "players")) %>%
   layout(title = list(text = paste0('Ten Years of Free Agency in Baseball',
                                     '<br>',
                                     '<sup>',
-                                    'Sign Month by Offseason & player talent level. Source: Baseball-Reference',
+                                    'Sign Month by offseason & player talent level. Source: Baseball-Reference',
+                                    '<br>',
+                                    'Player talent based on position & WAR total in the 3 years prior to signing',
                                     '</sup>'))) %>%
-  htmlwidgets::saveWidget("derp.html")
+  htmlwidgets::saveWidget("mlb-free-agency.html")
 
 all_free_agents %>%
   filter(sign_type == "signed", offseason >= 2015, player_type %in% c("Good Player", "All-Star", "Superstar", "MVP")) %>%
