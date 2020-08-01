@@ -349,12 +349,12 @@ all_free_agents %>%
 
 all_free_agents %>%
   group_by(offseason, position) %>%
-  summarize(mean_days_to_sign = round(mean(days_to_sign, na.rm = TRUE), 1)) %>%
-  ggplot(aes(offseason, mean_days_to_sign)) +
+  summarize(median_sign_days = median(days_to_sign, na.rm = TRUE)) %>%
+  ggplot(aes(offseason, median_sign_days)) +
   facet_wrap(vars(position)) +
   geom_point() + geom_line() +
   ggtitle("Trends in Free Agent Signing Speed",
-    subtitle = "Avg. number of days between Nov 1st and player's sign date"
+    subtitle = "Median number of days between Nov 1st and player's sign date"
   ) + fgt +
   expand_limits(y = 0) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
@@ -377,12 +377,12 @@ all_free_agents %>%
 all_free_agents %>%
   filter(offseason >= 2010) %>%
   group_by(offseason, player_type) %>%
-  summarize(mean_days_to_sign = round(mean(days_to_sign, na.rm = TRUE), 1)) %>%
-  ggplot(aes(offseason, mean_days_to_sign)) +
+  summarize(median_sign_days = median(days_to_sign, na.rm = TRUE)) %>%
+  ggplot(aes(offseason, median_sign_days)) +
   facet_wrap(vars(player_type)) +
   geom_point(size = 0.7) + geom_line() +
   ggtitle("Trends in Free Agent Signing Speed",
-    subtitle = "Avg. number of days between Nov 1st and player's sign date"
+    subtitle = "Median number of days between Nov 1st and player's sign date"
   ) + fgt +
   expand_limits(y = 0) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
