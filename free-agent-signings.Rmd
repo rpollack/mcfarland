@@ -405,18 +405,36 @@ signing_timeline <-
   summarize(num_players = n(),
             players = (paste(name, collapse = "\n"))) %>%
   ggplot(aes(sign_month, num_players, fill = player_type, label=players)) +
-  geom_bar(stat = "identity") +
+  geom_bar(stat = "identity", position = "dodge") +
   facet_grid(vars(offseason)) +
-  labs(y = "Number of Players Signed", x = "")
+  labs(y = "Number of Players Signed", x = "Month Signed",
+       caption = "Source: Baseball-Reference. Made with Plotly in R") +
+  ggtitle("Offseason vs. Month when Free Agent Signed, by Player Talent Level",
+          subtitle = "player_type calculated based on position & WAR total in the three years befor signing")
 
-ggplotly(signing_timeline, tooltip = c("player_type", "players"))
+ggplotly(signing_timeline, tooltip = c("player_type", "players")) %>%
+  layout(title = list(text = paste0('Ten Years of Free Agency in Baseball',
+                                    '<br>',
+                                    '<sup>',
+                                    'Sign Month by Offseason & player talent level. Source: Baseball-Reference',
+                                    '</sup>'))) %>%
+  htmlwidgets::saveWidget("derp.html")
 
 all_free_agents %>%
-  filter(sign_type == "signed", offseason >= 2015, position == "Position Player", player_type %in% c("Good Player", "All-Star", "Superstar", "MVP")) %>%
-  ggplot(aes(sign_month, name, color = player_type)) +
-  geom_point() +
-  facet_grid(vars(offseason), scales = "free_y") +
-  labs(y = "")
+  filter(sign_type == "signed", offseason >= 2015, player_type %in% c("Good Player", "All-Star", "Superstar", "MVP")) %>%
+  group_by(offseason, player_type, sign_month) %>%
+  summarize(players = (paste(name, collapse = "\n"))) %>%
+  ggplot(aes(sign_month, y=1, color = player_type)) +
+  geom_label(aes(label=players)) +
+  facet_grid(vars(offseason))
+# 
+# 
+#   ggplot(aes(sign_month, sign_salary, color = player_type)) +
+#   geom_point() + 
+#   facet_grid(vars(offseason)) +
+#   labs(x="", y="FA Contract Value (USD Millions)") +
+#   geom_label_repel(aes(label=name), nudge_y = 0.5) +
+#   ggsave("derp.png", width = 10, height = 10, units = "in")
 
 ```
 
