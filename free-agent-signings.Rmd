@@ -118,7 +118,7 @@ generate_csv <- function(df, year_min, year_max, position, player_type, age) {
     write_csv(filename)
 }
 
-#generate_csv(all_free_agents, 2016, 2018, "Position Player", "Scrub", "34 - 36")
+# generate_csv(all_free_agents, 2016, 2018, "Position Player", "Scrub", "34 - 36")
 ```
 
 ### get data
@@ -132,7 +132,7 @@ current_year <- 2019
 years <- tibble(year = start_year:current_year) %>%
   mutate(url = paste0("https://www.baseball-reference.com/leagues/MLB/", year, "-free-agents.shtml"))
 
-fa_signings <- 
+fa_signings <-
   years %>%
   group_by(url) %>%
   do(get_free_agents(.$url)) %>%
@@ -142,7 +142,7 @@ fa_signings <-
   mutate(sign_type = "signed") %>%
   arrange(sign_date)
 
-unsigned_batters <- 
+unsigned_batters <-
   years %>%
   group_by(url) %>%
   do(get_unsigned_batters(.$url)) %>%
@@ -172,7 +172,9 @@ unsigned_pitchers <- years %>%
 
 # check for invalid dates that month() will fail to convert. handle them manually later
 invalid_dates <- which(is.na(ymd(as.character(fa_signings$sign_date), tz = "UTC")))
-fa_signings %>% filter(row_number() %in% invalid_dates) %>% View()
+fa_signings %>%
+  filter(row_number() %in% invalid_dates) %>%
+  View()
 
 # get FA salaries from MLBTR
 # update some names to match formatting from baseball reference
@@ -237,15 +239,19 @@ fa_signings_clean <-
 # chagne some data types to match so the rows can be bound together.
 unsigned_batters_clean <-
   unsigned_batters %>%
-  mutate(sign_date = as.Date(sign_date),
-         G = as.integer(G),
-         GS = as.integer(GS))
+  mutate(
+    sign_date = as.Date(sign_date),
+    G = as.integer(G),
+    GS = as.integer(GS)
+  )
 
 unsigned_pitchers_clean <-
   unsigned_pitchers %>%
-    mutate(sign_date = as.Date(sign_date),
-         G = as.integer(G),
-         GS = as.integer(GS))
+  mutate(
+    sign_date = as.Date(sign_date),
+    G = as.integer(G),
+    GS = as.integer(GS)
+  )
 
 
 # 1. combine all tibbles into one, so each offseason has the right signed and unsigned players
@@ -318,15 +324,44 @@ all_free_agents <-
       offseason == 2017 ~ sign_salary * 1.024,
       offseason == 2018 ~ sign_salary * 1.027,
       offseason == 2019 ~ sign_salary * 1.008,
-      TRUE ~ sign_salary  # catch-all for the current year AND if I forget to update the chart above
+      TRUE ~ sign_salary # catch-all for the current year AND if I forget to update the chart above
     ),
     sign_years = as.numeric(sign_years),
     sign_years = if_else(sign_salary == 0, 0, sign_years) # if player signs minor league deal, make it a 0-length deal so it'll bring down the avg
   ) %>%
-  mutate(`To Team` = str_replace_all(`To Team`, 
-                                     c("Florida" = "Miami",
-                                       "of Anahaeim" = ""))) %>%
-  dplyr::select(-GS, -G, -AB, IP)
+  mutate(to_team = case_when(
+    `To Team` == "Arizona Diamondbacks" ~ "ARI",
+    `To Team` == "Atlanta Braves" ~ "ATL",
+    `To Team` == "Baltimore Orioles" ~ "BAL",
+    `To Team` == "Boston Red Sox" ~ "BOS",
+    `To Team` == "Chicago Cubs" ~ "CHC",
+    `To Team` == "Chicago White Sox" ~ "CHW",
+    `To Team` == "Cincinnati Reds" ~ "CIN",
+    `To Team` == "Cleveland Indians" ~ "CLE",
+    `To Team` == "Colorado Rockies" ~ "COL",
+    `To Team` == "Detroit Tigers" ~ "DET",
+    `To Team` == "Houston Astros" ~ "HOU",
+    `To Team` == "Kansas City Royals" ~ "KCR",
+    str_detect(`To Team`, "Los Angeles Angels") ~ "LAA",
+    `To Team` == "Los Angeles Dodgers" ~ "LAD",
+    str_detect(`To Team`, "Marlins") ~ "MIA",
+    `To Team` == "Milwaukee Brewers" ~ "MIL",
+    `To Team` == "Minnesota Twins" ~ "MIN",
+    `To Team` == "New York Mets" ~ "NYM",
+    `To Team` == "New York Yankees" ~ "NYY",
+    `To Team` == "Oakland Athletics" ~ "OAK",
+    `To Team` == "Philadelphia Phillies" ~ "PHI",
+    `To Team` == "Pittsburgh Pirates" ~ "PIT",
+    `To Team` == "San Diego Padres" ~ "SDP",
+    `To Team` == "San Francisco Giants" ~ "SFG",
+    `To Team` == "Seattle Mariners" ~ "SEA",
+    `To Team` == "St. Louis Cardinals" ~ "STL",
+    `To Team` == "Tampa Bay Rays" ~ "TBR",
+    `To Team` == "Texas Rangers" ~ "TEX",
+    `To Team` == "Toronto Blue Jays" ~ "TOR",
+    `To Team` == "Washington Nationals" ~ "WAS"
+  )) %>%
+  dplyr::select(-GS, -G, -AB, IP, -`To Team`)
 ```
 
 
@@ -335,24 +370,29 @@ all_free_agents <-
 
 # TODO fix "LA Angels" matching up with "... OF Anaheim"
 
-# TODO fix blank and NA teams. 
+# TODO fix blank and NA teams.
 
 fa_signing_plt <-
   all_free_agents %>%
   filter(sign_type == "signed", !is.na(sign_salary), sign_salary != 0) %>%
-  mutate(player_salary = glue("{name} - ${round(sign_salary,1)}m"),
-         offseason = as.character(offseason)) %>%
-  group_by(offseason, `To Team`) %>%
+  mutate(
+    player_salary = glue("{name} - ${round(sign_salary,1)}m"),
+    offseason = as.character(offseason)
+  ) %>%
+  group_by(offseason, to_team) %>%
   arrange(desc(sign_salary)) %>%
-  summarize(num_players_signed = n(),
-            total_salary = round(sum(sign_salary, na.rm = TRUE), 1),
-            players_signed = paste(player_salary, collapse = "\n")) %>%
+  summarize(
+    num_players_signed = n(),
+    total_salary = round(sum(sign_salary, na.rm = TRUE), 1),
+    players_signed = paste(player_salary, collapse = "\n")
+  ) %>%
   ggplot(aes(offseason, total_salary, group = 1, label = players_signed)) +
-  geom_point() + geom_line() +
-  facet_wrap(vars(`To Team`)) +
-  scale_x_discrete(breaks=c("2010", "2015", "2019")) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(vars(to_team)) +
+  scale_x_discrete(breaks = c("2010", "2015", "2019")) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
-  labs(x="", y="Total FA Contracts Signed (USD Million, Adj. for Inflation")
+  labs(x = "", y = "Total FA Contracts Signed (USD Million, Adj. for Inflation")
 
 ggplotly(fa_signing_plt, tooltip = c("offseason", "total_salary", "players_signed"))
 ```
@@ -366,17 +406,20 @@ show the average number of days it takes players to sign a FA contract
 all_free_agents %>%
   group_by(offseason) %>%
   summarize(median_sign_days = median(days_to_sign, na.rm = TRUE)) %>%
-  ggplot(aes(offseason, median_sign_days)) + geom_point() + geom_line() +
-  expand_limits(y=0) + fgt +
-    labs(
+  ggplot(aes(offseason, median_sign_days)) +
+  geom_point() +
+  geom_line() +
+  expand_limits(y = 0) +
+  fgt +
+  labs(
     y = "Median # of Days 
        between Nov 1st and Contract Signing", x = "Offseason",
     caption = "Source: Baseball Reference"
   ) +
-  scale_x_continuous(breaks=seq(start_year, current_year)) +
+  scale_x_continuous(breaks = seq(start_year, current_year)) +
   ggtitle("Offseason vs. Median Time to Sign Contract",
     subtitle = "Free Agents through March 2020"
-  ) + 
+  ) +
   ggsave("free-agents-median-time-to-sign.png")
 
 
@@ -385,26 +428,29 @@ all_free_agents %>%
   summarize(median_sign_days = median(days_to_sign, na.rm = TRUE)) %>%
   ggplot(aes(offseason, median_sign_days)) +
   facet_wrap(vars(position)) +
-  geom_point() + geom_line() +
+  geom_point() +
+  geom_line() +
   ggtitle("Trends in Free Agent Signing Speed",
     subtitle = "Median number of days between Nov 1st and player's sign date"
-  ) + fgt +
+  ) +
+  fgt +
   expand_limits(y = 0) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
-  scale_x_continuous(breaks=seq(start_year, current_year))
+  scale_x_continuous(breaks = seq(start_year, current_year))
 
 all_free_agents %>%
   group_by(offseason, position) %>%
   summarize(median_salary = round(median(sign_salary, na.rm = TRUE), 1)) %>%
   ggplot(aes(offseason, median_salary)) +
   facet_wrap(vars(position)) +
-  geom_point() + geom_line() +
-  ggtitle("Trends in Free Agent Signing Salaries"
-  ) + fgt +
+  geom_point() +
+  geom_line() +
+  ggtitle("Trends in Free Agent Signing Salaries") +
+  fgt +
   expand_limits(y = 0) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
-  scale_x_continuous(breaks=seq(start_year, current_year)) +
-  labs(y="Median Signing Salary (USD Millions)")
+  scale_x_continuous(breaks = seq(start_year, current_year)) +
+  labs(y = "Median Signing Salary (USD Millions)")
 
 # mean time to sign by player talent type, by year
 all_free_agents %>%
@@ -413,20 +459,20 @@ all_free_agents %>%
   summarize(median_sign_days = median(days_to_sign, na.rm = TRUE)) %>%
   ggplot(aes(offseason, median_sign_days)) +
   facet_wrap(vars(player_type)) +
-  geom_point(size = 0.7) + geom_line() +
+  geom_point(size = 0.7) +
+  geom_line() +
   ggtitle("Trends in Free Agent Signing Speed",
     subtitle = "Median number of days between Nov 1st and player's sign date"
-  ) + fgt +
+  ) +
+  fgt +
   expand_limits(y = 0) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
-  scale_x_continuous(breaks=seq(start_year, current_year))
+  scale_x_continuous(breaks = seq(start_year, current_year))
 
 
 # number of each types of player available
 all_free_agents %>%
-  count(offseason, position, player_type) 
-
-
+  count(offseason, position, player_type)
 ```
 
 ```{r}
@@ -435,44 +481,50 @@ signing_timeline <-
   filter(sign_type == "signed", player_type != "Scrub", days_to_sign >= 0) %>%
   distinct() %>%
   group_by(offseason, player_type, sign_month) %>%
-  summarize(num_players = n(),
-            players = (paste(name, collapse = "\n"))) %>%
-  ggplot(aes(sign_month, num_players, fill = player_type, label=players)) +
+  summarize(
+    num_players = n(),
+    players = (paste(name, collapse = "\n"))
+  ) %>%
+  ggplot(aes(sign_month, num_players, fill = player_type, label = players)) +
   geom_bar(stat = "identity", position = "dodge") +
   facet_grid(vars(offseason)) +
-  labs(y = "Number of Players Signed", x = "Month Signed",
-       caption = "Source: Baseball-Reference. Made with Plotly in R") +
+  labs(
+    y = "Number of Players Signed", x = "Month Signed",
+    caption = "Source: Baseball-Reference. Made with Plotly in R"
+  ) +
   ggtitle("Offseason vs. Month when Free Agent Signed, by Player Talent Level",
-          subtitle = "player_type calculated based on position & WAR total in the three years befor signing")
+    subtitle = "player_type calculated based on position & WAR total in the three years befor signing"
+  )
 
 # a ggplot with facets doesn't work with dynamic tick marks. sad. https://github.com/ropensci/plotly/issues/1416
 
 ggplotly(signing_timeline, tooltip = c("player_type", "players")) %>%
-  layout(title = list(text = paste0('Ten Years of Free Agency in Baseball',
-                                    '<br>',
-                                    '<sup>',
-                                    'Sign Month by offseason & player talent level. Source: Baseball-Reference',
-                                    '<br>',
-                                    'Player talent based on position & WAR total in the 3 years prior to signing',
-                                    '</sup>'))) %>%
+  layout(title = list(text = paste0(
+    "Ten Years of Free Agency in Baseball",
+    "<br>",
+    "<sup>",
+    "Sign Month by offseason & player talent level. Source: Baseball-Reference",
+    "<br>",
+    "Player talent based on position & WAR total in the 3 years prior to signing",
+    "</sup>"
+  ))) %>%
   htmlwidgets::saveWidget("mlb-free-agency.html")
 
 all_free_agents %>%
   filter(sign_type == "signed", offseason >= 2015, player_type %in% c("Good Player", "All-Star", "Superstar", "MVP")) %>%
   group_by(offseason, player_type, sign_month) %>%
   summarize(players = (paste(name, collapse = "\n"))) %>%
-  ggplot(aes(sign_month, y=1, color = player_type)) +
-  geom_label(aes(label=players)) +
+  ggplot(aes(sign_month, y = 1, color = player_type)) +
+  geom_label(aes(label = players)) +
   facet_grid(vars(offseason))
-# 
-# 
+#
+#
 #   ggplot(aes(sign_month, sign_salary, color = player_type)) +
-#   geom_point() + 
+#   geom_point() +
 #   facet_grid(vars(offseason)) +
 #   labs(x="", y="FA Contract Value (USD Millions)") +
 #   geom_label_repel(aes(label=name), nudge_y = 0.5) +
 #   ggsave("derp.png", width = 10, height = 10, units = "in")
-
 ```
 
 
@@ -494,13 +546,15 @@ fa_diff %>%
   ) %>%
   ggplot(aes(offseason, mean_days_to_sign, group = 1, color = age_bucket)) +
   facet_wrap(vars(player_type, age_bucket), scales = "free_y") +
-  geom_point(size = 0.7) + geom_line() +
+  geom_point(size = 0.7) +
+  geom_line() +
   ggtitle("Mean Days to Sign FA Contract",
     subtitle = "Position Players"
-  ) + fgt +
+  ) +
+  fgt +
   expand_limits(y = 0) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
-  scale_x_continuous(breaks=seq(start_year, current_year))
+  scale_x_continuous(breaks = seq(start_year, current_year))
 
 # starters' time to sign
 fa_diff %>%
@@ -510,13 +564,15 @@ fa_diff %>%
   ) %>%
   ggplot(aes(offseason, mean_days_to_sign, group = 1, color = age_bucket)) +
   facet_wrap(vars(player_type, age_bucket), scales = "free_y") +
-  geom_point(size = 0.7) + geom_line() +
+  geom_point(size = 0.7) +
+  geom_line() +
   ggtitle("Mean Days to Sign FA Contract by Player Type",
     subtitle = "Starting Pitchers"
-  ) + fgt +
+  ) +
+  fgt +
   expand_limits(y = 0) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
-  scale_x_continuous(breaks=seq(start_year, current_year))
+  scale_x_continuous(breaks = seq(start_year, current_year))
 
 # relievers' time to sign
 fa_diff %>%
@@ -526,13 +582,15 @@ fa_diff %>%
   ) %>%
   ggplot(aes(offseason, mean_days_to_sign, group = 1, color = age_bucket)) +
   facet_wrap(vars(player_type, age_bucket), scales = "free_y") +
-  geom_point(size = 0.7) + geom_line() +
+  geom_point(size = 0.7) +
+  geom_line() +
   ggtitle("Mean Days to Sign FA Contract by Player Type",
     subtitle = "Relievers"
-  ) + fgt +
+  ) +
+  fgt +
   expand_limits(y = 0) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
-  scale_x_continuous(breaks=seq(start_year, current_year))
+  scale_x_continuous(breaks = seq(start_year, current_year))
 ```
 
 ```{r, fig.height=3}
@@ -633,7 +691,9 @@ position_player_diff <-
 
 ggplot(position_player_diff, aes(factor(offseason), mean_days_to_sign, group = player_type)) +
   facet_wrap(vars(player_type, age_bucket)) +
-  geom_point(aes(size = median_contract_value)) + geom_line() + ggtitle("Offseason vs. Average Time to Sign Contract and Median Contract Value",
+  geom_point(aes(size = median_contract_value)) +
+  geom_line() +
+  ggtitle("Offseason vs. Average Time to Sign Contract and Median Contract Value",
     subtitle = "Free Agent Position Players by Talent Level and Age at Signing, 2016 - 2018"
   ) +
   labs(
@@ -662,7 +722,9 @@ starting_pitcher_diff <-
 
 ggplot(starting_pitcher_diff, aes(factor(offseason), mean_days_to_sign, group = player_type)) +
   facet_wrap(vars(player_type, age_bucket)) +
-  geom_point(aes(size = median_contract_value)) + geom_line() + ggtitle("Offseason vs. Average Time to Sign Contract and Median Contract Value",
+  geom_point(aes(size = median_contract_value)) +
+  geom_line() +
+  ggtitle("Offseason vs. Average Time to Sign Contract and Median Contract Value",
     subtitle = "Free Agent Starting Pitchers by Talent Level and Age at Signing, 2016 - 2018"
   ) +
   labs(
@@ -691,7 +753,9 @@ relief_pitcher_diff <-
 
 ggplot(relief_pitcher_diff, aes(factor(offseason), mean_days_to_sign, group = player_type)) +
   facet_wrap(vars(player_type, age_bucket)) +
-  geom_point(aes(size = median_contract_value)) + geom_line() + ggtitle("Offseason vs. Average Time to Sign Contract and Median Contract Value",
+  geom_point(aes(size = median_contract_value)) +
+  geom_line() +
+  ggtitle("Offseason vs. Average Time to Sign Contract and Median Contract Value",
     subtitle = "Free Agent Relievers by Talent Level and Age at Signing, 2016 - 2018"
   ) +
   labs(
@@ -708,35 +772,46 @@ everyone <-
   arrange(offseason) %>%
   group_by(position, player_type, age_bucket) %>%
   arrange(offseason, .by_group = TRUE) %>%
-  mutate(days_to_sign_diff = mean_days_to_sign - lag(mean_days_to_sign),
-         contract_diff = median_contract_value - lag(median_contract_value)) %>%
+  mutate(
+    days_to_sign_diff = mean_days_to_sign - lag(mean_days_to_sign),
+    contract_diff = median_contract_value - lag(median_contract_value)
+  ) %>%
   filter(offseason != 2016) %>%
   unite(label, position, player_type, age_bucket, sep = ", ") %>%
-  mutate(time_direction = case_when(
-    days_to_sign_diff > 0 ~ "Waited Longer",
-    days_to_sign_diff <= 0 ~ "Waited the Same\nor Shorter"),
+  mutate(
+    time_direction = case_when(
+      days_to_sign_diff > 0 ~ "Waited Longer",
+      days_to_sign_diff <= 0 ~ "Waited the Same\nor Shorter"
+    ),
     money_direction = case_when(
       contract_diff >= 0 ~ "Received the Same\nor More Money",
       contract_diff < 0 ~ "Received Less Money"
-    ))
-  
+    )
+  )
+
 # who was harmed the most in 2017?
 
 everyone %>%
   mutate(g_label = case_when(
-    label %in% c("Position Player, All-Star, 31 - 33",
-                 "Position Player, Good Player, 28 - 30",
-                 "Starting Pitcher, Solid Starter, 28 - 30") ~ label,
+    label %in% c(
+      "Position Player, All-Star, 31 - 33",
+      "Position Player, Good Player, 28 - 30",
+      "Starting Pitcher, Solid Starter, 28 - 30"
+    ) ~ label,
     TRUE ~ NA_character_
   )) %>%
   ggplot(aes(days_to_sign_diff, contract_diff)) +
-  geom_point() + fgt +
-  labs(x = "Difference in Average Time to Sign Contract (Days)",
-       y = "Difference in Median Contract Value ($M)") +
-  geom_hline(yintercept = 0, color="gray") +
+  geom_point() +
+  fgt +
+  labs(
+    x = "Difference in Average Time to Sign Contract (Days)",
+    y = "Difference in Median Contract Value ($M)"
+  ) +
+  geom_hline(yintercept = 0, color = "gray") +
   geom_vline(xintercept = 0, color = "gray") +
   ggtitle("Difference in Average Signing Time vs. Difference in Median Contract Value",
-          subtitle = "Free Agents, Offseason vs. the Year Prior") +
+    subtitle = "Free Agents, Offseason vs. the Year Prior"
+  ) +
   facet_wrap(vars(offseason)) +
   geom_label_repel(aes(label = g_label),
     na.rm = TRUE,
@@ -751,16 +826,18 @@ everyone %>%
   ggplot(aes(time_direction, n, fill = money_direction)) +
   geom_col(position = "stack") +
   facet_grid(vars(offseason)) +
-  coord_flip() + fgt +
-  labs(x="Length of Wait Compared to Prior Offseason", y="Number of Player Groups", fill = "Money Received\nCompared to Prior Offseason") +
+  coord_flip() +
+  fgt +
+  labs(x = "Length of Wait Compared to Prior Offseason", y = "Number of Player Groups", fill = "Money Received\nCompared to Prior Offseason") +
   ggtitle("Length of Wait and Contract Amount vs. Prior Offseason",
-          subtitle = "Free Agents, 2017 and 2018 Offseasons")
-  
-  # unite(compared_to_previous_offseason, time_direction, money_direction, sep = ",\n") %>%
-  # ggplot(aes(reorder(compared_to_previous_offseason, -n), n)) + geom_col() +
-  # facet_wrap(vars(offseason)) + coord_flip() +labs(x="", y="Number of Groups") +
-  # fgt
-  
+    subtitle = "Free Agents, 2017 and 2018 Offseasons"
+  )
+
+# unite(compared_to_previous_offseason, time_direction, money_direction, sep = ",\n") %>%
+# ggplot(aes(reorder(compared_to_previous_offseason, -n), n)) + geom_col() +
+# facet_wrap(vars(offseason)) + coord_flip() +labs(x="", y="Number of Groups") +
+# fgt
+
 
 # +
 #   geom_label_repel(aes(label = graph_label),
@@ -770,8 +847,8 @@ everyone %>%
 
 # and how did they fare in 2018?
 
-  
-  #arrange(position, player_type, age_bucket, mean_days_to_sign, median_contract_value, offseason)
+
+# arrange(position, player_type, age_bucket, mean_days_to_sign, median_contract_value, offseason)
 ```
 
 
@@ -808,8 +885,11 @@ everyone %>%
 money_differences %>%
   ungroup() %>%
   mutate(label = glue("{position}, {player_type}, Age {age_bucket}")) %>%
-  ggplot(aes(reorder(label, -diff_mean_days_to_sign), diff_mean_days_to_sign)) + geom_col() + coord_flip() +
-  fgt + labs(
+  ggplot(aes(reorder(label, -diff_mean_days_to_sign), diff_mean_days_to_sign)) +
+  geom_col() +
+  coord_flip() +
+  fgt +
+  labs(
     x = "",
     y = "Difference in Average Days Elapsed Before Signing Free Agent Contract",
     caption = "Source: Baseball-Reference"
@@ -821,8 +901,11 @@ money_differences %>%
 money_differences %>%
   ungroup() %>%
   mutate(label = glue("{position}, {player_type}, Age {age_bucket}")) %>%
-  ggplot(aes(reorder(label, -diff_median_sign_salary), diff_median_sign_salary)) + geom_col() + coord_flip() +
-  fgt + labs(x = "", y = "Difference in Median FA Contract Value (Millions USD), 2018 vs. 2017") +
+  ggplot(aes(reorder(label, -diff_median_sign_salary), diff_median_sign_salary)) +
+  geom_col() +
+  coord_flip() +
+  fgt +
+  labs(x = "", y = "Difference in Median FA Contract Value (Millions USD), 2018 vs. 2017") +
   ggtitle("The Typical Free Agent Took Home Less in 2018 than in 2017")
 ```
 
@@ -830,7 +913,8 @@ money_differences %>%
 all_free_agents %>%
   ungroup() %>%
   mutate(label = glue("{position}, {player_type}, Age {age_bucket}")) %>%
-  ggplot(aes(sign_salary)) + geom_histogram() +
+  ggplot(aes(sign_salary)) +
+  geom_histogram() +
   facet_wrap(vars(label))
 ```
 
@@ -839,7 +923,8 @@ all_free_agents %>%
 all_free_agents %>%
   ggplot(aes(offseason, days_to_sign, group = offseason, color = age_bucket)) +
   geom_boxplot(outlier.size = 0.5, na.rm = TRUE) +
-  facet_wrap(vars(player_type, age_bucket)) + fgt
+  facet_wrap(vars(player_type, age_bucket)) +
+  fgt
 ```
 
 
@@ -858,8 +943,10 @@ all_free_agents %>%
     median_signing = round(median(sign_salary, na.rm = TRUE), 1)
   ) %>%
   ggplot(aes(offseason, median_signing, group = 1)) +
-  geom_point(size = 0.7) + geom_line() +
-  ggtitle("Trends in Free Agent Signing Money", subtitle = "Adjusted for Inflation") + expand_limits(y = 0) +
+  geom_point(size = 0.7) +
+  geom_line() +
+  ggtitle("Trends in Free Agent Signing Money", subtitle = "Adjusted for Inflation") +
+  expand_limits(y = 0) +
   labs(y = "Median Signing Salary (Millions USD)", x = "Offseason") +
   fgt
 
@@ -870,7 +957,8 @@ all_free_agents %>%
   summarize(avg_signing = round(mean(sign_salary, na.rm = TRUE), 1)) %>%
   ggplot(aes(offseason, avg_signing, group = 1, color = age_bucket)) +
   facet_wrap(vars(player_type, age_bucket), scales = "free_y") +
-  geom_point(size = 0.7) + geom_line() +
+  geom_point(size = 0.7) +
+  geom_line() +
   ggtitle("Trends in Free Agent Signing Money") +
   expand_limits(y = 0) +
   labs(y = "Average Signing Salary (Millions USD, Inflation-Adjusted to 2018)", x = "")
@@ -882,7 +970,8 @@ all_free_agents %>%
   summarize(length_of_avg_contract = round(mean(sign_years, na.rm = TRUE), 1)) %>%
   ggplot(aes(offseason, length_of_avg_contract, group = 1, color = age_bucket)) +
   facet_wrap(vars(player_type, age_bucket), scales = "free_y") +
-  geom_point(size = 0.7) + geom_line() +
+  geom_point(size = 0.7) +
+  geom_line() +
   ggtitle("Trends in Free Agent Contract Length") +
   expand_limits(y = 0) +
   labs(y = "Length of Average Contract (Years)", x = "")
@@ -894,7 +983,8 @@ all_free_agents %>%
   summarize(num_minor_league_deals = n()) %>%
   ggplot(aes(offseason, num_minor_league_deals, group = 1, color = age_bucket)) +
   facet_wrap(vars(player_type, age_bucket), scales = "free_y") +
-  geom_point(size = 0.7) + geom_line() +
+  geom_point(size = 0.7) +
+  geom_line() +
   ggtitle("Trends in Minor-League Free Agent Deals") +
   expand_limits(y = 0) +
   labs(y = "Number of Minor League Free Agent Deals", x = "")
@@ -918,10 +1008,12 @@ length_salary_combined <-
 
 length_salary_combined %>%
   ggplot(aes(offseason, avg_days_to_sign, color = avg_salary, size = avg_salary)) +
-  facet_wrap(vars(player_type, age_bucket)) + expand_limits(y = 0) +
+  facet_wrap(vars(player_type, age_bucket)) +
+  expand_limits(y = 0) +
   scale_color_continuous(limits = c(0, 300), low = "red", high = "green") +
   scale_size_continuous(limits = c(0, 300)) +
-  geom_point() + fgt +
+  geom_point() +
+  fgt +
   guides(color = guide_legend(), size = guide_legend())
 
 length_salary_combined %>%
@@ -974,7 +1066,8 @@ cumulative_sign_plt %>%
     x = sign_month, y = signed_perc, color = offseason,
     group = offseason
   )) +
-  geom_point() + geom_line() +
+  geom_point() +
+  geom_line() +
   labs(x = "", y = "% of FA's Signed", caption = "Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com") +
   ggtitle("Free Agent Signing Progress, Visualized",
     subtitle = "% of free agents signed by month, through January of each year"
@@ -996,11 +1089,14 @@ cumulative_sign_plt %>%
   filter(sign_month == "Jan") %>%
   mutate(offseason = as.numeric(offseason)) %>%
   ggplot(aes(offseason, signed_perc)) +
-  geom_point() + geom_line() +
+  geom_point() +
+  geom_line() +
   ggtitle("Free Agent Signings",
     subtitle = "% of free agents signed through January of each offseason"
   ) +
-  labs(x = "Offseason", y = "% of FA's Signed", caption = "Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com") + fgt + theme(legend.position = "none")
+  labs(x = "Offseason", y = "% of FA's Signed", caption = "Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com") +
+  fgt +
+  theme(legend.position = "none")
 
 # same plot as above, but with age buckets visualized
 # doesn't work right now
@@ -1033,11 +1129,14 @@ cumulative_sign_plt %>%
   filter(sign_month == "Jan") %>%
   mutate(offseason = as.numeric(offseason)) %>%
   ggplot(aes(offseason, war_perc)) +
-  geom_point() + geom_line() +
+  geom_point() +
+  geom_line() +
   ggtitle("Free Agent Talent",
     subtitle = "% of free agents WAR3 signed through January of each offseason"
   ) +
-  labs(x = "Offseason", y = "% of FA's Signed", caption = "Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com") + fgt + theme(legend.position = "none")
+  labs(x = "Offseason", y = "% of FA's Signed", caption = "Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com") +
+  fgt +
+  theme(legend.position = "none")
 ```
 
 ```{r}
@@ -1054,9 +1153,11 @@ cumulative_sign_plt %>%
   ) %>%
   filter(sign_month == "Jan") %>%
   ggplot(aes(offseason, value)) +
-  geom_point() + geom_line() +
+  geom_point() +
+  geom_line() +
   facet_wrap(vars(metric), scales = "free_y") +
-  fgt + geom_smooth(method = "loess", se = FALSE, linetype = "dashed") +
+  fgt +
+  geom_smooth(method = "loess", se = FALSE, linetype = "dashed") +
   ggtitle("Trends in Free Agent Signing, through Janauary") +
   labs(x = "Offseason", y = "%", caption = "Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com")
 ```
@@ -1110,7 +1211,8 @@ sign_type_plt %>%
     player_type = factor(player_type, levels = c("Scrub", "Role Player", "Solid Starter", "Good Player", "All-Star", "Superstar", "MVP"))
   ) %>%
   ggplot(aes(offseason, cume_percent_signed)) +
-  geom_point() + geom_line() +
+  geom_point() +
+  geom_line() +
   ggtitle("The Free Agency Decline has Hit All but the Very Best Players",
     subtitle = "% of free agents signed through January"
   ) +
@@ -1118,7 +1220,9 @@ sign_type_plt %>%
     x = "Offseason", y = "% of FA's Signed",
     caption = "Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com"
   ) +
-  fgt + facet_wrap(vars(player_type)) + geom_smooth(method = "loess", linetype = "dashed", se = FALSE, lwd = 0.7)
+  fgt +
+  facet_wrap(vars(player_type)) +
+  geom_smooth(method = "loess", linetype = "dashed", se = FALSE, lwd = 0.7)
 ```
 
 
@@ -1156,7 +1260,8 @@ sign_type_plt_ages %>%
   ungroup() %>%
   filter(sign_month == "Jan") %>%
   ggplot(aes(offseason, cume_percent_signed, color = age_bucket)) +
-  geom_point() + geom_line() +
+  geom_point() +
+  geom_line() +
   ggtitle("The Free Agency Decline has Hit All but the Very Best Players",
     subtitle = "% of free agents signed through January"
   ) +
@@ -1164,7 +1269,8 @@ sign_type_plt_ages %>%
     x = "Offseason", y = "% of FA's Signed",
     caption = "Source: baseball-reference.com\nRetirees are considered unsigned FA's\nGraph by Ryan Pollack: ryanpollack.com"
   ) +
-  fgt + facet_wrap(vars(player_type), scales = "free_y")
+  fgt +
+  facet_wrap(vars(player_type), scales = "free_y")
 ```
 
 
@@ -1193,4 +1299,3 @@ all_free_agents %>%
   filter(offseason == 2017) %>%
   arrange(cume_signed_perc)
 ```
-
