@@ -490,14 +490,17 @@ ggplotly(fa_signing_plot_total, tooltip = c("to_team", "num_players_signed", "to
          dynamicTicks = TRUE)
 
 # Top 25 signings of the decade
-all_free_agents %>%
+top_signings_plt <-
+  all_free_agents %>%
   filter(sign_type %in% c("signed", "signed_intl"), !is.na(sign_salary), sign_salary != 0) %>%
   mutate(player_label = glue("{name} - {offseason} - {to_team}")) %>%
   top_n(25, wt=sign_salary) %>%
-  ggplot(aes(reorder(player_label, sign_salary), sign_salary, label = sign_salary)) +
+  ggplot(aes(reorder(player_label, sign_salary), sign_salary, label = player_label)) +
   geom_col() + coord_flip() +
   labs(x="", y="Contract Salary (USD Millions)") +
   ggtitle("Top 25 Free Agent Contracts, 2010-2019", subtitle = "Adjusted to 2020 dollars")
+
+ggplotly(top_signings_plt, tooltip = c("sign_salary", "player_label"))
   
 ```
 
