@@ -111,7 +111,7 @@ get_international_signings <- function(year) {
     html_table() %>%
     as_tibble() %>%
     filter(Amount != '') %>%
-    select(name = 1, to_team = Team, sign_salary = Amount) %>%
+    select(name = 1, `To Team` = Team, sign_salary = Amount) %>%
     mutate(offseason = year,
            offseason = offseason - 1)  #correct for the way spotrac reports its years relative to bb-ref
 }
@@ -231,13 +231,13 @@ intl_fa <-
   mutate(sign_salary = sign_salary / 1000000) %>%
   
   # clean up some team names and correct some data inaccuracies
-  mutate(to_team = case_when(
-    to_team == "KC" ~ "KCR",
-    to_team == "TB" ~ "TBR",
-    to_team == "SD" ~ "SDP",
+  mutate(`To Team` = case_when(
+    `To Team` == "KC" ~ "KCR",
+    `To Team` == "TB" ~ "TBR",
+    `To Team` == "SD" ~ "SDP",
     name == "Aledmys Diaz" ~ "STL",
     name == "Jorge Ona" ~ "SDP",
-    TRUE ~ to_team
+    TRUE ~ `To Team`
   ),
   
   # some player signings need manual correcting because of the way spotrac lists their signings vs. bb-ref.
@@ -250,10 +250,13 @@ intl_fa <-
     name == "Luis Robert" ~ 2017,
     name == "Yoshitomo Tsutsugo" ~ 2019,
     TRUE ~ offseason
-  ))
+  ),
+  sign_type = "signed_intl")
 
 
 # TODO: match all team names up from the spotrac dataset to this one
+
+# TODO where is the Yasmany Tomas deal?
 
 # TODO: i get [first name] [last name] but i am missing some names. i think they are hyphenated. need to update the regex
 # also Wei-Yin Chen is dorked up it gets "Yin Chen"
@@ -379,6 +382,7 @@ all_free_agents <-
     )) %/% days(1),
   ) %>%
   left_join(fa_salaries, by = c("name", "offseason")) %>%
+  bind_rows(intl_fa) %>%
 
   # adjust for inflation relative to 2020 source: https://www.usinflationcalculator.com
   mutate(
@@ -428,7 +432,8 @@ all_free_agents <-
     `To Team` == "Tampa Bay Rays" ~ "TBR",
     `To Team` == "Texas Rangers" ~ "TEX",
     `To Team` == "Toronto Blue Jays" ~ "TOR",
-    `To Team` == "Washington Nationals" ~ "WAS"
+    `To Team` == "Washington Nationals" ~ "WAS",
+    TRUE ~ `To Team`
   )) %>%
   dplyr::select(-GS, -G, -AB, IP, -`To Team`)
 ```
@@ -442,7 +447,7 @@ all_free_agents <-
 
 fa_signing_plt <-
   all_free_agents %>%
-  filter(sign_type == "signed", !is.na(sign_salary), sign_salary != 0) %>%
+  filter(sign_type %in% c("signed", "signed_intl"), !is.na(sign_salary), sign_salary != 0) %>%
   mutate(
     player_salary = glue("{name} - ${round(sign_salary,1)}m"),
     offseason = as.character(offseason)
