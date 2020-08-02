@@ -103,14 +103,16 @@ get_fa_salaries <- function(year) {
     )
 }
 
-get_international_signings <- function(year){
+get_international_signings <- function(year) {
   # spotrac.com has international FA signings in a nice clean format. MLBTR has them but also reports extensions which I don't want
-  
-read_html(glue("https://www.spotrac.com/mlb/international/{year}")) %>%
-  html_node("table") %>%
-  html_table() %>%
-  as_tibble() %>%
-    mutate(offseason = year)
+
+  read_html(glue("https://www.spotrac.com/mlb/international/{year}")) %>%
+    html_node("table") %>%
+    html_table() %>%
+    as_tibble() %>%
+    filter(Amount != '') %>%
+    select(name = 1, to_team = Team, sign_salary = Amount) %>%
+    mutate(offseason = year - 1)  #correct for the way spotrac reports its years relative to bb-ref
 }
 
 generate_csv <- function(df, year_min, year_max, position, player_type, age) {
@@ -191,7 +193,7 @@ fa_signings %>%
 # get FA salaries from MLBTR
 # update some names to match formatting from baseball reference
 fa_salaries <-
-  seq(2011, 2020) %>%
+  seq(2011, 2021) %>%
   map_df(get_fa_salaries) %>%
   mutate(name = str_replace_all(name, c(
     "Jorge de la Rosa" = "Jorge De La Rosa",
@@ -218,10 +220,8 @@ fa_salaries <-
 
 # get international signings from spotrac. baseball-reference doesn't list these and MLBTR mixes them in with extensions
 intl_fa <-
-  seq(2010, 2020) %>%
+  seq(2011, 2020) %>%
   map_df(get_international_signings) %>%
-  filter(Amount != '') %>%
-  dplyr::select(name = 1, to_team = Team, offseason, sign_salary = Amount) %>%
   mutate(name = str_extract(name, "[A-Z][a-z]* [A-Z][a-z]*"),
          sign_salary = str_remove_all(sign_salary, c(",")),
          sign_salary = str_remove(sign_salary, "\\$"),
