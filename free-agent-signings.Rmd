@@ -459,6 +459,8 @@ fa_signing_plt <-
     total_salary = round(sum(sign_salary, na.rm = TRUE), 1),
     players_signed = paste(player_salary, collapse = "\n")
   ) %>%
+  ungroup() %>%
+  complete(offseason, to_team, fill=list(num_players_signed = 0, total_salary = 0, players_signed = "No one")) %>%
   ggplot(aes(offseason, total_salary, group = 1, label = players_signed)) +
   geom_point() +
   geom_line() +
