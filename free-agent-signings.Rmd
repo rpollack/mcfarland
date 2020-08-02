@@ -230,17 +230,22 @@ intl_fa <-
   mutate(sign_salary = sign_salary / 1000000) %>%
   mutate(to_team = case_when(
     to_team == "KC" ~ "KCR",
+    to_team == "TB" ~ "TBR",
+    to_team == "SD" ~ "SDP",
     TRUE ~ to_team
   ))
+
+
+# TODO: match all team names up from the spotrac dataset to this one
+# TODO: i get [first name] [last name] but i am missing some names. i think they are hyphenated. need to update the regex
+# TODO: figure out how to handle signing dates. spotrac lists the contract pages by sign dates, not offseasons.
+# problem: kikuchi and tsutsugo both signed in 2019, date-wise. but kikuchi signed during the 2018 offseason and tsutsugo
+# signed during the 2019 offseason. fucking data irregularities.
 
 # this code shows folks we have salaries for that we don't have an entry in FA signings for. perhaps we can combine? 
 # in many cases the signing is international; looks like bb-ref doesn't track those. need 
 
-# TODO: add in international FA signings. looks like bb-ref doesn't track these. we'll do this by getting the team info from MLBTR and joining the datasets
 
-# MLBTR also gets extensions. this pollutes the dataset a bit. but if we can mark extensions as such, we can filter them in/out as needed? it doens't look like they're classified as such in the dataset though.
-
-# is there a way to get all int'l free agent signings?
 
 fa_salaries %>% mutate(offseason = as.character(offseason)) %>% anti_join(fa_signings) %>% arrange(desc(sign_salary)) %>% View()
 
