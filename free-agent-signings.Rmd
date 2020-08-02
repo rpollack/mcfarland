@@ -199,9 +199,17 @@ fa_salaries <-
     "Johnathon Niese" = "Jon Niese",
     "J.B. Shuck" = "JB Shuck",
     "Chase D'Arnaud" = "Chase d'Arnaud",
-    "Daniel Coulombe" = "Danny Coulombe"
+    "Daniel Coulombe" = "Danny Coulombe",
+    "Nick Castellanos" = "Nicholas Castellanos"
   ))) %>%
   arrange(desc(sign_salary))
+
+# this code shows folks we have salaries for that we don't have an entry in FA signings for. perhaps we can combine? 
+# in some cases is
+
+fa_salaries %>% mutate(offseason = as.character(offseason)) %>% anti_join(fa_signings) %>% arrange(desc(sign_salary)) %>% View()
+
+
 ```
 
 ### clean data
@@ -368,7 +376,6 @@ all_free_agents <-
 # by team, over time
 ```{r, fig.height=3}
 
-# TODO fix "LA Angels" matching up with "... OF Anaheim"
 
 # TODO fix blank and NA teams.
 
