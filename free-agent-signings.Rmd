@@ -103,6 +103,16 @@ get_fa_salaries <- function(year) {
     )
 }
 
+get_international_signings <- function(year){
+  # spotrac.com has international FA signings in a nice clean format. MLBTR has them but also reports extensions which I don't want
+  
+read_html(glue("https://www.spotrac.com/mlb/international/{year}")) %>%
+  html_node("table") %>%
+  html_table() %>%
+  as_tibble() %>%
+    mutate(offseason = year)
+}
+
 generate_csv <- function(df, year_min, year_max, position, player_type, age) {
   filename <- glue("{position}-{player_type}-{age}.csv")
   df %>%
@@ -120,6 +130,8 @@ generate_csv <- function(df, year_min, year_max, position, player_type, age) {
 
 # generate_csv(all_free_agents, 2016, 2018, "Position Player", "Scrub", "34 - 36")
 ```
+
+
 
 ### get data
 
@@ -204,8 +216,31 @@ fa_salaries <-
   ))) %>%
   arrange(desc(sign_salary))
 
+# get international signings from spotrac. baseball-reference doesn't list these and MLBTR mixes them in with extensions
+intl_fa <-
+  seq(2010, 2020) %>%
+  map_df(get_international_signings) %>%
+  filter(Amount != '') %>%
+  dplyr::select(name = 1, to_team = Team, offseason, sign_salary = Amount) %>%
+  mutate(name = str_extract(name, "[A-Z][a-z]* [A-Z][a-z]*"),
+         sign_salary = str_remove_all(sign_salary, c(",")),
+         sign_salary = str_remove(sign_salary, "\\$"),
+         sign_salary = as.numeric(sign_salary)) %>%
+  filter(sign_salary >= 1000000) %>%
+  mutate(sign_salary = sign_salary / 1000000) %>%
+  mutate(to_team = case_when(
+    to_team == "KC" ~ "KCR",
+    TRUE ~ to_team
+  ))
+
 # this code shows folks we have salaries for that we don't have an entry in FA signings for. perhaps we can combine? 
-# in some cases is
+# in many cases the signing is international; looks like bb-ref doesn't track those. need 
+
+# TODO: add in international FA signings. looks like bb-ref doesn't track these. we'll do this by getting the team info from MLBTR and joining the datasets
+
+# MLBTR also gets extensions. this pollutes the dataset a bit. but if we can mark extensions as such, we can filter them in/out as needed? it doens't look like they're classified as such in the dataset though.
+
+# is there a way to get all int'l free agent signings?
 
 fa_salaries %>% mutate(offseason = as.character(offseason)) %>% anti_join(fa_signings) %>% arrange(desc(sign_salary)) %>% View()
 
