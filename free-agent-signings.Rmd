@@ -250,21 +250,20 @@ intl_fa <-
     name == "Luis Robert" ~ 2017,
     name == "Yoshitomo Tsutsugo" ~ 2019,
     TRUE ~ offseason
-  ),
-  sign_type = "signed_intl")
+  )) %>%
+  bind_rows(tibble(name = "Yasmany Tomas", 
+                   `To Team`= "ARI", 
+                   sign_salary = 68.5, 
+                   offseason = 2014)) %>%
+  mutate(sign_type = "signed_intl")
 
 
 # TODO: match all team names up from the spotrac dataset to this one
 
-# TODO where is the Yasmany Tomas deal?
-
 # TODO: i get [first name] [last name] but i am missing some names. i think they are hyphenated. need to update the regex
 # also Wei-Yin Chen is dorked up it gets "Yin Chen"
 
-# TODO: figure out how to handle signing dates. spotrac lists the contract pages by sign dates, not offseasons.
-# problem: kikuchi and tsutsugo both signed in 2019, date-wise. but kikuchi signed during the 2018 offseason and tsutsugo
-# signed during the 2019 offseason. fucking data irregularities.  another: tanaka is listed as signing in 2014 but he actually
-# signed during the 2013 offseason (jan 2014.)
+
 
 # this code shows folks we have salaries for that we don't have an entry in FA signings for. perhaps we can combine? 
 # in many cases the signing is international; looks like bb-ref doesn't track those. need 
@@ -387,14 +386,14 @@ all_free_agents <-
   # adjust for inflation relative to 2020 source: https://www.usinflationcalculator.com
   mutate(
     sign_salary = case_when(
-      offseason == 2010 ~ sign_salary * 1.152,
-      offseason == 2011 ~ sign_salary * 1.116,
-      offseason == 2012 ~ sign_salary * 1.094,
-      offseason == 2013 ~ sign_salary * 1.078,
-      offseason == 2014 ~ sign_salary * 1.061,
-      offseason == 2015 ~ sign_salary * 1.059,
-      offseason == 2016 ~ sign_salary * 1.046,
-      offseason == 2017 ~ sign_salary * 1.024,
+      offseason == 2010 ~ sign_salary * 1.182,
+      offseason == 2011 ~ sign_salary * 1.146,
+      offseason == 2012 ~ sign_salary * 1.123,
+      offseason == 2013 ~ sign_salary * 1.107,
+      offseason == 2014 ~ sign_salary * 1.089,
+      offseason == 2015 ~ sign_salary * 1.088,
+      offseason == 2016 ~ sign_salary * 1.074,
+      offseason == 2017 ~ sign_salary * 1.052,
       offseason == 2018 ~ sign_salary * 1.027,
       offseason == 2019 ~ sign_salary * 1.008,
       TRUE ~ sign_salary # catch-all for the current year AND if I forget to update the chart above
@@ -433,6 +432,7 @@ all_free_agents <-
     `To Team` == "Texas Rangers" ~ "TEX",
     `To Team` == "Toronto Blue Jays" ~ "TOR",
     `To Team` == "Washington Nationals" ~ "WAS",
+    name == "Greg Dobbs" & offseason == 2011 ~ "MIA",
     TRUE ~ `To Team`
   )) %>%
   dplyr::select(-GS, -G, -AB, IP, -`To Team`)
@@ -441,9 +441,6 @@ all_free_agents <-
 
 # by team, over time
 ```{r, fig.height=3}
-
-
-# TODO fix blank and NA teams.
 
 fa_signing_plt <-
   all_free_agents %>%
