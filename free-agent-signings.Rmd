@@ -112,7 +112,8 @@ get_international_signings <- function(year) {
     as_tibble() %>%
     filter(Amount != '') %>%
     select(name = 1, to_team = Team, sign_salary = Amount) %>%
-    mutate(offseason = year - 1)  #correct for the way spotrac reports its years relative to bb-ref
+    mutate(offseason = year,
+           offseason = offseason - 1)  #correct for the way spotrac reports its years relative to bb-ref
 }
 
 generate_csv <- function(df, year_min, year_max, position, player_type, age) {
@@ -185,10 +186,10 @@ unsigned_pitchers <- years %>%
   )
 
 # check for invalid dates that month() will fail to convert. handle them manually later
-invalid_dates <- which(is.na(ymd(as.character(fa_signings$sign_date), tz = "UTC")))
-fa_signings %>%
-  filter(row_number() %in% invalid_dates) %>%
-  View()
+# invalid_dates <- which(is.na(ymd(as.character(fa_signings$sign_date), tz = "UTC")))
+# fa_signings %>%
+#   filter(row_number() %in% invalid_dates) %>%
+#   View()
 
 # get FA salaries from MLBTR
 # update some names to match formatting from baseball reference
@@ -218,29 +219,49 @@ fa_salaries <-
   ))) %>%
   arrange(desc(sign_salary))
 
-# get international signings from spotrac. baseball-reference doesn't list these and MLBTR mixes them in with extensions
+# get international signings $10m or greater from spotrac. baseball-reference doesn't list these and MLBTR mixes them in with extensions. $10m is a good indication that the player will hit the majors soon and is of note
 intl_fa <-
-  seq(2011, 2020) %>%
+  seq(2010, 2020) %>%
   map_df(get_international_signings) %>%
   mutate(name = str_extract(name, "[A-Z][a-z]* [A-Z][a-z]*"),
          sign_salary = str_remove_all(sign_salary, c(",")),
          sign_salary = str_remove(sign_salary, "\\$"),
          sign_salary = as.numeric(sign_salary)) %>%
-  filter(sign_salary >= 1000000) %>%
+  filter(sign_salary >= 10000000) %>%
   mutate(sign_salary = sign_salary / 1000000) %>%
+  
+  # clean up some team names and correct some data inaccuracies
   mutate(to_team = case_when(
     to_team == "KC" ~ "KCR",
     to_team == "TB" ~ "TBR",
     to_team == "SD" ~ "SDP",
+    name == "Aledmys Diaz" ~ "STL",
+    name == "Jorge Ona" ~ "SDP",
     TRUE ~ to_team
+  ),
+  
+  # some player signings need manual correcting because of the way spotrac lists their signings vs. bb-ref.
+  # i've prioritized manually correcting the largest deals
+  offseason = case_when(
+    name %in% c("Yasiel Puig", "Jorge Soler") ~ 2012,
+    name == "Jose Abreu" ~ 2013,
+    name == "Rusney Castillo" ~ 2014,
+    name %in% c("Yulieski Gurriel", "Alfredo Rodriguez", "Adrian Morejon", "Jorge Ona") ~ 2016,
+    name == "Luis Robert" ~ 2017,
+    name == "Yoshitomo Tsutsugo" ~ 2019,
+    TRUE ~ offseason
   ))
 
 
 # TODO: match all team names up from the spotrac dataset to this one
+
 # TODO: i get [first name] [last name] but i am missing some names. i think they are hyphenated. need to update the regex
+# also Wei-Yin Chen is dorked up it gets "Yin Chen"
+
 # TODO: figure out how to handle signing dates. spotrac lists the contract pages by sign dates, not offseasons.
 # problem: kikuchi and tsutsugo both signed in 2019, date-wise. but kikuchi signed during the 2018 offseason and tsutsugo
-# signed during the 2019 offseason. fucking data irregularities.
+# signed during the 2019 offseason. fucking data irregularities.  another: tanaka is listed as signing in 2014 but he actually
+# signed during the 2013 offseason (jan 2014.)
 
 # this code shows folks we have salaries for that we don't have an entry in FA signings for. perhaps we can combine? 
 # in many cases the signing is international; looks like bb-ref doesn't track those. need 
