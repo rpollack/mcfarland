@@ -255,10 +255,11 @@ intl_fa <-
     name == "Yoshitomo Tsutsugo" ~ 2019,
     TRUE ~ offseason
   )) %>%
-  bind_rows(tibble(name = "Yasmany Tomas", 
-                   `To Team`= "ARI", 
-                   sign_salary = 68.5, 
-                   offseason = 2014)) %>%
+  bind_rows(tibble(
+    name = c("Yasmany Tomas", "Kenta Maeda"),
+             `To Team`= c("ARI", "LAD"),
+             sign_salary = c(68.5, 25),
+             offseason = c(2014, 2015))) %>%
   mutate(sign_type = "signed_intl")
 
 
@@ -274,7 +275,7 @@ intl_fa <-
 
 
 
-fa_salaries %>% mutate(offseason = as.character(offseason)) %>% anti_join(fa_signings) %>% arrange(desc(sign_salary)) %>% View()
+# fa_salaries %>% mutate(offseason = as.character(offseason)) %>% anti_join(fa_signings) %>% arrange(desc(sign_salary)) %>% View()
 
 
 ```
@@ -308,7 +309,9 @@ fa_signings_clean <-
     sign_month = factor(sign_month, levels = c(
       "Sep", "Oct", "Nov", "Dec", "Jan", "Feb",
       "Mar", "Apr", "May", "Jun", "Jul", "Aug"
-    ))
+    )),
+    name = str_remove(name, "HOF"),
+    name = str_trim(name)
   )
 
 # chagne some data types to match so the rows can be bound together.
@@ -1079,8 +1082,7 @@ length_salary_combined %>%
   mutate(
     salary_diff = avg_salary - lag(avg_salary),
     days_to_sign_diff = avg_days_to_sign - lag(avg_days_to_sign)
-  ) %>%
-  View()
+  ) 
 ```
 
 
