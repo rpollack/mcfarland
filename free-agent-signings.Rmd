@@ -142,7 +142,7 @@ generate_csv <- function(df, year_min, year_max, position, player_type, age) {
 
 ### get data
 
-```{r include=FALSE}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 start_year <- 2010
 start_year_salaries <- 2011
 current_year <- 2019
@@ -219,11 +219,14 @@ fa_salaries <-
     "J.B. Shuck" = "JB Shuck",
     "Chase D'Arnaud" = "Chase d'Arnaud",
     "Daniel Coulombe" = "Danny Coulombe",
-    "Nick Castellanos" = "Nicholas Castellanos"
+    "Nick Castellanos" = "Nicholas Castellanos",
+    "A.J. Pollock" = "AJ Pollock",
+    "Yoenis Cespedes" = "Yoenis Céspedes"
   ))) %>%
   arrange(desc(sign_salary))
 
-# get international signings $10m or greater from spotrac. baseball-reference doesn't list these and MLBTR mixes them in with extensions. $10m is a good indication that the player will hit the majors soon and is of note
+# get international signings $10m or greater from spotrac. baseball-reference doesn't list these and MLBTR mixes them in with extensions. 
+# $10m is a good indication that the player will hit the majors soon and is of note
 intl_fa <-
   seq(2010, 2020) %>%
   map_df(get_international_signings) %>%
@@ -255,28 +258,17 @@ intl_fa <-
     name == "Yoshitomo Tsutsugo" ~ 2019,
     TRUE ~ offseason
   )) %>%
+  
+  # manually add int'l signings that were not in the dataset but were at least $10m
   bind_rows(tibble(
-    name = c("Yasmany Tomas", "Kenta Maeda"),
-             `To Team`= c("ARI", "LAD"),
-             sign_salary = c(68.5, 25),
-             offseason = c(2014, 2015))) %>%
+    name = c("Yasmany Tomas", "Kenta Maeda", "Eric Thames", "Miles Mikolas"),
+             `To Team`= c("ARI", "LAD", "MIL", "STL"),
+             sign_salary = c(68.5, 25, 16, 15.5),
+             offseason = c(2014, 2015, 2016, 2017))) %>%
   mutate(sign_type = "signed_intl")
 
 
 # TODO: match all team names up from the spotrac dataset to this one
-
-# TODO: i get [first name] [last name] but i am missing some names. i think they are hyphenated. need to update the regex
-# also Wei-Yin Chen is dorked up it gets "Yin Chen"
-
-
-
-# this code shows folks we have salaries for that we don't have an entry in FA signings for. perhaps we can combine? 
-# in many cases the signing is international; looks like bb-ref doesn't track those. need 
-
-
-
-# fa_salaries %>% mutate(offseason = as.character(offseason)) %>% anti_join(fa_signings) %>% arrange(desc(sign_salary)) %>% View()
-
 
 ```
 
@@ -443,6 +435,11 @@ all_free_agents <-
     TRUE ~ `To Team`
   )) %>%
   dplyr::select(-GS, -G, -AB, IP, -`To Team`)
+
+# run this code to identify salary amounts i don't have in the master list. 
+# they should all be extensions, qualifying offers, or americans who signed from a foreign league. BB-Ref lists neither of these.
+# i catch foreign-signed americans in intl_fa
+# fa_salaries %>% mutate(offseason = as.double(offseason), sign_years = as.double(sign_years)) %>% anti_join(all_free_agents, by=c("name", "offseason")) %>% arrange(desc(sign_salary)) %>% View()
 ```
 
 
