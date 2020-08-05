@@ -221,7 +221,8 @@ fa_salaries <-
     "Daniel Coulombe" = "Danny Coulombe",
     "Nick Castellanos" = "Nicholas Castellanos",
     "A.J. Pollock" = "AJ Pollock",
-    "Yoenis Cespedes" = "Yoenis Céspedes"
+    "Yoenis Cespedes" = "Yoenis Céspedes",
+    "Hyun-Jin Ryu" = "Hyun Jin Ryu"
   ))) %>%
   arrange(desc(sign_salary))
 
@@ -488,7 +489,8 @@ fa_signing_plot_total <-
     players_signed = paste(player_salary, collapse = "\n")
   ) %>%
   ggplot(aes(num_players_signed, total_salary, color = to_team, text = players_signed)) +
-  geom_text(aes(label = to_team))
+  geom_text(aes(label = to_team)) +
+  theme(legend.position = "none")
 
 ggplotly(fa_signing_plot_total, tooltip = c("to_team", "num_players_signed", "total_salary", "players_signed"),
          dynamicTicks = TRUE)
