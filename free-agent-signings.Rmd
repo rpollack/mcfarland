@@ -262,10 +262,10 @@ intl_fa <-
   
   # manually add int'l signings that were not in the dataset but were at least $10m
   bind_rows(tibble(
-    name = c("Yasmany Tomas", "Kenta Maeda", "Eric Thames", "Miles Mikolas"),
-             `To Team`= c("ARI", "LAD", "MIL", "STL"),
-             sign_salary = c(68.5, 25, 16, 15.5),
-             offseason = c(2014, 2015, 2016, 2017))) %>%
+    name = c("Yasmany Tomas", "Kenta Maeda", "Eric Thames", "Miles Mikolas", "Byung-ho Park"),
+             `To Team`= c("ARI", "LAD", "MIL", "STL", "MIN"),
+             sign_salary = c(68.5, 25, 16, 15.5, 12.85),
+             offseason = c(2014, 2015, 2016, 2017, 2015))) %>%
   mutate(sign_type = "signed_intl")
 
 
@@ -454,7 +454,8 @@ all_free_agents <-
 
 fa_signing_plt <-
   all_free_agents %>%
-  filter(sign_type %in% c("signed", "signed_intl"), !is.na(sign_salary), sign_salary != 0) %>%
+  filter(sign_type %in% c("signed", "signed_intl"), !is.na(sign_salary), sign_salary != 0,
+         offseason >= 2010) %>%
   mutate(
     player_salary = glue("{name} - ${round(sign_salary,1)}m"),
     offseason = as.character(offseason)
@@ -474,7 +475,7 @@ fa_signing_plt <-
   facet_wrap(vars(to_team)) +
   scale_x_discrete(breaks = c("2010", "2015", "2019")) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
-  ggtitle("Free Agent Spending, 2009–2019") +
+  ggtitle("Free Agent Spending, 2010–2019 Offseasons") +
   labs(x = "", y = "FA Contracts Signed (USD Million)") +
   scale_color_manual(values = team_colors) +
   scale_fill_manual(values = team_colors) + fgt +
