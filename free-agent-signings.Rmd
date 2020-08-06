@@ -262,14 +262,13 @@ intl_fa <-
   
   # manually add int'l signings that were not in the dataset but were at least $10m
   bind_rows(tibble(
-    name = c("Yasmany Tomas", "Kenta Maeda", "Eric Thames", "Miles Mikolas", "Byung-ho Park"),
-             `To Team`= c("ARI", "LAD", "MIL", "STL", "MIN"),
-             sign_salary = c(68.5, 25, 16, 15.5, 12.85),
-             offseason = c(2014, 2015, 2016, 2017, 2015))) %>%
+    name = c("Yasmany Tomas", "Kenta Maeda", "Eric Thames", "Miles Mikolas", "Byung-ho Park", "Yaisel Sierra", "Alexander Guerrero",
+             "Erisbel Arruebarrena"),
+             `To Team`= c("ARI", "LAD", "MIL", "STL", "MIN", "LAD", "LAD", "LAD"),
+             sign_salary = c(68.5, 25, 16, 15.5, 12.85, 30, 28, 25),
+             offseason = c(2014, 2015, 2016, 2017, 2015, 2015, 2013, 2013))) %>%
   mutate(sign_type = "signed_intl")
 
-
-# TODO: match all team names up from the spotrac dataset to this one
 
 ```
 
@@ -475,7 +474,7 @@ fa_signing_plt <-
   facet_wrap(vars(to_team)) +
   scale_x_discrete(breaks = c("2010", "2015", "2019")) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
-  ggtitle("Free Agent Spending, 2010–2019 Offseasons") +
+  ggtitle("MLB Free Agent Spending, 2010–2019 Offseasons") +
   labs(x = "", y = "FA Contracts Signed (USD Million)") +
   scale_color_manual(values = team_colors) +
   scale_fill_manual(values = team_colors) + fgt +
