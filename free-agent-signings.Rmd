@@ -231,7 +231,7 @@ fa_salaries <-
 intl_fa <-
   seq(2010, 2020) %>%
   map_df(get_international_signings) %>%
-  mutate(name = str_extract(name, "[A-Z][a-z]* [A-Z][a-z]*"),
+  mutate(name = str_extract(name, "[A-Z][a-z]*[\\s|-][A-Z][a-z]*(\\s*[A-Z][a-z]*)*"),
          sign_salary = str_remove_all(sign_salary, c(",")),
          sign_salary = str_remove(sign_salary, "\\$"),
          sign_salary = as.numeric(sign_salary)) %>%
@@ -249,7 +249,7 @@ intl_fa <-
   ),
   
   # some player signings need manual correcting because of the way spotrac lists their signings vs. bb-ref.
-  # i've prioritized manually correcting the largest deals
+  # i've prioritized manually correcting deals at $10m or above
   offseason = case_when(
     name %in% c("Yasiel Puig", "Jorge Soler") ~ 2012,
     name == "Jose Abreu" ~ 2013,
