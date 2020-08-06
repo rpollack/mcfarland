@@ -435,7 +435,12 @@ all_free_agents <-
     name == "Greg Dobbs" & offseason == 2011 ~ "MIA",
     TRUE ~ `To Team`
   )) %>%
-  dplyr::select(-GS, -G, -AB, IP, -`To Team`)
+  dplyr::select(-GS, -G, -AB, IP, -`To Team`) %>%
+  bind_rows(tibble(name = c("Ted Lilly", "Clayton Kershaw"),
+                   offseason= c(2010, 2018),
+                   sign_salary = c(33, 93),
+                   to_team = c("LAD", "LAD"),
+                   sign_type = "signed"))
 
 # run this code to identify salary amounts i don't have in the master list. 
 # they should all be extensions, qualifying offers, or americans who signed from a foreign league. BB-Ref lists neither of these.
@@ -469,9 +474,11 @@ fa_signing_plt <-
   facet_wrap(vars(to_team)) +
   scale_x_discrete(breaks = c("2010", "2015", "2019")) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  ggtitle("Free Agent Spending, 2009–2019") +
   labs(x = "", y = "FA Contracts Signed (USD Million)") +
   scale_color_manual(values = team_colors) +
-  scale_fill_manual(values = team_colors)
+  scale_fill_manual(values = team_colors) + fgt +
+  theme(legend.position = "none")
 
 ggplotly(fa_signing_plt, tooltip = c("offseason", "total_salary", "players_signed"))
 ```
