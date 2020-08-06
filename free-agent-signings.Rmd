@@ -431,7 +431,7 @@ all_free_agents <-
     `To Team` == "Tampa Bay Rays" ~ "TBR",
     `To Team` == "Texas Rangers" ~ "TEX",
     `To Team` == "Toronto Blue Jays" ~ "TOR",
-    `To Team` == "Washington Nationals" ~ "WAS",
+    `To Team` == "Washington Nationals" ~ "WSN",
     name == "Greg Dobbs" & offseason == 2011 ~ "MIA",
     TRUE ~ `To Team`
   )) %>%
@@ -463,16 +463,20 @@ fa_signing_plt <-
   ) %>%
   ungroup() %>%
   complete(offseason, to_team, fill=list(num_players_signed = 0, total_salary = 0, players_signed = "No one")) %>%
-  ggplot(aes(offseason, total_salary, group = 1, label = players_signed)) +
+  ggplot(aes(offseason, total_salary, group = 1, label = players_signed, fill = to_team, color = to_team)) +
   geom_point() +
   geom_line() +
   facet_wrap(vars(to_team)) +
   scale_x_discrete(breaks = c("2010", "2015", "2019")) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
-  labs(x = "", y = "Total FA Contracts Signed (USD Million, Adj. for Inflation")
+  labs(x = "", y = "FA Contracts Signed (USD Million)") +
+  scale_color_manual(values = team_colors) +
+  scale_fill_manual(values = team_colors)
 
 ggplotly(fa_signing_plt, tooltip = c("offseason", "total_salary", "players_signed"))
+```
 
+```{r}
 # by team for the entire decade
 fa_signing_plot_total <-
   all_free_agents %>%
