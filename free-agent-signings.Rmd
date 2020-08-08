@@ -28,6 +28,57 @@ fgt <- theme(
   # strip.background = element_rect(fill = "#50ae26"),
   strip.text = element_text(color = "black", family = "Lato")
 )
+
+# define team colors. taken from warcels.Rmd
+team_info <- tibble(
+  team_name = c(
+    "ARI", "ATL", "BAL", "BOS", "CHC",
+    "CHW", "CIN", "CLE", "COL", "DET",
+    "HOU", "KCR", "LAA", "LAD", "MIA",
+    "MIL", "MIN", "NYM", "NYY", "OAK",
+    "PHI", "PIT", "SDP", "SEA", "SFG",
+    "STL", "TBR", "TEX", "TOR", "WSN"
+  ),
+  team_url = c(
+    "arizona-diamondbacks", "atlanta-braves", "baltimore-orioles", "boston-red-sox", "chicago-cubs",
+    "chicago-white-sox", "cincinnati-reds", "cleveland-indians", "colorado-rockies", "detroit-tigers",
+    "houston-astros", "kansas-city-royals", "los-angeles-angels", "los-angeles-dodgers", "miami-marlins",
+    "milwaukee-brewers", "minnesota-twins", "new-york-mets", "new-york-yankees", "oakland-athletics",
+    "philadelphia-phillies", "pittsburgh-pirates", "san-diego-padres", "seattle-mariners", "san-francisco-giants",
+    "st-louis-cardinals", "tampa-bay-rays", "texas-rangers", "toronto-blue-jays", "washington-nationals"
+  ),
+  team_color = c(
+    "#A71930", "#002F5F", "#ED4C09", "#C60C30", "#003279",
+    "#000000", "#C6011F", "#003366", "#333366", "#001742",
+    "#072854", "#15317E", "#B71234", "#083C6B", "#F9423A",
+    "#182B49", "#072754", "#002C77", "#1C2841", "#003831",
+    "#BA0C2F", "#FDB829", "#002147", "#005C5C", "#F2552C",
+    "#C41E3A", "#9ECEEE", "#BD1021", "#003DA5", "#BA122B"
+  ),
+  tv_households = c(
+    1864420, 2341390, 1084180, 2364870, 3251370 / 2,
+    3251370 / 2, 850030, 1399470, 1585270, 177240,
+    2423360, 909420, 5276600 / 2, 5276600 / 2, 1697840,
+    848420, 1713310, 7100300 / 2, 7100300 / 2, 2414470 / 2,
+    2816850, 1108780, 987760, 1854810, 2414470 / 2,
+    1164400, 1875420, 2622070, 6896551, 2482480
+    
+    # source: https://mediatracks.com/resources/nielsen-dma-rankings-2019/. 
+    # Toronto taken from https://www.newswire.ca/news-releases/the-fans-have-spoken-sportsnet-is-canadas-1-sports-media-brand-in-2016-609901805.html. Assume ALDS reached max number of people since it was massively popular. 20m canadians at 2.9 canadians per household is 6,896,551 households
+  ),
+  payroll_opening_day_2018 = c(
+    131565116, 118284851, 148574615, 233200429, 183156139,
+    71217000, 101357500, 134851566, 136953500, 125286000,
+    160393900, 123233317, 166649999, 186220715, 99510143,
+    90964571, 128713226, 150558844, 166111632, 65985833,
+    95270301, 86340001, 94037733, 157903943, 200505278,
+    159698667, 76007496, 133137626, 162037223, 180849056
+  )
+)
+
+# define color scale used in plots below
+team_colors <- team_info$team_color
+names(team_colors) <- factor(team_info$team_name)
 ```
 
 ```{r include=FALSE}
@@ -447,8 +498,34 @@ all_free_agents <-
 # fa_salaries %>% mutate(offseason = as.double(offseason), sign_years = as.double(sign_years)) %>% anti_join(all_free_agents, by=c("name", "offseason")) %>% arrange(desc(sign_salary)) %>% View()
 ```
 
+## Introduction
 
-# by team, over time
+blah blah blah blah
+
+## Data
+The data comes from three sources:
+* Free agent signing data, such as who was a free agent and when they signed the contract, comes from the ever-reliable Baseball-Reference.
+* Domestic free agent contract information (salaries) comes from MLB Trade Rumors. Example page   
+* International free agenty contract information comes from Spotrac. MLBTR has this data but it mixes in contract extensions Example page
+
+I adjusted all salaries for inflation relative to 2020 using www.usinflationcalculator.com. 
+
+What's included:
+* All domestic free agents who signed MLB contracts that are in the above sources
+* International free agents who signed for \$10m or more. Spotrac groups its data differently than MLBTR and Baseball-Reference, so I had to prioritize which contracts I'd manually inspect. Signings of \$10m or above are the ones that generate the most headlines and portend an appearance in MLB soon. (Sorry Angels fans, this means Shohei Ohtani isn't included in the dataset.)
+
+What's not included:
+* Qualitying offers
+* Extensions
+* International free agent signings under \$10m
+* Anything I missed, which is likely something given I had to combine information from three data sources :-)
+
+With that out of the way, let's get to the graphs!
+
+## Graphs
+
+First up is a timeline of free agent spending for each team:
+
 ```{r echo=FALSE}
 
 fa_signing_plt <-
@@ -475,13 +552,14 @@ fa_signing_plt <-
   scale_x_discrete(breaks = c("2010", "2015", "2019")) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
   ggtitle("MLB Free Agent Spending, 2010–2019 Offseasons") +
-  labs(x = "", y = "FA Contracts Signed (USD Million)") +
+  labs(x = "Offseason", y = "FA Contracts Signed (USD Million)") +
   scale_color_manual(values = team_colors) +
   scale_fill_manual(values = team_colors) + fgt +
   theme(legend.position = "none")
 
 ggplotly(fa_signing_plt, tooltip = c("offseason", "total_salary", "players_signed"))
 ```
+
 
 ```{r}
 # by team for the entire decade
@@ -506,7 +584,7 @@ fa_signing_plot_total <-
   scale_color_manual(values = team_colors) +
   scale_fill_manual(values = team_colors) + fgt +
   labs(x="", y="Total FA Contracts Signed (USD Millions)") +
-  ggtitle("MLB Free Agent Spending by Team, 2010-2019 Offseasons")
+  ggtitle("Cumulative MLB Free Agent Spending by Team, 2010-2019 Offseasons")
 
 ggplotly(fa_signing_plot_total, tooltip = c("to_team", "num_players_signed", "total_salary", "players_signed"),
          dynamicTicks = TRUE)
@@ -520,7 +598,7 @@ top_signings_plt <-
   ggplot(aes(reorder(player_label, sign_salary), sign_salary, label = player_label)) +
   geom_col() + coord_flip() +
   labs(x="", y="Contract Salary (USD Millions)") +
-  ggtitle("Top 25 Free Agent Contracts, 2010-2019", subtitle = "Adjusted to 2020 dollars")
+  ggtitle("MLB Top 25 Free Agent Contracts, 2010-2019", subtitle = "Adjusted to 2020 dollars")
 
 ggplotly(top_signings_plt, tooltip = c("sign_salary", "player_label"))
   
