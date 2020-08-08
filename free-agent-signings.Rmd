@@ -499,9 +499,14 @@ fa_signing_plot_total <-
     total_salary = round(sum(sign_salary, na.rm = TRUE), 1),
     players_signed = paste(player_salary, collapse = "\n")
   ) %>%
-  ggplot(aes(num_players_signed, total_salary, color = to_team, text = players_signed)) +
-  geom_text(aes(label = to_team)) +
-  theme(legend.position = "none")
+  ggplot(aes(reorder(to_team, total_salary), total_salary, fill = to_team, text = players_signed)) +
+  geom_col() +
+  theme(legend.position = "none") +
+  coord_flip() +
+  scale_color_manual(values = team_colors) +
+  scale_fill_manual(values = team_colors) + fgt +
+  labs(x="", y="Total FA Contracts Signed (USD Millions)") +
+  ggtitle("MLB Free Agent Spending by Team, 2010-2019 Offseasons")
 
 ggplotly(fa_signing_plot_total, tooltip = c("to_team", "num_players_signed", "total_salary", "players_signed"),
          dynamicTicks = TRUE)
