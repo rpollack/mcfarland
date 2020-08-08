@@ -1,11 +1,22 @@
+---
+title: "MLB Free Agent Analysis, 2010–2019 offseasons"
+author: "Ryan Pollack"
+output: 
+  html_document: 
+    df_print: kable
+
+---
 
 
 
-```{r setup}
+```{r setup, message = FALSE, warning = FALSE, include = FALSE}
 
-knitr::opts_chunk$set()
-
-
+knitr::opts_chunk$set(
+	message = FALSE,
+	warning = FALSE,
+	fig.width = 10,
+	fig.height = 10
+)
 library(tidyverse)
 library(lubridate)
 library(rvest)
@@ -81,7 +92,7 @@ team_colors <- team_info$team_color
 names(team_colors) <- factor(team_info$team_name)
 ```
 
-```{r include=FALSE}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 get_free_agents <- function(url) {
   signed_fas <- url %>%
     read_html() %>%
@@ -190,10 +201,8 @@ generate_csv <- function(df, year_min, year_max, position, player_type, age) {
 ```
 
 
+```{r get data, message=FALSE, warning=FALSE, include=FALSE}
 
-### get data
-
-```{r message=FALSE, warning=FALSE, include=FALSE}
 start_year <- 2010
 start_year_salaries <- 2011
 current_year <- 2019
@@ -323,9 +332,8 @@ intl_fa <-
 
 ```
 
-### clean data
 
-```{r include=FALSE}
+```{r clean data, include=FALSE}
 
 fa_signings_clean <-
   fa_signings %>%
@@ -526,7 +534,7 @@ With that out of the way, let's get to the graphs!
 
 First up is a timeline of free agent spending for each team:
 
-```{r echo=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 
 fa_signing_plt <-
   all_free_agents %>%
@@ -561,7 +569,7 @@ ggplotly(fa_signing_plt, tooltip = c("offseason", "total_salary", "players_signe
 ```
 
 
-```{r}
+```{r, echo = FALSE, message=FALSE, warning=FALSE}
 # by team for the entire decade
 fa_signing_plot_total <-
   all_free_agents %>%
@@ -629,26 +637,26 @@ all_free_agents %>%
   ) 
 
 # median salary by player type, by year
-salary_plt <-
-  all_free_agents %>%
-  filter(sign_type == "signed") %>%
-  group_by(offseason, player_type) %>%
-  arrange(desc(sign_salary)) %>%
-  summarize(median_salary = round(median(sign_salary, na.rm = TRUE), 1),
-            player_names = paste(name, collapse = "\n")) %>%
-  complete(offseason, player_type) %>%
-  ggplot(aes(offseason, median_salary, text = player_names, group = 1)) +
-  facet_wrap(vars(player_type)) +
-  geom_point() +
-  geom_line() +
-  ggtitle("Trends in Free Agent Signing Salaries") +
-  fgt +
-  expand_limits(y = 0) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
-  scale_x_continuous(breaks = seq(start_year, current_year)) +
-  labs(y = "Median Signing Salary (USD Millions)")
+# salary_plt <-
+#   all_free_agents %>%
+#   filter(sign_type == "signed") %>%
+#   group_by(offseason, player_type) %>%
+#   arrange(desc(sign_salary)) %>%
+#   summarize(median_salary = round(median(sign_salary, na.rm = TRUE), 1),
+#             player_names = paste(name, collapse = "\n")) %>%
+#   complete(offseason, player_type) %>%
+#   ggplot(aes(offseason, median_salary, text = player_names, group = 1)) +
+#   facet_wrap(vars(player_type)) +
+#   geom_point() +
+#   geom_line() +
+#   ggtitle("Trends in Free Agent Signing Salaries") +
+#   fgt +
+#   expand_limits(y = 0) +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+#   scale_x_continuous(breaks = seq(start_year, current_year)) +
+#   labs(y = "Median Signing Salary (USD Millions)")
 
-ggplotly(salary_plt, tooltip = c("offseason", "median_salary", "player_names"))
+# ggplotly(salary_plt, tooltip = c("offseason", "median_salary", "player_names"))
 
 # mean time to sign by player talent type, by year
 sign_time_plt_talent <-
@@ -677,7 +685,7 @@ ggplotly(sign_time_plt_talent)
 
 ```
 
-```{r}
+```{r echo=FALSE}
 signing_timeline <-
   all_free_agents %>%
   filter(sign_type == "signed", player_type != "Scrub", days_to_sign >= 0) %>%
@@ -967,7 +975,7 @@ ggplot(relief_pitcher_diff, aes(factor(offseason), mean_days_to_sign, group = pl
   expand_limits((y <- 0))
 ```
 
-```{r, fig.height=3}
+```{r eval=FALSE, fig.height=3, include=FALSE}
 everyone <-
   bind_rows(position_player_diff, starting_pitcher_diff, relief_pitcher_diff) %>%
   arrange(offseason) %>%
@@ -1021,7 +1029,7 @@ everyone %>%
   )
 ```
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 everyone %>%
   count(offseason, time_direction, money_direction) %>%
   ggplot(aes(time_direction, n, fill = money_direction)) +
@@ -1081,9 +1089,7 @@ all_free_agents %>%
 ```
 
 
-fun with contract information
-
-```{r eval=FALSE, fig.height=, include=FALSE}
+```{r eval=FALSE, include=FALSE}
 
 
 
@@ -1144,10 +1150,12 @@ all_free_agents %>%
 ```
 
 
-relationship between days to sign and salary signed for, by player type and age bucket
 
 
 ```{r eval=FALSE, fig.height=3, include=FALSE}
+
+# relationship between days to sign and salary signed for, by player type and age bucket
+
 
 length_salary_combined <-
   all_free_agents %>%
@@ -1179,9 +1187,11 @@ length_salary_combined %>%
 ```
 
 
-the chunks below are useful but not as much now. the code above, that references mean time to sign, is much more useful as it can be updated daily
 
 ```{r eval=FALSE, include=FALSE}
+
+# the chunks below are useful but not as much now. the code above, that references mean time to sign, is much more useful as it can be updated daily
+
 
 current_month <- "Feb"
 
@@ -1291,7 +1301,7 @@ cumulative_sign_plt %>%
   theme(legend.position = "none")
 ```
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 
 cumulative_sign_plt %>%
   ungroup() %>%
@@ -1315,9 +1325,11 @@ cumulative_sign_plt %>%
 ```
 
 
-temporal distribution of signing %, over time
 
-```{r, fig.height=7, fig.width=5}
+```{r eval=FALSE, include=FALSE}
+
+# temporal distribution of signing %, over time
+
 cumulative_sign_plt %>%
   ungroup() %>%
   mutate(offseason = factor(offseason)) %>%
@@ -1379,8 +1391,10 @@ sign_type_plt %>%
 
 
 
-same as above, only split out by age bucket
 ```{r eval=FALSE, fig.height=3, include=FALSE}
+# same as above, only split out by age bucket
+
+
 fa_types_annual_age_buckets <-
   all_free_agents %>%
   group_by(offseason, player_type, age_bucket) %>%
@@ -1429,10 +1443,10 @@ sign_type_plt_ages %>%
 
 
 
-debugging is below
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 
+# debugging is below
 
 # TODO: verify month by month signing ounts for 2017, 2018, and 1994
 # this will be my final verification
