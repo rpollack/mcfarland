@@ -1,6 +1,6 @@
 ---
 title: "MLB Free Agent Analysis, 2010–2019 offseasons"
-author: "Ryan Pollack"
+author: "Ryan Pollack, ryanpollack.com"
 output: 
   html_document: 
     df_print: kable
@@ -15,7 +15,7 @@ knitr::opts_chunk$set(
 	message = FALSE,
 	warning = FALSE,
 	fig.width = 10,
-	fig.height = 10
+	fig.height = 8
 )
 library(tidyverse)
 library(lubridate)
@@ -512,18 +512,21 @@ blah blah blah blah
 
 ## Data
 The data comes from three sources:
-* Free agent signing data, such as who was a free agent and when they signed the contract, comes from the ever-reliable Baseball-Reference.
-* Domestic free agent contract information (salaries) comes from MLB Trade Rumors. Example page   
-* International free agenty contract information comes from Spotrac. MLBTR has this data but it mixes in contract extensions Example page
+
+*   Free agent signing data, such as who was a free agent and when they signed the contract, comes from the ever-reliable Baseball-Reference.
+*   Domestic free agent contract information (salaries) comes from MLB Trade Rumors. Example page   
+*   International free agenty contract information comes from Spotrac. MLBTR has this data but it mixes in contract extensions Example page
 
 I adjusted all salaries for inflation relative to 2020 using www.usinflationcalculator.com. 
 
 What's included:
+
 * All domestic free agents who signed MLB contracts that are in the above sources
-* International free agents who signed for \$10m or more. Spotrac groups its data differently than MLBTR and Baseball-Reference, so I had to prioritize which contracts I'd manually inspect. Signings of \$10m or above are the ones that generate the most headlines and portend an appearance in MLB soon. (Sorry Angels fans, this means Shohei Ohtani isn't included in the dataset.)
+* International free agents who signed for \$10m or more. Spotrac groups its data differently than MLBTR and Baseball-Reference, so I had to prioritize which contracts I'd manually inspect. Signings of \$10m or above are the ones that generate the most headlines and portend an appearance in MLB soon.
 
 What's not included:
-* Qualitying offers
+
+* Qualifying offers
 * Extensions
 * International free agent signings under \$10m
 * Anything I missed, which is likely something given I had to combine information from three data sources :-)
@@ -532,7 +535,9 @@ With that out of the way, let's get to the graphs!
 
 ## Graphs
 
-First up is a timeline of free agent spending for each team:
+# Spending by Team over Time
+
+First up is a timeline of free agent spending for each team. Hover over a bullet point to see the players signed that offseason and their salaries.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
@@ -569,6 +574,9 @@ ggplotly(fa_signing_plt, tooltip = c("offseason", "total_salary", "players_signe
 ```
 
 
+# Total Spending by Team
+
+
 ```{r, echo = FALSE, message=FALSE, warning=FALSE}
 # by team for the entire decade
 fa_signing_plot_total <-
@@ -597,6 +605,15 @@ fa_signing_plot_total <-
 ggplotly(fa_signing_plot_total, tooltip = c("to_team", "num_players_signed", "total_salary", "players_signed"),
          dynamicTicks = TRUE)
 
+```
+
+
+# 25 Largest Contracts of the Decade
+
+blorp.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
 # Top 25 signings of the decade
 top_signings_plt <-
   all_free_agents %>%
@@ -612,8 +629,10 @@ ggplotly(top_signings_plt, tooltip = c("sign_salary", "player_label"))
   
 ```
 
+# Signing Time Trends
 
-show the median number of days it takes players to sign a FA contract, by a few different facets
+During the 2017 and 2018 offseasons, many people noticed that free agents were taking longer to sign. The following graph shows the median number of days elapsed between November 1st of each offseason and the day a player signed.
+
 
 ```{r echo=FALSE}
 
@@ -635,7 +654,11 @@ all_free_agents %>%
   ggtitle("Offseason vs. Median Time to Sign Contract",
     subtitle = "Free Agents through March 2020"
   ) 
+```
 
+What we noticed in 2017 and 2018 was the result 
+
+```{r}
 # median salary by player type, by year
 # salary_plt <-
 #   all_free_agents %>%
@@ -657,6 +680,13 @@ all_free_agents %>%
 #   labs(y = "Median Signing Salary (USD Millions)")
 
 # ggplotly(salary_plt, tooltip = c("offseason", "median_salary", "player_names"))
+```
+
+# Signing Time Trends, by Player Type
+
+Not all players are created equal. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 
 # mean time to sign by player talent type, by year
 sign_time_plt_talent <-
@@ -684,6 +714,35 @@ sign_time_plt_talent <-
 ggplotly(sign_time_plt_talent)
 
 ```
+
+# Signing Time Trends, by Age Group
+
+MLB's youth movement is well-documented. Younger players save teams money, provide cost certainty, offer more freedom with respect to minor league options, and in some cases out-produce older players. So I broke the signing time trends down by age bucket. Note that not all players have this data available.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+age_type_plt <- 
+  all_free_agents %>%
+  filter(!is.na(age_bucket),
+         offseason >= 2010,
+         sign_type %in% c("signed", "signed_intl")) %>%
+  mutate(age_type = case_when(
+    age_bucket %in% c("<= 27", "28 - 30") ~ "30 and under",
+    TRUE ~ "31_and_over" 
+  )) %>%
+  group_by(offseason, age_type) %>%
+  arrange(name) %>%
+  summarize(median_days_to_sign = median(days_to_sign, na.rm = TRUE),
+            players = paste(name, collapse = "\n")) %>%
+  ggplot(aes(as.character(offseason), median_days_to_sign, color = age_type, group = age_type, label = players)) +
+  fgt +
+  geom_point()+ geom_line() +
+  labs(x="Offseason", y="Median Days to Sign, since Nov 1st")
+
+ggplotly(age_type_plt)
+```
+
+Older players have always taken about 10–15 days longer to sign, but the disparity jumped to about 33 days 2017.
+
 
 ```{r echo=FALSE}
 signing_timeline <-
