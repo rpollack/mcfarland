@@ -736,12 +736,13 @@ age_type_plt <-
   ggplot(aes(as.character(offseason), median_days_to_sign, color = age_type, group = age_type, label = players)) +
   fgt +
   geom_point()+ geom_line() +
-  labs(x="Offseason", y="Median Days to Sign, since Nov 1st")
+  labs(x="Offseason", y="Median Days to Sign, since Nov 1st") +
+  ggtitle("Median Time to Sign by Age Group")
 
 ggplotly(age_type_plt)
 ```
 
-Older players have always taken about 10–15 days longer to sign, but the disparity jumped to about 33 days 2017.
+Older players have always taken about 10–15 days longer to sign, but the disparity jumped to about 33 days 2017. That gap formed a large part of the delay that we as fans felt.
 
 
 ```{r echo=FALSE}
