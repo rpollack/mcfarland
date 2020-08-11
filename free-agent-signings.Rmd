@@ -1,5 +1,5 @@
 ---
-title: "MLB Free Agent Analysis, 2010–2019 offseasons"
+title: "MLB Free Agency During the 2010's"
 author: "Ryan Pollack, ryanpollack.com"
 output: 
   html_document: 
@@ -506,16 +506,16 @@ all_free_agents <-
 # fa_salaries %>% mutate(offseason = as.double(offseason), sign_years = as.double(sign_years)) %>% anti_join(all_free_agents, by=c("name", "offseason")) %>% arrange(desc(sign_salary)) %>% View()
 ```
 
-## Introduction
+# Introduction
 
-blah blah blah blah
+This document contains interactive plots that analyze MLB team free agent spending during the 2010-2019 offseasons. 
 
-## Data
-The data comes from three sources:
+# Data
+The data come from three sources:
 
-*   Free agent signing data, such as who was a free agent and when they signed the contract, comes from the ever-reliable Baseball-Reference.
-*   Domestic free agent contract information (salaries) comes from MLB Trade Rumors. Example page   
-*   International free agenty contract information comes from Spotrac. MLBTR has this data but it mixes in contract extensions Example page
+*   Free agent signing data, such as who was a free agent and when they signed the contract, comes from the ever-reliable [Baseball-Reference](www.baseball-reference.com).
+*   Domestic free agent contract information (salaries) comes from [MLB Trade Rumors](www.mlbtraderumors.com).   
+*   International free agent contract information comes from [Spotrac](www.spotrac.com). MLBTR has this data but it mixes in contract extensions, which I didn't want to include.
 
 I adjusted all salaries for inflation relative to 2020 using www.usinflationcalculator.com. 
 
@@ -531,13 +531,15 @@ What's not included:
 * International free agent signings under \$10m
 * Anything I missed, which is likely something given I had to combine information from three data sources :-)
 
+Also note that opt-outs are not handled well. For example Yoenis Céspedes signed a three-year deal with the Mets during the 2015 offseason. The following winter he opted out of it and signed a four-year deal with the team. The plot below counts all seven years towards the Mets' total expenditures, even though that's not correct.  
+
 With that out of the way, let's get to the graphs!
 
-## Graphs
+# Graphs
 
-# Spending by Team over Time
+## Spending by Team over Time
 
-First up is a timeline of free agent spending for each team. Hover over a bullet point to see the players signed that offseason and their salaries.
+First up is a timeline of free agent spending for each team. Hover over a bullet point to see the total salary for that offseason, each player signed, and their salary. Remember all totals are adjusted for inflation.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
@@ -574,8 +576,11 @@ ggplotly(fa_signing_plt, tooltip = c("offseason", "total_salary", "players_signe
 ```
 
 
-# Total Spending by Team
+## Total Spending by Team
 
+Which teams spent the most and least in free agency during the decade? The ones you'd expect!
+
+Hover over a team's bar to see the total salary given out and the number of players signed.
 
 ```{r, echo = FALSE, message=FALSE, warning=FALSE}
 # by team for the entire decade
@@ -593,7 +598,7 @@ fa_signing_plot_total <-
     total_salary = round(sum(sign_salary, na.rm = TRUE), 1),
     players_signed = paste(player_salary, collapse = "\n")
   ) %>%
-  ggplot(aes(reorder(to_team, total_salary), total_salary, fill = to_team, text = players_signed)) +
+  ggplot(aes(reorder(to_team, total_salary), total_salary, fill = to_team, label= num_players_signed)) +
   geom_col() +
   theme(legend.position = "none") +
   coord_flip() +
@@ -602,15 +607,14 @@ fa_signing_plot_total <-
   labs(x="", y="Total FA Contracts Signed (USD Millions)") +
   ggtitle("Cumulative MLB Free Agent Spending by Team, 2010-2019 Offseasons")
 
-ggplotly(fa_signing_plot_total, tooltip = c("to_team", "num_players_signed", "total_salary", "players_signed"),
-         dynamicTicks = TRUE)
+ggplotly(fa_signing_plot_total, tooltip = c("to_team", "num_players_signed", "total_salary"))
 
 ```
 
 
-# 25 Largest Contracts of the Decade
+## 25 Largest Contracts of the Decade
 
-blorp.
+Now for the players' viewpoint. There are almost 5,000 signees in the decade, way too many to list here, so I'm showing just the 25 largest contracts handed out:
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
@@ -623,16 +627,17 @@ top_signings_plt <-
   ggplot(aes(reorder(player_label, sign_salary), sign_salary, label = player_label)) +
   geom_col() + coord_flip() +
   labs(x="", y="Contract Salary (USD Millions)") +
-  ggtitle("MLB Top 25 Free Agent Contracts, 2010-2019", subtitle = "Adjusted to 2020 dollars")
+  ggtitle("MLB Top 25 Free Agent Contracts, 2010-2019", subtitle = "Adjusted to 2020 dollars") +
+  fgt
 
 ggplotly(top_signings_plt, tooltip = c("sign_salary", "player_label"))
   
 ```
 
+
 # Signing Time Trends
 
 During the 2017 and 2018 offseasons, many people noticed that free agents were taking longer to sign. The following graph shows the median number of days elapsed between November 1st of each offseason and the day a player signed.
-
 
 ```{r echo=FALSE}
 
@@ -656,35 +661,13 @@ all_free_agents %>%
   ) 
 ```
 
-What we noticed in 2017 and 2018 was the result 
+What we noticed in 2017 and 2018 was the result of a trend that started during the 2016 offseason. And although I saw fewer stories about a stagnant free agent market during the 2019 offseason, this graph shows it's still a long way from where we used to be.
 
-```{r}
-# median salary by player type, by year
-# salary_plt <-
-#   all_free_agents %>%
-#   filter(sign_type == "signed") %>%
-#   group_by(offseason, player_type) %>%
-#   arrange(desc(sign_salary)) %>%
-#   summarize(median_salary = round(median(sign_salary, na.rm = TRUE), 1),
-#             player_names = paste(name, collapse = "\n")) %>%
-#   complete(offseason, player_type) %>%
-#   ggplot(aes(offseason, median_salary, text = player_names, group = 1)) +
-#   facet_wrap(vars(player_type)) +
-#   geom_point() +
-#   geom_line() +
-#   ggtitle("Trends in Free Agent Signing Salaries") +
-#   fgt +
-#   expand_limits(y = 0) +
-#   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
-#   scale_x_continuous(breaks = seq(start_year, current_year)) +
-#   labs(y = "Median Signing Salary (USD Millions)")
+## Signing Time Trends, by Player Type
 
-# ggplotly(salary_plt, tooltip = c("offseason", "median_salary", "player_names"))
-```
+Not all players are created equal. I was interested in how the different calibers of players experienced the slowdown. To do this I categorized each player according to their role (position player, starting pitcher, or reliever) and the rWAR they accumulated in their walk year and the two years prior.
 
-# Signing Time Trends, by Player Type
-
-Not all players are created equal. 
+You can hover over the data points to see players' names; others don't work because the list of players is too long.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
@@ -692,12 +675,13 @@ Not all players are created equal.
 sign_time_plt_talent <-
   all_free_agents %>%
   filter(offseason >= 2010,
-         sign_type == "signed") %>%
+         sign_type == "signed",
+         !is.na(player_type)) %>%
   group_by(offseason, player_type) %>%
   arrange(desc(name)) %>%
   summarize(median_sign_days = median(days_to_sign, na.rm = TRUE),
             player_names = paste(name, collapse = "\n")) %>%
-  complete(offseason, player_type) %>%
+  complete(offseason, player_type) %>% 
   ggplot(aes(offseason, median_sign_days, text = player_names, group = 1)) +
   facet_wrap(vars(player_type)) +
   geom_point() +
@@ -711,11 +695,15 @@ sign_time_plt_talent <-
   scale_x_continuous(breaks = seq(start_year, current_year)) +
   labs(x="Offseason", y="Median Days to Sign")
 
+
+
 ggplotly(sign_time_plt_talent)
 
 ```
 
-# Signing Time Trends, by Age Group
+The Cold Stove of the 2017 offseason affected all kinds of players. But it affected Role Players, All Stars, and Superstars the most. I think that's why the baseball community felt so shocked. Guys we thought would get deals in December, no-brainers who'd had great runs and seemed primed to sign, waited far longer than we'd been used to.
+
+## Signing Time Trends, by Age Group
 
 MLB's youth movement is well-documented. Younger players save teams money, provide cost certainty, offer more freedom with respect to minor league options, and in some cases out-produce older players. So I broke the signing time trends down by age bucket. Note that not all players have this data available.
 
@@ -725,81 +713,56 @@ age_type_plt <-
   filter(!is.na(age_bucket),
          offseason >= 2010,
          sign_type %in% c("signed", "signed_intl")) %>%
-  mutate(age_type = case_when(
+  mutate(age_group = case_when(
     age_bucket %in% c("<= 27", "28 - 30") ~ "30 and under",
     TRUE ~ "31_and_over" 
   )) %>%
-  group_by(offseason, age_type) %>%
+  group_by(offseason, age_group) %>%
   arrange(name) %>%
   summarize(median_days_to_sign = median(days_to_sign, na.rm = TRUE),
             players = paste(name, collapse = "\n")) %>%
-  ggplot(aes(as.character(offseason), median_days_to_sign, color = age_type, group = age_type, label = players)) +
+  ggplot(aes(as.character(offseason), median_days_to_sign, color = age_group, group = age_group, label = players)) +
   fgt +
   geom_point()+ geom_line() +
   labs(x="Offseason", y="Median Days to Sign, since Nov 1st") +
   ggtitle("Median Time to Sign by Age Group")
 
 ggplotly(age_type_plt)
+
 ```
 
-Older players have always taken about 10–15 days longer to sign, but the disparity jumped to about 33 days 2017. That gap formed a large part of the delay that we as fans felt.
+Older players have always taken about 10–15 days longer to sign than the spring chickens. But in 2017, the typical older player waited more than 20 days longer to sign than they did in 2016, while players 30 and under waited just 10 days longer. 
 
+## Signing Time Trends, By Month by Offseason
+
+Let's take one more look at the slowdown. The following graph shows the number of players who signed in each month for each offseason in the decade.
 
 ```{r echo=FALSE}
-signing_timeline <-
-  all_free_agents %>%
+all_free_agents %>%
   filter(sign_type == "signed", player_type != "Scrub", days_to_sign >= 0) %>%
   distinct() %>%
   group_by(offseason, sign_month) %>%
   summarize(
     num_players = n(),
     players = (paste(name, collapse = "\n"))
-  ) %>%
+  ) %>% 
   ggplot(aes(sign_month, num_players, label = players)) +
-  geom_bar(stat = "identity") +
+  geom_col(stat = "identity") +
   facet_grid(vars(offseason)) +
   labs(
     y = "Number of Players Signed", x = "Month Signed",
     caption = "Source: Baseball-Reference. Made with Plotly in R"
   ) +
-  ggtitle("Offseason vs. Month when Free Agent Signed, by Player Talent Level",
-    subtitle = "player_type calculated based on position & WAR total in the three years befor signing"
+  ggtitle("Month when Free Agent Signed vs. Number of Players Signed",
   )
 
-# a ggplot with facets doesn't work with dynamic tick marks. sad. https://github.com/ropensci/plotly/issues/1416
-
-ggplotly(signing_timeline, tooltip = "players") %>%
-  layout(title = list(text = paste0(
-    "Ten Years of Free Agency in Baseball",
-    "<br>",
-    "<sup>",
-    "Sign Month by offseason & player talent level. Source: Baseball-Reference",
-    "</sup>"
-  ))) 
-
-#  htmlwidgets::saveWidget("mlb-free-agency.html")
-
-all_free_agents %>%
-  filter(sign_type == "signed", player_type %in% c("Good Player", "All-Star", "Superstar", "MVP")) %>%
-  group_by(offseason, player_type, sign_month) %>%
-  summarize(players = (paste(name, collapse = "\n"))) %>%
-  ggplot(aes(sign_month, y = 1, fill = player_type)) +
-  geom_col() +
-  facet_grid(vars(offseason))
-#
-#
-#   ggplot(aes(sign_month, sign_salary, color = player_type)) +
-#   geom_point() +
-#   facet_grid(vars(offseason)) +
-#   labs(x="", y="FA Contract Value (USD Millions)") +
-#   geom_label_repel(aes(label=name), nudge_y = 0.5) +
-#   ggsave("derp.png", width = 10, height = 10, units = "in")
 ```
-
-
-add one more facet: the player's age bucket
+You can see the slowdown beginning in the 2015 and 2016 offseasons but really take off in the two years afterward.
 
 ```{r eval=FALSE, fig.height=4, fig.width=5, include=FALSE}
+
+# add one more facet: the player's age bucket
+
 
 # mean time to sign by player type and age bucket, by year
 fa_diff <-
