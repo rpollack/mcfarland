@@ -621,10 +621,10 @@ all_free_agents %>%
     sign_type %in% c("signed", "signed_intl"), !is.na(sign_salary), sign_salary != 0,
     offseason >= 2010
   ) %>%
-  mutate(sign_label = glue("{name} - {offseason}")) %>%
+  mutate(sign_label = glue("{name} - {offseason}}")) %>%
   group_by(to_team) %>%
   top_n(5, wt = sign_salary) %>%
-  ggplot(aes(reorder_within(sign_label, sign_salary, to_team), sign_salary, fill = to_team)) +
+  ggplot(aes(reorder_within(sign_label, sign_salary, to_team), sign_salary, fill = to_team, label = age)) +
   geom_col() +
   facet_wrap(vars(to_team), scales = "free_y") +
   coord_flip() +
