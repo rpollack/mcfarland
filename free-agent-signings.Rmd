@@ -611,6 +611,35 @@ ggplotly(fa_signing_plot_total, tooltip = c("to_team", "num_players_signed", "to
 
 ```
 
+## Top 5 Free Agent Signings per Team
+
+The following graph shows the top 5 contracts given out per team during this timeframe.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+all_free_agents %>%
+  filter(
+    sign_type %in% c("signed", "signed_intl"), !is.na(sign_salary), sign_salary != 0,
+    offseason >= 2010
+  ) %>%
+  mutate(sign_label = glue("{name} - {offseason}")) %>%
+  group_by(to_team) %>%
+  top_n(5, wt = sign_salary) %>%
+  ggplot(aes(reorder_within(sign_label, sign_salary, to_team), sign_salary, fill = to_team)) +
+  geom_col() +
+  facet_wrap(vars(to_team), scales = "free_y") +
+  coord_flip() +
+#  scale_y_reordered() +
+  scale_x_discrete(labels = function(x) gsub("__.+$", "", x)) +
+  scale_color_manual(values = team_colors) +
+  scale_fill_manual(values = team_colors) +
+  fgt +
+  theme(
+    legend.position = "none"
+  ) +
+  labs(x = "", y = "Contract Amount (USD Millions)") +
+  ggtitle("MLB Free Agents - Top 5 Contracts Per Team")
+  
+```
 
 ## 25 Largest Contracts of the Decade
 
