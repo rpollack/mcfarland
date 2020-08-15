@@ -1,5 +1,5 @@
 ---
-title: "MLB Free Agency and Contract Extensions. During the 2010's"
+title: "MLB Free Agency and Contract Extensions During the 2010's"
 author: "Ryan Pollack, ryanpollack.com"
 output: 
   html_document: 
@@ -935,7 +935,8 @@ This last graph ties it all together. You can see total dollars given out, by te
 Thi graph is a little tricky because while free agent contracts are categorized as being in an 'offseason', extensions are categorized as being part of a 'season'. But, they're close enough to be meaningful. 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-all_free_agents %>%
+cume_plt <-
+  all_free_agents %>%
   filter(sign_type %in% c("Domestic Free Agent", "International Free Agent", "Contract Extension"),
          offseason >= 2010, offseason <= 2019,
          !is.na(to_team),
@@ -953,6 +954,8 @@ all_free_agents %>%
   scale_x_discrete(breaks = c("2010", "2015", "2019")) + fgt +
   ggtitle("Offseason vs. Total Contracts Given by Type, by Team 2010-2019") +
   labs(x="Season", y="Total Spending (USD Millions)")
+
+ggplotly(cume_plt, tooltip = c("offseason", "group", "players"))
 ```
 
 
