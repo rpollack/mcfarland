@@ -12,10 +12,10 @@ output:
 ```{r setup, message = FALSE, warning = FALSE, include = FALSE}
 
 knitr::opts_chunk$set(
-	message = FALSE,
-	warning = FALSE,
-	fig.width = 10,
-	fig.height = 8
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 10,
+  fig.height = 8
 )
 library(tidyverse)
 library(lubridate)
@@ -23,6 +23,7 @@ library(rvest)
 library(ggrepel)
 library(glue)
 library(ggridges)
+library(tidytext)
 library(plotly)
 
 fgt <- theme(
@@ -73,8 +74,8 @@ team_info <- tibble(
     848420, 1713310, 7100300 / 2, 7100300 / 2, 2414470 / 2,
     2816850, 1108780, 987760, 1854810, 2414470 / 2,
     1164400, 1875420, 2622070, 6896551, 2482480
-    
-    # source: https://mediatracks.com/resources/nielsen-dma-rankings-2019/. 
+
+    # source: https://mediatracks.com/resources/nielsen-dma-rankings-2019/.
     # Toronto taken from https://www.newswire.ca/news-releases/the-fans-have-spoken-sportsnet-is-canadas-1-sports-media-brand-in-2016-609901805.html. Assume ALDS reached max number of people since it was massively popular. 20m canadians at 2.9 canadians per household is 6,896,551 households
   ),
   payroll_opening_day_2018 = c(
@@ -176,13 +177,13 @@ get_international_signings <- function(year) {
     html_node("table") %>%
     html_table() %>%
     as_tibble() %>%
-    filter(Amount != '') %>%
+    filter(Amount != "") %>%
     dplyr::select(name = 1, `To Team` = Team, sign_salary = Amount) %>%
-    mutate(offseason = year,
-           offseason = offseason - 1)  #correct for the way spotrac reports its years relative to bb-ref
+    mutate(
+      offseason = year,
+      offseason = offseason - 1
+    ) # correct for the way spotrac reports its years relative to bb-ref
 }
-
-
 ```
 
 
@@ -272,48 +273,55 @@ fa_salaries <-
   ))) %>%
   arrange(desc(sign_salary))
 
-# get international signings $10m or greater from spotrac. baseball-reference doesn't list these and MLBTR mixes them in with extensions. 
+# get international signings $10m or greater from spotrac. baseball-reference doesn't list these and MLBTR mixes them in with extensions.
 # $10m is a good indication that the player will hit the majors soon and is of note
 intl_fa <-
   seq(2010, 2020) %>%
   map_df(get_international_signings) %>%
-  mutate(name = str_extract(name, "[A-Z][a-z]*[\\s|-][A-Z][a-z]*(\\s*[A-Z][a-z]*)*"),
-         sign_salary = str_remove_all(sign_salary, c(",")),
-         sign_salary = str_remove(sign_salary, "\\$"),
-         sign_salary = as.numeric(sign_salary)) %>%
+  mutate(
+    name = str_extract(name, "[A-Z][a-z]*[\\s|-][A-Z][a-z]*(\\s*[A-Z][a-z]*)*"),
+    sign_salary = str_remove_all(sign_salary, c(",")),
+    sign_salary = str_remove(sign_salary, "\\$"),
+    sign_salary = as.numeric(sign_salary)
+  ) %>%
   filter(sign_salary >= 10000000) %>%
   mutate(sign_salary = sign_salary / 1000000) %>%
-  
+
   # clean up some team names and correct some data inaccuracies
-  mutate(`To Team` = case_when(
-    `To Team` == "KC" ~ "KCR",
-    `To Team` == "TB" ~ "TBR",
-    `To Team` == "SD" ~ "SDP",
-    name == "Aledmys Diaz" ~ "STL",
-    name == "Jorge Ona" ~ "SDP",
-    TRUE ~ `To Team`
-  ),
-  
-  # some player signings need manual correcting because of the way spotrac lists their signings vs. bb-ref.
-  # i've prioritized manually correcting deals at $10m or above
-  offseason = case_when(
-    name %in% c("Yasiel Puig", "Jorge Soler") ~ 2012,
-    name == "Jose Abreu" ~ 2013,
-    name == "Rusney Castillo" ~ 2014,
-    name %in% c("Yulieski Gurriel", "Alfredo Rodriguez", "Adrian Morejon", "Jorge Ona") ~ 2016,
-    name == "Luis Robert" ~ 2017,
-    name == "Yoshitomo Tsutsugo" ~ 2019,
-    TRUE ~ offseason
-  )) %>%
-  
+  mutate(
+    `To Team` = case_when(
+      `To Team` == "KC" ~ "KCR",
+      `To Team` == "TB" ~ "TBR",
+      `To Team` == "SD" ~ "SDP",
+      name == "Aledmys Diaz" ~ "STL",
+      name == "Jorge Ona" ~ "SDP",
+      TRUE ~ `To Team`
+    ),
+
+    # some player signings need manual correcting because of the way spotrac lists their signings vs. bb-ref.
+    # i've prioritized manually correcting deals at $10m or above
+    offseason = case_when(
+      name %in% c("Yasiel Puig", "Jorge Soler") ~ 2012,
+      name == "Jose Abreu" ~ 2013,
+      name == "Rusney Castillo" ~ 2014,
+      name %in% c("Yulieski Gurriel", "Alfredo Rodriguez", "Adrian Morejon", "Jorge Ona") ~ 2016,
+      name == "Luis Robert" ~ 2017,
+      name == "Yoshitomo Tsutsugo" ~ 2019,
+      TRUE ~ offseason
+    )
+  ) %>%
+
   # manually add int'l signings that were not in the dataset but were at least $10m
   bind_rows(tibble(
-    name = c("Yasmany Tomas", "Kenta Maeda", "Eric Thames", "Miles Mikolas", "Byung-ho Park", "Yaisel Sierra", "Alexander Guerrero",
-             "Erisbel Arruebarrena"),
-             `To Team`= c("ARI", "LAD", "MIL", "STL", "MIN", "LAD", "LAD", "LAD"),
-             sign_salary = c(68.5, 25, 16, 15.5, 12.85, 30, 28, 25),
-             offseason = c(2014, 2015, 2016, 2017, 2015, 2015, 2013, 2013))) %>%
-  mutate(sign_type = "signed_intl") 
+    name = c(
+      "Yasmany Tomas", "Kenta Maeda", "Eric Thames", "Miles Mikolas", "Byung-ho Park", "Yaisel Sierra", "Alexander Guerrero",
+      "Erisbel Arruebarrena"
+    ),
+    `To Team` = c("ARI", "LAD", "MIL", "STL", "MIN", "LAD", "LAD", "LAD"),
+    sign_salary = c(68.5, 25, 16, 15.5, 12.85, 30, 28, 25),
+    offseason = c(2014, 2015, 2016, 2017, 2015, 2015, 2013, 2013)
+  )) %>%
+  mutate(sign_type = "signed_intl")
 
 # get contract extensions from 2010 onwards
 extensions <-
@@ -321,36 +329,43 @@ extensions <-
   html_node("table") %>%
   html_table() %>%
   as_tibble() %>%
-  bind_rows(tibble(Date = "7/22/2020",
-                   Player = "Mookie Betts",
-                   Team = "LAD",
-                   Pos = "RF",
-                   Yrs = "12",
-                   Amt = "365")) %>%
-  mutate(Date = mdy(Date),
-         offseason = year(Date),
-         `To Team` = case_when(
-           Team == "ARZ" ~ "ARI",
-           Team == "TAM" ~ "TBR",
-           Team == "KAN" ~ "KCR",
-           Team == "SFO" ~ "SFG",
-           Team == "SDG" ~ "SDP",
-           Team == "WAS" ~ "WSN",
-           Team == "CWS" ~ "CHW",
-           Team == "FLA" ~ "MIA",
-           TRUE ~ Team
-         ),
-         name = str_remove_all(Player, "⇑"),
-         sign_salary = round(as.numeric(Amt), 1),
-         sign_years = as.character(Yrs),
-         sign_month = factor(month(Date, label = TRUE), levels = c(
+  bind_rows(tibble(
+    Date = "7/22/2020",
+    Player = "Mookie Betts",
+    Team = "LAD",
+    Pos = "RF",
+    Yrs = "12",
+    Amt = "365"
+  )) %>%
+  mutate(
+    Date = mdy(Date),
+    offseason = year(Date),
+    `To Team` = case_when(
+      Team == "ARZ" ~ "ARI",
+      Team == "TAM" ~ "TBR",
+      Team == "KAN" ~ "KCR",
+      Team == "SFO" ~ "SFG",
+      Team == "SDG" ~ "SDP",
+      Team == "WAS" ~ "WSN",
+      Team == "CWS" ~ "CHW",
+      Team == "FLA" ~ "MIA",
+      TRUE ~ Team
+    ),
+    name = str_remove_all(Player, "⇑"),
+    sign_salary = round(as.numeric(Amt), 1),
+    sign_years = as.character(Yrs),
+    sign_month = factor(month(Date, label = TRUE), levels = c(
       "Sep", "Oct", "Nov", "Dec", "Jan", "Feb",
       "Mar", "Apr", "May", "Jun", "Jul", "Aug"
-    ), ordered = TRUE)) %>%
+    ), ordered = TRUE)
+  ) %>%
   filter(!is.na(Date)) %>%
   dplyr::select(name, offseason, sign_month, sign_date = Date, `To Team`, sign_salary, sign_years) %>%
-  mutate(sign_type = "extension")
-
+  mutate(sign_type = "extension",
+         offseason = case_when(
+           sign_month %in% c("Jan", "Feb", "Mar") ~ offseason - 1,
+           TRUE ~ offseason
+         ))
 ```
 
 
@@ -517,15 +532,17 @@ all_free_agents <-
     TRUE ~ `To Team`
   )) %>%
   dplyr::select(-GS, -G, -AB, IP, -`To Team`) %>%
-  bind_rows(tibble(name = c("Ted Lilly", "Clayton Kershaw"),
-                   offseason= c(2010, 2018),
-                   sign_salary = c(33, 93),
-                   to_team = c("LAD", "LAD"),
-                   sign_type = "signed"))
+  bind_rows(tibble(
+    name = c("Ted Lilly", "Clayton Kershaw"),
+    offseason = c(2010, 2018),
+    sign_salary = c(33, 93),
+    to_team = c("LAD", "LAD"),
+    sign_type = "signed"
+  ))
 
 
 
-# run this code to identify salary amounts i don't have in the master list. 
+# run this code to identify salary amounts i don't have in the master list.
 # they should all be extensions, qualifying offers, or americans who signed from a foreign league. BB-Ref lists neither of these.
 # i catch foreign-signed americans in intl_fa
 # fa_salaries %>% mutate(offseason = as.double(offseason), sign_years = as.double(sign_years)) %>% anti_join(all_free_agents, by=c("name", "offseason")) %>% arrange(desc(sign_salary)) %>% View()
@@ -533,28 +550,30 @@ all_free_agents <-
 
 # Introduction
 
-This document contains interactive plots that analyze MLB team free agent spending during the 2010-2019 offseasons. 
+This document contains interactive plots that analyze MLB team free agent and extension spending during the 2010-2019 seasons. 
 
 # Data
 The data come from three sources:
 
 *   Free agent signing data, such as who was a free agent and when they signed the contract, comes from the ever-reliable [Baseball-Reference](www.baseball-reference.com).
 *   Domestic free agent contract information (salaries) comes from [MLB Trade Rumors](www.mlbtraderumors.com).   
-*   International free agent contract information comes from [Spotrac](www.spotrac.com). MLBTR has this data but it mixes in contract extensions, which I didn't want to include.
+*   Contract extension information also comes from MLBTR.
+*   International free agent contract information comes from [Spotrac](www.spotrac.com).
 
 I adjusted all salaries for inflation relative to 2020 using www.usinflationcalculator.com. 
 
 What's included:
 
 * All domestic free agents who signed MLB contracts that are in the above sources
+* All contract extensions given out that are tracked in the above sources
 * International free agents who signed for \$10m or more. Spotrac groups its data differently than MLBTR and Baseball-Reference, so I had to prioritize which contracts I'd manually inspect. Signings of \$10m or above are the ones that generate the most headlines and portend an appearance in MLB soon.
 
 What's not included:
 
 * Qualifying offers
-* Extensions
+* Option years
 * International free agent signings under \$10m
-* Anything I missed, which is likely something given I had to combine information from three data sources :-)
+* Anything I missed, which is likely something given I had to combine information from three data sources and manually add several deals in :-)
 
 Also note that opt-outs are not handled well. For example Yoenis Céspedes signed a three-year deal with the Mets during the 2015 offseason. The following winter he opted out of it and signed a four-year deal with the team. The plot below counts all seven years towards the Mets' total expenditures, even though that's not correct.  
 
@@ -570,8 +589,10 @@ First up is a timeline of free agent spending for each team. Hover over a bullet
 
 fa_signing_plt <-
   all_free_agents %>%
-  filter(sign_type %in% c("signed", "signed_intl"), !is.na(sign_salary), sign_salary != 0,
-         offseason >= 2010) %>%
+  filter(
+    sign_type %in% c("signed", "signed_intl"), !is.na(sign_salary), sign_salary != 0,
+    offseason >= 2010
+  ) %>%
   mutate(
     player_salary = glue("{name} - ${round(sign_salary,1)}m"),
     offseason = as.character(offseason)
@@ -584,7 +605,7 @@ fa_signing_plt <-
     players_signed = paste(player_salary, collapse = "\n")
   ) %>%
   ungroup() %>%
-  complete(offseason, to_team, fill=list(num_players_signed = 0, total_salary = 0, players_signed = "No one")) %>%
+  complete(offseason, to_team, fill = list(num_players_signed = 0, total_salary = 0, players_signed = "No one")) %>%
   ggplot(aes(offseason, total_salary, group = 1, label = players_signed, fill = to_team, color = to_team)) +
   geom_point() +
   geom_line() +
@@ -594,7 +615,8 @@ fa_signing_plt <-
   ggtitle("MLB Free Agent Spending, 2010–2019 Offseasons") +
   labs(x = "Offseason", y = "FA Contracts Signed (USD Million)") +
   scale_color_manual(values = team_colors) +
-  scale_fill_manual(values = team_colors) + fgt +
+  scale_fill_manual(values = team_colors) +
+  fgt +
   theme(legend.position = "none")
 
 ggplotly(fa_signing_plt, tooltip = c("offseason", "total_salary", "players_signed"))
@@ -623,17 +645,17 @@ fa_signing_plot_total <-
     total_salary = round(sum(sign_salary, na.rm = TRUE), 1),
     players_signed = paste(player_salary, collapse = "\n")
   ) %>%
-  ggplot(aes(reorder(to_team, total_salary), total_salary, fill = to_team, label= num_players_signed)) +
+  ggplot(aes(reorder(to_team, total_salary), total_salary, fill = to_team, label = num_players_signed)) +
   geom_col() +
   theme(legend.position = "none") +
   coord_flip() +
   scale_color_manual(values = team_colors) +
-  scale_fill_manual(values = team_colors) + fgt +
-  labs(x="", y="Total FA Contracts Signed (USD Millions)") +
+  scale_fill_manual(values = team_colors) +
+  fgt +
+  labs(x = "", y = "Total FA Contracts Signed (USD Millions)") +
   ggtitle("Cumulative MLB Free Agent Spending by Team, 2010-2019 Offseasons")
 
 ggplotly(fa_signing_plot_total, tooltip = c("to_team", "num_players_signed", "total_salary"))
-
 ```
 
 ## 25 Largest Contracts of the Decade
@@ -647,15 +669,15 @@ top_signings_plt <-
   all_free_agents %>%
   filter(sign_type %in% c("signed", "signed_intl"), !is.na(sign_salary), sign_salary != 0) %>%
   mutate(player_label = glue("{name} - {offseason} - {to_team}")) %>%
-  top_n(25, wt=sign_salary) %>%
+  top_n(25, wt = sign_salary) %>%
   ggplot(aes(reorder(player_label, sign_salary), sign_salary, label = player_label)) +
-  geom_col() + coord_flip() +
-  labs(x="", y="Contract Salary (USD Millions)") +
+  geom_col() +
+  coord_flip() +
+  labs(x = "", y = "Contract Salary (USD Millions)") +
   ggtitle("MLB Top 25 Free Agent Contracts, 2010-2019", subtitle = "Adjusted to 2020 dollars") +
   fgt
 
 ggplotly(top_signings_plt, tooltip = c("sign_salary", "player_label"))
-  
 ```
 
 
@@ -663,20 +685,20 @@ ggplotly(top_signings_plt, tooltip = c("sign_salary", "player_label"))
 
 The following graph shows the top 5 contracts given out per team during this timeframe.
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height = 15}
 all_free_agents %>%
   filter(
     sign_type %in% c("signed", "signed_intl"), !is.na(sign_salary), sign_salary != 0,
     offseason >= 2010
   ) %>%
-  mutate(sign_label = glue("{name} - {offseason}}")) %>%
+  mutate(sign_label = glue("{name} - {offseason}")) %>%
   group_by(to_team) %>%
   top_n(5, wt = sign_salary) %>%
   ggplot(aes(reorder_within(sign_label, sign_salary, to_team), sign_salary, fill = to_team, label = age)) +
   geom_col() +
-  facet_wrap(vars(to_team), scales = "free_y") +
+  facet_wrap(vars(to_team), scales = "free_y", ncol = 3) +
   coord_flip() +
-#  scale_y_reordered() +
+  #  scale_y_reordered() +
   scale_x_discrete(labels = function(x) gsub("__.+$", "", x)) +
   scale_color_manual(values = team_colors) +
   scale_fill_manual(values = team_colors) +
@@ -686,7 +708,6 @@ all_free_agents %>%
   ) +
   labs(x = "", y = "Contract Amount (USD Millions)") +
   ggtitle("MLB Free Agents - Top 5 Contracts Per Team")
-  
 ```
 
 # Signing Time Trends
@@ -712,7 +733,7 @@ all_free_agents %>%
   scale_x_continuous(breaks = seq(start_year, current_year)) +
   ggtitle("Offseason vs. Median Time to Sign Contract",
     subtitle = "Free Agents through March 2020"
-  ) 
+  )
 ```
 
 What we noticed in 2017 and 2018 was the result of a trend that started during the 2016 offseason. And although I saw fewer stories about a stagnant free agent market during the 2019 offseason, this graph shows it's still a long way from where we used to be.
@@ -728,14 +749,18 @@ You can hover over the data points to see players' names; others don't work beca
 # mean time to sign by player talent type, by year
 sign_time_plt_talent <-
   all_free_agents %>%
-  filter(offseason >= 2010,
-         sign_type == "signed",
-         !is.na(player_type)) %>%
+  filter(
+    offseason >= 2010,
+    sign_type == "signed",
+    !is.na(player_type)
+  ) %>%
   group_by(offseason, player_type) %>%
   arrange(desc(name)) %>%
-  summarize(median_sign_days = median(days_to_sign, na.rm = TRUE),
-            player_names = paste(name, collapse = "\n")) %>%
-  complete(offseason, player_type) %>% 
+  summarize(
+    median_sign_days = median(days_to_sign, na.rm = TRUE),
+    player_names = paste(name, collapse = "\n")
+  ) %>%
+  complete(offseason, player_type) %>%
   ggplot(aes(offseason, median_sign_days, text = player_names, group = 1)) +
   facet_wrap(vars(player_type)) +
   geom_point() +
@@ -747,10 +772,9 @@ sign_time_plt_talent <-
   expand_limits(y = 0) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
   scale_x_continuous(breaks = seq(start_year, current_year)) +
-  labs(x="Offseason", y="Median Days to Sign")
+  labs(x = "Offseason", y = "Median Days to Sign")
 
 ggplotly(sign_time_plt_talent)
-
 ```
 
 The Cold Stove of the 2017 offseason affected all kinds of players. But it affected Role Players, All Stars, and Superstars the most. I think that's why the baseball community felt so shocked. Guys we thought would get deals in December, no-brainers who'd had great runs and seemed primed to sign, waited far longer than we'd been used to.
@@ -760,27 +784,31 @@ The Cold Stove of the 2017 offseason affected all kinds of players. But it affec
 MLB's youth movement is well-documented. Younger players save teams money, provide cost certainty, offer more freedom with respect to minor league options, and in some cases out-produce older players. So I broke the signing time trends down by age bucket. Note that not all players have this data available.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-age_type_plt <- 
+age_type_plt <-
   all_free_agents %>%
-  filter(!is.na(age_bucket),
-         offseason >= 2010,
-         sign_type %in% c("signed", "signed_intl")) %>%
+  filter(
+    !is.na(age_bucket),
+    offseason >= 2010,
+    sign_type %in% c("signed", "signed_intl")
+  ) %>%
   mutate(age_group = case_when(
     age_bucket %in% c("<= 27", "28 - 30") ~ "30 and under",
-    TRUE ~ "31_and_over" 
+    TRUE ~ "31_and_over"
   )) %>%
   group_by(offseason, age_group) %>%
   arrange(name) %>%
-  summarize(median_days_to_sign = median(days_to_sign, na.rm = TRUE),
-            players = paste(name, collapse = "\n")) %>%
+  summarize(
+    median_days_to_sign = median(days_to_sign, na.rm = TRUE),
+    players = paste(name, collapse = "\n")
+  ) %>%
   ggplot(aes(as.character(offseason), median_days_to_sign, color = age_group, group = age_group, label = players)) +
   fgt +
-  geom_point()+ geom_line() +
-  labs(x="Offseason", y="Median Days to Sign, since Nov 1st") +
+  geom_point() +
+  geom_line() +
+  labs(x = "Offseason", y = "Median Days to Sign, since Nov 1st") +
   ggtitle("Median Time to Sign by Age Group")
 
 ggplotly(age_type_plt)
-
 ```
 
 Older players have always taken about 10–15 days longer to sign than the spring chickens. But in 2017, the typical older player waited more than 20 days longer to sign than they did in 2016, while players 30 and under waited just 10 days longer. 
@@ -797,7 +825,7 @@ all_free_agents %>%
   summarize(
     num_players = n(),
     players = (paste(name, collapse = "\n"))
-  ) %>% 
+  ) %>%
   ggplot(aes(sign_month, num_players, label = players)) +
   geom_col(stat = "identity") +
   facet_grid(vars(offseason)) +
@@ -805,36 +833,42 @@ all_free_agents %>%
     y = "Number of Players Signed", x = "Month Signed",
     caption = "Source: Baseball-Reference. Made with Plotly in R"
   ) +
-  ggtitle("Month when Free Agent Signed vs. Number of Players Signed",
-  )
-
+  ggtitle("Month when Free Agent Signed vs. Number of Players Signed", )
 ```
 You can see the slowdown beginning in the 2015 and 2016 offseasons but really take off in the two years afterward.
 
 ## Contract Extensions by Team Over Time
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-extension_plt <- 
+extension_plt <-
   all_free_agents %>%
-  filter(sign_type == "extension") %>%
+  filter(
+    sign_type == "extension",
+    offseason <= 2019
+  ) %>%
   mutate(label = glue("{name} - ${sign_salary}m")) %>%
   group_by(to_team, offseason) %>%
   arrange(desc(sign_salary)) %>%
-  summarize(total_salary = round(sum(sign_salary), 1),
-            players = paste(label, collapse = "\n")) %>% 
+  summarize(
+    total_salary = round(sum(sign_salary), 1),
+    players = paste(label, collapse = "\n")
+  ) %>%
   mutate(offseason = as.character(offseason)) %>%
   ungroup() %>%
   complete(to_team, offseason, fill = list(total_salary = 0, players = "No one")) %>%
   ggplot(aes(offseason, total_salary, group = 1, label = players, color = to_team)) +
-  geom_point() + geom_line() +
-  labs(x="Season", y="Total Extentions (Millions USD)") +
+  geom_point() +
+  geom_line() +
+  labs(x = "Season", y = "Total Extentions (Millions USD)") +
   facet_wrap(vars(to_team)) +
   scale_color_manual(values = team_colors) +
   scale_fill_manual(values = team_colors) +
-  theme(legend.position = "none",
-        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)
+  ) +
   scale_x_discrete(breaks = c("2010", "2015", "2019")) +
-  ggtitle("MLB Contract Extensions by Team, 2010-2020")
+  ggtitle("MLB Contract Extensions by Team, 2010-2019 OffSeasons")
 
 ggplotly(extension_plt, tooltip = c("offseason", "total_salary", "players"))
 ```
@@ -847,13 +881,17 @@ ggplotly(extension_plt, tooltip = c("offseason", "total_salary", "players"))
 # Top 25 signings of the decade
 top_extensions_plt <-
   all_free_agents %>%
-  filter(sign_type == "extension") %>%
+  filter(
+    sign_type == "extension",
+    offseason <= 2019
+  ) %>%
   mutate(player_label = glue("{name} - {offseason} - {to_team}")) %>%
-  top_n(25, wt=sign_salary) %>%
+  top_n(25, wt = sign_salary) %>%
   ggplot(aes(reorder(player_label, sign_salary), sign_salary, label = player_label)) +
-  geom_col() + coord_flip() +
-  labs(x="", y="Contract Salary (USD Millions)") +
-  ggtitle("MLB Top 25 Free Agent Contracts, 2010-2019", subtitle = "Adjusted to 2020 dollars") +
+  geom_col() +
+  coord_flip() +
+  labs(x = "", y = "Contract Salary (USD Millions)") +
+  ggtitle("MLB Top 25 Contract Extensions, 2010-2019", subtitle = "Adjusted to 2020 dollars") +
   fgt
 
 ggplotly(top_extensions_plt, tooltip = c("sign_salary", "player_label"))
@@ -861,18 +899,19 @@ ggplotly(top_extensions_plt, tooltip = c("sign_salary", "player_label"))
 
 ## Top 5 Contract Extensions per Team
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
-all_free_agents %>%
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height = 15}
+top_5_extension_plt <-
+  all_free_agents %>%
   filter(
     sign_type == "extension",
-    offseason >= 2010
+    offseason >= 2010, offseason <= 2019
   ) %>%
-  mutate(sign_label = glue("{name} - {offseason}}")) %>%
+  mutate(sign_label = glue("{name} - {offseason}")) %>%
   group_by(to_team) %>%
   top_n(5, wt = sign_salary) %>%
   ggplot(aes(reorder_within(sign_label, sign_salary, to_team), sign_salary, fill = to_team, label = age)) +
   geom_col() +
-  facet_wrap(vars(to_team), scales = "free_y") +
+  facet_wrap(vars(to_team), scales = "free_y", ncol = 3) +
   coord_flip() +
   scale_x_discrete(labels = function(x) gsub("__.+$", "", x)) +
   scale_color_manual(values = team_colors) +
@@ -882,18 +921,22 @@ all_free_agents %>%
     legend.position = "none"
   ) +
   labs(x = "", y = "Contract Amount (USD Millions)") +
-  ggtitle("MLB Contract Extensions - Top 5 Contracts Per Team")
-  
+  ggtitle("MLB Contract Extensions - Top 5 Contracts Per Team, 2010-2019")
+
+ggplotly(top_5_extension_plt, tooltip = c("sign_salary"))
+
 ```
 
 
 
-```{r}
-all_free_agents %>% 
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+all_free_agents %>%
   filter(sign_type %in% c("signed", "signed_intl", "extension")) %>%
   group_by(offseason, to_team, sign_type) %>%
-  summarize(total_spending = sum(sign_salary, na.rm = TRUE),
-            players = paste(name, collapse = "\n")) %>%
+  summarize(
+    total_spending = sum(sign_salary, na.rm = TRUE),
+    players = paste(name, collapse = "\n")
+  ) %>%
   ungroup() %>%
   complete(offseason, to_team, sign_type, fill = list(sign_salary = 0)) %>%
   ggplot(aes(as.character(offseason), total_spending, group = sign_type, fill = sign_type, label = players)) +
@@ -1350,7 +1393,7 @@ length_salary_combined %>%
   mutate(
     salary_diff = avg_salary - lag(avg_salary),
     days_to_sign_diff = avg_days_to_sign - lag(avg_days_to_sign)
-  ) 
+  )
 ```
 
 
