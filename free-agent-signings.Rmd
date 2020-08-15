@@ -1,5 +1,5 @@
 ---
-title: "MLB Free Agency During the 2010's"
+title: "MLB Free Agency and Contract Extensions. During the 2010's"
 author: "Ryan Pollack, ryanpollack.com"
 output: 
   html_document: 
@@ -205,7 +205,7 @@ fa_signings <-
   mutate(offseason = str_extract(url, "[:digit:]{4}")) %>%
   ungroup() %>%
   dplyr::select(name = Name, offseason, `To Team`, age = Age, sign_date = Date, three_year_war = `WAR3`, AB, G = `G...10`, GS, IP) %>%
-  mutate(sign_type = "signed") %>%
+  mutate(sign_type = "Domestic Free Agent") %>%
   arrange(sign_date)
 
 unsigned_batters <-
@@ -216,7 +216,7 @@ unsigned_batters <-
   ungroup() %>%
   dplyr::select(name = Name, offseason, age = Age, three_year_war = `WAR3`, AB) %>%
   mutate(
-    sign_type = "unsigned",
+    sign_type = "Unsigned Domestic Free Agent",
     sign_date = NA_character_,
     GS = NA_character_,
     G = NA_character_,
@@ -231,7 +231,7 @@ unsigned_pitchers <- years %>%
   ungroup() %>%
   dplyr::select(name = Name, offseason, age = Age, three_year_war = `WAR3`, G, GS, IP) %>%
   mutate(
-    sign_type = "unsigned",
+    sign_type = "Unsigned Domestic Free Agent",
     sign_date = NA_character_,
     `To Team` = NA_character_
   )
@@ -321,7 +321,7 @@ intl_fa <-
     sign_salary = c(68.5, 25, 16, 15.5, 12.85, 30, 28, 25),
     offseason = c(2014, 2015, 2016, 2017, 2015, 2015, 2013, 2013)
   )) %>%
-  mutate(sign_type = "signed_intl")
+  mutate(sign_type = "International Free Agent")
 
 # get contract extensions from 2010 onwards
 extensions <-
@@ -361,7 +361,7 @@ extensions <-
   ) %>%
   filter(!is.na(Date)) %>%
   dplyr::select(name, offseason, sign_month, sign_date = Date, `To Team`, sign_salary, sign_years) %>%
-  mutate(sign_type = "extension",
+  mutate(sign_type = "Contract Extension",
          offseason = case_when(
            sign_month %in% c("Jan", "Feb", "Mar") ~ offseason - 1,
            TRUE ~ offseason
@@ -537,7 +537,7 @@ all_free_agents <-
     offseason = c(2010, 2018),
     sign_salary = c(33, 93),
     to_team = c("LAD", "LAD"),
-    sign_type = "signed"
+    sign_type = "Domestic Free Agent"
   ))
 
 
@@ -579,7 +579,7 @@ Also note that opt-outs are not handled well. For example Yoenis Céspedes signe
 
 With that out of the way, let's get to the graphs!
 
-# Graphs
+# Free Agency
 
 ## Spending by Team over Time
 
@@ -590,7 +590,7 @@ First up is a timeline of free agent spending for each team. Hover over a bullet
 fa_signing_plt <-
   all_free_agents %>%
   filter(
-    sign_type %in% c("signed", "signed_intl"), !is.na(sign_salary), sign_salary != 0,
+    sign_type %in% c("Domestic Free Agent", "International Free Agent"), !is.na(sign_salary), sign_salary != 0,
     offseason >= 2010
   ) %>%
   mutate(
@@ -633,7 +633,7 @@ Hover over a team's bar to see the total salary given out and the number of play
 # by team for the entire decade
 fa_signing_plot_total <-
   all_free_agents %>%
-  filter(sign_type %in% c("signed", "signed_intl"), !is.na(sign_salary), sign_salary != 0) %>%
+  filter(sign_type %in% c("Domestic Free Agent", "International Free Agent"), !is.na(sign_salary), sign_salary != 0) %>%
   mutate(
     player_salary = glue("{name} - ${round(sign_salary,1)}m"),
     offseason = as.character(offseason)
@@ -667,7 +667,7 @@ Now for the players' viewpoint. There are almost 5,000 signees in the decade, wa
 # Top 25 signings of the decade
 top_signings_plt <-
   all_free_agents %>%
-  filter(sign_type %in% c("signed", "signed_intl"), !is.na(sign_salary), sign_salary != 0) %>%
+  filter(sign_type %in% c("Domestic Free Agent", "International Free Agent"), !is.na(sign_salary), sign_salary != 0) %>%
   mutate(player_label = glue("{name} - {offseason} - {to_team}")) %>%
   top_n(25, wt = sign_salary) %>%
   ggplot(aes(reorder(player_label, sign_salary), sign_salary, label = player_label)) +
@@ -688,7 +688,7 @@ The following graph shows the top 5 contracts given out per team during this tim
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height = 15}
 all_free_agents %>%
   filter(
-    sign_type %in% c("signed", "signed_intl"), !is.na(sign_salary), sign_salary != 0,
+    sign_type %in% c("Domestic Free Agent", "International Free Agent"), !is.na(sign_salary), sign_salary != 0,
     offseason >= 2010
   ) %>%
   mutate(sign_label = glue("{name} - {offseason}")) %>%
@@ -698,7 +698,6 @@ all_free_agents %>%
   geom_col() +
   facet_wrap(vars(to_team), scales = "free_y", ncol = 3) +
   coord_flip() +
-  #  scale_y_reordered() +
   scale_x_discrete(labels = function(x) gsub("__.+$", "", x)) +
   scale_color_manual(values = team_colors) +
   scale_fill_manual(values = team_colors) +
@@ -751,7 +750,7 @@ sign_time_plt_talent <-
   all_free_agents %>%
   filter(
     offseason >= 2010,
-    sign_type == "signed",
+    sign_type == "Domestic Free Agent",
     !is.na(player_type)
   ) %>%
   group_by(offseason, player_type) %>%
@@ -789,7 +788,7 @@ age_type_plt <-
   filter(
     !is.na(age_bucket),
     offseason >= 2010,
-    sign_type %in% c("signed", "signed_intl")
+    sign_type %in% c("Domestic Free Agent", "International Free Agent")
   ) %>%
   mutate(age_group = case_when(
     age_bucket %in% c("<= 27", "28 - 30") ~ "30 and under",
@@ -819,7 +818,7 @@ Let's take one more look at the slowdown. The following graph shows the number o
 
 ```{r echo=FALSE}
 all_free_agents %>%
-  filter(sign_type == "signed", player_type != "Scrub", days_to_sign >= 0) %>%
+  filter(sign_type == "Domestic Free Agent", player_type != "Scrub", days_to_sign >= 0) %>%
   distinct() %>%
   group_by(offseason, sign_month) %>%
   summarize(
@@ -837,13 +836,15 @@ all_free_agents %>%
 ```
 You can see the slowdown beginning in the 2015 and 2016 offseasons but really take off in the two years afterward.
 
+# Contract Extensions
+
 ## Contract Extensions by Team Over Time
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 extension_plt <-
   all_free_agents %>%
   filter(
-    sign_type == "extension",
+    sign_type == "Contract Extension",
     offseason <= 2019
   ) %>%
   mutate(label = glue("{name} - ${sign_salary}m")) %>%
@@ -882,7 +883,7 @@ ggplotly(extension_plt, tooltip = c("offseason", "total_salary", "players"))
 top_extensions_plt <-
   all_free_agents %>%
   filter(
-    sign_type == "extension",
+    sign_type == "Contract Extension",
     offseason <= 2019
   ) %>%
   mutate(player_label = glue("{name} - {offseason} - {to_team}")) %>%
@@ -899,11 +900,11 @@ ggplotly(top_extensions_plt, tooltip = c("sign_salary", "player_label"))
 
 ## Top 5 Contract Extensions per Team
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height = 15}
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height = 20}
 top_5_extension_plt <-
   all_free_agents %>%
   filter(
-    sign_type == "extension",
+    sign_type == "Contract Extension",
     offseason >= 2010, offseason <= 2019
   ) %>%
   mutate(sign_label = glue("{name} - {offseason}")) %>%
@@ -911,7 +912,7 @@ top_5_extension_plt <-
   top_n(5, wt = sign_salary) %>%
   ggplot(aes(reorder_within(sign_label, sign_salary, to_team), sign_salary, fill = to_team, label = age)) +
   geom_col() +
-  facet_wrap(vars(to_team), scales = "free_y", ncol = 3) +
+  facet_wrap(vars(to_team), scales = "free_y", ncol = 2) +
   coord_flip() +
   scale_x_discrete(labels = function(x) gsub("__.+$", "", x)) +
   scale_color_manual(values = team_colors) +
@@ -927,21 +928,31 @@ ggplotly(top_5_extension_plt, tooltip = c("sign_salary"))
 
 ```
 
+# Total Expenditure
 
+This last graph ties it all together. You can see total dollars given out, by team and by contract time, throughout the decade. This shows you the ebb and flow of focusing on extensions vs. free agent contracts, as well as which teams are consistently major players in the international market.
 
-```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+Thi graph is a little tricky because while free agent contracts are categorized as being in an 'offseason', extensions are categorized as being part of a 'season'. But, they're close enough to be meaningful. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 all_free_agents %>%
-  filter(sign_type %in% c("signed", "signed_intl", "extension")) %>%
+  filter(sign_type %in% c("Domestic Free Agent", "International Free Agent", "Contract Extension"),
+         offseason >= 2010, offseason <= 2019,
+         !is.na(to_team),
+         to_team != "") %>%
   group_by(offseason, to_team, sign_type) %>%
   summarize(
     total_spending = sum(sign_salary, na.rm = TRUE),
     players = paste(name, collapse = "\n")
   ) %>%
   ungroup() %>%
-  complete(offseason, to_team, sign_type, fill = list(sign_salary = 0)) %>%
+  complete(offseason, to_team, sign_type, fill = list(total_spending = 0)) %>% 
   ggplot(aes(as.character(offseason), total_spending, group = sign_type, fill = sign_type, label = players)) +
-  geom_bar(position = "dodge", stat = "identity") +
-  facet_wrap(vars(to_team))
+  geom_area() +
+  facet_wrap(vars(to_team)) +
+  scale_x_discrete(breaks = c("2010", "2015", "2019")) + fgt +
+  ggtitle("Offseason vs. Total Contracts Given by Type, by Team 2010-2019") +
+  labs(x="Season", y="Total Spending (USD Millions)")
 ```
 
 
@@ -1097,7 +1108,7 @@ position_player_diff <-
   filter(
     offseason %in% c(2016, 2017, 2018),
     position == "Position Player",
-    sign_type == "signed"
+    sign_type == "Domestic Free Agent"
   ) %>%
   group_by(offseason, position, player_type, age_bucket) %>%
   summarize(
@@ -1128,7 +1139,7 @@ starting_pitcher_diff <-
   filter(
     offseason %in% c(2016, 2017, 2018),
     position == "Starting Pitcher",
-    sign_type == "signed"
+    sign_type == "Domestic Free Agent"
   ) %>%
   group_by(offseason, position, player_type, age_bucket) %>%
   summarize(
@@ -1159,7 +1170,7 @@ relief_pitcher_diff <-
   filter(
     offseason %in% c(2016, 2017, 2018),
     position == "Relief Pitcher",
-    sign_type == "signed"
+    sign_type == "Domestic Free Agent"
   ) %>%
   group_by(offseason, position, player_type, age_bucket) %>%
   summarize(
@@ -1347,7 +1358,7 @@ all_free_agents %>%
 
 # minor league deals
 all_free_agents %>%
-  filter(sign_salary == 0 & sign_type == "signed") %>%
+  filter(sign_salary == 0 & sign_type == "Domestic Free Agent") %>%
   group_by(offseason, player_type, age_bucket) %>%
   summarize(num_minor_league_deals = n()) %>%
   ggplot(aes(offseason, num_minor_league_deals, group = 1, color = age_bucket)) +
@@ -1563,7 +1574,7 @@ fa_types_annual <-
 
 sign_type_plt <-
   all_free_agents %>%
-  filter(sign_type == "signed") %>%
+  filter(sign_type == "Domestic Free Agent") %>%
   group_by(offseason, sign_month, player_type) %>%
   summarize(num_signed = n()) %>%
   ungroup() %>%
@@ -1618,7 +1629,7 @@ fa_types_annual_age_buckets <-
 
 sign_type_plt_ages <-
   all_free_agents %>%
-  filter(sign_type == "signed") %>%
+  filter(sign_type == "Domestic Free Agent") %>%
   group_by(offseason, sign_month, player_type, age_bucket) %>%
   summarize(num_signed = n()) %>%
   ungroup() %>%
