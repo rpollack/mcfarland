@@ -822,13 +822,29 @@ extension_plt <-
   mutate(offseason = as.character(offseason)) %>%
   ungroup() %>%
   complete(to_team, offseason, fill = list(total_salary = 0, players = "No one")) %>%
-  ggplot(aes(offseason, total_salary, group = 1, label = players)) +
+  ggplot(aes(offseason, total_salary, group = 1, label = players, color = to_team)) +
   geom_point() + geom_line() +
   facet_wrap(vars(to_team)) +
+  scale_color_manual(values = team_colors) +
+  scale_fill_manual(values = team_colors) +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
   scale_x_discrete(breaks = c("2010", "2015", "2019"))
 
-ggplotly(extension_plt)
+ggplotly(extension_plt, tooltip = c("offseason", "total_salary", "players"))
 ```
+
+```{r}
+all_free_agents %>% 
+  filter(sign_type %in% c("signed", "signed_intl", "extension")) %>%
+  group_by(offseason, sign_type) %>%
+  summarize(total_spending = sum(sign_salary, na.rm = TRUE)) %>%
+  ungroup() %>%
+  complete(offseason, sign_type, fill = list(sign_salary = 0)) %>%
+  ggplot(aes(as.character(offseason), total_spending, group = sign_type, fill = sign_type)) +
+  geom_bar(position = "dodge", stat = "identity")
+```
+
 
 
 ```{r eval=FALSE, fig.height=4, fig.width=5, include=FALSE}
