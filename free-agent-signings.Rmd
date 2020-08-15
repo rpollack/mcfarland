@@ -335,7 +335,7 @@ extensions <-
            Team == "FLA" ~ "MIA",
            TRUE ~ Team
          ),
-         name = str_extract(Player, "[A-Z][a-z]*[\\s|-][A-Z][a-z]*(\\s*[A-Z][a-z]*)*"),
+         name = str_remove_all(Player, "⇑"),
          sign_salary = round(as.numeric(Amt), 1),
          sign_years = as.numeric(Yrs),
          sign_month = factor(month(Date), levels = c(
@@ -810,7 +810,7 @@ You can see the slowdown beginning in the 2015 and 2016 offseasons but really ta
 
 ## Contract Extensions
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 extension_plt <- 
   all_free_agents %>%
   filter(sign_type == "extension") %>%
