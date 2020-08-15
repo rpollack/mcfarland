@@ -182,23 +182,9 @@ get_international_signings <- function(year) {
            offseason = offseason - 1)  #correct for the way spotrac reports its years relative to bb-ref
 }
 
-generate_csv <- function(df, year_min, year_max, position, player_type, age) {
-  filename <- glue("{position}-{player_type}-{age}.csv")
-  df %>%
-    filter(
-      offseason >= as.numeric(year_min),
-      offseason <= as.numeric(year_max),
-      Position == position,
-      player_type == player_type,
-      age_bucket == age
-    ) %>%
-    dplyr::select(offseason, name, age, three_year_war, days_to_sign, sign_salary) %>%
-    arrange(offseason, days_to_sign) %>%
-    write_csv(filename)
-}
 
-# generate_csv(all_free_agents, 2016, 2018, "Position Player", "Scrub", "34 - 36")
 ```
+
 
 
 ```{r get data, message=FALSE, warning=FALSE, include=FALSE}
@@ -327,8 +313,38 @@ intl_fa <-
              `To Team`= c("ARI", "LAD", "MIL", "STL", "MIN", "LAD", "LAD", "LAD"),
              sign_salary = c(68.5, 25, 16, 15.5, 12.85, 30, 28, 25),
              offseason = c(2014, 2015, 2016, 2017, 2015, 2015, 2013, 2013))) %>%
-  mutate(sign_type = "signed_intl")
+  mutate(sign_type = "signed_intl") %>%
+  inner_join(tibble(name = c("Adeiny Hechavarria", "Adrian Morejon", "Alexander Guerrero", )))
 
+# get contract extensions from 2010 onwards
+extensions <-
+  read_html("https://transactions.mlbtraderumors.com/widget/extension-tracker&link=true&widget=true&EXT_year_constraint=1&EXT_amount_constraint=1&EXT_options_constraint=1&EXT_startDate=01/01/2010") %>%
+  html_node("table") %>%
+  html_table() %>%
+  as_tibble() %>%
+  mutate(Date = mdy(Date),
+         offseason = year(Date),
+         to_team = case_when(
+           Team == "ARZ" ~ "ARI",
+           Team == "TAM" ~ "TBR",
+           Team == "KAN" ~ "KCR",
+           Team == "SFO" ~ "SFG",
+           Team == "SDG" ~ "SDP",
+           Team == "WAS" ~ "WSN",
+           Team == "CWS" ~ "CHW",
+           Team == "FLA" ~ "MIA",
+           TRUE ~ Team
+         ),
+         name = str_extract(Player, "[A-Z][a-z]*[\\s|-][A-Z][a-z]*(\\s*[A-Z][a-z]*)*"),
+         sign_salary = round(as.numeric(Amt), 1),
+         sign_years = as.numeric(Yrs),
+         sign_month = factor(month(Date), levels = c(
+      "Sep", "Oct", "Nov", "Dec", "Jan", "Feb",
+      "Mar", "Apr", "May", "Jun", "Jul", "Aug"
+    ), ordered = TRUE)) %>%
+  filter(!is.na(Date)) %>%
+  dplyr::select(name, offseason, sign_month, sign_date = Date, to_team, sign_salary, sign_years) %>%
+  mutate(sign_type = "extension")
 
 ```
 
@@ -390,6 +406,7 @@ unsigned_pitchers_clean <-
 # 4. bucket the player according to their age when they signed
 # 5. compute the number of days it took the player to sign, starting from Nov 1st of that year
 # 6. match up any salary/signing information i have with the player and the offseason
+# 7. add in contract extensions!
 
 all_free_agents <-
   bind_rows(fa_signings_clean, unsigned_batters_clean, unsigned_pitchers_clean) %>%
@@ -498,7 +515,10 @@ all_free_agents <-
                    offseason= c(2010, 2018),
                    sign_salary = c(33, 93),
                    to_team = c("LAD", "LAD"),
-                   sign_type = "signed"))
+                   sign_type = "signed"),
+            extensions)
+
+
 
 # run this code to identify salary amounts i don't have in the master list. 
 # they should all be extensions, qualifying offers, or americans who signed from a foreign league. BB-Ref lists neither of these.
@@ -787,6 +807,29 @@ all_free_agents %>%
 
 ```
 You can see the slowdown beginning in the 2015 and 2016 offseasons but really take off in the two years afterward.
+
+## Contract Extensions
+
+```{r}
+extension_plt <- 
+  all_free_agents %>%
+  filter(sign_type == "extension") %>%
+  mutate(label = glue("{name} - ${sign_salary}m")) %>%
+  group_by(to_team, offseason) %>%
+  arrange(desc(sign_salary)) %>%
+  summarize(total_salary = sum(sign_salary),
+            players = paste(label, collapse = "\n")) %>% 
+  mutate(offseason = as.character(offseason)) %>%
+  ungroup() %>%
+  complete(to_team, offseason, fill = list(total_salary = 0, players = "No one")) %>%
+  ggplot(aes(offseason, total_salary, group = 1, label = players)) +
+  geom_point() + geom_line() +
+  facet_wrap(vars(to_team)) +
+  scale_x_discrete(breaks = c("2010", "2015", "2019"))
+
+ggplotly(extension_plt)
+```
+
 
 ```{r eval=FALSE, fig.height=4, fig.width=5, include=FALSE}
 
