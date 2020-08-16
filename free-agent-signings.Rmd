@@ -366,6 +366,18 @@ extensions <-
            sign_month %in% c("Jan", "Feb", "Mar") ~ offseason - 1,
            TRUE ~ offseason
          ))
+
+# get team performance info
+con <- dbConnect(RMariaDB::MariaDB(), group = "fg_db")
+q_team_pct <- dbSendQuery(con, "select Season, AbbName, W, L from season_team
+                          where Season >= 2019")
+team_performance  <-
+  dbFetch(q_team_pct) %>%
+  as_tibble() %>%
+  group_by(AbbName) %>%
+  summarize(`Decade Winning %` = round(sum(W) / (sum(W)+sum(L)), 3))
+
+dbDisconnect(con)
 ```
 
 
@@ -940,7 +952,46 @@ ggplotly(top_5_extension_plt, tooltip = "Contract Amount")
 
 # Total Expenditure
 
-This last graph ties it all together. You can see total dollars given out, by team and by contract time, throughout the decade. This shows you the ebb and flow of focusing on extensions vs. free agent contracts, as well as which teams are consistently major players in the international market.
+## In Aggregate
+
+The following graph shows each team's approach to free agency and contract extensions over the past decade. Note that international free agent signings are omitted. 
+
+I also show the team's winning percentage during the decade, excluding 2020. The color gradient of the point turns from red to green as the winning percentage increases. The size of the point also gets bigger so you can quickly scan the graph. 
+
+Hover over a point to see which team it is.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+cumulative_spend_plt <-
+  all_free_agents %>%
+  filter(
+    sign_type %in% c("Domestic Free Agent", "Contract Extension"),
+    !is.na(to_team),
+    to_team != ""
+  ) %>%
+  group_by(to_team, sign_type) %>%
+  summarize(total = sum(`Contract Amount`, na.rm = TRUE)) %>%
+  pivot_wider(names_from = sign_type, values_from = total) %>%
+  inner_join(team_performance, by = c("to_team" = "AbbName")) %>%
+  mutate(Information = glue("Team: {to_team}
+                            Free Agent Spending: ${`Domestic Free Agent`}m
+                            Extension Spending: ${`Contract Extension`}m
+                            Decade Winning %: {`Decade Winning %`}")) %>%
+  ggplot(aes(`Domestic Free Agent`, `Contract Extension`, color = `Decade Winning %`, size = `Decade Winning %`, text = Information)) +
+  geom_point() +
+  # geom_text(aes(label = to_team)) +
+  labs(x = "Free Agent Spending (USD Millions)", y = "Contract Extension Spending (USD Millions)") +
+  ggtitle("Free Agent vs. Contract Extension Spending, MLB Teams 2010-2019 Offseasons") +
+  fgt +
+  # scale_color_manual(values = team_colors) +
+  scale_color_gradient2(low = "red", high = "green", mid = "yellow", midpoint = 0.5)
+# theme(legend.position = "none")
+
+ggplotly(cumulative_spend_plt, tooltip = "Information")
+```
+
+## Over Time
+
+The next graph shows the same info as above, only over time, and with international free agency added back in. 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 cume_plt <-
@@ -950,6 +1001,7 @@ cume_plt <-
          !is.na(to_team),
          to_team != "") %>%
   group_by(offseason, to_team, sign_type) %>%
+  arrange(name) %>%
   summarize(
     total_spending = sum(`Contract Amount`, na.rm = TRUE),
     players = paste(name, collapse = "\n")
@@ -966,26 +1018,7 @@ cume_plt <-
 ggplotly(cume_plt, tooltip = c("offseason", "group", "players"))
 ```
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
-cumulative_spend_plt <-
-  all_free_agents %>%
-  filter(sign_type %in% c("Domestic Free Agent", "Contract Extension"),
-         !is.na(to_team),
-         to_team != "") %>%
-  group_by(to_team, sign_type) %>%
-  summarize(total = sum(`Contract Amount`, na.rm = TRUE)) %>%
-  pivot_wider(names_from = sign_type, values_from = total) %>%
-  ggplot(aes(`Domestic Free Agent`, `Contract Extension`, color = to_team)) +
-  geom_text(aes(label = to_team)) +
-  labs(x="Free Agent Spending (USD Millions)", y="Contract Extension Spending (USD Millions)") + 
-  ggtitle("Free Agent vs. Contract Extension Spending, MLB Teams 2010-2019 Offseasons") +
-  fgt +
-  scale_color_manual(values = team_colors) +
-  scale_fill_manual(values = team_colors) +
-  theme(legend.position = "none")
 
-ggplotly(cumulative_spend_plt, tooltip=c("to_team", "Domestic Free Agent", "Contract Extension"))
-```
 
 
 
