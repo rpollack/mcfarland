@@ -685,7 +685,7 @@ ggplotly(top_signings_plt, tooltip = c("player_label", "Contract Amount"))
 
 The following graph shows the top 5 contracts given out per team during this timeframe.
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height = 15}
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height = 20}
 fa_team_plt <-
   all_free_agents %>%
   filter(
@@ -697,7 +697,7 @@ fa_team_plt <-
   top_n(5, wt = `Contract Amount`) %>%
   ggplot(aes(reorder_within(sign_label, `Contract Amount`, to_team), `Contract Amount`, fill = to_team)) +
   geom_col() +
-  facet_wrap(vars(to_team), scales = "free_y", ncol = 3) +
+  facet_wrap(vars(to_team), scales = "free_y", ncol = 2) +
   coord_flip() +
   scale_x_discrete(labels = function(x) gsub("__.+$", "", x)) +
   scale_color_manual(values = team_colors) +
@@ -879,7 +879,7 @@ extension_plt <-
     axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)
   ) +
   scale_x_discrete(breaks = c("2010", "2015", "2019")) +
-  ggtitle("MLB Contract Extensions by Team, 2010-2019 OffSeasons")
+  ggtitle("MLB Contract Extensions by Team, 2010-2019 OffSeasons") + fgt
 
 ggplotly(extension_plt, tooltip = c("offseason", "total_salary", "players"))
 ```
