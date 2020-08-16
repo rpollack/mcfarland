@@ -4,7 +4,7 @@ author: "Ryan Pollack, ryanpollack.com"
 output: 
   html_document: 
     df_print: kable
-
+    toc: yes
 ---
 
 
@@ -20,11 +20,10 @@ knitr::opts_chunk$set(
 library(tidyverse)
 library(lubridate)
 library(rvest)
-library(ggrepel)
 library(glue)
-library(ggridges)
 library(tidytext)
 library(plotly)
+library(RMariaDB)
 
 fgt <- theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
@@ -724,7 +723,7 @@ fa_team_plt <-
 ggplotly(fa_team_plt, tooltip = "Contract Amount")
 ```
 
-# Signing Time Trends
+## Signing Time Trends
 
 During the 2017 and 2018 offseasons, many people noticed that free agents were taking longer to sign. The following graph shows the median number of days elapsed between November 1st of each offseason and the day a player signed.
 
@@ -752,7 +751,7 @@ all_free_agents %>%
 
 What we noticed in 2017 and 2018 was the result of a trend that started during the 2016 offseason. And although I saw fewer stories about a stagnant free agent market during the 2019 offseason, this graph shows it's still a long way from where we used to be.
 
-## Signing Time Trends, by Player Type
+### Signing Time Trends, by Player Type
 
 Not all players are created equal. I was interested in how the different calibers of players experienced the slowdown. To do this I categorized each player according to their role (position player, starting pitcher, or reliever) and the rWAR they accumulated in their walk year and the two years prior.
 
@@ -793,7 +792,7 @@ ggplotly(sign_time_plt_talent)
 
 The Cold Stove of the 2017 offseason affected all kinds of players. But it affected Role Players, All Stars, and Superstars the most. I think that's why the baseball community felt so shocked. Guys we thought would get deals in December, no-brainers who'd had great runs and seemed primed to sign, waited far longer than we'd been used to.
 
-## Signing Time Trends, by Age Group
+### Signing Time Trends, by Age Group
 
 MLB's youth movement is well-documented. Younger players save teams money, provide cost certainty, offer more freedom with respect to minor league options, and in some cases out-produce older players. So I broke the signing time trends down by age bucket. Note that not all players have this data available.
 
@@ -827,7 +826,7 @@ ggplotly(age_type_plt)
 
 Older players have always taken about 10–15 days longer to sign than the spring chickens. But in 2017, the typical older player waited more than 20 days longer to sign than they did in 2016, while players 30 and under waited just 10 days longer. 
 
-## Signing Time Trends, By Month by Offseason
+### Signing Time Trends, By Month by Offseason
 
 Let's take one more look at the slowdown. The following graph shows the number of players who signed in each month for each offseason in the decade.
 
@@ -956,7 +955,9 @@ ggplotly(top_5_extension_plt, tooltip = "Contract Amount")
 
 The following graph shows each team's approach to free agency and contract extensions over the past decade. Note that international free agent signings are omitted. 
 
-I also show the team's winning percentage during the decade, excluding 2020. The color gradient of the point turns from red to green as the winning percentage increases. The size of the point also gets bigger so you can quickly scan the graph. 
+I also show the team's winning percentage during the years 2010-2019. This means the data doesn't include 2020 which means any correlation to 2019 offseason spending won't be visible. But the point isn't to show correlation, just to be informative.
+
+The color gradient and size of each point turns from red to green as the winning percentage increases, so you can scan the graph to find interesting teams.
 
 Hover over a point to see which team it is.
 
@@ -979,7 +980,8 @@ cumulative_spend_plt <-
   ggplot(aes(`Domestic Free Agent`, `Contract Extension`, color = `Decade Winning %`, size = `Decade Winning %`, text = Information)) +
   geom_point() +
   # geom_text(aes(label = to_team)) +
-  labs(x = "Free Agent Spending (USD Millions)", y = "Contract Extension Spending (USD Millions)") +
+  labs(x = "Free Agent Spending (USD Millions)", y = "Contract Extension Spending (USD Millions)",
+       caption = "Winning% is for the 2010 - 2019 seasons") +
   ggtitle("Free Agent vs. Contract Extension Spending, MLB Teams 2010-2019 Offseasons") +
   fgt +
   # scale_color_manual(values = team_colors) +
