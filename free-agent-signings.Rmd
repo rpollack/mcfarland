@@ -686,7 +686,8 @@ ggplotly(top_signings_plt, tooltip = c("sign_salary", "player_label"))
 The following graph shows the top 5 contracts given out per team during this timeframe.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height = 15}
-all_free_agents %>%
+fa_team_plt <-
+  all_free_agents %>%
   filter(
     sign_type %in% c("Domestic Free Agent", "International Free Agent"), !is.na(sign_salary), sign_salary != 0,
     offseason >= 2010
@@ -694,7 +695,7 @@ all_free_agents %>%
   mutate(sign_label = glue("{name} - {offseason}")) %>%
   group_by(to_team) %>%
   top_n(5, wt = sign_salary) %>%
-  ggplot(aes(reorder_within(sign_label, sign_salary, to_team), sign_salary, fill = to_team, label = age)) +
+  ggplot(aes(reorder_within(sign_label, sign_salary, to_team), sign_salary, fill = to_team)) +
   geom_col() +
   facet_wrap(vars(to_team), scales = "free_y", ncol = 3) +
   coord_flip() +
@@ -707,6 +708,8 @@ all_free_agents %>%
   ) +
   labs(x = "", y = "Contract Amount (USD Millions)") +
   ggtitle("MLB Free Agents - Top 5 Contracts Per Team")
+
+ggplotly(fa_team_plt, tooltip = "sign_salary")
 ```
 
 # Signing Time Trends
@@ -838,6 +841,13 @@ You can see the slowdown beginning in the 2015 and 2016 offseasons but really ta
 
 # Contract Extensions
 
+Now let's look at the sport's other big expenditures: contract extensions. Because of how extensions work I had to choose which 'offseason' to put them in. I settled on this rubric: Extensions signed in January, February, or March are attributed to the previous calendar year's offseason. Extensions signed in any later months are attributed to that current 'offseason'.
+
+For example:
+
+* Mike Trout signed his (second) contract extension in March 2019. I attributed this to the 2018 offseason.
+* Joey Votto signed his contract extension in April 2012. I attributed this to the 2012 offseason.
+
 ## Contract Extensions by Team Over Time
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
@@ -932,8 +942,6 @@ ggplotly(top_5_extension_plt, tooltip = c("sign_salary"))
 
 This last graph ties it all together. You can see total dollars given out, by team and by contract time, throughout the decade. This shows you the ebb and flow of focusing on extensions vs. free agent contracts, as well as which teams are consistently major players in the international market.
 
-Thi graph is a little tricky because while free agent contracts are categorized as being in an 'offseason', extensions are categorized as being part of a 'season'. But, they're close enough to be meaningful. 
-
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 cume_plt <-
   all_free_agents %>%
@@ -953,7 +961,7 @@ cume_plt <-
   facet_wrap(vars(to_team)) +
   scale_x_discrete(breaks = c("2010", "2015", "2019")) + fgt +
   ggtitle("Offseason vs. Total Contracts Given by Type, by Team 2010-2019") +
-  labs(x="Season", y="Total Spending (USD Millions)")
+  labs(x="Offseason", y="Total Spending (USD Millions)")
 
 ggplotly(cume_plt, tooltip = c("offseason", "group", "players"))
 ```
