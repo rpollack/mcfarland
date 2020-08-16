@@ -571,7 +571,7 @@ The data come from three sources:
 *   Contract extension information also comes from MLBTR.
 *   International free agent contract information comes from [Spotrac](http://www.spotrac.com).
 
-I adjusted all salaries to 2020 dollars using www.usinflationcalculator.com. 
+I adjusted all salaries to 2020 dollars using www.usinflationcalculator.com. I fully admit this is a very simplistic approach that probably isn't correct. So let's just say, the idea is to remove the effects of general inflation in the US in some way, not to be 100% accurate with respect to MLB salaries.
 
 What's included:
 
