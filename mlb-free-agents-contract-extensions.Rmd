@@ -566,12 +566,12 @@ This document contains interactive plots that analyze MLB team free agent and ex
 # Data
 The data come from three sources:
 
-*   Free agent signing data, such as who was a free agent and when they signed the contract, comes from the ever-reliable [Baseball-Reference](www.baseball-reference.com).
-*   Domestic free agent contract information (salaries) comes from [MLB Trade Rumors](www.mlbtraderumors.com).   
+*   Free agent signing data, such as who was a free agent and when they signed the contract, comes from the ever-reliable [Baseball-Reference](http://www.baseball-reference.com).
+*   Domestic free agent contract information (salaries) comes from [MLB Trade Rumors](http://www.mlbtraderumors.com).   
 *   Contract extension information also comes from MLBTR.
-*   International free agent contract information comes from [Spotrac](www.spotrac.com).
+*   International free agent contract information comes from [Spotrac](http://www.spotrac.com).
 
-I adjusted all salaries for inflation relative to 2020 using www.usinflationcalculator.com. 
+I adjusted all salaries to 2020 dollars using www.usinflationcalculator.com. 
 
 What's included:
 
@@ -1015,7 +1015,9 @@ cume_plt <-
   facet_wrap(vars(to_team)) +
   scale_x_discrete(breaks = c("2010", "2015", "2019")) + fgt +
   ggtitle("Offseason vs. Total Contracts Given by Type, by Team 2010-2019") +
-  labs(x="Offseason", y="Total Spending (USD Millions)")
+  labs(x="Offseason", y="Total Spending (USD Millions)") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+
 
 ggplotly(cume_plt, tooltip = c("offseason", "group", "players"))
 ```
