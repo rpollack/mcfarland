@@ -966,6 +966,28 @@ cume_plt <-
 ggplotly(cume_plt, tooltip = c("offseason", "group", "players"))
 ```
 
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+cumulative_spend_plt <-
+  all_free_agents %>%
+  filter(sign_type %in% c("Domestic Free Agent", "Contract Extension"),
+         !is.na(to_team),
+         to_team != "") %>%
+  group_by(to_team, sign_type) %>%
+  summarize(total = sum(`Contract Amount`, na.rm = TRUE)) %>%
+  pivot_wider(names_from = sign_type, values_from = total) %>%
+  ggplot(aes(`Domestic Free Agent`, `Contract Extension`, color = to_team)) +
+  geom_text(aes(label = to_team)) +
+  labs(x="Free Agent Spending (USD Millions)", y="Contract Extension Spending (USD Millions)") + 
+  ggtitle("Free Agent vs. Contract Extension Spending, MLB Teams 2010-2019 Offseasons") +
+  fgt +
+  scale_color_manual(values = team_colors) +
+  scale_fill_manual(values = team_colors) +
+  theme(legend.position = "none")
+
+ggplotly(cumulative_spend_plt, tooltip=c("to_team", "Domestic Free Agent", "Contract Extension"))
+```
+
+
 
 
 ```{r eval=FALSE, fig.height=4, fig.width=5, include=FALSE}
