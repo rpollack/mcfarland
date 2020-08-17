@@ -684,16 +684,16 @@ Now for the players' viewpoint. There are almost 5,000 signees in the decade, wa
 top_signings_plt <-
   all_free_agents %>%
   filter(sign_type %in% c("Domestic Free Agent", "International Free Agent"), !is.na(`Contract Amount`), `Contract Amount` != 0) %>%
-  mutate(player_label = glue("{name} - {Offseason} - {Team}")) %>%
+  mutate(Info = glue("{name} - {Offseason} - {Team}")) %>%
   top_n(25, wt = `Contract Amount`) %>%
-  ggplot(aes(reorder(player_label, `Contract Amount`), `Contract Amount`, label = player_label)) +
+  ggplot(aes(reorder(Info, `Contract Amount`), `Contract Amount`, label = Info)) +
   geom_col() +
   coord_flip() +
   labs(x = "", y = "Contract Salary (Millions USD)") +
   ggtitle("MLB Top 25 Free Agent Contracts, 2010-2019", subtitle = "Adjusted to 2020 dollars") +
   fgt
 
-ggplotly(top_signings_plt, tooltip = c("player_label", "Contract Amount"))
+ggplotly(top_signings_plt, tooltip = c("Info", "Contract Amount"))
 ```
 
 
@@ -737,8 +737,8 @@ During the 2017 and 2018 offseasons, many people noticed that free agents were t
 # median time to sign, by offseason. using median since most years are skewed left or right
 all_free_agents %>%
   group_by(Offseason) %>%
-  summarize(median_sign_days = median(days_to_sign, na.rm = TRUE)) %>%
-  ggplot(aes(Offseason, median_sign_days)) +
+  summarize(`Median Days to Sign` = median(days_to_sign, na.rm = TRUE)) %>%
+  ggplot(aes(Offseason, `Median Days to Sign`)) +
   geom_point() +
   geom_line() +
   expand_limits(y = 0) +
@@ -775,11 +775,11 @@ sign_time_plt_talent <-
   group_by(Offseason, player_type) %>%
   arrange(desc(name)) %>%
   summarize(
-    median_sign_days = median(days_to_sign, na.rm = TRUE),
+    `Median Days to Sign` = median(days_to_sign, na.rm = TRUE),
     player_names = paste(name, collapse = "\n")
   ) %>%
   complete(Offseason, player_type) %>%
-  ggplot(aes(Offseason, median_sign_days, text = player_names, group = 1)) +
+  ggplot(aes(Offseason, `Median Days to Sign`, text = player_names, group = 1)) +
   facet_wrap(vars(player_type)) +
   geom_point() +
   geom_line() +
@@ -801,7 +801,7 @@ The Cold Stove of the 2017 offseason affected all kinds of players. But it affec
 
 MLB's youth movement is well-documented. Younger players save teams money, provide cost certainty, offer more freedom with respect to minor league options, and in some cases out-produce older players. So I broke the signing time trends down by age bucket. Note that not all players have this data available.
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height = 5}
 age_type_plt <-
   all_free_agents %>%
   filter(
@@ -851,7 +851,8 @@ all_free_agents %>%
     y = "Number of Players Signed", x = "Month Signed",
     caption = "Source: Baseball-Reference. Made with Plotly in R"
   ) +
-  ggtitle("Month when Free Agent Signed vs. Number of Players Signed", )
+  ggtitle("Month when Free Agent Signed vs. Number of Players Signed") +
+  fgt
 ```
 You can see the slowdown beginning in the 2015 and 2016 offseasons but really take off in the two years afterward.
 
@@ -912,16 +913,16 @@ top_extensions_plt <-
     sign_type == "Contract Extension",
     Offseason <= 2019
   ) %>%
-  mutate(player_label = glue("{name} - {Offseason} - {Team}")) %>%
+  mutate(Info = glue("{name} - {Offseason} - {Team}")) %>%
   top_n(25, wt = `Contract Amount`) %>%
-  ggplot(aes(reorder(player_label, `Contract Amount`), `Contract Amount`, label = player_label)) +
+  ggplot(aes(reorder(Info, `Contract Amount`), `Contract Amount`, label = Info)) +
   geom_col() +
   coord_flip() +
   labs(x = "", y = "Contract Salary (Millions USD)") +
   ggtitle("MLB Top 25 Contract Extensions, 2010-2019", subtitle = "Adjusted to 2020 dollars") +
   fgt
 
-ggplotly(top_extensions_plt, tooltip = c("player_label", "Contract Amount"))
+ggplotly(top_extensions_plt, tooltip = c("Info", "Contract Amount"))
 ```
 
 ## Top 5 Contract Extensions per Team
@@ -962,9 +963,9 @@ The following graph shows each team's approach to free agency and contract exten
 
 I also show the team's winning percentage during the years 2010-2019. This means the data doesn't include 2020 which means any correlation to 2019 offseason spending won't be visible. But the point isn't to show correlation, just to be informative.
 
-The color gradient and size of each point turns from red to green as the winning percentage increases.
+The color of each label turns from red to green, and the size of the label increases, as the winning percentage goes up.
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height = 6}
 cumulative_spend_plt <-
   all_free_agents %>%
   filter(
@@ -991,11 +992,11 @@ cumulative_spend_plt <-
 ggplotly(cumulative_spend_plt, tooltip = "Information")
 ```
 
-I swear to you that Miami is on this graph. You may have to look really hard to find it, though!
+You may have to look really hard to find them, but I swear to you that the Marlins are on this graph!
 
 ## Over Time
 
-The next graph shows the same info as above, only over time, and with international free agency added back in. 
+The next graph shows the same info as above, only over time, and with international free agency added back in.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 cume_plt <-
