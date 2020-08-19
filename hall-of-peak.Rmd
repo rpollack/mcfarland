@@ -1,0 +1,114 @@
+---
+title: "hall-of-peak"
+output: html_document
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(rvest)
+library(glue)
+library(stringr)
+library(ggrepel)
+library(RMariaDB)
+
+
+con <- dbConnect(RMariaDB::MariaDB(), group = "fg_db")
+
+batter_war_query <- dbSendQuery(con, "select pi.PlayerId, pi.FirstName, pi.LastName, sb.Season, sb.Age, sb.ValueW
+                                from player_info pi
+                                inner join stats_batting sb on pi.PlayerId = sb.playerid
+                                where sb.Type = 0
+                                and sb.Season < 2020")
+
+batter_war <-
+  dbFetch(batter_war_query) %>%
+  as_tibble() %>%
+  unite(name, FirstName, LastName, sep = " ") %>%
+  mutate(war = round(ValueW, 1)) %>%
+  dplyr::select(-ValueW)
+
+pitcher_war_query <- dbSendQuery(con, "select pi.PlayerId, pi.FirstName, pi.LastName, sp.Season, sp.Age, sp.ValueW
+                                from player_info pi
+                                inner join stats_pitching sp on pi.PlayerId = sp.PlayerId
+                                where sp.Type = 0
+                                and sp.Season < 2020")
+
+pitcher_war <-
+  dbFetch(pitcher_war_query) %>%
+  as_tibble() %>%
+  unite(name, FirstName, LastName, sep = " ") %>%
+  mutate(war = round(ValueW, 1)) %>%
+  dplyr::select(-ValueW)
+
+
+
+dbDisconnect(con)
+```
+
+
+we want a 3 year war total that is like 50% or more of the peak
+
+```{r}
+
+# looking for a period of 5 consecutive years that contain a large part of the players' career WAR
+
+
+
+# identify five-year rolling WAR totals to find ones that are at least half the player's total war
+# and they have no other season equal to the lowest of the peak
+
+batter_war %>%
+  group_by(PlayerId, name) %>%
+  mutate(num_seasons = n(),
+         career_war = round(sum(war), 1)) %>%
+  filter(num_seasons <= 12) %>%
+  arrange(Age, .by_group = TRUE) %>%
+  mutate(rolling_war5 = round(war + (lag(war)) + (lag(war, 2)) + lag(war, 3) + lag(war, 4) +
+                                lag(war, 5), 1),
+         is_peak = if_else(rolling_war5 / career_war >= 0.8, TRUE, FALSE)) %>%
+  filter(career_war >= 40) %>%
+  add_count(PlayerId, name, wt = is_peak) %>%
+  filter(n == 1) %>%
+  distinct(name)
+
+batter_war %>%
+  filter(name == "Buster Posey") %>%
+  ggplot(aes(Age, war)) +
+  geom_point() + geom_line()
+
+
+# sandy koufax's peak 6-year WAR was 83% of his career total. find others like him
+#he also played 11 years
+
+# koufax's criteria: 6 consecutive years that comprise 83% of career WAR, 11 seasons played, 54.5 WAR,
+# and the peak came at the END of his career
+# no one comes close but if you tinker with some of the parameters, you get some interesting names
+
+pitcher_war %>%
+  group_by(PlayerId, name) %>%
+  mutate(num_seasons = n(),
+         career_war = round(sum(war), 1)) %>%
+  filter(num_seasons <= 12) %>%
+  arrange(Age, .by_group = TRUE) %>%
+  mutate(rolling_war5 = round(war + (lag(war)) + (lag(war, 2)) + lag(war, 3) + lag(war, 4) + lag(war, 5), 1),
+         is_peak = if_else(rolling_war5 / career_war >= 0.75, TRUE, FALSE)) %>%
+  filter(career_war >= 40) %>%
+  add_count(PlayerId, name, wt = is_peak) %>%
+#  filter(name == "Johan Santana")
+  filter(n == 1) %>%
+  distinct(name)
+
+pitcher_war %>%
+  filter(name == "Chris Sale") %>%
+  ggplot(aes(Age, war)) +
+  geom_point() + geom_line()
+  
+```
+
+
+find players where they have 3 consecutive seasons that make up x% of their career WAR
+
+```{r}
+
+```
