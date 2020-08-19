@@ -68,7 +68,8 @@ hof_players <- read_html(hof_url) %>%
 
 names(hof_players)[3] <- "Years"
 
-hof_players <- hof_players %>%
+hof_players <- 
+  hof_players %>%
   filter(`Inducted As` == "Player") %>%
   mutate(birth_year = as.numeric(str_extract(Years, "^[0-9]{4}"))) %>%
   dplyr::select(Name, birth_year) %>%
@@ -76,7 +77,7 @@ hof_players <- hof_players %>%
     HOF = "Yes",
 
     # correct some discrepancies
-    Name = str_replace(Name, "Ken Griffey", "Ken Griffey Jr."),
+    Name = str_replace(Name, "Cal Ripken Jr.", "Cal Ripken"),
     birth_year = ifelse(Name == "Frankie Frisch", 1898, birth_year)
   )
 
@@ -126,19 +127,6 @@ prob_war_thru_age <- function(PlayerId, Age, Position, war_floor, war_ceiling, .
       dplyr::select(num_eligible_players_who_meet_criteria, num_hof_players_who_meet_criteria = Yes)
 }
 ```
-
-
-```{r}
-hof_eligible_players %>%
-    filter(
-        PlayerId != 12335,
-        Age == 28,
-        Position == "OF",
-        cumulative_war >= 60,
-        cumulative_war <= 80
-    ) 
-```
-
 
 # compute Bayesian parameters
 
