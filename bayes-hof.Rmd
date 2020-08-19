@@ -206,7 +206,7 @@ war_age_combinations <-
   war_through_age %>%
   filter(HOF == "No") %>%
   dplyr::select(PlayerId, Age, Position, war_floor, war_ceiling) %>%
-  head(1000) %>%
+ # head(1000) %>%
   group_by(PlayerId) %>%
   filter(Age == max(Age)) %>%
   ungroup() %>%
@@ -222,14 +222,14 @@ war_age_combinations <-
 
 
 ```{r}
-bayes_hof <- war_through_age %>%
+bayes_hof <- 
+  war_through_age %>%
+  filter(HOF == "No") %>%
   group_by(PlayerId) %>%
+  filter(Age == max(Age)) %>%
   ungroup() %>%
-
   # add data used to calculate bayesian parameters
-  inner_join(war_age_combinations,
-    by = c("PlayerId", "Age", "cumulative_war", "Position", "war_floor", "war_ceiling")
-  ) %>%
+  bind_cols (war_age_combinations) %>%
   inner_join(hof_probabilities_by_position, by = "Position") %>%
   mutate(
     p_b = p_hof_at_position,
