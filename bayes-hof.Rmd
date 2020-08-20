@@ -135,6 +135,9 @@ prob_war_thru_age <- function(PlayerId, Age, Position, war_floor, war_ceiling, .
 # for each player-season, compute their total WAR through the age they were that season
 # also mark which players are in HOF
 # finally, retain only the player's latest season, as that's all we're interested in analyzing
+# also set the war floor & ceiling appropriately. this matters because it controls which players are compared
+# to each other. starting with a 5-WAR range
+
 war_through_age <-
   seasonal_war %>%
   group_by(PlayerId, Name, last_year, Position) %>%
@@ -142,8 +145,8 @@ war_through_age <-
   mutate(
     cumulative_war = round(cumsum(WAR), 1),
     num_seasons = seq(n()),
-    war_ceiling = cumulative_war + (1.5 * num_seasons),
-    war_floor = cumulative_war - (1.5 * num_seasons)
+    war_ceiling = cumulative_war + (1.1 * num_seasons),
+    war_floor = cumulative_war - (1.1 * num_seasons)
   )
 
 
@@ -200,16 +203,8 @@ war_age_combinations <-
   ungroup() %>%
  # rowwise(PlayerId, Age, cumulative_war, Position, war_floor, war_ceiling) %>%
   pmap_dfr(prob_war_thru_age)
-```
 
-#  do(prob_war_thru_age(.$PlayerId, .$Age, .$cumulative_war, .$Position, .$war_floor, .$war_ceiling))
-
-# %>%
-#   mutate(num_eligible_players_who_meet_criteria = as.numeric(num_eligible_players_who_meet_criteria),
-#          num_hof_players_who_meet_criteria = as.numeric(num_hof_players_who_meet_criteria))
-
-
-```{r}
+# compute HOF probabilities for all players
 bayes_hof <- 
   war_through_age %>%
   filter(HOF == "No") %>%
@@ -230,6 +225,9 @@ bayes_hof <-
     -HOF, -birth_year, -p_hof_at_position
   ) %>%
   arrange(desc(prob_hof))
+
+bayes_hof %>% 
+  filter(is.na(prob_hof))
 
 full_list <- bayes_hof %>%
   ungroup() %>%
