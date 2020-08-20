@@ -54,8 +54,16 @@ batter_stats <- fg_db %>%
 
 player_info <- fg_db %>%
   tbl("player_info") %>%
-  dplyr::select(PlayerId, FirstName, LastName, BirthDate, LastGame, Position) %>%
-  collect(n = Inf)
+  dplyr::select(PlayerId, FirstName, LastName, BirthDate, LastGame, Position, BISPosition) %>%
+  collect(n = Inf) %>%
+  unite(Name, FirstName, LastName, sep = " ") %>%
+  mutate(
+    last_year = year(ymd(LastGame)),
+    Position = str_extract(Position, "^(P|C|1B|2B|3B|SS|OF|DH)"), # extract primary position from dataset
+    birth_year = year(ymd(BirthDate))
+  ) %>%
+  dplyr::select(PlayerId, Name, birth_year, last_year, Position, BISPosition)
+  
 
 # Get list of players in the HOF (who were voted in as players)
 
@@ -81,23 +89,99 @@ hof_players <-
     birth_year = ifelse(Name == "Frankie Frisch", 1898, birth_year)
   )
 
+```
+
+```{r}
+# gather fielding data. the main goal is to identify LF, RF, and CF separately
+# so they can be compared correctly. 
+# we have 3 sources of data here:
+# 1. detailed FG fielding info from innings compiled in the field
+# 2. the Lahman DB
+# 3. BIS Positional info
+# get all the data from each source, then for each outfielder, examine them
+# in descending order of priority for whether the "OF" truly is a LF, RF, or CF
+
+# get ID looukps, used to join FG player info with LahmanDB info
+ids <-
+  fg_db %>%
+  tbl("playerid_lookup") %>%
+  dplyr::select(playerid, refid) %>%
+  collect(n=Inf)
+
+# get fielding data from detailed FG table
+fielding_data_raw <-
+  fg_db %>%
+  tbl("stats_fielding") %>%
+  dplyr::select(PlayerId, Position, Season, Type, G, Inn) %>%
+  collect(n = Inf)
+
+fld <-
+  fielding_data_raw %>% 
+  
+  # omit stat lines that total up all outfield numbers. because we want more detailed positional info
+  filter(Position != "OF") %>%
+  group_by(PlayerId, Position) %>% 
+  summarize(total_innings = sum(Inn)) %>% 
+  group_by(PlayerId) %>% 
+  filter(total_innings == max(total_innings)) %>%
+  dplyr::select(-total_innings)
+
+# take player ID's, add in Lahman fielding data, and more detailed FG dielding data. 
+# see what we're left with
+
+lahman_fielding_grouped <-
+  FieldingOFsplit %>% 
+  as_tibble() %>% 
+  group_by(playerID, POS) %>% 
+  summarize(innings = sum(InnOuts)) %>% 
+  group_by(playerID) %>% 
+  filter(innings == max(innings)) %>%
+  dplyr::select(refid = playerID, Position = POS)
+  
+# merge all 3 sources of positional data in the hopes that one will have a more specific
+# designation than "OF"
+
+# order of operations for delineating outfielders: prefer fg detail over lahman over BISposition
+positional_info <-
+  ids %>% 
+  left_join(lahman_fielding_grouped, by="refid") %>% 
+  left_join(fld, by = c("playerid" = "PlayerId"), suffix = c("_lahman", "_fgdetail")) %>%
+  left_join(player_info, by = c("playerid" = "PlayerId")) %>%
+  mutate(real_position = case_when(
+    Position == "OF" ~ case_when(
+      Position_fgdetail %in% c("LF", "RF", "CF") ~ Position_fgdetail,
+      Position_lahman %in% c("LF", "RF", "CF") ~ Position_lahman,
+      BISPosition %in% c("LF", "RF", "CF") ~ BISPosition,
+      TRUE ~ Position
+    ),
+    TRUE ~ Position
+  )) %>%
+  dplyr::select(PlayerId = playerid, Position = real_position)
+
+```
+
+
+```{r}
+
+
+
 # combine batting & pitching WAR for all player-seasons
-seasonal_war <- player_info %>%
-  unite(Name, FirstName, LastName, sep = " ") %>%
-  mutate(
-    last_year = year(ymd(LastGame)),
-    Position = str_extract(Position, "^(P|C|1B|2B|3B|SS|OF|DH)"), # extract primary position from dataset
-    birth_year = year(ymd(BirthDate))
-  ) %>%
-  dplyr::select(PlayerId, Name, birth_year, last_year, Position) %>%
+seasonal_war <- 
+  player_info %>%
+  dplyr::select(-Position, -BISPosition) %>%
   full_join(batter_stats, by = "PlayerId") %>%
   full_join(pitcher_stats, by = c("PlayerId", "Age"), suffix = c("_bat", "_pitch")) %>%
   replace_na(list(WAR_bat = 0, WAR_pitch = 0)) %>%
   mutate(WAR = WAR_bat + WAR_pitch) %>%
   dplyr::select(-WAR_bat, -WAR_pitch) %>%
   left_join(hof_players, by = c("Name", "birth_year")) %>% # joining by birth year prevents mis-identifying players w/same name
-  replace_na(list(HOF = "No"))
+  replace_na(list(HOF = "No")) %>%
+  inner_join(positional_info, by="PlayerId")
 ```
+
+
+
+
 
 
 ```{r}
@@ -145,8 +229,8 @@ war_through_age <-
   mutate(
     cumulative_war = round(cumsum(WAR), 1),
     num_seasons = seq(n()),
-    war_ceiling = cumulative_war + (1.1 * num_seasons),
-    war_floor = cumulative_war - (1.1 * num_seasons)
+    war_ceiling = cumulative_war + 2.5,
+    war_floor = cumulative_war - 2.5
   )
 
 
@@ -162,22 +246,17 @@ hof_probabilities_by_position <- war_through_age %>%
 
   # replace computed totals with totals from HOF website: https://baseballhall.org/hall-of-famers/hall-of-famers-by-position
   mutate(
-    hof_at_position = ifelse(Position == "1B", 24,
-      ifelse(Position == "2B", 21,
-        ifelse(Position == "3B", 17,
-          ifelse(Position == "SS", 26,
-            ifelse(Position == "C", 19,
-              ifelse(Position == "OF", 72,
-                ifelse(Position == "DH", 2,
-                  ifelse(Position == "P", 83,
-                    hof_at_position
-                  )
-                )
-              )
-            )
-          )
-        )
-      )
+    hof_at_position = case_when(
+      Position == "1B" ~ 24,
+      Position == "2B" ~ 21,
+      Position == "3B" ~ 17,
+      Position == "SS" ~ 26,
+      Position == "C" ~ 19,
+      Position == "LF" ~ 22,
+      Position == "CF" ~ 24,
+      Position == "RF" ~ 26,
+      Position == "DH" ~ 2,
+      Position == "P" ~ 83
     ),
     total_eligible_players_at_position = hof_at_position + non_hof_at_position,
     p_hof_at_position = hof_at_position / total_eligible_players_at_position
@@ -227,7 +306,8 @@ bayes_hof <-
   arrange(desc(prob_hof))
 
 bayes_hof %>% 
-  filter(is.na(prob_hof))
+  filter(is.na(prob_hof)) %>%
+  arrange(desc(cumulative_war))
 
 full_list <- bayes_hof %>%
   ungroup() %>%
