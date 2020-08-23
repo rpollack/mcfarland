@@ -79,6 +79,8 @@ graph_players <- function(max_seasons, num_peak_seasons, peak_threshold, war_thr
       is_peak = if_else(rolling_war / career_war >= peak_threshold, TRUE, FALSE)
     ) %>%
     add_count(PlayerId, name, wt = is_peak) %>%
+    
+    # filter for only one peak. this omits players who are uniformly excellent
     filter(n == 1) %>%
     ungroup() %>%
     ggplot(aes(Age, war, color = name, group = 1)) +
@@ -95,9 +97,16 @@ plt
   
 }
 
-graph_players(12, 6, 0.8, 50) # only sandy koufax
+graph_players(12, 6, 0.83, 50) # only sandy koufax
 
-graph_players(12, 3, 0.5, 30) # only sandy koufax
+
+graph_players(12, 6, 0.83, 40) # lower WAR threshold to 40
+
+graph_players(15, 6, 0.83, 40) # increase season span to 15
+
+
+
+graph_players(12, 3, 0.83, 25) # shorter peaks of 3 years. have to lower WAR threshold also
 
 # how come when I raise the PEAK threshold it gets LESS restrictive? shouldn't it get MORE restrictive?
 
