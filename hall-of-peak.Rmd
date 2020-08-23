@@ -11,15 +11,17 @@ library(glue)
 library(stringr)
 library(ggrepel)
 library(RMariaDB)
+library(roll)
 
+current_year <- 2020
 
 con <- dbConnect(RMariaDB::MariaDB(), group = "fg_db")
 
-batter_war_query <- dbSendQuery(con, "select pi.PlayerId, pi.FirstName, pi.LastName, sb.Season, sb.Age, sb.ValueW
+batter_war_query <- dbSendQuery(con, glue("select pi.PlayerId, pi.FirstName, pi.LastName, sb.Season, sb.Age, sb.ValueW
                                 from player_info pi
                                 inner join stats_batting sb on pi.PlayerId = sb.playerid
                                 where sb.Type = 0
-                                and sb.Season < 2020")
+                                and sb.Season < {current_year}"))
 
 batter_war <-
   dbFetch(batter_war_query) %>%
@@ -28,11 +30,11 @@ batter_war <-
   mutate(war = round(ValueW, 1)) %>%
   dplyr::select(-ValueW)
 
-pitcher_war_query <- dbSendQuery(con, "select pi.PlayerId, pi.FirstName, pi.LastName, sp.Season, sp.Age, sp.ValueW
+pitcher_war_query <- dbSendQuery(con, glue("select pi.PlayerId, pi.FirstName, pi.LastName, sp.Season, sp.Age, sp.ValueW
                                 from player_info pi
                                 inner join stats_pitching sp on pi.PlayerId = sp.PlayerId
                                 where sp.Type = 0
-                                and sp.Season < 2020")
+                                and sp.Season < {current_year}"))
 
 pitcher_war <-
   dbFetch(pitcher_war_query) %>%
@@ -41,9 +43,65 @@ pitcher_war <-
   mutate(war = round(ValueW, 1)) %>%
   dplyr::select(-ValueW)
 
-
-
 dbDisconnect(con)
+
+# combine batting and pitching WAR totals for each player
+master_df <-
+  full_join(batter_war, pitcher_war, by = c("PlayerId", "name", "Age", "Season"), 
+            suffix = c("_bat", "_pitch")) %>%
+  replace_na(list(war_bat = 0, war_pitch = 0)) %>%
+  mutate(war = war_bat + war_pitch,
+         Age = as.character(Age)) %>%
+  dplyr::select(-war_bat, -war_pitch) %>%
+  group_by(PlayerId, name) %>%
+  mutate(num_seasons = n(),
+         career_war = round(sum(war), 1))
+
+
+# want to zero-pad data but I guess I don't have enough memory?
+# %>%
+#   complete(PlayerId, name, Age, num_seasons, career_war)
+
+```
+
+
+```{r}
+graph_players <- function(max_seasons, num_peak_seasons, peak_threshold, war_threshold) {
+  plt <-
+    master_df %>%
+    filter(
+      num_seasons <= max_seasons,
+      career_war >= war_threshold
+    ) %>%
+    arrange(Age, .by_group = TRUE) %>%
+    mutate(
+      rolling_war = round(roll_sum(war, num_peak_seasons)),
+      is_peak = if_else(rolling_war / career_war >= peak_threshold, TRUE, FALSE)
+    ) %>%
+    add_count(PlayerId, name, wt = is_peak) %>%
+    filter(n == 1) %>%
+    ungroup() %>%
+    ggplot(aes(Age, war, color = name, group = 1)) +
+    geom_point() +
+    geom_line() +
+    facet_wrap(~name) +
+    theme(legend.position = "none") +
+    ggtitle(glue("{num_peak_seasons} peak seasons of {max_seasons} or fewer seasons played
+                 Peak seasons' WAR is at least {peak_threshold*100}% of at least {war_threshold} career WAR
+                 "))
+  
+#  ggplotly(plt, tooltip = c("Age", "war"))
+plt
+  
+}
+
+graph_players(12, 6, 0.8, 50) # only sandy koufax
+
+graph_players(12, 3, 0.5, 30) # only sandy koufax
+
+# how come when I raise the PEAK threshold it gets LESS restrictive? shouldn't it get MORE restrictive?
+
+
 ```
 
 
@@ -58,11 +116,13 @@ we want a 3 year war total that is like 50% or more of the peak
 # identify five-year rolling WAR totals to find ones that are at least half the player's total war
 # and they have no other season equal to the lowest of the peak
 
+
 batter_war %>%
   group_by(PlayerId, name) %>%
   mutate(num_seasons = n(),
          career_war = round(sum(war), 1)) %>%
   filter(num_seasons <= 12) %>%
+  
   arrange(Age, .by_group = TRUE) %>%
   mutate(rolling_war5 = round(war + (lag(war)) + (lag(war, 2)) + lag(war, 3) + lag(war, 4) +
                                 lag(war, 5), 1),
