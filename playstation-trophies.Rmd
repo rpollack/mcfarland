@@ -61,8 +61,7 @@ trohpy_data %>%
   geom_ridgeline(stat = "binline", scale = 10, bins = 20) +
   theme(legend.position = "none") +
   labs(y = "", x = "Week") +
-  ggtitle("My Gaming Year in Quarantine: PS4 Trophies Earned in 2020", subtitle = "Number of Trophies Earned per Week,
-          PS4 Pro")
+  ggtitle("My Gaming Year in Quarantine", subtitle = "Number of Trophies Earned per Week, PS4 Pro")
   
 
 #+
