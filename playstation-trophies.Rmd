@@ -3,8 +3,8 @@ title: "playstation-trophies"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r echo=FALSE, message=TRUE, warning=TRUE}
+knitr::opts_chunk$set(echo = FALSE)
 
 library(tidyverse)
 library(lubridate)
@@ -33,7 +33,8 @@ trohpy_data <-
     "Nioh",
     "Nioh 2",
     "Nioh 2: The Tengu's Disciple",
-    "Nioh 2: Darkness in the Capital"
+    "Nioh 2: Darkness in the Capital",
+    "Borderlands: GOTY Edition"
   ))) %>%
   select(date, game) %>%
   mutate(
@@ -57,22 +58,15 @@ trohpy_data <-
 # create plot and save to disk. fct_rev() is needed to order games chronologically from top to bottom
 trohpy_data %>%
   ggplot(aes(x = start_week, y = fct_rev(game), height = stat(density), fill = game)) +
-  geom_ridgeline(stat = "binline", scale = 20) +
+  geom_ridgeline(stat = "binline", scale = 10, bins = 20) +
   theme(legend.position = "none") +
-  labs(y = "", x = "") +
-  ggtitle("My Gaming Year in Quarantine: PS4 Trophies Earned in 2020", subtitle = "Number of Trophies Earned per Month")
+  labs(y = "", x = "Week") +
+  ggtitle("My Gaming Year in Quarantine: PS4 Trophies Earned in 2020", subtitle = "Number of Trophies Earned per Week,
+          PS4 Pro")
+  
 
 #+
   #ggsave("ps4-trophies-2020.png", width = 9)
 
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
