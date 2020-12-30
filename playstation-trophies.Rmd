@@ -1,0 +1,78 @@
+---
+title: "playstation-trophies"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(lubridate)
+library(ggridges)
+
+trohpy_data <-
+  read_csv("~/Downloads/PS4 Trophy List - Sheet1.csv") %>%
+
+  # create factor datatype of games played, in the order i played them, so the graph is more readable
+  mutate(game = factor(game, levels = c(
+    "STAR WARS Jedi: Fallen Order",
+    "Control",
+    "Skyrim: Special Edition",
+    "Skyrim: Hearthfire",
+    "Skyrim: Dragonborn",
+    "Skyrim: Dawnguard",
+    "Final Fantasy VII Remake",
+    "Dead Nation: Apocalypse Edition",
+    "The Last of Us Part II",
+    "Assassin's Creed Odyssey",
+    "Assassin's Creed Odyssey: Additional Feats",
+    "Bloodborne",
+    "Bloodborne: The Old Hunters",
+    "Dark Souls III",
+    "Sekiro: Shadows Die Twice",
+    "Nioh",
+    "Nioh 2",
+    "Nioh 2: The Tengu's Disciple",
+    "Nioh 2: Darkness in the Capital"
+  ))) %>%
+  select(date, game) %>%
+  mutate(
+    date = mdy(date),
+    start_week = floor_date(date, "week")
+  ) 
+
+  #%>% 
+  # 
+  # # bucket trophy dates into the month they were earned
+  # group_by(start_month, game) %>%
+  # summarize(num_trophies_earned = n()) %>%
+  # 
+  # # zero-pad month-game trophy totals
+  # ungroup() %>%
+  # complete(
+  #   start_month = seq(ymd("2019-12-01"), ymd("2020-12-01"), by = "month"),
+  #   game, fill = list(num_trophies_earned = 0)
+  # )
+
+# create plot and save to disk. fct_rev() is needed to order games chronologically from top to bottom
+trohpy_data %>%
+  ggplot(aes(x = start_week, y = fct_rev(game), height = stat(density), fill = game)) +
+  geom_ridgeline(stat = "binline", scale = 20) +
+  theme(legend.position = "none") +
+  labs(y = "", x = "") +
+  ggtitle("My Gaming Year in Quarantine: PS4 Trophies Earned in 2020", subtitle = "Number of Trophies Earned per Month")
+
+#+
+  #ggsave("ps4-trophies-2020.png", width = 9)
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
