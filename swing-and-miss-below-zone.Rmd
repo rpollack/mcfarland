@@ -152,7 +152,19 @@ data_grouped %>%
          season_type == "regular") %>%
 #  count(pitcher_id, pitcher, p_throws, percentage) %>%
   ggplot(aes(x=percentage, y = pitcher, height = stat(density)), color=pitcher) + 
-  geom_density_ridges(stat = "binline", bins = 15, scale = 3, aes(fill=pitcher)) +
+  geom_density_ridges(stat = "binline", bins = 10, scale = 3, aes(fill=pitcher)) +
+  labs(y="", x="Whiff Rate on Breaking Pitches (%)") +
+  ggtitle("Whiff Rate on Breaking Pitches", subtitle="Cy Young Contenders, 2017 Regular Season")
+
+data_grouped %>% 
+  filter(pitcher %in% c("Clayton Kershaw", "Justin Verlander", "Chris Sale", "Max Scherzer", "Jacob deGrom",
+                        "Corey Kluber", "Luis Severino", "Stephen Strasburg", "Ervin Santana", "Marcus Stroman",
+                        "Zack Greinke"),
+         str_detect(game_date, "2017"),
+         season_type == "playoff") %>%
+#  count(pitcher_id, pitcher, p_throws, percentage) %>%
+  ggplot(aes(x=percentage, y = pitcher, height = stat(density)), color=pitcher) + 
+  geom_density_ridges(stat = "binline", bins = 10, scale = 3, aes(fill=pitcher)) +
   labs(y="", x="Whiff Rate on Breaking Pitches (%)") +
   ggtitle("Whiff Rate on Breaking Pitches", subtitle="Cy Young Contenders, 2017 Regular Season")
 
