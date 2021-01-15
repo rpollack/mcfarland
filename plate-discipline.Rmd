@@ -1,6 +1,10 @@
 ```{r setup, include=FALSE, echo=FALSE}
 
-
+knitr::opts_chunk$set(
+	message = FALSE,
+	warning = FALSE,
+	include = FALSE
+)
 library(tidyverse)
 library(stringr)
 library(plotly)
@@ -32,7 +36,7 @@ fg_db <- dplyr::src_mysql(dbname = Sys.getenv("FG_DB"),
 
 ### Get data
 
-```{r}
+```{r include=FALSE}
 
 # gd_info <- fg_db %>%
 #   tbl("gd_roster") %>%
