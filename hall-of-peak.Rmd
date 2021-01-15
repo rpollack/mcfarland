@@ -106,7 +106,7 @@ graph_players(15, 6, 0.83, 40) # increase season span to 15
 
 
 
-graph_players(12, 3, 0.83, 25) # shorter peaks of 3 years. have to lower WAR threshold also
+graph_players(12, 4, .5, 25) # shorter peaks of 3 years. have to lower WAR threshold also
 
 # how come when I raise the PEAK threshold it gets LESS restrictive? shouldn't it get MORE restrictive?
 
