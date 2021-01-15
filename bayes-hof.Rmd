@@ -13,6 +13,7 @@ library(rvest)
 library(vip)
 library(tidymodels)
 library(keras)
+library(glue)
 
 fgt <- theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
@@ -282,10 +283,13 @@ hof_results %>%
 
 ```{r, fig.width=3}
 # predict HOF for everyone 
+
+year_cutoff <- 1970
+num_players <- 25
+
 war_through_age %>%
   filter(hof == "not_elected",
-         last_year >= 2007) %>%
-  #filter(!considered_hof) %>%
+         last_year >= year_cutoff) %>%
   group_by(playerid) %>%
   filter(age == max(age)) %>%
   select(playerid, name, age, cumulative_war, is_scandal) %>%
@@ -293,11 +297,13 @@ war_through_age %>%
   bind_cols(predict(nnet_fit, new_data = .),
             predict(nnet_fit, new_data = ., type = "prob")) %>%
   mutate(prob_hof = 100 * (.pred_elected)) %>%
-  slice_max(n = 30, order_by = prob_hof) %>%
+  slice_max(n = num_players, order_by = prob_hof) %>%
   ggplot(aes(reorder(name, prob_hof), prob_hof)) +
   geom_col() + coord_flip() + 
   labs(x="", y = "HOF Probability (%)") +
-  geom_hline(yintercept=50, color = "red")
+  geom_hline(yintercept=50, color = "red") +
+  ggtitle(glue("Top {num_players} players not in HOF, by probability of election"),
+          subtitle = glue("Retired {year_cutoff} or later, or still active"))
 
 ```
 
