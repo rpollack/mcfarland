@@ -27,6 +27,7 @@ library(glue)
 library(stringr)
 library(ggrepel)
 library(scales)
+library(RMariaDB)
 
 
 fgt <- theme(
@@ -50,6 +51,33 @@ fg_db <- dplyr::src_mysql(
   user = Sys.getenv("FG_USER"),
   password = Sys.getenv("FG_PW")
 )
+
+```
+
+test run to use proper SQL / mariadb init
+```{r}
+con <- dbConnect(RMariaDB::MariaDB(), group = "fg_db")
+q_bat <- dbSendQuery(con, "select distinct sbm.Team, Batting, BaseRunning from stats_batting_master sbm 
+            inner join player_info pi on sbm.playerid - pi.PlayerId
+            and sbm.Season = 2020
+            and sbm.team != \'- - -\'
+            and sbm.Type = 0")
+res_bat <-
+  dbFetch(q_bat) %>%
+  as_tibble()
+
+# https://library.fangraphs.com/offense/off/
+
+
+dbDisconnect(con)
+
+# get team offense. this matches FG's number they display so I think it's the right method
+res_bat %>% 
+  group_by(Team) %>%
+  mutate(Off = Batting + BaseRunning) %>% 
+  summarize(team_off = round(sum(Off), 1)) %>%
+  arrange(desc(team_off))
+
 ```
 
 
@@ -85,7 +113,7 @@ team_info <- tibble(
     "#000000", "#C6011F", "#003366", "#333366", "#001742",
     "#072854", "#15317E", "#B71234", "#083C6B", "#F9423A",
     "#182B49", "#072754", "#002C77", "#1C2841", "#003831",
-    "#BA0C2F", "#FDB829", "#002147", "#005C5C", "#F2552C",
+    "#BA0C2F", "#FDB829", "#2F241D", "#005C5C", "#F2552C",
     "#C41E3A", "#9ECEEE", "#BD1021", "#003DA5", "#BA122B"
   ),
   tv_households = c(
