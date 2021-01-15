@@ -46,7 +46,7 @@ get, clean, mutate, and join data
 
 ```{r, message=FALSE}
 
-year_to_predict <- 2019
+year_to_predict <- 2020
 data_min <- year_to_predict - 16
 data_max <- year_to_predict - 1
 
