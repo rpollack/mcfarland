@@ -203,9 +203,23 @@ player_availability <-
 
 i have availability dates and i have substitution dates. i want to know the list of actual dates each players were available
 
+so the question is: assuming that all relievers were available, did the manager make the correct choice in substituting?
+e.g. did he put in the pitcher with the highest projected k-bb% ?
+to answer this we have to know:
+- the leverage of the situation
+- the proj k-bb% of the pitcher he put in
+- was this the best pitcher on the team? 
+
+
+does the projected k-bb rate of the pitcher match the leverage situation? so bad pitchers get put into low-lev spots and good pitchers get put into hi-leverage spots? 
+
+
 ```{r}
 availability <-
   read_csv("reliever_availability.csv")
+
+
+
 ```
 
 
