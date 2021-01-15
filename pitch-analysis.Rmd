@@ -269,7 +269,7 @@ graphs and such
 ```{r, fig.height = 3}
 # 10 players who improved the most from 2018 to 2019, grouped by position
 
-current_year <- 2019
+current_year <- 2020
 
 good_pitches_est %>%
   group_by(player_name, pitcher) %>%
