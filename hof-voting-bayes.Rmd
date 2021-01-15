@@ -81,7 +81,7 @@ plot_prior_posterior <- function(Name, alpha0, beta0, alpha1, beta1, est_hof_vot
   xlim(0, 1) + labs(x="Estimated HOF Vote Share",
                     color = "Distribution",
                     caption = "Sources:\nPast voting: Baseball Reference\n2019 voting: bbhoftracker.com") + 
-  ggtitle(glue("{Name} HOF Voting 2019"),
+  ggtitle(glue("{Name} HOF Voting 2021"),
           subtitle = glue("Estimated vote share: {est_hof_vote_share * 100}%" )) + fgt +
       geom_vline(xintercept = 0.75, linetype = "dashed", color = "green", lwd = 1.1) +
   geom_vline(xintercept = .05, linetype = "dashed", color = "red", lwd = 1.1)
@@ -94,7 +94,7 @@ plot_prior_posterior <- function(Name, alpha0, beta0, alpha1, beta1, est_hof_vot
 get voting results so we can estimate beta prior parameters
 
 ```{r}
-hof_voting_data_bayes <- seq(1980, 2018) %>%
+hof_voting_data_bayes <- seq(1980, 2020) %>%
   map_df(get_voting_results_bayes)
 ```
 
@@ -119,7 +119,6 @@ hof_voting_data_bayes_clean <-
          num_votes_received = as.numeric(num_votes_received),
          year_on_ballot = as.numeric(str_extract(year_on_ballot, "[:digit:]{1,2}")),
          bj_hof_monitor = as.numeric(bj_hof_monitor),
-         narrative_score = set_narrative(Name),
          G_pitch = as.numeric(G_pitch),
          GS = as.numeric(GS),
          SV = as.numeric(SV),
@@ -133,7 +132,7 @@ hof_voting_data_bayes_clean <-
 
 # get to-date voting information from BB HOF Tracker and combine with BB-Ref stats, and join to previously scraped data
 current_voting_data <-
-  read_csv("2019 BBHOF Tracker-7/Summary-Table 1.csv")
+  read_csv("~/Downloads/2021 BBHOF Tracker/Summary-Table 1.csv")
 known_votes <- as.numeric(current_voting_data[2,3]) + as.numeric(current_voting_data[1,3])
 
 # attach current voting into to player's statistics and combine with data scraped above
@@ -148,7 +147,7 @@ voting_info_to_date <-
          num_votes_received = ceiling(vote_share * total_ballots)) %>%
   inner_join(hof_voting_data_future_clean, by="Name") %>%
   dplyr::select(Name, num_votes_received, year_on_ballot, vote_year, total_ballots, bj_hof_monitor,
-                best_seven_war = best_war_years, G_pitch, GS, SV, narrative_score, position_class)
+                best_seven_war = best_war_years, G_pitch, GS, SV, position_class)
 
 master_bayes <- 
   bind_rows(hof_voting_data_bayes_clean, voting_info_to_date) %>%
@@ -156,7 +155,7 @@ master_bayes <-
   arrange(year_on_ballot) %>%
   mutate(prev_year_vote_share = lag(num_votes_received) / lag(total_ballots)) %>%
   dplyr::select(Name, num_votes_received, year_on_ballot, vote_year, total_ballots, bj_hof_monitor, 
-                narrative_score, SV, position_class, prev_year_vote_share) %>%
+                SV, position_class, prev_year_vote_share) %>%
   ungroup() 
 
 ```
@@ -196,43 +195,43 @@ est_hof_repeat_players <-
          high_credible = qbeta(.975, alpha1, beta1),
          min_probable = qbeta(0.001, alpha1, beta1),
          max_probable = qbeta(.999, alpha1, beta1)) %>%
-  filter(vote_year == 2019)
+  filter(vote_year == 2021)
 
 # larry walker prior graph
-ggplot() + 
-  geom_histogram(binwidth = 0.1, aes(y=..density..)) +
-  stat_function(fun = dbeta,
-                args=list(shape1 = 13.64886, shape2 = 27.17663),
-                aes(color="Prior")) +
-  xlim(0, 1) + labs(x="Estimated HOF Vote Share",
-                    color = "Distribution") + 
-  ggtitle("Larry Walker HOF Voting 2019: Prior Expectations",
-          subtitle = "Estimated vote share: 33.4%") + fgt +
-    geom_vline(xintercept = 0.75, linetype = "dashed", color = "green", lwd = 1.1) +
-  geom_vline(xintercept = .05, linetype = "dashed", color = "red", lwd = 1.1) +
-  ggsave("walker-prior.png", units = "in", width = 7, height = 5)
-
-ggplot() + 
-  geom_histogram(binwidth = 0.1, aes(y=..density..)) +
-  stat_function(fun = dbeta,
-                args=list(shape1 = 13.64886, shape2 = 27.17663),
-                aes(color="Prior")) +
-  stat_function(fun = dbeta,
-                args=list(shape1 = 155.6397, shape2 = 102.1611),
-                aes(color="Posterior")) +
-  xlim(0, 1) + labs(x="Estimated HOF Vote Share",
-                    color = "Distribution") + 
-  ggtitle("Larry Walker HOF Voting 2019: Posterior Expectations",
-          subtitle = "Estimated vote share: 60.4%") + fgt +
-    geom_vline(xintercept = 0.75, linetype = "dashed", color = "green", lwd = 1.1) +
-  geom_vline(xintercept = .05, linetype = "dashed", color = "red", lwd = 1.1) +
-  ggsave("walker-prior-posterior.png", units = "in", width = 7, height = 5)
+# ggplot() + 
+#   geom_histogram(binwidth = 0.1, aes(y=..density..)) +
+#   stat_function(fun = dbeta,
+#                 args=list(shape1 = 13.64886, shape2 = 27.17663),
+#                 aes(color="Prior")) +
+#   xlim(0, 1) + labs(x="Estimated HOF Vote Share",
+#                     color = "Distribution") + 
+#   ggtitle("Larry Walker HOF Voting 2019: Prior Expectations",
+#           subtitle = "Estimated vote share: 33.4%") + fgt +
+#     geom_vline(xintercept = 0.75, linetype = "dashed", color = "green", lwd = 1.1) +
+#   geom_vline(xintercept = .05, linetype = "dashed", color = "red", lwd = 1.1) +
+#   ggsave("walker-prior.png", units = "in", width = 7, height = 5)
+# 
+# ggplot() + 
+#   geom_histogram(binwidth = 0.1, aes(y=..density..)) +
+#   stat_function(fun = dbeta,
+#                 args=list(shape1 = 13.64886, shape2 = 27.17663),
+#                 aes(color="Prior")) +
+#   stat_function(fun = dbeta,
+#                 args=list(shape1 = 155.6397, shape2 = 102.1611),
+#                 aes(color="Posterior")) +
+#   xlim(0, 1) + labs(x="Estimated HOF Vote Share",
+#                     color = "Distribution") + 
+#   ggtitle("Larry Walker HOF Voting 2019: Posterior Expectations",
+#           subtitle = "Estimated vote share: 60.4%") + fgt +
+#     geom_vline(xintercept = 0.75, linetype = "dashed", color = "green", lwd = 1.1) +
+#   geom_vline(xintercept = .05, linetype = "dashed", color = "red", lwd = 1.1) +
+#   ggsave("walker-prior-posterior.png", units = "in", width = 7, height = 5)
 
 
 # plot priors and posteriors for interesting players
 est_hof_repeat_players %>% 
   dplyr::select(Name, alpha0, beta0, alpha1, beta1, est_hof_vote_share) %>% 
-  filter(Name %in% c("Larry Walker", "Barry Bonds", "Edgar Martinez", "Omar Vizquel")) %>%
+  filter(Name %in% c("Curt Schilling", "Barry Bonds", "Todd Helton", "Omar Vizquel")) %>%
   pmap(plot_prior_posterior)
 
 
@@ -252,7 +251,7 @@ master_starters <-
   dplyr::select(-SV, -prev_year_vote_share)
 
 fit_starters <- 
-  gamlss(cbind(num_votes_received, total_ballots - num_votes_received) ~ bj_hof_monitor + narrative_score,
+  gamlss(cbind(num_votes_received, total_ballots - num_votes_received) ~ bj_hof_monitor,
          data = master_starters,
          family = BB(mu.link = "logit"))
 
@@ -270,11 +269,11 @@ est_hof_first_year_starters <-
          est_hof_vote_share = round(alpha1 / (alpha1 + beta1), 3),
          low_credible = qbeta(.025, alpha1, beta1),
          high_credible = qbeta(.975, alpha1, beta1)) %>%
-  filter(vote_year == 2019)
+  filter(vote_year == 2021)
 
 est_hof_first_year_starters %>% 
   dplyr::select(Name, alpha0, beta0, alpha1, beta1, est_hof_vote_share) %>% 
-  filter(Name %in% c("Roy Halladay", "Roy Oswalt", "Todd Helton")) %>%
+  filter(Name %in% c("Mark Buehrle", "Tim Hudson")) %>%
   pmap(plot_prior_posterior)
 ```
 
@@ -284,7 +283,8 @@ est_hof_first_year_starters %>%
 master_relievers <-
   master_bayes %>%
   filter(year_on_ballot == 1,
-         position_class == "Relief pitcher") %>%
+         position_class == "Relief pitcher",
+         vote_year == 2021) %>%
   dplyr::select(-prev_year_vote_share)
 
 fit_relievers <- 
@@ -344,7 +344,10 @@ ggplot() +
   geom_vline(xintercept = 0.75, linetype = "dashed", color = "green", lwd = 1.1) +
   geom_vline(xintercept = .05, linetype = "dashed", color = "red", lwd = 1.1) +
   ggsave("repeat_posteriors.png", units = "in", width = 7, height = 5)
+```
 
+
+```{r, fig.width=3, fig.height=5}
 # final plot of all voting
 est_hof_all <-
   bind_rows(est_hof_repeat_players, est_hof_first_year_starters, est_hof_first_year_relievers)
@@ -353,13 +356,13 @@ ggplot(est_hof_all, aes(est_hof_vote_share, reorder(Name, est_hof_vote_share))) 
   geom_point(size=2) +
   geom_errorbarh(aes(xmin = low_credible, xmax = high_credible), lwd = 1.1) +
   labs(y="", x="Estimated HOF Vote Share with 95% Credible Interval", 
-       caption = "Sources:\nPast voting: Baseball Reference\n2019 voting: bbhoftracker.com") +
-  ggtitle("Projected 2019 HOF Voting",
-          subtitle = glue("After {known_votes} ballots revealed")) + fgt +
+       caption = "Sources:\nPast voting: Baseball Reference\n2021 voting: bbhoftracker.com") +
+  ggtitle("Projected 2021 HOF Voting",
+          subtitle = glue("As of 1/11/21 at 7:13 PM")) + fgt +
    geom_vline(xintercept = 0.75, linetype = "dashed", color = "green", lwd = 1.1) +
   geom_vline(xintercept = .05, linetype = "dashed", color = "red", lwd = 1.1) +
   theme(text=element_text(size=20)) +
-  ggsave("est_hof_voting_2019.png", units = "in", width = 9, height = 10)
+  ggsave("est_hof_voting_20212.png", units = "in", width = 9, height = 10)
 
 # condense to just a table of point estimates, chances of induction, and chances of elimination
 est_hof_all %>%
@@ -369,12 +372,6 @@ est_hof_all %>%
   dplyr::select(Name, contains("%")) %>%
   arrange(desc(`Estimated Vote Share (%)`)) %>%
   write_csv("est-hof-bayes-2019.csv")
-
-# rivera chance of being unanimous
-1 - pbeta(1, 182.3906, 0.4832773)
-
-# rivera chance of setting vote share record
-1 - pbeta(0.994, 224.3701, 0.4743183)
 
 
 ```
