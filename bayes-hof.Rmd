@@ -11,6 +11,8 @@ library(doParallel)
 library(xgboost)
 library(rvest)
 library(vip)
+library(tidymodels)
+library(keras)
 
 fgt <- theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
@@ -218,145 +220,76 @@ war_through_age  %>%
   group_by(age, hof) %>%
   summarize(typical_cume_war = median(cumulative_war, na.rm = TRUE)) %>%
   ggplot(aes(age, typical_cume_war, group = hof, color = hof)) +
-  geom_point(size=0.5) + geom_line() +
+  geom_point() + geom_line() +
   ggtitle("Age vs. Typical WAR Trajectories, by HOF Inclusion Type",
           subtitle = "Ages 19 - 38") +
-  labs(y="Typical Player's Cumulative WAR")
+  labs(y="Median fWAR Accumulated")
 
 # position doesn't seem to matter too much except for DH (and probably relief pitcher, if I split those out). maybe can remove
 ```
 
-modeling with xgboost and tidymodels
+modeling with keras / neural networks
 
 ```{r}
 
-war_through_age <-
-  war_through_age %>%
-  pivot_wider(
-    names_from = age, values_from = cumulative_war, names_glue = "war_through_{age}",
-    values_fn = mean
-  ) %>%
-  mutate(hof = factor(hof, levels = c("elected", "not_elected"))) %>%
-  dplyr::select(playerid, name, last_year, contains("war_through"), considered_hof, hof)
-
-# create training and test splits.
-# remove irrelevant predictors and filter data to only those who've been considered for HOF
-
+# using a neural network. https://www.tidymodels.org/learn/models/parsnip-nnet/
 
 hof_split <-
   war_through_age %>%
+  
+  # train model only on players who have
   filter(considered_hof) %>%
-  dplyr::select(-playerid, -name, -considered_hof) %>%
+  dplyr::select(-playerid, -name, -considered_hof, -last_year) %>%
+  mutate(hof = factor(hof)) %>%
   initial_split(strata = hof)
 
 hof_train <- training(hof_split)
 hof_test <- testing(hof_split)
 
-xgb_spec <- boost_tree(
-  trees = 100,
-  tree_depth = tune(),
-  min_n = tune(),
-  loss_reduction = tune(), ## first three: model complexity
-  sample_size = tune(),
-  mtry = tune(), ## randomness
-  learn_rate = tune(), ## step size
-) %>%
-  set_engine("xgboost") %>%
-  set_mode("classification")
-
-
-xgb_grid <- grid_latin_hypercube(
-  tree_depth(),
-  min_n(),
-  loss_reduction(),
-  sample_size = sample_prop(),
-  finalize(mtry(), hof_train),
-  learn_rate(),
-  size = 30
-)
-
-xgb_wf <- workflow() %>%
-  add_formula(hof ~ .) %>%
-  add_model(xgb_spec)
-
-# 10-fold cross validation
-hof_folds <-
-  vfold_cv(hof_train, strata = hof)
-
-doParallel::registerDoParallel()
-
-# tune model parameters on the training set, using area under the precision-recall
-# curve as the success metric
-xgb_res <-
-  tune_grid(
-    xgb_wf,
-    resamples = hof_folds,
-    grid = xgb_grid,
-    metrics = metric_set(pr_auc),
-    control = control_grid(save_pred = TRUE)
-  )
-
-# show how tuning parameters affect results
-xgb_res %>%
-  collect_metrics() %>%
-  filter(.metric == "pr_auc") %>%
-  select(mean, mtry:sample_size) %>%
-  pivot_longer(mtry:sample_size,
-    values_to = "value",
-    names_to = "parameter"
-  ) %>%
-  ggplot(aes(value, mean, color = parameter)) +
-  geom_point(alpha = 0.8, show.legend = FALSE) +
-  facet_wrap(~parameter, scales = "free_x") +
-  labs(x = NULL, y = "AUPRC")
-
-
-hof_mdl <-
-  finalize_workflow(
-    xgb_wf,
-    select_best(xgb_res, "pr_auc")
-  )
-
-# plot predictor importance
-hof_mdl %>%
-  fit(data = hof_train) %>%
-  pull_workflow_fit() %>%
-  vip(geom = "point")
-
-# fit the final model to the training set & evaluate on the test set
-final_res <- last_fit(hof_mdl, hof_split)
-
-collect_metrics(final_res)
-
-final_res %>%
-  collect_predictions() %>%
-  #mutate(.pred_class = as.numeric(.pred_class)) %>%
-  # mutate(.pred_hof = as.numeric(if_else(.pred_FALSE > .pred_TRUE, FALSE, TRUE))) %>%
-  roc_curve(hof, .pred_class) %>%
-  autoplot()
-
-
-# now how the fuck do i use the model to predict new data?!?!?
-
-# predict.model_fit(final_res, hof_test, type = "regression")
-```
-
-
-modeling with logistic regression
-
-```{r}
-
-logistic_glm <-
-  logistic_reg(mode = "classification") %>%
-  set_engine("glm") %>%
+nnet_fit <-
+  mlp(epochs = 100, hidden_units = 5, dropout = 0.1) %>%
+  set_mode("classification") %>% 
+  # Also set engine-specific `verbose` argument to prevent logging the results: 
+  set_engine("keras", verbose = 0) %>%
   fit(hof ~ ., data = hof_train)
 
-logistic_glm %>%
+hof_results <-
+  hof_test %>%
+  bind_cols(predict(nnet_fit, new_data = .)) %>%
+  mutate(pred_hof = if_else(.pred_class == "elected", 1, 0))
+
+hof_results %>%
+  pr_auc(truth = hof, pred_hof)
+
+# plot the precision-recall curve. kinda matches the AUPRC which is a measly 0.58
+# want to do better!!!
+hof_results %>%
+  pr_curve(truth = hof, pred_hof) %>%
+  ggplot(aes(recall, precision)) +
+  geom_path() +
+  coord_equal()
+
+hof_results %>% 
+  mutate(.pred_class = factor(.pred_class)) %>%
+  conf_mat(truth = hof, .pred_class)
+
+
+
+# predict HOF for everyone 
+war_through_age %>%
+  filter(!considered_hof) %>%
+  group_by(playerid) %>%
+  filter(age == max(age)) %>%
+  select(playerid, name, age, cumulative_war) %>%
+  bind_cols(predict(nnet_fit, new_data = .),
+            predict(nnet_fit, new_data = ., type = "prob")) %>%
+  mutate(prob_hof = 100 * (.pred_elected)) %>% 
+  arrange(desc(prob_hof)) %>% View()
+
+
+
 
 ```
-
-
-
 
 
 ```{r}
