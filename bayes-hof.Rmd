@@ -274,20 +274,23 @@ hof_results %>%
   conf_mat(truth = hof, .pred_class)
 
 
+```
 
+```{r, fig.width=3}
 # predict HOF for everyone 
 war_through_age %>%
   filter(!considered_hof) %>%
   group_by(playerid) %>%
   filter(age == max(age)) %>%
   select(playerid, name, age, cumulative_war) %>%
+  ungroup() %>%
   bind_cols(predict(nnet_fit, new_data = .),
             predict(nnet_fit, new_data = ., type = "prob")) %>%
-  mutate(prob_hof = 100 * (.pred_elected)) %>% 
-  arrange(desc(prob_hof)) %>% View()
-
-
-
+  mutate(prob_hof = 100 * (.pred_elected)) %>%
+  slice_max(n = 30, order_by = prob_hof) %>%
+  ggplot(aes(reorder(name, prob_hof), prob_hof)) +
+  geom_col() + coord_flip() + 
+  labs(x="", y = "HOF Probability (%)")
 
 ```
 
