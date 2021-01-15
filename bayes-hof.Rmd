@@ -215,11 +215,10 @@ exploratory data analysis
 ```{r}
 war_through_age  %>%
   filter(considered_hof) %>%
-  group_by(age, position, hof) %>%
+  group_by(age, hof) %>%
   summarize(typical_cume_war = median(cumulative_war, na.rm = TRUE)) %>%
   ggplot(aes(age, typical_cume_war, group = hof, color = hof)) +
   geom_point(size=0.5) + geom_line() +
-  facet_wrap(~position) +
   ggtitle("Age vs. Typical WAR Trajectories, by HOF Inclusion Type",
           subtitle = "Ages 19 - 38") +
   labs(y="Typical Player's Cumulative WAR")
@@ -227,7 +226,7 @@ war_through_age  %>%
 # position doesn't seem to matter too much except for DH (and probably relief pitcher, if I split those out). maybe can remove
 ```
 
-modeling with xgboost
+modeling with xgboost and tidymodels
 
 ```{r}
 
