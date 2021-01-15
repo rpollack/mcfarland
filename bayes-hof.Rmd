@@ -209,7 +209,7 @@ war_through_age <-
   na.omit() %>%
   filter(age >= 19, age <= 38)  %>%
   mutate(is_scandal = case_when(
-    name %in% c("Barry Bonds", "Roger Clemens", "Joe Jackson", "Robinson Cano", "Pete Rose", "Alex Rodriguez", "Manny Ramirez", "Mark McGwire", "Sammy Sosa", "Jose Canseco", "Rafael Palmeiro", "Jason Giambi", "Gary Sheffield", "Miguel Tejada", "Nelson Cruz", "Andy Pettite", "Ryan Braun") ~ 1,
+    name %in% c("Barry Bonds", "Roger Clemens", "Joe Jackson", "Robinson Cano", "Pete Rose", "Alex Rodriguez", "Manny Ramirez", "Mark McGwire", "Sammy Sosa", "Jose Canseco", "Rafael Palmeiro", "Jason Giambi", "Gary Sheffield", "Miguel Tejada", "Nelson Cruz", "Andy Pettite", "Ryan Braun", "Carlos Beltran") ~ 1,
     TRUE ~ 0
   ))
 
