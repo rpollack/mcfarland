@@ -207,7 +207,11 @@ war_through_age <-
   ungroup() %>%
   distinct() %>%
   na.omit() %>%
-  filter(age >= 19, age <= 38) 
+  filter(age >= 19, age <= 38)  %>%
+  mutate(is_scandal = case_when(
+    name %in% c("Barry Bonds", "Roger Clemens", "Joe Jackson", "Robinson Cano", "Pete Rose", "Alex Rodriguez", "Manny Ramirez", "Mark McGwire", "Sammy Sosa", "Jose Canseco", "Rafael Palmeiro", "Jason Giambi", "Gary Sheffield", "Miguel Tejada", "Nelson Cruz", "Andy Pettite", "Ryan Braun") ~ 1,
+    TRUE ~ 0
+  ))
 
 ```
 
@@ -279,10 +283,12 @@ hof_results %>%
 ```{r, fig.width=3}
 # predict HOF for everyone 
 war_through_age %>%
-  filter(!considered_hof) %>%
+  filter(hof == "not_elected",
+         last_year >= 2007) %>%
+  #filter(!considered_hof) %>%
   group_by(playerid) %>%
   filter(age == max(age)) %>%
-  select(playerid, name, age, cumulative_war) %>%
+  select(playerid, name, age, cumulative_war, is_scandal) %>%
   ungroup() %>%
   bind_cols(predict(nnet_fit, new_data = .),
             predict(nnet_fit, new_data = ., type = "prob")) %>%
@@ -290,7 +296,8 @@ war_through_age %>%
   slice_max(n = 30, order_by = prob_hof) %>%
   ggplot(aes(reorder(name, prob_hof), prob_hof)) +
   geom_col() + coord_flip() + 
-  labs(x="", y = "HOF Probability (%)")
+  labs(x="", y = "HOF Probability (%)") +
+  geom_hline(yintercept=50, color = "red")
 
 ```
 
