@@ -266,16 +266,21 @@ hof_results <-
   bind_cols(predict(nnet_fit, new_data = .)) %>%
   mutate(pred_hof = if_else(.pred_class == "elected", 1, 0))
 
-hof_results %>%
-  pr_auc(truth = hof, pred_hof)
+au_prc <-
+  hof_results %>%
+  pr_auc(truth = hof, pred_hof) %>%
+  select(.estimate) %>%
+  as.numeric() %>%
+  round(2)
 
-# plot the precision-recall curve. kinda matches the AUPRC which is a measly 0.58
-# want to do better!!!
+# plot the precision-recall curve. 
 hof_results %>%
   pr_curve(truth = hof, pred_hof) %>%
   ggplot(aes(recall, precision)) +
   geom_path() +
-  coord_equal()
+  coord_equal() +
+  ggtitle("Precision-Recall Curve, HOF Model",
+          subtitle = glue("Area under the curve: {au_prc}"))
 
 hof_results %>% 
   mutate(.pred_class = factor(.pred_class)) %>%
@@ -284,11 +289,11 @@ hof_results %>%
 
 ```
 
-```{r, fig.width=3}
+```{r}
 # predict HOF for everyone 
 
 year_cutoff <- 1970
-num_players <- 25
+num_players <- 10
 
 war_through_age %>%
   filter(hof == "not_elected",
@@ -303,7 +308,7 @@ war_through_age %>%
   group_by(position) %>%
   slice_max(n = num_players, order_by = prob_hof) %>%
   ggplot(aes(reorder(name, prob_hof), prob_hof)) +
-  geom_col() + coord_flip() + 
+  geom_col() + coord_flip() + facet_wrap(vars(position), scales = "free_y") +
   labs(x="", y = "HOF Probability (%)") +
   geom_hline(yintercept=50, color = "red") +
   ggtitle(glue("Top {num_players} players not in HOF, by probability of election"),
