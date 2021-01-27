@@ -210,11 +210,11 @@ war_through_age <-
   na.omit() %>%
   filter(age >= 19, age <= 38)  %>%
   mutate(is_scandal = case_when(
-    name %in% c("Barry Bonds", "Roger Clemens", "Joe Jackson", "Robinson Cano", "Pete Rose", "Alex Rodriguez", "Manny Ramirez", "Mark McGwire", "Sammy Sosa", "Jose Canseco", "Rafael Palmeiro", "Jason Giambi", "Gary Sheffield", "Miguel Tejada", "Nelson Cruz", "Andy Pettite", "Ryan Braun", "Carlos Beltran", "Jose Altuve", "Alex Bregman", "Melky Cabrera") ~ 1,
+    name %in% c("Barry Bonds", "Roger Clemens", "Joe Jackson", "Robinson Cano", "Pete Rose", "Alex Rodriguez", "Manny Ramirez", "Mark McGwire", "Sammy Sosa", "Jose Canseco", "Rafael Palmeiro", "Jason Giambi", "Gary Sheffield", "Miguel Tejada", "Nelson Cruz", "Andy Pettite", "Ryan Braun", "Carlos Beltran", "Jose Altuve", "Alex Bregman", "David Ortiz", "Carlos Correa", "Melky Cabrera", "George Springer") ~ 1,
     TRUE ~ 0
   )) %>%
   inner_join(positional_info, by=c("playerid" = "PlayerId")) %>%
-  select(playerid, name, position = Position, last_year, is_scandal, age, cumulative_war, considered_hof, hof)
+  dplyr::select(playerid, name, position = Position, last_year, is_scandal, age, cumulative_war, considered_hof, hof)
 
 ```
 
@@ -245,7 +245,7 @@ modeling with keras / neural networks
 hof_split <-
   war_through_age %>%
   
-  # train model only on players who have
+  # train model only on players who have been considered for the HOF
   filter(considered_hof) %>%
   dplyr::select(-playerid, -name, -considered_hof, -last_year) %>%
   mutate(hof = factor(hof)) %>%
@@ -269,7 +269,7 @@ hof_results <-
 au_prc <-
   hof_results %>%
   pr_auc(truth = hof, pred_hof) %>%
-  select(.estimate) %>%
+  dplyr::select(.estimate) %>%
   as.numeric() %>%
   round(2)
 
@@ -289,7 +289,7 @@ hof_results %>%
 
 ```
 
-```{r}
+```{r,fig.height = 3}
 # predict HOF for everyone 
 
 year_cutoff <- 1970
@@ -297,22 +297,22 @@ num_players <- 10
 
 war_through_age %>%
   filter(hof == "not_elected",
-         last_year >= year_cutoff) %>%
+         last_year %in% c(2016, 2017, 2018, 2019, 2020), 
+         position != "OF") %>%
   group_by(playerid) %>%
   filter(age == max(age)) %>%
-  select(playerid, name, age, position,cumulative_war, is_scandal) %>%
+  dplyr::select(playerid, name, age, position,cumulative_war, is_scandal) %>%
   ungroup() %>%
   bind_cols(predict(nnet_fit, new_data = .),
             predict(nnet_fit, new_data = ., type = "prob")) %>%
-  mutate(prob_hof = 100 * (.pred_elected)) %>%
+  mutate(prob_hof = 100 * (.pred_elected)) %>% 
   group_by(position) %>%
   slice_max(n = num_players, order_by = prob_hof) %>%
   ggplot(aes(reorder(name, prob_hof), prob_hof)) +
   geom_col() + coord_flip() + facet_wrap(vars(position), scales = "free_y") +
   labs(x="", y = "HOF Probability (%)") +
   geom_hline(yintercept=50, color = "red") +
-  ggtitle(glue("Top {num_players} players not in HOF, by probability of election"),
-          subtitle = glue("Retired {year_cutoff} or later, or still active"))
+  ggtitle(glue("Probability of HOF election"), subtitle = "Players who last played between 2016-2020")
 
 ```
 
