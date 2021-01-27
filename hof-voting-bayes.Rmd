@@ -132,7 +132,7 @@ hof_voting_data_bayes_clean <-
 
 # get to-date voting information from BB HOF Tracker and combine with BB-Ref stats, and join to previously scraped data
 current_voting_data <-
-  read_csv("~/Downloads/2021 BBHOF Tracker/Summary-Table 1.csv")
+  read_csv("~/Downloads/2021 BBHOF Tracker-2/Summary-Table 1.csv")
 known_votes <- as.numeric(current_voting_data[2,3]) + as.numeric(current_voting_data[1,3])
 
 # attach current voting into to player's statistics and combine with data scraped above
