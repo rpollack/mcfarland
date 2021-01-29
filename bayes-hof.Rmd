@@ -319,7 +319,7 @@ war_through_age %>%
   geom_col() + coord_flip() + facet_wrap(vars(position), scales = "free_y") +
   labs(x="", y = "HOF Probability (%)") +
   geom_hline(yintercept=50, color = "red") +
-  ggtitle(glue("Probability of HOF election"), subtitle = "Players who last played between 2016-2020")
+  ggtitle(glue("Probability of HOF election"), subtitle = "Active or recently retired eligible players")
 
 ```
 
