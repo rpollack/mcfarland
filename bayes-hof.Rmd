@@ -175,7 +175,8 @@ positional_info <-
 
 ```{r}
 
-
+# the most recent season played
+current_year <- 2020
 
 # combine batting & pitching WAR for all player-seasons
 war_through_age <-
@@ -290,15 +291,21 @@ hof_results %>%
 ```
 
 ```{r,fig.height = 3}
-# predict HOF for everyone 
+# predict HOF chances for players who meet the following criteria:
+# have not been considered for the HOF
+# last played in the past 2 years (e.g. likely are still active) OR
+# have at least 10 seasons in the majors (they are eligible at some point soon)
+# this avoids predicting players like Brandon Webb and Josh Hamilton
+# who are retired but didn't play 10 years so aren't eligible and will never be
 
-year_cutoff <- 1970
+year_threshold <- 2
 num_players <- 10
 
 war_through_age %>%
-  filter(hof == "not_elected",
-         last_year %in% c(2016, 2017, 2018, 2019, 2020), 
-         position != "OF") %>%
+  add_count(playerid, name = "num_seasons") %>%
+  filter(position != "OF",
+         !considered_hof,
+         between(last_year, current_year - year_threshold, current_year) | num_seasons >= 10) %>% 
   group_by(playerid) %>%
   filter(age == max(age)) %>%
   dplyr::select(playerid, name, age, position,cumulative_war, is_scandal) %>%
