@@ -255,6 +255,8 @@ hof_split <-
 hof_train <- training(hof_split)
 hof_test <- testing(hof_split)
 
+# TODO: implement hyperparameter tuning
+
 nnet_fit <-
   mlp(epochs = 100, hidden_units = 25, dropout = 0.1) %>%
   set_mode("classification") %>% 
