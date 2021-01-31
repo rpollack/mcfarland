@@ -263,7 +263,7 @@ nnet_spec <-
   set_mode("classification") %>% 
   set_engine("keras", verbose = 0)
 
-# create regular grid of tuning parameters, 5 each
+# create a grid of tuning parameters
 nnet_params <-
   grid_latin_hypercube(
     epochs(),
@@ -285,6 +285,65 @@ nnet_res <-
             grid = nnet_params,
             metrics = metric_set(pr_auc))
 
+# pull the best parameters for the model
+best_nnet <-
+  nnet_res %>%
+  select_best("pr_auc")
+
+#finalize the model using these best parameters
+final_wf <-
+  nnet_wf %>%
+  finalize_workflow(best_nnet)
+
+#fit the final model on the full training set and evaluate it on the test set
+final_fit <-
+  final_wf %>%
+  last_fit(hof_split)
+
+# make predictions on the test set so we can evaluate the model
+eval_predictions <-
+  final_fit %>%
+  collect_predictions() %>%
+  mutate(pred_hof = if_else(.pred_class == "elected", 1, 0))
+
+# evaluation: show confusion matrix
+eval_conf_matrix <-
+  eval_predictions %>% 
+  mutate(.pred_class = factor(.pred_class)) %>%
+  conf_mat(truth = hof, .pred_class)
+
+# print confusion matrix
+eval_conf_matrix
+
+# show conf matrix metrics
+eval_conf_matrix %>%
+  summary() %>%
+  ggplot(aes(.metric, .estimate)) +
+  geom_col() + coord_flip() +
+  ggtitle("Confusion Matrix Measurements")
+
+# compute area under the pr curve
+au_prc <-
+  eval_predictions %>%
+  pr_auc(truth = hof, pred_hof) %>%
+  dplyr::select(.estimate) %>%
+  as.numeric() %>%
+  round(2)
+
+# plot the precision-recall curve
+eval_predictions %>%
+  pr_curve(truth = hof, pred_hof) %>%
+  autoplot() +
+  ggtitle("Precision-Recall Curve, HOF Model",
+          subtitle = glue("Area under the curve: {au_prc}"))
+
+# TODO: I think I need to 'extract the workflow' and then 'extract the fit'
+# in order to get something i can use on my new data
+
+# If you want a model to use to predict on new data, you need to go back to your whole training set and fit your model once again, with the entire training set.
+# 
+# svm_fit <- svm_wf %>%
+#   fit(hpc_data)
 
 ```
 
@@ -333,7 +392,8 @@ hof_results %>%
 year_threshold <- 2
 num_players <- 10
 
-war_through_age %>%
+new_data <-
+  war_through_age %>%
   add_count(playerid, name = "num_seasons") %>%
   filter(position != "OF",
          !considered_hof,
@@ -342,8 +402,10 @@ war_through_age %>%
   filter(age == max(age)) %>%
   dplyr::select(playerid, name, age, position,cumulative_war, is_scandal) %>%
   ungroup() %>%
-  bind_cols(predict(nnet_fit, new_data = .),
-            predict(nnet_fit, new_data = ., type = "prob")) %>%
+  
+  
+  bind_cols(predict(final_wf, new_data = .),
+            predict(final_wf, new_data = ., type = "prob")) %>%
   mutate(prob_hof = 100 * (.pred_elected)) %>% 
   group_by(position) %>%
   slice_max(n = num_players, order_by = prob_hof) %>%
