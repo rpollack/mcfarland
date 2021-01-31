@@ -257,11 +257,41 @@ hof_test <- testing(hof_split)
 
 # TODO: implement hyperparameter tuning
 
-nnet_fit <-
-  mlp(epochs = 100, hidden_units = 25, dropout = 0.1) %>%
+# create model specification with placeholders for tuned parameer values
+nnet_spec <-
+  mlp(epochs = tune(), hidden_units = tune(), dropout = tune()) %>%
   set_mode("classification") %>% 
-  # Also set engine-specific `verbose` argument to prevent logging the results: 
-  set_engine("keras", verbose = 0) %>%
+  set_engine("keras", verbose = 0)
+
+# create regular grid of tuning parameters, 5 each
+nnet_params <-
+  grid_latin_hypercube(
+    epochs(),
+    hidden_units(),
+    dropout(range(c(0.1,0.9)))
+  )
+
+nnet_folds <- vfold_cv(hof_train, strata = hof)
+
+nnet_wf <-
+  workflow() %>%
+  add_model(nnet_spec) %>%
+  add_formula(hof ~ .)
+
+# execute cross-validation and tuning parameter combinations
+nnet_res <-
+  nnet_wf %>%
+  tune_grid(resamples = hof_folds,
+            grid = nnet_params,
+            metrics = metric_set(pr_auc))
+
+
+```
+
+```{r}
+
+
+
   fit(hof ~ ., data = hof_train)
 
 hof_results <-
