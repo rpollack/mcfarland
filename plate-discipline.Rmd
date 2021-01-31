@@ -11,7 +11,7 @@ library(plotly)
 library(RMySQL)
 library(broom)
 library(lubridate)
-library(ggjoy)
+library(ggridges)
 
 fgt = theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
