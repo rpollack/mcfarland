@@ -404,7 +404,7 @@ unseen <-
   filter(position != "OF",
          !considered_hof,
          between(last_year, current_year - year_threshold, current_year) | num_seasons >= 10) %>% 
-  group_by(playerid) %>%
+  group_by(playerid) %
   filter(age == max(age)) %>%
   ungroup() %>%
   dplyr::select(-playerid, -name, -considered_hof, -last_year, -num_seasons) %>%
