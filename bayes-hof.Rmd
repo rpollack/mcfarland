@@ -257,10 +257,10 @@ hof_test <- testing(hof_split)
 
 # TODO: implement hyperparameter tuning
 
-# create model specification with placeholders for tuned parameer values
+# create model specification with placeholders for tuned parameter values
 nnet_spec <-
   mlp(epochs = tune(), hidden_units = tune(), dropout = tune()) %>%
-  set_mode("classification") %>% 
+  set_mode("classification") %>%
   set_engine("keras", verbose = 0)
 
 # create a grid of tuning parameters
@@ -286,14 +286,14 @@ nnet_res <-
             metrics = metric_set(pr_auc))
 
 # pull the best parameters for the model
-best_nnet <-
+best_params <-
   nnet_res %>%
   select_best("pr_auc")
 
 #finalize the model using these best parameters
 final_wf <-
   nnet_wf %>%
-  finalize_workflow(best_nnet)
+  finalize_workflow(best_params)
 
 #fit the final model on the full training set and evaluate it on the test set
 final_fit <-
@@ -336,6 +336,12 @@ eval_predictions %>%
   autoplot() +
   ggtitle("Precision-Recall Curve, HOF Model",
           subtitle = glue("Area under the curve: {au_prc}"))
+
+# fit the final workflow on the training dataset so it can be used to predict.
+hof_mdl <-
+  final_wf %>%
+  fit(hof_train)
+
 
 # TODO: I think I need to 'extract the workflow' and then 'extract the fit'
 # in order to get something i can use on my new data
@@ -392,7 +398,7 @@ hof_results %>%
 year_threshold <- 2
 num_players <- 10
 
-new_data <-
+unseen <-
   war_through_age %>%
   add_count(playerid, name = "num_seasons") %>%
   filter(position != "OF",
@@ -400,12 +406,11 @@ new_data <-
          between(last_year, current_year - year_threshold, current_year) | num_seasons >= 10) %>% 
   group_by(playerid) %>%
   filter(age == max(age)) %>%
-  dplyr::select(playerid, name, age, position,cumulative_war, is_scandal) %>%
   ungroup() %>%
+  dplyr::select(-playerid, -name, -considered_hof, -last_year, -num_seasons) %>%
   
-  
-  bind_cols(predict(final_wf, new_data = .),
-            predict(final_wf, new_data = ., type = "prob")) %>%
+  bind_cols(predict(hof_mdl, new_data = .),
+            predict(hof_mdl, new_data = ., type = "prob")) %>%
   mutate(prob_hof = 100 * (.pred_elected)) %>% 
   group_by(position) %>%
   slice_max(n = num_players, order_by = prob_hof) %>%
