@@ -1,6 +1,5 @@
 ```{r message=FALSE, warning=FALSE}
 library(tidyverse)
-library(caret)
 library(broom)
 library(glue)
 library(rvest)
