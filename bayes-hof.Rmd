@@ -255,108 +255,12 @@ hof_split <-
 hof_train <- training(hof_split)
 hof_test <- testing(hof_split)
 
-# TODO: implement hyperparameter tuning
+# TODO: implement hyperparameter tuning and cross-validation
 
-# create model specification with placeholders for tuned parameter values
-nnet_spec <-
-  mlp(epochs = tune(), hidden_units = tune(), dropout = tune()) %>%
-  set_mode("classification") %>%
-  set_engine("keras", verbose = 0)
-
-# create a grid of tuning parameters
-nnet_params <-
-  grid_latin_hypercube(
-    epochs(),
-    hidden_units(),
-    dropout(range(c(0.1,0.9)))
-  )
-
-nnet_folds <- vfold_cv(hof_train, strata = hof)
-
-nnet_wf <-
-  workflow() %>%
-  add_model(nnet_spec) %>%
-  add_formula(hof ~ .)
-
-# execute cross-validation and tuning parameter combinations
-nnet_res <-
-  nnet_wf %>%
-  tune_grid(resamples = hof_folds,
-            grid = nnet_params,
-            metrics = metric_set(pr_auc))
-
-# pull the best parameters for the model
-best_params <-
-  nnet_res %>%
-  select_best("pr_auc")
-
-#finalize the model using these best parameters
-final_wf <-
-  nnet_wf %>%
-  finalize_workflow(best_params)
-
-#fit the final model on the full training set and evaluate it on the test set
-final_fit <-
-  final_wf %>%
-  last_fit(hof_split)
-
-# make predictions on the test set so we can evaluate the model
-eval_predictions <-
-  final_fit %>%
-  collect_predictions() %>%
-  mutate(pred_hof = if_else(.pred_class == "elected", 1, 0))
-
-# evaluation: show confusion matrix
-eval_conf_matrix <-
-  eval_predictions %>% 
-  mutate(.pred_class = factor(.pred_class)) %>%
-  conf_mat(truth = hof, .pred_class)
-
-# print confusion matrix
-eval_conf_matrix
-
-# show conf matrix metrics
-eval_conf_matrix %>%
-  summary() %>%
-  ggplot(aes(.metric, .estimate)) +
-  geom_col() + coord_flip() +
-  ggtitle("Confusion Matrix Measurements")
-
-# compute area under the pr curve
-au_prc <-
-  eval_predictions %>%
-  pr_auc(truth = hof, pred_hof) %>%
-  dplyr::select(.estimate) %>%
-  as.numeric() %>%
-  round(2)
-
-# plot the precision-recall curve
-eval_predictions %>%
-  pr_curve(truth = hof, pred_hof) %>%
-  autoplot() +
-  ggtitle("Precision-Recall Curve, HOF Model",
-          subtitle = glue("Area under the curve: {au_prc}"))
-
-# fit the final workflow on the training dataset so it can be used to predict.
-hof_mdl <-
-  final_wf %>%
-  fit(hof_train)
-
-
-# TODO: I think I need to 'extract the workflow' and then 'extract the fit'
-# in order to get something i can use on my new data
-
-# If you want a model to use to predict on new data, you need to go back to your whole training set and fit your model once again, with the entire training set.
-# 
-# svm_fit <- svm_wf %>%
-#   fit(hpc_data)
-
-```
-
-```{r}
-
-
-
+nnet_fit <-
+  mlp(epochs = 100, hidden_units = 25, dropout = 0.1) %>%
+  set_mode("classification") %>% 
+  set_engine("keras", verbose = 0) %>%
   fit(hof ~ ., data = hof_train)
 
 hof_results <-
@@ -384,10 +288,6 @@ hof_results %>%
   mutate(.pred_class = factor(.pred_class)) %>%
   conf_mat(truth = hof, .pred_class)
 
-
-```
-
-```{r,fig.height = 3}
 # predict HOF chances for players who meet the following criteria:
 # have not been considered for the HOF
 # last played in the past 2 years (e.g. likely are still active) OR
@@ -409,8 +309,8 @@ unseen <-
   ungroup() %>%
   dplyr::select(-playerid, -name, -considered_hof, -last_year, -num_seasons) %>%
   
-  bind_cols(predict(hof_mdl, new_data = .),
-            predict(hof_mdl, new_data = ., type = "prob")) %>%
+  bind_cols(predict(nnet_fit, new_data = .),
+            predict(nnet_fit, new_data = ., type = "prob")) %>%
   mutate(prob_hof = 100 * (.pred_elected)) %>% 
   group_by(position) %>%
   slice_max(n = num_players, order_by = prob_hof) %>%
