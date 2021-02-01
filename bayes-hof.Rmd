@@ -45,16 +45,18 @@ fg_db <- dplyr::src_mysql(
 # Get Player Data
 
 ```{r}
-# get seasonal pitching WAR for players. remove relievers
+# get seasonal pitching WAR for players. remove relievers.
+# use average of FIP-based and run-based WAR
 pitcher_stats <- fg_db %>%
-  tbl("stats_pitching") %>%
+  tbl("stats_pitching_master_pfx") %>%
   filter(Type == 0) %>%
-  dplyr::select(PlayerId, WAR = ValueW, Age, GS, G) %>%
+  dplyr::select(PlayerId, ValueW, `RA9-Wins`, Age, GS, G) %>%
   collect(n = Inf) %>%
+  mutate(WAR = round((ValueW + `RA9-Wins`) / 2, 1)) %>%
   group_by(PlayerId) %>% 
   filter(sum(GS) / sum(G) >= 0.5) %>% 
   ungroup() %>%
-  dplyr::select(-G, -GS)
+  dplyr::select(-G, -GS, -ValueW, -`RA9-Wins`)
 
 # get seasonal batting/fielding WAR for players
 batter_stats <- fg_db %>%
@@ -227,10 +229,10 @@ exploratory data analysis
 ```{r}
 war_through_age  %>%
   filter(considered_hof) %>%
-  group_by(age, position, hof) %>%
-  summarize(typical_cume_war = median(cumulative_war, na.rm = TRUE)) %>%
-  ggplot(aes(age, typical_cume_war, group = hof, color = hof)) +
-  geom_point(size=0.5) + geom_line() +
+  # group_by(age, position, hof) %>%
+  # summarize(typical_cume_war = median(cumulative_war, na.rm = TRUE)) %>%
+  ggplot(aes(age, cumulative_war, group = hof, color = hof)) +
+  geom_point(size=0.5) + 
   facet_wrap(vars(position)) +
   ggtitle("Age vs. Typical WAR Trajectories, by HOF Inclusion Type",
           subtitle = "Ages 19 - 38") +
@@ -250,7 +252,7 @@ hof_split <-
   # train model only on players who have been considered for the HOF
   filter(considered_hof) %>%
   dplyr::select(-playerid, -name, -considered_hof, -last_year) %>%
-  initial_split(strata = hof)
+  initial_split(strata = hof, prop = 0.8)
 
 hof_train <- training(hof_split)
 hof_test <- testing(hof_split)
@@ -274,7 +276,7 @@ weight <-
   as.numeric()
 
 nnet_fit <-
-  mlp(epochs = 400, hidden_units = 25, dropout = 0.1) %>%
+  mlp(epochs = 100, hidden_units = 25, dropout = 0.1) %>%
   set_mode("classification") %>% 
   set_engine("keras", verbose = 1) %>%
   fit(hof ~ ., data = hof_train)
