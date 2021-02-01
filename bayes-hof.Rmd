@@ -276,40 +276,33 @@ weight <-
   dplyr::select(penalty) %>%
   as.numeric()
 
-nnet_spec <-
-  mlp(epochs = 100, hidden_units = 25, dropout = 0.1) %>%
-  set_mode("classification") %>% 
-  set_engine("keras", verbose = 1)
-
 logistic_spec <-
   logistic_reg(penalty = 0) %>%
   set_mode("classification") %>%
   set_engine("glmnet", verbose = 1)
 
-nnet_fit <-
+log_fit <-
   logistic_spec %>%
   fit(hof ~ ., data = hof_train)
 
 hof_results <-
   hof_test %>%
-  bind_cols(predict(nnet_fit, new_data = .)) %>%
+  bind_cols(predict(log_fit, new_data = .)) %>%
   mutate(pred_hof = if_else(.pred_class == "elected", 1, 0))
 
-au_prc <-
+au_roc <-
   hof_results %>%
-  pr_auc(truth = hof, pred_hof) %>%
+  roc_auc(truth = hof, pred_hof) %>%
   dplyr::select(.estimate) %>%
   as.numeric() %>%
-  round(2)
+  round(3)
 
 # plot the precision-recall curve. 
 hof_results %>%
-  pr_curve(truth = hof, pred_hof) %>%
-  ggplot(aes(recall, precision)) +
-  geom_path() +
-  coord_equal() +
-  ggtitle("Precision-Recall Curve, HOF Model",
-          subtitle = glue("Area under the curve: {au_prc}"))
+  roc_curve(truth = hof, pred_hof) %>%
+  autoplot() +
+  ggtitle("ROC Curve, HOF Model",
+          subtitle = glue("Area under the curve: {au_roc}"))
 
 hof_results %>% 
   conf_mat(truth = hof, .pred_class)
@@ -338,8 +331,8 @@ war_through_age %>%
   group_by(playerid) %>%
   filter(age == max(age)) %>%
   ungroup() %>%
-  bind_cols(predict(nnet_fit, new_data = .),
-            predict(nnet_fit, new_data = ., type = "prob")) %>%
+  bind_cols(predict(log_fit, new_data = .),
+            predict(log_fit, new_data = ., type = "prob")) %>%
   mutate(prob_hof = 100 * (.pred_elected)) %>% 
   group_by(position) %>%
   slice_max(n = num_players, order_by = prob_hof) %>%
