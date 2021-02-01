@@ -215,7 +215,9 @@ war_through_age <-
     TRUE ~ 0
   )) %>%
   inner_join(positional_info, by=c("playerid" = "PlayerId")) %>%
-  dplyr::select(playerid, name, position = Position, last_year, is_scandal, age, cumulative_war, considered_hof, hof)
+  dplyr::select(playerid, name, position = Position, last_year, is_scandal, age, cumulative_war, considered_hof, hof) %>%
+  mutate(hof = factor(hof, levels = c("elected", "not_elected")))
+
 
 ```
 
@@ -245,11 +247,9 @@ modeling with keras / neural networks
 
 hof_split <-
   war_through_age %>%
-  
   # train model only on players who have been considered for the HOF
   filter(considered_hof) %>%
   dplyr::select(-playerid, -name, -considered_hof, -last_year) %>%
-  mutate(hof = factor(hof)) %>%
   initial_split(strata = hof)
 
 hof_train <- training(hof_split)
@@ -257,10 +257,26 @@ hof_test <- testing(hof_split)
 
 # TODO: implement hyperparameter tuning and cross-validation
 
+# hof elections are highly imbalanced, so need to penaliize the model
+# to account for this.
+# To define the appropriate weight, we divide the fraction of the majority class
+# by the fraction of the minority # class to get how many times the former 
+# is larger than the latter.
+# this weight is unused as of now. 
+weight <-
+  war_through_age %>%
+  add_count(hof) %>%
+  mutate(prop = n / n()) %>%
+  distinct(prop) %>%
+  mutate(penalty = prop / lead(prop)) %>%
+  filter(!is.na(penalty)) %>%
+  dplyr::select(penalty) %>%
+  as.numeric()
+
 nnet_fit <-
   mlp(epochs = 100, hidden_units = 25, dropout = 0.1) %>%
   set_mode("classification") %>% 
-  set_engine("keras", verbose = 0) %>%
+  set_engine("keras", verbose = 1) %>%
   fit(hof ~ ., data = hof_train)
 
 hof_results <-
@@ -288,6 +304,13 @@ hof_results %>%
   mutate(.pred_class = factor(.pred_class)) %>%
   conf_mat(truth = hof, .pred_class)
 
+hof_results %>% 
+  mutate(.pred_class = factor(.pred_class)) %>%
+  conf_mat(truth = hof, .pred_class) %>%
+  summary() %>%
+  ggplot(aes(.metric, .estimate)) + geom_col() +
+  coord_flip()
+
 # predict HOF chances for players who meet the following criteria:
 # have not been considered for the HOF
 # last played in the past 2 years (e.g. likely are still active) OR
@@ -298,8 +321,7 @@ hof_results %>%
 year_threshold <- 2
 num_players <- 10
 
-unseen <-
-  war_through_age %>%
+war_through_age %>%
   add_count(playerid, name = "num_seasons") %>%
   filter(position != "OF",
          !considered_hof,
@@ -307,8 +329,6 @@ unseen <-
   group_by(playerid) %>%
   filter(age == max(age)) %>%
   ungroup() %>%
-  dplyr::select(-playerid, -name, -considered_hof, -last_year, -num_seasons) %>%
-  
   bind_cols(predict(nnet_fit, new_data = .),
             predict(nnet_fit, new_data = ., type = "prob")) %>%
   mutate(prob_hof = 100 * (.pred_elected)) %>% 
