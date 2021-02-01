@@ -267,6 +267,7 @@ hof_test <- testing(hof_split)
 # this weight is unused as of now. 
 weight <-
   war_through_age %>%
+  distinct(playerid, hof) %>%
   add_count(hof) %>%
   mutate(prop = n / n()) %>%
   distinct(prop) %>%
@@ -275,10 +276,18 @@ weight <-
   dplyr::select(penalty) %>%
   as.numeric()
 
-nnet_fit <-
+nnet_spec <-
   mlp(epochs = 100, hidden_units = 25, dropout = 0.1) %>%
   set_mode("classification") %>% 
-  set_engine("keras", verbose = 1) %>%
+  set_engine("keras", verbose = 1)
+
+logistic_spec <-
+  logistic_reg(penalty = 0) %>%
+  set_mode("classification") %>%
+  set_engine("glmnet", verbose = 1)
+
+nnet_fit <-
+  logistic_spec %>%
   fit(hof ~ ., data = hof_train)
 
 hof_results <-
@@ -303,11 +312,9 @@ hof_results %>%
           subtitle = glue("Area under the curve: {au_prc}"))
 
 hof_results %>% 
-  mutate(.pred_class = factor(.pred_class)) %>%
   conf_mat(truth = hof, .pred_class)
 
 hof_results %>% 
-  mutate(.pred_class = factor(.pred_class)) %>%
   conf_mat(truth = hof, .pred_class) %>%
   summary() %>%
   ggplot(aes(.metric, .estimate)) + geom_col() +
