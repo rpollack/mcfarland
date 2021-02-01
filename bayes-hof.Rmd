@@ -274,7 +274,7 @@ weight <-
   as.numeric()
 
 nnet_fit <-
-  mlp(epochs = 100, hidden_units = 25, dropout = 0.1) %>%
+  mlp(epochs = 400, hidden_units = 25, dropout = 0.1) %>%
   set_mode("classification") %>% 
   set_engine("keras", verbose = 1) %>%
   fit(hof ~ ., data = hof_train)
