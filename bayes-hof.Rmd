@@ -276,14 +276,49 @@ weight <-
   dplyr::select(penalty) %>%
   as.numeric()
 
-logistic_spec <-
-  logistic_reg(penalty = 0) %>%
+log_mod <-
+  logistic_reg(penalty = tune(), mixture = 1) %>%
   set_mode("classification") %>%
-  set_engine("glmnet", verbose = 1)
+  set_engine("glmnet")
+# add adjustments for class imbalances later, here
 
-log_fit <-
-  logistic_spec %>%
-  fit(hof ~ ., data = hof_train)
+log_folds <- vfold_cv(hof_train, strata = hof)
+
+log_workflow <-
+  workflow() %>%
+  add_model(log_mod) %>%
+  add_formula(hof ~ .)
+
+log_grid <-
+  grid_regular(penalty(),
+               levels = 30)
+
+log_res <-
+  log_workflow %>%
+  tune_grid(resamples = log_folds,
+            grid = log_grid,
+            metrics = metric_set(pr_auc))
+
+# plot the value of 'penalty' vs. the P-R curve
+log_res %>% 
+  collect_metrics() %>% 
+  ggplot(aes(x = penalty, y = mean)) + 
+  geom_point() + 
+  geom_line() + 
+  ylab("Area under the Precision Recall Curve") +
+  scale_x_log10(labels = scales::label_number())
+
+# choose penalty number 21. this cuts out a lot of predictors while maintaining
+# a high PR-AUC
+
+log_best <-
+  log_res %>%
+  collect_metrics() %>%
+  arrange(penalty) %>%
+  dplyr::slice(21)
+
+
+
 
 hof_results <-
   hof_test %>%
