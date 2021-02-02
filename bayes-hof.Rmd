@@ -276,109 +276,14 @@ weight <-
   dplyr::select(penalty) %>%
   as.numeric()
 
-log_mod <-
-  logistic_reg(penalty = tune(), mixture = 1) %>%
+logistic_spec <-
+  logistic_reg(penalty = 0.000543, mixture = 1) %>%
   set_mode("classification") %>%
   set_engine("glmnet")
-# add adjustments for class imbalances later, here
 
-log_folds <- vfold_cv(hof_train, strata = hof)
-
-log_workflow <-
-  workflow() %>%
-  add_model(log_mod) %>%
-  add_formula(hof ~ .)
-
-log_grid <-
-  grid_regular(penalty(),
-               levels = 50)
-
-log_res <-
-  log_workflow %>%
-  tune_grid(resamples = log_folds,
-            grid = log_grid,
-            control = control_grid(save_pred = TRUE),
-            metrics = metric_set(pr_auc))
-
-# plot the value of 'penalty' vs. the area under the P-R curve
-log_res %>% 
-  collect_metrics() %>% 
-  ggplot(aes(x = penalty, y = mean)) + 
-  geom_point() + 
-  geom_line() + 
-  ylab("Area under the Precision Recall Curve") +
-  scale_x_log10(labels = scales::label_number())
-
-# choose penalty number 34. this cuts out a lot of predictors while maintaining
-# a high PR-AUC
-
-log_best <-
-  log_res %>%
-  collect_metrics() %>%
-  arrange(penalty) %>%
-  dplyr::slice(34)
-
-log_res %>% 
-  collect_predictions(parameters = log_best) %>% 
-  pr_curve(hof, .pred_elected) %>% 
-  mutate(model = "Logistic Regression") %>%
-  autoplot()
-
-final_wf <-
-  log_workflow %>%
-  finalize_workflow(log_best)
-
-#fit the final model on the full training set and evaluate it on the test set
-final_fit <-
-  final_wf %>%
-  last_fit(hof_split)
-
-# plot the importance of model predictors
-final_fit %>% 
-  purrr::pluck(".workflow", 1) %>%   
-  pull_workflow_fit() %>% 
-  vip(num_features = 20)
-
-final_predictions <-
-  final_fit %>%
-  collect_predictions()
-
-# evaluation: compute the area under the P-R curve
-pr_area <-
-  final_predictions %>%
-  pr_auc(hof, .pred_elected) %>%
-  dplyr::select(.estimate) %>%
-  as.numeric %>%
-  round(3)
-  
-#evaluation: show the precision-recall curve
-final_predictions %>% 
-  mutate(.pred_elected = as.numeric(.pred_elected)) %>%
-  pr_curve(truth = hof, .pred_elected) %>% 
-  autoplot() + 
-  ggtitle("Precision-Recall Curve, HOF Model",
-                       subtitle = glue("Area under curve: {pr_area}")) +
-  geom_abline(intercept = 1, slope = -1, linetype = "dashed")
-
-# evaluation: show the confusion matrix
-final_fit %>%
-  collect_predictions() %>%
-  conf_mat(hof, .pred_class)
-
-# evaluation: show the confusioin matrix metrics
-final_fit %>%
-  collect_predictions() %>%
-  conf_mat(hof, .pred_class) %>%
-  summary() %>%
-  ggplot(aes(.metric, .estimate)) +
-  geom_col() + coord_flip()
-
-hof_mdl <-
-  final_wf %>%
-  fit(hof_train)
-```
-
-```{r}
+log_fit <-
+  logistic_spec %>%
+  fit(hof ~ ., data = hof_train)
 
 hof_results <-
   hof_test %>%
@@ -407,6 +312,10 @@ hof_results %>%
   summary() %>%
   ggplot(aes(.metric, .estimate)) + geom_col() +
   coord_flip()
+
+```
+
+```{r fig.height=3, fig.width=5}
 
 # predict HOF chances for players who meet the following criteria:
 # have not been considered for the HOF
@@ -437,5 +346,6 @@ war_through_age %>%
   geom_hline(yintercept=50, color = "red") +
   ggtitle(glue("Probability of HOF election"), subtitle = "Active or recently retired eligible players")
 
-```
+# evaluation: compute the area under the P-R curve
 
+```
