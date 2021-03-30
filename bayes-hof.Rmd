@@ -29,16 +29,32 @@ fgt <- theme(
   strip.text = element_text(family = "Lato")
 )
 
-fg_db <- dplyr::src_mysql(
-  dbname = Sys.getenv("FG_DB"),
-  host = Sys.getenv("FG_HOST"),
-  user = Sys.getenv("FG_USER"),
-  password = Sys.getenv("FG_PW")
-)
+
+con <-
+  DBI::dbConnect(RMariaDB::MariaDB(),
+    dbname = Sys.getenv("FG_DB"),
+    host = Sys.getenv("FG_HOST"),
+    user = Sys.getenv("FG_USER"),
+    password = Sys.getenv("FG_PW"),
+    port = 5001,
+    ssl.ca = "~/Documents/skysql_fangraphs-db.pem"
+  )
+
+# this commencted code can be removed in the future: i was just using it to test the connection above.
+# batter_war_query <- dbSendQuery(con, glue("select pi.PlayerId, pi.FirstName, pi.LastName, sb.Season, sb.Age, sb.ValueW
+#                                 from player_info pi
+#                                 inner join stats_batting sb on pi.PlayerId = sb.playerid
+#                                 where sb.Type = 0
+#                                 and sb.Season < {current_year}"))
+# 
+# batter_war <-
+#   dbFetch(batter_war_query) %>%
+#   as_tibble() %>%
+#   unite(name, FirstName, LastName, sep = " ") %>%
+#   mutate(war = round(ValueW, 1)) %>%
+#   dplyr::select(-ValueW)
+
 ```
-
-
-
 
 
 # Get Player Data
@@ -46,17 +62,21 @@ fg_db <- dplyr::src_mysql(
 ```{r}
 # get seasonal pitching WAR for players. remove relievers.
 # use average of FIP-based and run-based WAR
-pitcher_stats <- fg_db %>%
-  tbl("stats_pitching_master_pfx") %>%
-  filter(Type == 0) %>%
-  dplyr::select(PlayerId, ValueW, `RA9-Wins`, Age, GS, G) %>%
-  collect(n = Inf) %>%
+
+pitcher_stats_q <- 
+  dbSendQuery(con, "select PlayerId, ValueW, \`RA9-Wins\`, Age, GS, G 
+              from stats_pitching_master_pfx 
+              where Type = 0")
+
+pitcher_stats <-
+  dbFetch(pitcher_stats_q) %>% 
+  as_tibble() %>%
   mutate(WAR = round((ValueW + `RA9-Wins`) / 2, 1)) %>%
   group_by(PlayerId) %>% 
   filter(sum(GS) / sum(G) >= 0.5) %>% 
   ungroup() %>%
-  dplyr::select(-G, -GS, -ValueW, -`RA9-Wins`)
-
+  dplyr::select(-G, -GS, -ValueW, -`RA9-Wins`)=
+  
 # get seasonal batting/fielding WAR for players
 batter_stats <- fg_db %>%
   tbl("stats_batting") %>%
@@ -264,16 +284,7 @@ hof_test <- testing(hof_split)
 # by the fraction of the minority # class to get how many times the former 
 # is larger than the latter.
 # this weight is unused as of now. 
-weight <-
-  war_through_age %>%
-  distinct(playerid, hof) %>%
-  add_count(hof) %>%
-  mutate(prop = n / n()) %>%
-  distinct(prop) %>%
-  mutate(penalty = prop / lead(prop)) %>%
-  filter(!is.na(penalty)) %>%
-  dplyr::select(penalty) %>%
-  as.numeric()
+
 
 logistic_spec <-
   logistic_reg(penalty = 0.000543, mixture = 1) %>%
