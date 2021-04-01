@@ -197,7 +197,10 @@ hof_players <-
 # the most recent season played
 current_year <- 2020
 
-# combine batting & pitching WAR for all player-seasons
+# combine batting & pitching WAR for all player-seasons.
+# add positional info where we can
+# discard players whose position is "OF". there are about 1,200 of them and only 4-5 HOFers; not enough data,
+# and no one is classified this way today, so not important. 
 war_through_age <-
   player_info %>%
   dplyr::select(-Position, -BISPosition) %>%
@@ -210,11 +213,6 @@ war_through_age <-
   replace_na(list(HOF = "not_elected")) %>%
   group_by(PlayerId, Name, last_year) %>%
 
-# #  inner_join(positional_info, by = "PlayerId") %>%
-#   mutate(Position = case_when(
-#     Position %in% c("LF", "CF", "RF") ~ "OF",
-#     TRUE ~ Position
-#   )) %>%
   arrange(Age) %>%
   mutate(
     num_seasons = n(),
@@ -228,7 +226,7 @@ war_through_age <-
   ungroup() %>%
   distinct() %>%
   na.omit() %>%
-  filter(age >= 19, age <= 38)  %>%
+ # filter(age >= 19, age <= 38)  %>%
   mutate(is_scandal = case_when(
     name %in% c("Barry Bonds", "Roger Clemens", "Joe Jackson", "Robinson Cano", "Pete Rose", "Alex Rodriguez", "Manny Ramirez", "Mark McGwire", "Sammy Sosa", "Jose Canseco", "Rafael Palmeiro", "Jason Giambi", "Gary Sheffield", "Miguel Tejada", "Nelson Cruz", "Andy Pettite", "Ryan Braun", "Carlos Beltran", "Jose Altuve", "Alex Bregman", "David Ortiz", "Carlos Correa", "Melky Cabrera", "George Springer", "Curt Schilling") ~ 1,
     TRUE ~ 0
@@ -236,21 +234,21 @@ war_through_age <-
   inner_join(positional_info, by=c("playerid" = "PlayerId")) %>%
   dplyr::select(playerid, name, position = Position, last_year, is_scandal, age, cumulative_war, considered_hof, hof) %>%
   
-  # force some positions for some inductees. fielding positional data from bb-ref. need to be more specific for
-  # averill as there are 2 guys with his name. really this should be done with player ID's.
+  # force some positions for some inductees. fielding positional data from bb-ref and BB HOF website. need to be more specific for averill as there are 2 guys with his name. really this should be done with player ID's.
   mutate(hof = factor(hof, levels = c("elected", "not_elected")),
          position = case_when(
            name %in% c("Ty Cobb", "Earle Combs", "Edd Roush", "Hack Wilson", "Joe DiMaggio", "Lloyd Waner",
-                       "Max Carey", "Tris Speaker") | (name == "Earl Averill" & position == "OF") ~ "CF",
+                       "Max Carey", "Tris Speaker", "Joe Jackson") | (name == "Earl Averill" & position == "OF") ~ "CF",
            name %in% c("Al Simmons", "Chick Hafey", "Ed Delahanty", "Fred Clarke", "Goose Goslin", "Heine Manush",
-                       "Jesse Burkett", "Joe Medwick", "Zack Wheat") ~ "LF",
+                       "Jesse Burkett", "Joe Medwick", "Zack Wheat", "Jim O'Rourke", "Joe Kelley") ~ "LF",
            name %in% c("Babe Ruth", "Chuck Klein", "Elmer Flick", "Harry Heilmann", "Harry Hooper",
-                       "Mel Ott", "Paul Waner", "Ross Youngs", "Sam Crawford", "Sam Rice", "Willie Keeler") ~ "RF",
+                       "Mel Ott", "Paul Waner", "Ross Youngs", "Sam Crawford", "Sam Rice", "Willie Keeler", 
+                       "Kiki Cuyler", "Sam Thompson", "Tommy McCarthy") ~ "RF",
            TRUE ~ position
-         ))
+         )) %>%
+  filter(position != "OF")
 
-# no positional data for: billy hamilton, hugh duffy, jim o'rourke, joe kelley, kiki cuyler, sam thompson,
-# tommy mccarthy, willard brown
+# no positional data for: billy hamilton, hugh duffy, willard brown
 
 
 ```
@@ -266,8 +264,7 @@ war_through_age  %>%
   ggplot(aes(age, cumulative_war, group = hof, color = hof)) +
   geom_point(size=0.5) + 
   facet_wrap(vars(position)) +
-  ggtitle("Age vs. Typical WAR Trajectories, by HOF Inclusion Type",
-          subtitle = "Ages 19 - 38") +
+  ggtitle("Age vs. Typical WAR Trajectories, by HOF Inclusion Type") +
   labs(y="Cumulative fWAR")
 
 # position doesn't seem to matter too much except for DH (and probably relief pitcher, if I split those out). maybe can remove
