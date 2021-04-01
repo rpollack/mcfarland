@@ -30,6 +30,15 @@ fgt <- theme(
 )
 
 
+```
+
+
+# Get Player Data
+
+```{r}
+# get seasonal pitching WAR for players. remove relievers.
+# use average of FIP-based and run-based WAR
+
 con <-
   DBI::dbConnect(RMariaDB::MariaDB(),
     dbname = Sys.getenv("FG_DB"),
@@ -39,29 +48,6 @@ con <-
     port = 5001,
     ssl.ca = "~/Documents/skysql_fangraphs-db.pem"
   )
-
-# this commencted code can be removed in the future: i was just using it to test the connection above.
-# batter_war_query <- dbSendQuery(con, glue("select pi.PlayerId, pi.FirstName, pi.LastName, sb.Season, sb.Age, sb.ValueW
-#                                 from player_info pi
-#                                 inner join stats_batting sb on pi.PlayerId = sb.playerid
-#                                 where sb.Type = 0
-#                                 and sb.Season < {current_year}"))
-# 
-# batter_war <-
-#   dbFetch(batter_war_query) %>%
-#   as_tibble() %>%
-#   unite(name, FirstName, LastName, sep = " ") %>%
-#   mutate(war = round(ValueW, 1)) %>%
-#   dplyr::select(-ValueW)
-
-```
-
-
-# Get Player Data
-
-```{r}
-# get seasonal pitching WAR for players. remove relievers.
-# use average of FIP-based and run-based WAR
 
 pitcher_stats_q <- 
   dbSendQuery(con, "select PlayerId, ValueW, \`RA9-Wins\`, Age, GS, G 
@@ -75,19 +61,26 @@ pitcher_stats <-
   group_by(PlayerId) %>% 
   filter(sum(GS) / sum(G) >= 0.5) %>% 
   ungroup() %>%
-  dplyr::select(-G, -GS, -ValueW, -`RA9-Wins`)=
+  dplyr::select(-G, -GS, -ValueW, -`RA9-Wins`)
   
-# get seasonal batting/fielding WAR for players
-batter_stats <- fg_db %>%
-  tbl("stats_batting") %>%
-  filter(Type == 0) %>%
-  dplyr::select(PlayerId = playerid, WAR = ValueW, Age) %>%
-  collect(n = Inf)
+dbClearResult(pitcher_stats_q)
 
-player_info <- fg_db %>%
-  tbl("player_info") %>%
-  dplyr::select(PlayerId, FirstName, LastName, BirthDate, LastGame, Position, BISPosition) %>%
-  collect(n = Inf) %>%
+batter_stats_q <-
+  dbSendQuery(con, "select playerid AS PlayerId, ValueW as WAR, Age from stats_batting where Type = 0")
+
+batter_stats <-
+  dbFetch(batter_stats_q) %>%
+  as_tibble()
+
+dbClearResult(batter_stats_q)
+
+
+player_info_q <-
+  dbSendQuery(con, "select PlayerId, FirstName, LastName, BirthDate, LastGame, Position, BISPosition from player_info")
+
+player_info <- 
+  dbFetch(player_info_q) %>%
+  as_tibble() %>%
   unite(Name, FirstName, LastName, sep = " ") %>%
   mutate(
     last_year = year(ymd(LastGame)),
@@ -96,33 +89,8 @@ player_info <- fg_db %>%
   ) %>%
   dplyr::select(PlayerId, Name, birth_year, last_year, Position, BISPosition)
 
+dbClearResult(player_info_q)
 
-# Get list of players in the HOF (who were voted in as players)
-
-hof_url <- "https://www.baseball-reference.com/awards/hof.shtml"
-
-hof_players <- read_html(hof_url) %>%
-  html_nodes("table") %>%
-  .[[1]] %>%
-  html_table(header = TRUE)
-
-names(hof_players)[3] <- "Years"
-
-hof_players <-
-  hof_players %>%
-  filter(`Inducted As` == "Player") %>%
-  mutate(birth_year = as.numeric(str_extract(Years, "^[0-9]{4}"))) %>%
-  dplyr::select(Name, birth_year) %>%
-  mutate(
-    HOF = "elected",
-
-    # correct some discrepancies
-    Name = str_replace(Name, "Cal Ripken Jr.", "Cal Ripken"),
-    birth_year = ifelse(Name == "Frankie Frisch", 1898, birth_year)
-  )
-```
-
-```{r}
 # gather fielding data. the main goal is to identify LF, RF, and CF separately
 # so they can be compared correctly.
 # we have 3 sources of data here:
@@ -133,18 +101,26 @@ hof_players <-
 # in descending order of priority for whether the "OF" truly is a LF, RF, or CF
 
 # get ID looukps, used to join FG player info with LahmanDB info
+
+id_q <-
+  dbSendQuery(con, "select playerid, refid from playerid_lookup")
+
 ids <-
-  fg_db %>%
-  tbl("playerid_lookup") %>%
-  dplyr::select(playerid, refid) %>%
-  collect(n = Inf)
+  dbFetch(id_q) %>%
+  as_tibble()
+
+dbClearResult(id_q)
 
 # get fielding data from detailed FG table
+
+fielding_q <- dbSendQuery(con, "select PlayerId, Position, Season, Type, G, Inn from stats_fielding")
+
 fielding_data_raw <-
-  fg_db %>%
-  tbl("stats_fielding") %>%
-  dplyr::select(PlayerId, Position, Season, Type, G, Inn) %>%
-  collect(n = Inf)
+  dbFetch(fielding_q) %>%
+  as_tibble()
+
+dbClearResult(fielding_q)
+dbDisconnect(con)
 
 fld <-
   fielding_data_raw %>%
@@ -188,11 +164,31 @@ positional_info <-
     TRUE ~ Position
   )) %>%
   dplyr::select(PlayerId = playerid, Position = real_position)
+
+# Get list of players in the HOF (who were voted in as players)
+
+hof_url <- "https://www.baseball-reference.com/awards/hof.shtml"
+
+hof_players <- read_html(hof_url) %>%
+  html_nodes("table") %>%
+  .[[1]] %>%
+  html_table(header = TRUE)
+
+names(hof_players)[3] <- "Years"
+
+hof_players <-
+  hof_players %>%
+  filter(`Inducted As` == "Player") %>%
+  mutate(birth_year = as.numeric(str_extract(Years, "^[0-9]{4}"))) %>%
+  dplyr::select(Name, birth_year) %>%
+  mutate(
+    HOF = "elected",
+
+    # correct some discrepancies
+    Name = str_replace(Name, "Cal Ripken Jr.", "Cal Ripken"),
+    birth_year = ifelse(Name == "Frankie Frisch", 1898, birth_year)
+  )
 ```
-
-
-
-
 
 ```{r}
 
@@ -260,7 +256,7 @@ war_through_age  %>%
 # position doesn't seem to matter too much except for DH (and probably relief pitcher, if I split those out). maybe can remove
 ```
 
-modeling with keras / neural networks
+build and evaluate logistic reg model
 
 ```{r}
 
@@ -324,6 +320,8 @@ hof_results %>%
   coord_flip()
 
 ```
+
+predict hall of famers
 
 ```{r fig.height=3, fig.width=5}
 
