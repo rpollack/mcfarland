@@ -187,6 +187,7 @@ hof_players <-
     # correct some discrepancies
     Name = str_replace(Name, "Cal Ripken Jr.", "Cal Ripken"),
     Name = str_replace(Name, "Henry Aaron", "Hank Aaron"),
+    Name = str_replace(Name, "Old Hoss Radbourn", "Charley Radbourn"),
     birth_year = ifelse(Name == "Frankie Frisch", 1898, birth_year)
   )
 ```
