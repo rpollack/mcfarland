@@ -235,11 +235,12 @@ war_through_age <-
   inner_join(positional_info, by=c("playerid" = "PlayerId")) %>%
   dplyr::select(playerid, name, position = Position, last_year, is_scandal, age, cumulative_war, considered_hof, hof) %>%
   
-  # force some positions for some inductees. fielding positional data from bb-ref
+  # force some positions for some inductees. fielding positional data from bb-ref. need to be more specific for
+  # averill as there are 2 guys with his name. really this should be done with player ID's.
   mutate(hof = factor(hof, levels = c("elected", "not_elected")),
          position = case_when(
            name %in% c("Ty Cobb", "Earle Combs", "Edd Roush", "Hack Wilson", "Joe DiMaggio", "Lloyd Waner",
-                       "Max Carey", "Tris Speaker") ~ "CF",
+                       "Max Carey", "Tris Speaker") | (name == "Earl Averill" & position == "OF") ~ "CF",
            name %in% c("Al Simmons", "Chick Hafey", "Ed Delahanty", "Fred Clarke", "Goose Goslin", "Heine Manush",
                        "Jesse Burkett", "Joe Medwick", "Zack Wheat") ~ "LF",
            name %in% c("Babe Ruth", "Chuck Klein", "Elmer Flick", "Harry Heilmann", "Harry Hooper",
@@ -249,8 +250,6 @@ war_through_age <-
 
 # no positional data for: billy hamilton, hugh duffy, jim o'rourke, joe kelley, kiki cuyler, sam thompson,
 # tommy mccarthy, willard brown
-
-# do earl averill separately as there are two.
 
 
 ```
