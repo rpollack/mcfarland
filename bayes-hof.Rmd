@@ -186,6 +186,7 @@ hof_players <-
 
     # correct some discrepancies
     Name = str_replace(Name, "Cal Ripken Jr.", "Cal Ripken"),
+    Name = str_replace(Name, "Henry Aaron", "Hank Aaron"),
     birth_year = ifelse(Name == "Frankie Frisch", 1898, birth_year)
   )
 ```
@@ -228,12 +229,28 @@ war_through_age <-
   na.omit() %>%
   filter(age >= 19, age <= 38)  %>%
   mutate(is_scandal = case_when(
-    name %in% c("Barry Bonds", "Roger Clemens", "Joe Jackson", "Robinson Cano", "Pete Rose", "Alex Rodriguez", "Manny Ramirez", "Mark McGwire", "Sammy Sosa", "Jose Canseco", "Rafael Palmeiro", "Jason Giambi", "Gary Sheffield", "Miguel Tejada", "Nelson Cruz", "Andy Pettite", "Ryan Braun", "Carlos Beltran", "Jose Altuve", "Alex Bregman", "David Ortiz", "Carlos Correa", "Melky Cabrera", "George Springer") ~ 1,
+    name %in% c("Barry Bonds", "Roger Clemens", "Joe Jackson", "Robinson Cano", "Pete Rose", "Alex Rodriguez", "Manny Ramirez", "Mark McGwire", "Sammy Sosa", "Jose Canseco", "Rafael Palmeiro", "Jason Giambi", "Gary Sheffield", "Miguel Tejada", "Nelson Cruz", "Andy Pettite", "Ryan Braun", "Carlos Beltran", "Jose Altuve", "Alex Bregman", "David Ortiz", "Carlos Correa", "Melky Cabrera", "George Springer", "Curt Schilling") ~ 1,
     TRUE ~ 0
   )) %>%
   inner_join(positional_info, by=c("playerid" = "PlayerId")) %>%
   dplyr::select(playerid, name, position = Position, last_year, is_scandal, age, cumulative_war, considered_hof, hof) %>%
-  mutate(hof = factor(hof, levels = c("elected", "not_elected")))
+  
+  # force some positions for some inductees. fielding positional data from bb-ref
+  mutate(hof = factor(hof, levels = c("elected", "not_elected")),
+         position = case_when(
+           name %in% c("Ty Cobb", "Earle Combs", "Edd Roush", "Hack Wilson", "Joe DiMaggio", "Lloyd Waner",
+                       "Max Carey", "Tris Speaker") ~ "CF",
+           name %in% c("Al Simmons", "Chick Hafey", "Ed Delahanty", "Fred Clarke", "Goose Goslin", "Heine Manush",
+                       "Jesse Burkett", "Joe Medwick", "Zack Wheat") ~ "LF",
+           name %in% c("Babe Ruth", "Chuck Klein", "Elmer Flick", "Harry Heilmann", "Harry Hooper",
+                       "Mel Ott", "Paul Waner", "Ross Youngs", "Sam Crawford", "Sam Rice", "Willie Keeler") ~ "RF",
+           TRUE ~ position
+         ))
+
+# no positional data for: billy hamilton, hugh duffy, jim o'rourke, joe kelley, kiki cuyler, sam thompson,
+# tommy mccarthy, willard brown
+
+# do earl averill separately as there are two.
 
 
 ```
@@ -251,7 +268,7 @@ war_through_age  %>%
   facet_wrap(vars(position)) +
   ggtitle("Age vs. Typical WAR Trajectories, by HOF Inclusion Type",
           subtitle = "Ages 19 - 38") +
-  labs(y="Median fWAR Accumulated")
+  labs(y="Cumulative fWAR")
 
 # position doesn't seem to matter too much except for DH (and probably relief pitcher, if I split those out). maybe can remove
 ```
@@ -354,6 +371,28 @@ war_through_age %>%
   geom_hline(yintercept=50, color = "red") +
   ggtitle(glue("Probability of HOF election"), subtitle = "Active or recently retired eligible players")
 
+
+year_threshold <- 2
+num_players <- 10
+
+war_through_age %>%
+  add_count(playerid, name = "num_seasons") %>%
+  filter(position != "OF",
+         considered_hof,
+         hof == "not_elected") %>% 
+  group_by(playerid) %>%
+  filter(age == max(age)) %>%
+  ungroup() %>%
+  bind_cols(predict(log_fit, new_data = .),
+            predict(log_fit, new_data = ., type = "prob")) %>%
+  mutate(prob_hof = 100 * (.pred_elected)) %>% 
+  group_by(position) %>%
+  slice_max(n = num_players, order_by = prob_hof) %>%
+  ggplot(aes(reorder(name, prob_hof), prob_hof)) +
+  geom_col() + coord_flip() + facet_wrap(vars(position), scales = "free_y") +
+  labs(x="", y = "HOF Probability (%)") +
+  geom_hline(yintercept=50, color = "red") +
+  ggtitle(glue("Probability of HOF election"), subtitle = "Players already considered for the HOF, may be inducted as manager")
 # evaluation: compute the area under the P-R curve
 
 ```
