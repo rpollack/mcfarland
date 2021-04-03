@@ -45,46 +45,69 @@ gather data from statcast
 
 ```{r}
 
-# get MLBAM ID's and FG Player ID's, so I can get FG stats and position info using the player's MLBAM ID
-id_info <- fg_db %>%
-  tbl("playerid_lookup") %>%
-  dplyr::select(mlbamid, playerid) %>%
-  collect(n = Inf)
+con <-
+  DBI::dbConnect(RMariaDB::MariaDB(),
+    dbname = Sys.getenv("FG_DB"),
+    host = Sys.getenv("FG_HOST"),
+    user = Sys.getenv("FG_USER"),
+    password = Sys.getenv("FG_PW"),
+    port = 5001,
+    ssl.ca = "~/Documents/skysql_fangraphs-db.pem"
+  )
 
-# get player ID's of pitchers and whether they are a starter or reliever.
-pitcher_type <- fg_db %>%
-  tbl("player_info") %>%
-  filter(BISPosition %in% c("SP", "RP")) %>%
-  dplyr::select(playerid = PlayerId, position = BISPosition) %>%
-  collect(n = Inf)
+id_info_q <- dbSendQuery(con, "select mlbamid, playerid from playerid_lookup")
+
+id_info <-
+  dbFetch(id_info_q) %>%
+  as_tibble()
+  
+dbClearResult(id_info_q)
+
+pitcher_type_q <-
+  dbSendQuery(con, "select PlayerId as playerid, FirstName, LastName, BISPosition as position from player_info 
+              where BISPosition in (\'SP\', \'RP')")
+
+pitcher_type <-
+  dbFetch(pitcher_type_q) %>%
+  as_tibble() %>%
+  unite(player_name, FirstName, LastName, sep = " ")
+
+dbClearResult(pitcher_type_q)
+
+# get statcast info for all valid pitch types in non-spring training games
+statcast_q <- dbSendQuery(con, "select pitcher, game_year, p_throws, pitch_type, plate_x, plate_z,
+                          release_speed, release_spin_rate, balls, strikes, zone, stand, description, xwoba
+                          from gd_savant_new
+                          where pitch_type in (\'FA\', \'FF\', \'FT\', \'FC\', \'FS\', \'SI\', \'SF\', 
+                          \'SL\', \'CH\', \'CB\', \'CU\', \'KC\', \'KN\', \'EP\')
+                          and game_type in (\'R\', \'F\', \'D\', \'L\', \'W\')
+                          and zone != 0")
 
 data <-
-  fg_db %>%
-  tbl("gd_savant_new") %>%
-
-  # try hard to get only legit data. documentation: https://baseballsavant.mlb.com/csv-docs
-  filter(
-    pitch_type %in% c("FA", "FF", "FT", "FC", "FS", "SI", "SF", "SL", "CH", "CB", "CU", "KC", "KN", "EP"), # get legit pitch types only
-    game_type %in% c("R", "F", "D", "L", "W"), # ignore spring training, etc. games
-    zone != 0 # ignore invalid strikezone data
-  ) %>%
-  dplyr::select(pitcher, player_name, game_year, p_throws, pitch_type, plate_x, plate_z, release_speed, release_spin_rate, balls, strikes, zone, stand, description, xwoba) %>%
-  collect(n = Inf) %>%
+  dbFetch(statcast_q) %>%
+  as_tibble() %>%
   inner_join(id_info, by = c("pitcher" = "mlbamid")) %>%
-  inner_join(pitcher_type, by = "playerid")
+  inner_join(pitcher_type, by = "playerid") %>%
+  dplyr::select(pitcher, player_name, position, everything())
 
-# get RA9 data for pitchers for correlation purposes
+dbClearResult(statcast_q)
+
+ra9_q <- dbSendQuery(con, "select PlayerId, Season, ERA, R, IP from stats_pitching where Type = 0")
+
 pitcher_ra9 <-
-  fg_db %>%
-  tbl("stats_pitching") %>%
-  filter(Type == 0) %>%
-  dplyr::select(PlayerId, Season, ERA, R, IP) %>%
-  collect(n=Inf) %>%
+  dbFetch(ra9_q) %>% 
+  as_tibble() %>%
   mutate(ra9 = R / IP * 9) %>%
   group_by(PlayerId) %>%
   arrange(Season) %>%
   mutate(next_ra9 = lead(ra9)) %>%
   filter(!is.na(next_ra9))
+
+dbClearResult(ra9_q)
+
+dbDisconnect(con)
+
+
 
 ```
 
@@ -133,11 +156,7 @@ data %>%
   group_by(game_year) %>%
   mutate(lg_bauer_units = mean(bauer_units, na.rm = TRUE)) %>%
   group_by(game_year, pitcher, player_name) %>%
-  summarize(bauer_units_plus = mean(bauer_units, na.rm = TRUE) / mean(lg_bauer_units) * 100) %>%
-  group_by(game_year) %>%
-  filter(game_year == 2019) %>% 
-  mutate(rank = percent_rank(bauer_units_plus)) %>% 
-  View()
+  summarize(bauer_units_plus = mean(bauer_units, na.rm = TRUE) / mean(lg_bauer_units) * 100)
 
 ```
 
@@ -160,9 +179,7 @@ median_xwoba <-
   group_by(game_year, position, pitch_type) %>%
   summarize(median_xwoba = median(xwoba))
 
-
-# add strikezone and count descriptions to data, whether the pitcher is a starter or reliever, classify pitches as good or bad,
-# and compute the total number (and percentage) of good & bad pitches thrown by the pitcher
+# add strikezone and count descriptions to data, whether the pitcher is a starter or reliever, classify pitches as good or bad, and compute the total number (and percentage) of good & bad pitches thrown by the pitcher
 
 data_grouped <-
   data %>%
@@ -199,10 +216,6 @@ data_grouped <-
       (str_detect(description, "hit_into_play") & xwoba <= median_xwoba), "good", "bad")
   ) %>%
   unite(zone_desc, zone_type_vertical, zone_type_horizontal, sep = " and ") %>%
-#  unite(count, balls, strikes, sep = "-") %>%
-  # group_by(player_name, game_year, p_throws, stand) %>%
-  # mutate(total_pitches_to_batters_of_this_hand = n()) %>%
-  # filter(total_pitches_to_batters_of_this_hand >= total_pitches_to_each_side_cutoff) %>% # try to get only full time pitchers
   group_by(pitcher, player_name, game_year, p_throws, position, count_type, zone_desc, stand, pitch_type, outcome) %>%
   summarize(
     num_pitches = n()
@@ -269,7 +282,7 @@ graphs and such
 ```{r, fig.height = 3}
 # 10 players who improved the most from 2018 to 2019, grouped by position
 
-current_year <- 2020
+current_year <- 2021
 
 good_pitches_est %>%
   group_by(player_name, pitcher) %>%
@@ -298,22 +311,6 @@ good_pitches_est %>%
   labs(x = "", y = "Estimated Good-Pitch Rate with 95% Credible Interval") +
   ggtitle("Highest Good-Pitch Rates") +
   scale_x_reordered()
-
-# worst pitchers of each type each year
-# THIS IS NOT WORKING YET
-# good_pitches_est %>%
-#   group_by(game_year, position) %>%
-#   arrange(est_good_pitch_rate, .by_group = TRUE) %>%
-#   filter(row_number() >= 10) %>%
-#   ungroup() %>%
-#   unite(facet, position, game_year, sep = " ") %>%
-#   mutate(player_name = reorder_within(player_name, est_good_pitch_rate, facet)) %>%
-#   ggplot(aes(reorder(player_name, est_good_pitch_rate), est_good_pitch_rate)) + coord_flip() +
-#   geom_point(size = 0.7) + geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) + facet_wrap(vars(facet), scales = "free_y") +
-#   labs(x = "", y = "Estimated Good-Pitch Rate with 95% Credible Interval") +
-#   ggtitle("Lowest Good-Pitch Rates") +
-#   scale_x_reordered()
-
 
 
 ```
