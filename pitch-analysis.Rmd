@@ -24,13 +24,6 @@ fgt <- theme(
   strip.text = element_text(family = "Lato")
 )
 
-fg_db <- dplyr::src_mysql(
-  dbname = Sys.getenv("FG_DB"),
-  host = Sys.getenv("FG_HOST"),
-  user = Sys.getenv("FG_USER"),
-  password = Sys.getenv("FG_PW")
-)
-
 TWILIO_SID <- Sys.getenv("TWILIO_SID")
 TWILIO_TOKEN <- Sys.getenv("TWILIO_TOKEN")
 twilio_number <- Sys.getenv("twilio_number")
@@ -291,7 +284,7 @@ good_pitches_est %>%
   filter(game_year == current_year, !is.na(good_pitch_change)) %>%
   group_by(position) %>%
   filter(est_good_pitch_rate >= mean(est_good_pitch_rate)) %>%
-  top_n(10, wt = good_pitch_change) %>%
+  top_n(25, wt = good_pitch_change) %>%
   mutate(player_name = reorder_within(player_name, good_pitch_change, position)) %>%
   ggplot(aes(reorder(player_name, good_pitch_change), good_pitch_change)) + geom_col() +
   coord_flip() + facet_wrap(vars(position), scales = "free_y") +
@@ -300,9 +293,10 @@ good_pitches_est %>%
 
 # best pitchers of each type each year
 good_pitches_est %>%
+  filter(game_year == current_year) %>%
   group_by(game_year, position) %>%
   arrange(desc(est_good_pitch_rate, .by_group = TRUE)) %>%
-  filter(row_number() <= 10) %>%
+  filter(row_number() <= 25) %>%
   ungroup() %>%
   unite(facet, position, game_year, sep = " ") %>%
   mutate(player_name = reorder_within(player_name, est_good_pitch_rate, facet)) %>%
