@@ -1,13 +1,9 @@
 ```{r}
 library(tidyverse)
+library(tidymodels)
 library(RMySQL)
 library(lubridate)
-library(xgboost)
-library(caret)
-library(twilio)
-library(MLmetrics)
-library(pROC) # for ROC curve
-library(PRROC) # for P-R curve
+
 
 
 fgt <- theme(
@@ -46,46 +42,44 @@ get, clean, mutate, and join data
 
 ```{r, message=FALSE}
 
+
+
 year_to_predict <- 2020
 data_min <- year_to_predict - 16
 data_max <- year_to_predict - 1
 
-player_info <- fg_db %>%
-  tbl("player_info") %>%
-  filter(Position != "P") %>% # TODO: add pitchers in later
-  dplyr::select(playerid = PlayerId, FirstName, LastName) %>%
-  collect(n = Inf) %>%
-  unite(player_name, FirstName, LastName, sep = " ")
+con <-
+  DBI::dbConnect(RMariaDB::MariaDB(),
+    dbname = Sys.getenv("FG_DB"),
+    host = Sys.getenv("FG_HOST"),
+    user = Sys.getenv("FG_USER"),
+    password = Sys.getenv("FG_PW"),
+    port = 5001,
+    ssl.ca = "~/Documents/skysql_fangraphs-db.pem"
+  )
 
-team_info <- fg_db %>%
-  tbl("season_team") %>%
-  filter(
-    Season >= data_min,
-    Season <= year_to_predict
-  ) %>%
-  dplyr::select(teamid = TeamId, Season, League, team_games = G, team_wins = W, team_losses = L) %>%
-  collect(n = Inf) %>%
-  mutate(
-    team_PCT = team_wins / (team_wins + team_losses),
-    League = factor(League)
-  ) %>%
-  dplyr::select(-team_wins, -team_losses)
+player_info_query <- 
+  dbSendQuery(con, "select pi.PlayerId as playerid, pi.FirstName, pi.LastName, sbmp.Season, sbmp.AVG as batting_average, sbmp.PA as plate_appearances,
+  sbmp.HR as home_runs, sbmp.RBI as rbi, sbmp.OPS as ops, sbmp.SB as stolen_bases, sbmp.Fielding as defense, sbmp.G as games_played, sbmp.ValueW as WAR,
+  st.W / (st.W + st.L) AS team_PCT, st.League, st.G as team_games
+  from player_info pi 
+  inner join stats_batting_master_pfx sbmp on pi.PlayerId = sbmp.PlayerId
+  inner join season_team st on sbmp.TeamId = st.TeamId AND sbmp.Season = st.Season
+  where pi.Position != \'P\'
+  and sbmp.Type = 0")
 
-player_stats <- fg_db %>%
-  tbl("stats_batting_master_pfx") %>%
-  filter(
-    Type == 0,
-    Season >= data_min,
-    Season <= year_to_predict
-  ) %>%
-  dplyr::select(playerid, Season, teamid,
-    batting_average = AVG, plate_appearances = PA,
-    home_runs = HR, rbi = RBI, ops = OPS, stolen_bases = SB, defense = Fielding, games_played = G,
-    WAR = ValueW
-  ) %>%
-  collect(n = Inf) %>%
-  inner_join(player_info, by = "playerid") %>%
-  dplyr::select(playerid, player_name, everything())
+dbFetch(player_info_query) %>%
+  as_tibble() %>%
+  unite(player_name, FirstName, LastName, sep = " ") %>%
+  mutate(league = factor(League))
+
+dbClearResult(player_info_query)
+
+dbDisconnect(con)
+
+```
+
+```{r}
 
 # compute total games playes in field as well as primary position. the former will be used to
 # identify DH's
