@@ -113,14 +113,14 @@ master_df <-
   group_by(Season, League) %>%
   
   # compute player's season-league ranking in major stats, where a rank of 1 indicates first place/league-leading.
-  mutate(league_ops_rank = min_rank(desc(ops)),
+  mutate(league_ops_rank = min_rank(-ops),
          league_hr_rank = min_rank(-home_runs),
          league_war_rank = min_rank(-WAR),
          league_sb_rank = min_rank(-stolen_bases),
          league_avg_rank = min_rank(-batting_average),
          league_rbi_rank = min_rank(-rbi)) %>%
+  ungroup() %>%
   dplyr::select(playerid, player_name, Season, team, contains("rank"), is_mvp)
-
   
 View(master_df)
 
@@ -148,8 +148,6 @@ fielding_info <- fg_db %>%
   arrange(desc(innings)) %>%
   filter(row_number() == 1) %>%
   dplyr::select(Season, playerid, Position, games_in_field)
-
-
 
 ```
 
