@@ -1,7 +1,6 @@
 ```{r}
 library(tidyverse)
 library(tidymodels)
-library(RMySQL)
 library(lubridate)
 
 
@@ -61,21 +60,71 @@ con <-
 player_info_query <- 
   dbSendQuery(con, "select pi.PlayerId as playerid, pi.FirstName, pi.LastName, sbmp.Season, sbmp.AVG as batting_average, sbmp.PA as plate_appearances,
   sbmp.HR as home_runs, sbmp.RBI as rbi, sbmp.OPS as ops, sbmp.SB as stolen_bases, sbmp.Fielding as defense, sbmp.G as games_played, sbmp.ValueW as WAR,
-  st.W / (st.W + st.L) AS team_PCT, st.League, st.G as team_games
+  st.W / (st.W + st.L) AS team_PCT, st.League, st.G as team_games, st.Division
   from player_info pi 
   inner join stats_batting_master_pfx sbmp on pi.PlayerId = sbmp.PlayerId
   inner join season_team st on sbmp.TeamId = st.TeamId AND sbmp.Season = st.Season
   where pi.Position != \'P\'
   and sbmp.Type = 0")
 
-dbFetch(player_info_query) %>%
+# fetch data, join with list of MVP's, clean up data, and compute ranks
+master_df <-
+  dbFetch(player_info_query) %>%
   as_tibble() %>%
   unite(player_name, FirstName, LastName, sep = " ") %>%
-  mutate(league = factor(League))
+  mutate(League = factor(League)) %>%
+  full_join(read_csv("mlb season awards - MVPs.csv") %>%
+    mutate(
+      player_name = str_replace_all(
+        player_name,
+        c(
+          "Cal Ripken, Jr." = "Cal Ripken",
+          "Ken Griffey, Jr." = "Ken Griffey Jr."
+        )
+      ),
+      player_name = if_else(Season %in% c(1996, 1998) & League == "AL", "Juan Gonzalez",
+        if_else(Season == 1999 & League == "AL", "Ivan Rodriguez",
+          if_else(Season == 2017 & League == "AL", "Jose Altuve",
+            player_name
+          )
+        )
+      ),
+      League = factor(League),
+      is_mvp = 1
+    ), by = c("Season", "player_name", "League")) %>%
+  replace_na(list(is_mvp = 0)) %>%
+  filter(plate_appearances >= 2.93 * (team_games)) %>% # fewest PA/game who won the MVP was Stargell in 1979
+  group_by(Season, League) %>%
+  
+  # compute player's season-league ranking in major stats, where a rank of 1 indicates first place/league-leading.
+  mutate(league_ops_rank = min_rank(-ops),
+         league_hr_rank = min_rank(-home_runs),
+         league_war_rank = min_rank(-WAR),
+         league_sb_rank = min_rank(-stolen_bases),
+         league_avg_rank = min_rank(-batting_average),
+         league_rbi_rank = min_rank(-rbi)) %>%
+  group_by(Season, League, Division) %>%
+  mutate(team_division_rank = min_rank(-team_PCT)) %>%
+  ungroup()
+
+# %>%
+#   dplyr::select(playerid, player_name, Season, team_PCT, contains("_rank"), is_mvp)
+         
+  # 
+  # mutate(ops_dist_from_lead = max(ops) - ops,
+  #        hr_dist_from_lead = max(home_runs) - home_runs,
+  #        rbi_dist_from_lead = max(rbi) - rbi,
+  #        ba_dist_from_lead = max(batting_average) - batting_average,
+  #        sb_dist_from_lead = max(stolen_bases) - stolen_bases,
+  #   #     def_dist_from_lead = max(defense) - defense,
+  #        war_dist_from_lead = max(WAR) - WAR,
+  #        pa_dist_from_lead = max(plate_appearances) - plate_appearances)
 
 dbClearResult(player_info_query)
 
 dbDisconnect(con)
+
+View(master_df)
 
 ```
 
@@ -100,44 +149,7 @@ fielding_info <- fg_db %>%
   filter(row_number() == 1) %>%
   dplyr::select(Season, playerid, Position, games_in_field)
 
-# read in list of MVP's. this is from wikipedia so need to clean up some of the names to match FanGraphs
-# the if_else lines deal with players with accented characters in their names
-# also mark each player as mvp for when we join this DF to the main stats DF later
-mvp_list <- read_csv("mlb season awards - MVP's.csv") %>%
-  mutate(
-    player_name = str_replace_all(
-      player_name,
-      c(
-        "Cal Ripken, Jr." = "Cal Ripken",
-        "Ken Griffey, Jr." = "Ken Griffey Jr."
-      )
-    ),
-    player_name = if_else(Season %in% c(1996, 1998) & League == "AL", "Juan Gonzalez",
-      if_else(Season == 1999 & League == "AL", "Ivan Rodriguez",
-        if_else(Season == 2017 & League == "AL", "Jose Altuve",
-          player_name
-        )
-      )
-    ),
-    League = factor(League),
-    is_mvp = "Yes"
-  )
 
-master_df <- 
-  inner_join(player_stats, team_info, by = c("Season", "teamid")) %>%
-  inner_join(fielding_info, by = c("playerid", "Season")) %>%
-  full_join(mvp_list, by = c("Season", "player_name", "League")) %>%
-  replace_na(list(is_mvp = "No")) %>%
-  filter(plate_appearances >= 2.93 * (team_games)) %>% # fewest PA/game who won the MVP was Stargell in 1979
-  group_by(Season, League) %>%
-  mutate(ops_dist_from_lead = max(ops) - ops,
-         hr_dist_from_lead = max(home_runs) - home_runs,
-         rbi_dist_from_lead = max(rbi) - rbi,
-         ba_dist_from_lead = max(batting_average) - batting_average,
-         sb_dist_from_lead = max(stolen_bases) - stolen_bases,
-    #     def_dist_from_lead = max(defense) - defense,
-         war_dist_from_lead = max(WAR) - WAR,
-         pa_dist_from_lead = max(plate_appearances) - plate_appearances)
 
 ```
 
