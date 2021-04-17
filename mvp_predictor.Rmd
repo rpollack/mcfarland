@@ -118,13 +118,77 @@ master_df <-
          league_war_rank = min_rank(-WAR),
          league_sb_rank = min_rank(-stolen_bases),
          league_avg_rank = min_rank(-batting_average),
-         league_rbi_rank = min_rank(-rbi)) %>%
+         league_rbi_rank = min_rank(-rbi),
+         is_mvp = factor(is_mvp, levels = c("1", "0"))) %>%
   ungroup() %>%
   dplyr::select(playerid, player_name, Season, team, contains("rank"), is_mvp)
   
 View(master_df)
 
 ```
+
+
+```{r}
+
+year_to_predict == year(Sys.Date())
+
+mvp_split <-
+  master_df %>%
+  # train model only on players who have been considered for the HOF
+  filter(Season != year_to_predict) %>%
+  dplyr::select(-playerid, -player_name, -team) %>%
+  initial_split(strata = is_mvp, prop = 0.8)
+
+mvp_train <- training(mvp_split)
+mvp_test <- testing(mvp_split)
+
+# TODO: implement hyperparameter tuning and cross-validation
+
+# hof elections are highly imbalanced, so need to penaliize the model
+# to account for this.
+# To define the appropriate weight, we divide the fraction of the majority class
+# by the fraction of the minority # class to get how many times the former 
+# is larger than the latter.
+# this weight is unused as of now. 
+
+
+logistic_spec <-
+  logistic_reg(penalty = 0.000543, mixture = 1) %>%
+  set_mode("classification") %>%
+  set_engine("glmnet")
+
+log_fit <-
+  logistic_spec %>%
+  fit(is_mvp ~ ., data = mvp_train)
+
+mvp_results <-
+  mvp_test %>%
+  bind_cols(predict(log_fit, new_data = .)) 
+
+au_roc <-
+  hof_results %>%
+  roc_auc(truth = is_mvp, .pred_class) %>%
+  dplyr::select(.estimate) %>%
+  as.numeric() %>%
+  round(3)
+
+# plot the precision-recall curve. 
+hof_results %>%
+  roc_curve(truth = hof, pred_hof) %>%
+  autoplot() +
+  ggtitle("ROC Curve, HOF Model",
+          subtitle = glue("Area under the curve: {au_roc}"))
+
+hof_results %>% 
+  conf_mat(truth = hof, .pred_class)
+
+hof_results %>% 
+  conf_mat(truth = hof, .pred_class) %>%
+  summary() %>%
+  ggplot(aes(.metric, .estimate)) + geom_col() +
+  coord_flip()
+```
+
 
 
 ```{r}
