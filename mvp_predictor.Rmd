@@ -2,6 +2,7 @@
 library(tidyverse)
 library(tidymodels)
 library(lubridate)
+library(vip)
 
 
 
@@ -34,7 +35,6 @@ twilio_number <- Sys.getenv("twilio_number")
 send_message <- function(msg) {
   tw_send_message(from = twilio_number, to = "5123505107", body = msg)
 }
-
 ```
 
 get, clean, mutate, and join data
@@ -57,7 +57,7 @@ con <-
     ssl.ca = "~/Documents/skysql_fangraphs-db.pem"
   )
 
-player_info_query <- 
+player_info_query <-
   dbSendQuery(con, "select pi.PlayerId as playerid, pi.FirstName, pi.LastName, sbmp.Season, sbmp.AVG as batting_average, sbmp.PA as plate_appearances,
   sbmp.HR as home_runs, sbmp.RBI as rbi, sbmp.OPS as ops, sbmp.SB as stolen_bases, sbmp.Fielding as defense, sbmp.G as games_played, sbmp.ValueW as WAR,
   st.TeamId, st.W / (st.W + st.L) AS team_PCT, st.League, st.G as team_games, st.AbbName as team, st.Division
@@ -97,33 +97,33 @@ player_data <-
 dbClearResult(player_info_query)
 
 dbDisconnect(con)
-  
+
 # compute where each team finished in its division for the year
 season_team_ranks <-
   player_data %>%
   distinct(Season, League, Division, TeamId, team, team_PCT) %>%
   group_by(Season, League, Division) %>%
   mutate(team_division_rank = min_rank(-team_PCT))
-    
+
 master_df <-
   inner_join(player_data, season_team_ranks, by = c("Season", "TeamId", "team", "League", "Division", "team_PCT")) %>%
-  
-  #prevent small-sample rate stats from leading the league. 2.93 PA/Game is the fewest any MVP ever had -- Stargell, 1979
-  filter(plate_appearances >= 2.93 * (team_games)) %>% 
+
+  # prevent small-sample rate stats from leading the league. 2.93 PA/Game is the fewest any MVP ever had -- Stargell, 1979
+  filter(plate_appearances >= 2.93 * (team_games)) %>%
   group_by(Season, League) %>%
-  
+
   # compute player's season-league ranking in major stats, where a rank of 1 indicates first place/league-leading.
-  mutate(league_ops_rank = min_rank(-ops),
-         league_hr_rank = min_rank(-home_runs),
-         league_war_rank = min_rank(-WAR),
-         league_sb_rank = min_rank(-stolen_bases),
-         league_avg_rank = min_rank(-batting_average),
-         league_rbi_rank = min_rank(-rbi),
-         is_mvp = factor(is_mvp, levels = c("1", "0"))) %>%
+  mutate(
+    league_ops_rank = min_rank(-ops),
+    league_hr_rank = min_rank(-home_runs),
+    league_war_rank = min_rank(-WAR),
+    league_sb_rank = min_rank(-stolen_bases),
+    league_avg_rank = min_rank(-batting_average),
+    league_rbi_rank = min_rank(-rbi),
+    is_mvp = factor(is_mvp, levels = c("1", "0"))
+  ) %>%
   ungroup() %>%
-  dplyr::select(playerid, player_name, Season, team, contains("rank"), is_mvp)
-  
-View(master_df)
+  dplyr::select(playerid, player_name, Season, League, team, contains("rank"), is_mvp)
 
 ```
 
@@ -136,57 +136,111 @@ mvp_split <-
   master_df %>%
   # train model only on players who have been considered for the HOF
   filter(Season != year_to_predict) %>%
-  dplyr::select(-playerid, -player_name, -team) %>%
+  dplyr::select(-playerid, -player_name, -team, -League) %>%
   initial_split(strata = is_mvp, prop = 0.8)
 
 mvp_train <- training(mvp_split)
 mvp_test <- testing(mvp_split)
 
-# TODO: implement hyperparameter tuning and cross-validation
-
-# hof elections are highly imbalanced, so need to penaliize the model
-# to account for this.
-# To define the appropriate weight, we divide the fraction of the majority class
-# by the fraction of the minority # class to get how many times the former 
-# is larger than the latter.
-# this weight is unused as of now. 
+# adapted from https://juliasilge.com/blog/tidymodels-ml-course/
 
 
-logistic_spec <-
-  logistic_reg(penalty = 0.000543, mixture = 1) %>%
-  set_mode("classification") %>%
-  set_engine("glmnet")
+xgb_spec <-
+  boost_tree(
+    trees = 500,
+    tree_depth = tune(), min_n = tune(),
+    loss_reduction = tune(), ## first three: model complexity
+    sample_size = tune(), mtry = tune(), ## randomness
+    learn_rate = tune(), ## step size
+  ) %>%
+  set_engine("xgboost") %>%
+  set_mode("classification")
 
-log_fit <-
-  logistic_spec %>%
-  fit(is_mvp ~ ., data = mvp_train)
+xgb_grid <- grid_latin_hypercube(
+  tree_depth(),
+  min_n(),
+  loss_reduction(),
+  sample_size = sample_prop(),
+  finalize(mtry(), mvp_train),
+  learn_rate(),
+  size = 10
+)
 
-mvp_results <-
-  mvp_test %>%
-  bind_cols(predict(log_fit, new_data = .)) 
+xgb_wf <- workflow() %>%
+  add_formula(is_mvp ~ .) %>%
+  add_model(xgb_spec)
 
-au_roc <-
-  hof_results %>%
-  roc_auc(truth = is_mvp, .pred_class) %>%
-  dplyr::select(.estimate) %>%
-  as.numeric() %>%
-  round(3)
+xgb_wf
 
-# plot the precision-recall curve. 
-hof_results %>%
-  roc_curve(truth = hof, pred_hof) %>%
-  autoplot() +
-  ggtitle("ROC Curve, HOF Model",
-          subtitle = glue("Area under the curve: {au_roc}"))
+mvp_folds <- vfold_cv(mvp_train, strata = is_mvp)
 
-hof_results %>% 
-  conf_mat(truth = hof, .pred_class)
+doParallel::registerDoParallel()
 
-hof_results %>% 
-  conf_mat(truth = hof, .pred_class) %>%
-  summary() %>%
-  ggplot(aes(.metric, .estimate)) + geom_col() +
-  coord_flip()
+xgb_res <- tune_grid(
+  xgb_wf,
+  resamples = mvp_folds,
+  grid = xgb_grid,
+  control = control_grid(save_pred = TRUE)
+)
+
+xgb_res %>%
+  collect_metrics() %>%
+  filter(.metric == "roc_auc") %>%
+  dplyr::select(mean, mtry:sample_size) %>%
+  pivot_longer(mtry:sample_size,
+    values_to = "value",
+    names_to = "parameter"
+  ) %>%
+  ggplot(aes(value, mean, color = parameter)) +
+  geom_point(alpha = 0.8, show.legend = FALSE) +
+  facet_wrap(~parameter, scales = "free_x") +
+  labs(x = NULL, y = "AUC")
+
+best_auc <- select_best(xgb_res, "roc_auc")
+
+
+final_xgb <- finalize_workflow(
+  xgb_wf,
+  best_auc
+)
+
+# importance plot
+final_xgb %>%
+  fit(data = mvp_train) %>%
+  pull_workflow_fit() %>%
+  vip(geom = "point")
+
+final_res <- last_fit(final_xgb, mvp_split)
+
+collect_metrics(final_res)
+
+final_res %>%
+  collect_predictions() %>%
+  mutate(pred_mvp = if_else(.pred_class == 0, 0, 1)) %>%
+  roc_curve(is_mvp, pred_mvp) %>%
+  ggplot(aes(x = 1 - specificity, y = sensitivity)) +
+  geom_line(size = 1.5, color = "midnightblue") +
+  geom_abline(
+    lty = 2, alpha = 0.5,
+    color = "gray50",
+    size = 1.2
+  )
+
+# fit the final model and predict this year's MVP's
+mdl <-
+  final_xgb %>%
+  fit(data = mvp_train)
+
+master_df %>%
+  filter(Season == current_year) %>%
+  bind_cols(predict(mdl, new_data = ., type = "prob")) %>%
+  mutate(prob_mvp = 100 * .pred_1) %>%
+  group_by(League) %>%
+  slice_max(n = 10, order_by = prob_mvp) %>%
+  ggplot(aes(reorder(player_name, prob_mvp), prob_mvp)) + geom_col() + coord_flip() +
+  facet_wrap(vars(League), scales = "free_y")
+
+# at this point can I just use predict() on the 2021 data??
 ```
 
 
@@ -212,7 +266,6 @@ fielding_info <- fg_db %>%
   arrange(desc(innings)) %>%
   filter(row_number() == 1) %>%
   dplyr::select(Season, playerid, Position, games_in_field)
-
 ```
 
 ```{r, message=FALSE, echo=FALSE}
@@ -224,7 +277,7 @@ filtered_data <-
   filter(Season != year_to_predict) %>%
   dplyr::select(Season, League, player_name, team_PCT, contains("dist_from_lead"), is_mvp)
 
-# create data partition of 25% of the dataset. 
+# create data partition of 25% of the dataset.
 test_partition <- createDataPartition(filtered_data$is_mvp, p = 0.25)
 
 # use 75% of the data for model training
@@ -263,8 +316,8 @@ mvp_predictor <- train(is_mvp ~ .,
   method = "xgbTree",
   trControl = control_parameters,
   tuneGrid = parameter_grid,
-  metric="AUC"
-  )
+  metric = "AUC"
+)
 
 send_message("MVP predictor model is finished training!")
 
@@ -289,7 +342,7 @@ mvp_model_test <-
   ) %>%
   dplyr::select(player_name, Season, League, is_mvp, pred_mvp, No, Yes, everything())
 
-# then do confusion matrix 
+# then do confusion matrix
 confusionMatrix(mvp_model_test$is_mvp,
   mvp_model_test$pred_mvp,
   mode = "everything"
@@ -314,7 +367,8 @@ y <- as.data.frame(mvp_pr_curve$curve)
 
 ggplot(y, aes(y$V1, y$V2)) +
   geom_path(color = "#8e001c") +
-  ylim(0, 1) + fgt +
+  ylim(0, 1) +
+  fgt +
   labs(x = "Recall", y = "Precision", caption = sprintf("Area Under Precision-Recall Curve: %s", round(mvp_pr_curve$auc.integral, 3))) +
   ggtitle("Precision vs. Recall for MVP Predictor Model")
 
@@ -339,8 +393,12 @@ mvp_predictions <-
 mvp_predictions %>%
   group_by(League) %>%
   filter(row_number() <= 10) %>%
-  ggplot(aes(reorder(player_name, prob_mvp), prob_mvp)) + geom_col(fill = "#8e001c") + coord_flip() +
-  facet_wrap(~League, scales = "free_y") + fgt + labs(x = "", y = "Probability of Season Winning the MVP (%)") +
+  ggplot(aes(reorder(player_name, prob_mvp), prob_mvp)) +
+  geom_col(fill = "#8e001c") +
+  coord_flip() +
+  facet_wrap(~League, scales = "free_y") +
+  fgt +
+  labs(x = "", y = "Probability of Season Winning the MVP (%)") +
   ggtitle(sprintf("%s Player-Seasons with the Highest MVP Probabilities", year_to_predict))
 
 # these probabilities don't sum to 1 because they're framed as being focused on individual players. the question I'm answering here is not "who will win the MVP?" but "if a player had a season like this, what's the probability that player will win the MVP?"
@@ -381,8 +439,12 @@ bind_cols(
       "war_rank_league" = "WAR Rank"
     )
   )) %>%
-  ggplot(aes(reorder(value, Overall), Overall)) + geom_col(fill = "#8e001c") + coord_flip() + fgt +
-  labs(x = "", y = "Relative Importance") + ggtitle(sprintf("What Factors are Important in MVP Voting? (%s - %s)", data_min, data_max))
+  ggplot(aes(reorder(value, Overall), Overall)) +
+  geom_col(fill = "#8e001c") +
+  coord_flip() +
+  fgt +
+  labs(x = "", y = "Relative Importance") +
+  ggtitle(sprintf("What Factors are Important in MVP Voting? (%s - %s)", data_min, data_max))
 
 # top 10 contenders in each league
 ```
