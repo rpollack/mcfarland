@@ -147,7 +147,7 @@ mvp_test <- testing(mvp_split)
 
 xgb_spec <-
   boost_tree(
-    trees = 500,
+    trees = 300,
     tree_depth = tune(), min_n = tune(),
     loss_reduction = tune(), ## first three: model complexity
     sample_size = tune(), mtry = tune(), ## randomness
@@ -160,8 +160,8 @@ xgb_grid <- grid_latin_hypercube(
   tree_depth(),
   min_n(),
   loss_reduction(),
-  sample_size = sample_prop(),
-  finalize(mtry(), mvp_train),
+ sample_size = sample_prop(),
+finalize(mtry(), mvp_train),
   learn_rate(),
   size = 10
 )
