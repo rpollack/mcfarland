@@ -193,8 +193,8 @@ mvp_split <-
   master_df %>%
   # train model only on players who have been considered for the HOF
   filter(Season != year_to_predict) %>%
-  dplyr::select(-playerid, -player_name, -team, -League) %>%
-  initial_split(strata = is_mvp, prop = 0.8)
+  dplyr::select(-playerid, -player_name, -team, -League, -Season) %>%
+  initial_split(strata = mvp_points)
 
 mvp_train <- training(mvp_split)
 mvp_test <- testing(mvp_split)
@@ -211,7 +211,7 @@ xgb_spec <-
     learn_rate = tune(), ## step size
   ) %>%
   set_engine("xgboost") %>%
-  set_mode("classification")
+  set_mode("regression")
 
 xgb_grid <- grid_latin_hypercube(
   tree_depth(),
@@ -224,12 +224,12 @@ xgb_grid <- grid_latin_hypercube(
 )
 
 xgb_wf <- workflow() %>%
-  add_formula(is_mvp ~ .) %>%
+  add_formula(mvp_points ~ .) %>%
   add_model(xgb_spec)
 
 xgb_wf
 
-mvp_folds <- vfold_cv(mvp_train, strata = is_mvp)
+mvp_folds <- vfold_cv(mvp_train, strata = mvp_points)
 
 doParallel::registerDoParallel()
 
@@ -242,7 +242,7 @@ xgb_res <- tune_grid(
 
 xgb_res %>%
   collect_metrics() %>%
-  filter(.metric == "roc_auc") %>%
+  filter(.metric == "rmse") %>%
   dplyr::select(mean, mtry:sample_size) %>%
   pivot_longer(mtry:sample_size,
     values_to = "value",
@@ -251,9 +251,9 @@ xgb_res %>%
   ggplot(aes(value, mean, color = parameter)) +
   geom_point(alpha = 0.8, show.legend = FALSE) +
   facet_wrap(~parameter, scales = "free_x") +
-  labs(x = NULL, y = "AUC")
+  labs(x = NULL, y = "RMSE")
 
-best_auc <- select_best(xgb_res, "roc_auc")
+best_auc <- select_best(xgb_res, "rmse")
 
 
 final_xgb <- finalize_workflow(
@@ -271,33 +271,36 @@ final_res <- last_fit(final_xgb, mvp_split)
 
 collect_metrics(final_res)
 
-final_res %>%
-  collect_predictions() %>%
-  mutate(pred_mvp = if_else(.pred_class == 0, 0, 1)) %>%
-  roc_curve(is_mvp, pred_mvp) %>%
-  ggplot(aes(x = 1 - specificity, y = sensitivity)) +
-  geom_line(size = 1.5, color = "midnightblue") +
-  geom_abline(
-    lty = 2, alpha = 0.5,
-    color = "gray50",
-    size = 1.2
-  )
+# final_res %>%
+#   collect_predictions() %>%
+#   mutate(pred_mvp = if_else(.pred_class == 0, 0, 1)) %>%
+#   roc_curve(is_mvp, pred_mvp) %>%
+#   ggplot(aes(x = 1 - specificity, y = sensitivity)) +
+#   geom_line(size = 1.5, color = "midnightblue") +
+#   geom_abline(
+#     lty = 2, alpha = 0.5,
+#     color = "gray50",
+#     size = 1.2
+#   )
 
 # fit the final model and predict this year's MVP's
 mdl <-
   final_xgb %>%
   fit(data = mvp_train)
 
+glue("Model RMSE: {final_res %>% collect_metrics() %>% filter(.metric == \"rmse\") %>%
+     select(.estimate) %>% as.numeric() %>% round(1)} points")
+
 master_df %>%
   filter(Season == current_year) %>%
-  bind_cols(predict(mdl, new_data = ., type = "prob")) %>%
-  mutate(prob_mvp = 100 * .pred_1) %>%
+  bind_cols(predict(mdl, new_data = .)) %>%
   group_by(League) %>%
-  slice_max(n = 10, order_by = prob_mvp) %>%
-  ggplot(aes(reorder(player_name, prob_mvp), prob_mvp)) +
+  slice_max(n = 10, order_by = .pred) %>%
+  ggplot(aes(reorder(player_name, .pred), .pred)) +
   geom_col() +
   coord_flip() +
-  facet_wrap(vars(League), scales = "free_y")
+  facet_wrap(vars(League), scales = "free_y") +
+  labs(x="", y ="Predicted MVP Points")
 
 # at this point can I just use predict() on the 2021 data??
 ```
