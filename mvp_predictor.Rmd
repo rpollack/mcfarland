@@ -145,7 +145,11 @@ season_team_ranks <-
 # TODO: variableize the sequence of years to 21 years before this one, and 1 before this one
 mvp_voting_data <-
   seq(2000, 2020) %>%
-  map_df(get_mvp_voting)
+  map_df(get_mvp_voting) %>%
+  mutate(player_name = str_replace(player_name, "é", "e"))
+# TODO: non-pitcher names to handle: AJ Pollock, Carlos Ruiz, Dee Strange-Gordon 
+# TODO handle pitchers in MVP dataset but not in master_df
+
 
 master_df <-
   inner_join(player_data, season_team_ranks, by = c("Season", "TeamId", "team", "League", "Division", "team_PCT")) %>%
@@ -163,10 +167,10 @@ master_df <-
     is_mvp = factor(is_mvp, levels = c("1", "0"))
   ) %>%
   ungroup() %>%
-  full_join(mvp_voting_data) %>% 
-  filter(Season >= 2000) %>% 
+  full_join(mvp_voting_data) %>%
+  filter(Season >= 2000) %>%
   replace_na(list(mvp_points = 0)) %>%
-  dplyr::select(playerid, player_name, Season, League, team, contains("rank"), contains("mvp"))
+  dplyr::select(playerid, player_name, Season, League, team, contains("rank"), mvp_points)
 
 ```
 
@@ -175,9 +179,9 @@ do some exploratory data analysis.
 
 ```{r}
 master_df %>%
-  ggplot(aes(league_war_rank, mvp_points)) +
+  ggplot(aes(league_war_rank, mvp_points, color = Season)) +
   geom_point() +
-  facet_wrap(vars(Season, League))
+  facet_wrap(vars(League))
 ```
 
 
