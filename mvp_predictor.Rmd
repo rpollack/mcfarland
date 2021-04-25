@@ -21,12 +21,6 @@ fgt <- theme(
   strip.text = element_text(family = "Lato")
 )
 
-fg_db <- dplyr::src_mysql(
-  dbname = Sys.getenv("FG_DB"),
-  host = Sys.getenv("FG_HOST"),
-  user = Sys.getenv("FG_USER"),
-  password = Sys.getenv("FG_PW")
-)
 
 TWILIO_SID <- Sys.getenv("TWILIO_SID")
 TWILIO_TOKEN <- Sys.getenv("TWILIO_TOKEN")
@@ -35,7 +29,49 @@ twilio_number <- Sys.getenv("twilio_number")
 send_message <- function(msg) {
   tw_send_message(from = twilio_number, to = "5123505107", body = msg)
 }
+
+
+get_league_voting <- function(df, league, year) {
+  # this function takes a tibble of data, scraped from bref, and formats
+  # the data according to the league and year being requested
+  df %>%
+    select(player_name = 2, mvp_points = 4) %>%
+    filter(row_number() != 1) %>%
+    mutate(
+      League = league,
+      Season = year,
+      mvp_points = as.numeric(mvp_points)
+    )
+}
+
+get_mvp_voting <- function(year) {
+  # scrapes baseball reference MVP voting data for the year in question
+  # and creates AL and NL voting dataframes with the necessary information
+  url <- glue("https://www.baseball-reference.com/awards/awards_{year}.shtml")
+
+  x <-
+    url %>%
+    read_html() %>%
+    html_elements("table") %>%
+    html_table()
+
+  al_voting <-
+    x %>%
+    pluck(1) %>%
+    get_league_voting("AL", year)
+
+  nl_voting <-
+    x %>%
+    pluck(2) %>%
+    get_league_voting("NL", year)
+  
+  bind_rows(al_voting, nl_voting)
+}
+
+
+
 ```
+
 
 get, clean, mutate, and join data
 
@@ -61,7 +97,7 @@ player_info_query <-
   dbSendQuery(con, "select pi.PlayerId as playerid, pi.FirstName, pi.LastName, sbmp.Season, sbmp.AVG as batting_average, sbmp.PA as plate_appearances,
   sbmp.HR as home_runs, sbmp.RBI as rbi, sbmp.OPS as ops, sbmp.SB as stolen_bases, sbmp.Fielding as defense, sbmp.G as games_played, sbmp.ValueW as WAR,
   st.TeamId, st.W / (st.W + st.L) AS team_PCT, st.League, st.G as team_games, st.AbbName as team, st.Division
-  from player_info pi 
+  from player_info pi
   inner join stats_batting_master_pfx sbmp on pi.PlayerId = sbmp.PlayerId
   inner join season_team st on sbmp.TeamId = st.TeamId AND sbmp.Season = st.Season
   where pi.Position != \'P\'
@@ -105,13 +141,17 @@ season_team_ranks <-
   group_by(Season, League, Division) %>%
   mutate(team_division_rank = min_rank(-team_PCT))
 
+# get MVP voting data (mvp points player accrued in a year)
+# TODO: variableize the sequence of years to 21 years before this one, and 1 before this one
+mvp_voting_data <-
+  seq(2000, 2020) %>%
+  map_df(get_mvp_voting)
+
 master_df <-
   inner_join(player_data, season_team_ranks, by = c("Season", "TeamId", "team", "League", "Division", "team_PCT")) %>%
-
   # prevent small-sample rate stats from leading the league. 2.93 PA/Game is the fewest any MVP ever had -- Stargell, 1979
   filter(plate_appearances >= 2.93 * (team_games)) %>%
   group_by(Season, League) %>%
-
   # compute player's season-league ranking in major stats, where a rank of 1 indicates first place/league-leading.
   mutate(
     league_ops_rank = min_rank(-ops),
@@ -123,8 +163,21 @@ master_df <-
     is_mvp = factor(is_mvp, levels = c("1", "0"))
   ) %>%
   ungroup() %>%
-  dplyr::select(playerid, player_name, Season, League, team, contains("rank"), is_mvp)
+  full_join(mvp_voting_data) %>% 
+  filter(Season >= 2000) %>% 
+  replace_na(list(mvp_points = 0)) %>%
+  dplyr::select(playerid, player_name, Season, League, team, contains("rank"), contains("mvp"))
 
+```
+
+
+do some exploratory data analysis. 
+
+```{r}
+master_df %>%
+  ggplot(aes(league_war_rank, mvp_points)) +
+  geom_point() +
+  facet_wrap(vars(Season, League))
 ```
 
 
@@ -160,8 +213,8 @@ xgb_grid <- grid_latin_hypercube(
   tree_depth(),
   min_n(),
   loss_reduction(),
- sample_size = sample_prop(),
-finalize(mtry(), mvp_train),
+  sample_size = sample_prop(),
+  finalize(mtry(), mvp_train),
   learn_rate(),
   size = 10
 )
@@ -237,7 +290,9 @@ master_df %>%
   mutate(prob_mvp = 100 * .pred_1) %>%
   group_by(League) %>%
   slice_max(n = 10, order_by = prob_mvp) %>%
-  ggplot(aes(reorder(player_name, prob_mvp), prob_mvp)) + geom_col() + coord_flip() +
+  ggplot(aes(reorder(player_name, prob_mvp), prob_mvp)) +
+  geom_col() +
+  coord_flip() +
   facet_wrap(vars(League), scales = "free_y")
 
 # at this point can I just use predict() on the 2021 data??
@@ -325,7 +380,8 @@ send_message("MVP predictor model is finished training!")
 
 mvp_model_test <-
   test_df %>%
-  dplyr::select(-Season, -player_name) %>% # remove variables not used in model
+  dplyr::select(-Season, -player_name) %>%
+  # remove variables not used in model
   predict.train(mvp_predictor, newdata = ., type = "prob") %>%
   bind_cols(test_df) %>%
   group_by(Season, League) %>%
@@ -334,7 +390,6 @@ mvp_model_test <-
     is_mvp = factor(is_mvp, levels = c("Yes", "No")),
     pred_mvp = factor(pred_mvp, levels = c("Yes", "No"))
   ) %>%
-
   # filter out seasons with pitcher MVP's, since my model doesn't know about them
   filter(
     Season != 2011 | League != "AL",
@@ -415,7 +470,8 @@ bind_cols(
   varImp(mvp_predictor)$importance %>%
     as_tibble()
 ) %>%
-  filter(value != "PositionP") %>% # spurious data %>%
+  filter(value != "PositionP") %>%
+  # spurious data %>%
   mutate(value = str_replace_all(
     value,
     c(
