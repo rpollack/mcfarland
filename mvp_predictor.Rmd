@@ -307,27 +307,3 @@ master_df %>%
 ```
 
 
-
-```{r}
-
-# compute total games playes in field as well as primary position. the former will be used to
-# identify DH's
-fielding_info <- fg_db %>%
-  tbl("stats_fielding") %>%
-  filter(
-    Season >= data_min,
-    Season <= year_to_predict,
-    Position != "OF", # omit these rows; they're totals of distinct LF/CF/RF playing time
-    Position != "P",
-    Type == 0
-  ) %>%
-  dplyr::select(Season, playerid = PlayerId, Position, innings = Inn, G) %>%
-  collect(n = Inf) %>%
-  group_by(Season, playerid) %>%
-  mutate(games_in_field = sum(G)) %>%
-  arrange(desc(innings)) %>%
-  filter(row_number() == 1) %>%
-  dplyr::select(Season, playerid, Position, games_in_field)
-```
-
-
