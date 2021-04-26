@@ -163,8 +163,7 @@ master_df <-
     league_war_rank = min_rank(-WAR),
     league_sb_rank = min_rank(-stolen_bases),
     league_avg_rank = min_rank(-batting_average),
-    league_rbi_rank = min_rank(-rbi),
-    is_mvp = factor(is_mvp, levels = c("1", "0"))
+    league_rbi_rank = min_rank(-rbi)
   ) %>%
   ungroup() %>%
   full_join(mvp_voting_data) %>%
@@ -189,9 +188,10 @@ master_df %>%
 
 year_to_predict == year(Sys.Date())
 
+# split model into training and testing sets. in doing this, use only data from years past,
+# not from the year we're trying to predict.
 mvp_split <-
   master_df %>%
-  # train model only on players who have been considered for the HOF
   filter(Season != year_to_predict) %>%
   dplyr::select(-playerid, -player_name, -team, -League, -Season) %>%
   initial_split(strata = mvp_points)
@@ -310,7 +310,6 @@ master_df %>%
 
 ```{r}
 
-
 # compute total games playes in field as well as primary position. the former will be used to
 # identify DH's
 fielding_info <- fg_db %>%
@@ -332,20 +331,3 @@ fielding_info <- fg_db %>%
 ```
 
 
-
-for informational purposes, show the kind of data the model is trained on
-
-```{r}
-
-master_df %>%
-  filter(Season != year_to_predict) %>%
-  mutate(team_PCT = round(team_PCT, 3)) %>%
-  dplyr::select(
-    Player = player_name, League, Season, Position, `Team Winning Percentage` = team_PCT,
-    `RBI Rank` = rbi_rank_league, `OPS Rank` = ops_rank_league, `SB Rank` = sb_rank_league,
-    `AVG Rank` = avg_rank_league, `HR Rank` = hr_rank_league, `WAR Rank` = war_rank_league,
-    `DEF Rank` = defense_rank_league
-  ) %>%
-  sample_n(5) %>%
-  write_csv("mvp_predictor_informational.csv")
-```
