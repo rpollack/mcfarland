@@ -201,7 +201,6 @@ mvp_test <- testing(mvp_split)
 
 # adapted from https://juliasilge.com/blog/tidymodels-ml-course/
 
-
 xgb_spec <-
   boost_tree(
     trees = 300,
@@ -227,12 +226,11 @@ xgb_wf <- workflow() %>%
   add_formula(mvp_points ~ .) %>%
   add_model(xgb_spec)
 
-xgb_wf
-
 mvp_folds <- vfold_cv(mvp_train, strata = mvp_points)
 
 doParallel::registerDoParallel()
 
+# find the optimal values of tuning parameters usiing 10-fold cross validation
 xgb_res <- tune_grid(
   xgb_wf,
   resamples = mvp_folds,
@@ -240,6 +238,7 @@ xgb_res <- tune_grid(
   control = control_grid(save_pred = TRUE)
 )
 
+# show how each parameter affects the RMSE
 xgb_res %>%
   collect_metrics() %>%
   filter(.metric == "rmse") %>%
@@ -253,15 +252,14 @@ xgb_res %>%
   facet_wrap(~parameter, scales = "free_x") +
   labs(x = NULL, y = "RMSE")
 
-best_auc <- select_best(xgb_res, "rmse")
-
+best_rmse <- select_best(xgb_res, "rmse")
 
 final_xgb <- finalize_workflow(
   xgb_wf,
-  best_auc
+  best_rmse
 )
 
-# importance plot
+# show the important of each variable
 final_xgb %>%
   fit(data = mvp_train) %>%
   pull_workflow_fit() %>%
@@ -284,16 +282,19 @@ collect_metrics(final_res)
 #   )
 
 # fit the final model and predict this year's MVP's
-mdl <-
+
+# evaluate the model on the test set
+mvp_mdl <-
   final_xgb %>%
   fit(data = mvp_train)
 
 glue("Model RMSE: {final_res %>% collect_metrics() %>% filter(.metric == \"rmse\") %>%
      select(.estimate) %>% as.numeric() %>% round(1)} points")
 
+# fit the final model and predict MVP's
 master_df %>%
   filter(Season == current_year) %>%
-  bind_cols(predict(mdl, new_data = .)) %>%
+  bind_cols(predict(mvp_mdl, new_data = .)) %>%
   group_by(League) %>%
   slice_max(n = 10, order_by = .pred) %>%
   ggplot(aes(reorder(player_name, .pred), .pred)) +
