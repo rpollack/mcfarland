@@ -265,8 +265,8 @@ final_xgb %>%
   pull_workflow_fit() %>%
   vip(geom = "point")
 
+# fit model to training set and evaluate on test set. 
 final_res <- last_fit(final_xgb, mvp_split)
-
 collect_metrics(final_res)
 
 # final_res %>%
@@ -284,17 +284,21 @@ collect_metrics(final_res)
 # fit the final model and predict this year's MVP's
 
 # evaluate the model on the test set
-mvp_mdl <-
-  final_xgb %>%
-  fit(data = mvp_train)
+
 
 glue("Model RMSE: {final_res %>% collect_metrics() %>% filter(.metric == \"rmse\") %>%
      select(.estimate) %>% as.numeric() %>% round(1)} points")
 
-# fit the final model and predict MVP's
-master_df %>%
+mvp_mdl <- final_res$.workflow[[1]]
+
+# predict MVP's
+mvp_predictions <-
+  master_df %>%
   filter(Season == current_year) %>%
-  bind_cols(predict(mvp_mdl, new_data = .)) %>%
+  bind_cols(predict(mvp_mdl, new_data = .))
+
+
+mvp_predictions %>%
   group_by(League) %>%
   slice_max(n = 10, order_by = .pred) %>%
   ggplot(aes(reorder(player_name, .pred), .pred)) +
@@ -302,6 +306,8 @@ master_df %>%
   coord_flip() +
   facet_wrap(vars(League), scales = "free_y") +
   labs(x="", y ="Predicted MVP Points")
+
+
 
 # at this point can I just use predict() on the 2021 data??
 ```
