@@ -3,6 +3,7 @@ library(tidyverse)
 library(tidymodels)
 library(lubridate)
 library(vip)
+library(themis)
 
 
 
@@ -108,27 +109,7 @@ player_data <-
   dbFetch(player_info_query) %>%
   as_tibble() %>%
   unite(player_name, FirstName, LastName, sep = " ") %>%
-  mutate(League = factor(League)) %>%
-  full_join(read_csv("mlb season awards - MVPs.csv") %>%
-    mutate(
-      player_name = str_replace_all(
-        player_name,
-        c(
-          "Cal Ripken, Jr." = "Cal Ripken",
-          "Ken Griffey, Jr." = "Ken Griffey Jr."
-        )
-      ),
-      player_name = if_else(Season %in% c(1996, 1998) & League == "AL", "Juan Gonzalez",
-        if_else(Season == 1999 & League == "AL", "Ivan Rodriguez",
-          if_else(Season == 2017 & League == "AL", "Jose Altuve",
-            player_name
-          )
-        )
-      ),
-      League = factor(League),
-      is_mvp = 1
-    ), by = c("Season", "player_name", "League")) %>%
-  replace_na(list(is_mvp = 0))
+  mutate(League = factor(League))
 
 dbClearResult(player_info_query)
 
@@ -193,7 +174,7 @@ year_to_predict == year(Sys.Date())
 mvp_split <-
   master_df %>%
   filter(Season != year_to_predict) %>%
-  dplyr::select(-playerid, -player_name, -team, -League, -Season) %>%
+  dplyr::select(-playerid, -player_name, -am, -League, -Season) %>%
   initial_split(strata = mvp_points)
 
 mvp_train <- training(mvp_split)
