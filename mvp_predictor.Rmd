@@ -150,8 +150,7 @@ master_df <-
   ungroup() %>%
   full_join(mvp_voting_data) %>%
   replace_na(list(mvp_points = 0)) %>%
-  
-
+  filter(!is.na(playerid)) %>% # remove pitchers who received MVP votes from dataset. 
   #filter(plate_appearances >= 2.93 * (team_games)) %>%
   dplyr::select(playerid, player_name, Season, League, team, contains("rank"), mvp_points)
 
