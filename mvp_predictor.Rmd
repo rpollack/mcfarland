@@ -80,9 +80,9 @@ get, clean, mutate, and join data
 
 
 
-year_to_predict <- 2020
-data_min <- year_to_predict - 16
-data_max <- year_to_predict - 1
+year_to_predict <- 2021
+year_min <- year_to_predict - 21
+year_max <- year_to_predict - 1
 
 con <-
   DBI::dbConnect(RMariaDB::MariaDB(),
@@ -95,14 +95,15 @@ con <-
   )
 
 player_info_query <-
-  dbSendQuery(con, "select pi.PlayerId as playerid, pi.FirstName, pi.LastName, sbmp.Season, sbmp.AVG as batting_average, sbmp.PA as plate_appearances,
+  dbSendQuery(con, glue("select pi.PlayerId as playerid, pi.FirstName, pi.LastName, sbmp.Season, sbmp.AVG as batting_average, sbmp.PA as plate_appearances,
   sbmp.HR as home_runs, sbmp.RBI as rbi, sbmp.OPS as ops, sbmp.SB as stolen_bases, sbmp.Fielding as defense, sbmp.G as games_played, sbmp.ValueW as WAR,
   st.TeamId, st.W / (st.W + st.L) AS team_PCT, st.League, st.G as team_games, st.AbbName as team, st.Division
   from player_info pi
   inner join stats_batting_master_pfx sbmp on pi.PlayerId = sbmp.PlayerId
   inner join season_team st on sbmp.TeamId = st.TeamId AND sbmp.Season = st.Season
   where pi.Position != \'P\'
-  and sbmp.Type = 0")
+  and sbmp.Type = 0
+  and sbmp.Season >= {year_min}"))
 
 # fetch data, join with list of MVP's, clean up data, and compute ranks
 player_data <-
@@ -125,7 +126,7 @@ season_team_ranks <-
 # get MVP voting data (mvp points player accrued in a year)
 # TODO: variableize the sequence of years to 21 years before this one, and 1 before this one
 mvp_voting_data <-
-  seq(2000, 2020) %>%
+  seq(year_min, year_max) %>%
   map_df(get_mvp_voting) %>%
   mutate(player_name = str_replace(player_name, "é", "e"))
 # TODO: non-pitcher names to handle: AJ Pollock, Carlos Ruiz, Dee Strange-Gordon 
@@ -135,7 +136,7 @@ mvp_voting_data <-
 master_df <-
   inner_join(player_data, season_team_ranks, by = c("Season", "TeamId", "team", "League", "Division", "team_PCT")) %>%
   # prevent small-sample rate stats from leading the league. 2.93 PA/Game is the fewest any MVP ever had -- Stargell, 1979
-  filter(plate_appearances >= 2.93 * (team_games)) %>%
+  
   group_by(Season, League) %>%
   # compute player's season-league ranking in major stats, where a rank of 1 indicates first place/league-leading.
   mutate(
@@ -148,8 +149,10 @@ master_df <-
   ) %>%
   ungroup() %>%
   full_join(mvp_voting_data) %>%
-  filter(Season >= 2000) %>%
   replace_na(list(mvp_points = 0)) %>%
+  
+
+  #filter(plate_appearances >= 2.93 * (team_games)) %>%
   dplyr::select(playerid, player_name, Season, League, team, contains("rank"), mvp_points)
 
 ```
@@ -167,14 +170,13 @@ master_df %>%
 
 ```{r}
 
-year_to_predict == year(Sys.Date())
 
 # split model into training and testing sets. in doing this, use only data from years past,
 # not from the year we're trying to predict.
 mvp_split <-
   master_df %>%
   filter(Season != year_to_predict) %>%
-  dplyr::select(-playerid, -player_name, -am, -League, -Season) %>%
+  dplyr::select(-playerid, -player_name, -team, -League, -Season) %>%
   initial_split(strata = mvp_points)
 
 mvp_train <- training(mvp_split)
