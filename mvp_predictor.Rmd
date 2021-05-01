@@ -304,6 +304,19 @@ analysis %>%
   ggplot(aes(reorder(label, residual), residual)) +
   facet_wrap(vars(League), scales = "free_y") +
   geom_col() + coord_flip() + labs(x="", y="Predicted MVP Points minus Actual MVP Points") +
-  ggtitle("Biggest MVP Snubs, 2000-2020")
+  ggtitle("Biggest MVP Snubs, 2000-2020", subtitle = "Players who did worse than expected in MVP voting (excluding actual MVP's)")
+
+# biggest MVP surprises!
+analysis %>%
+  group_by(Season, League) %>%
+  mutate(player_name = if_else(mvp_points == max(mvp_points), glue("{player_name}*"), player_name)) %>%
+  group_by(League) %>%
+  slice_max(n = 10, order_by = -residual) %>%
+  unite(label, player_name, Season, sep = ", ") %>%
+  ggplot(aes(reorder(label, -residual), residual)) +
+  facet_wrap(vars(League), scales = "free_y") +
+  geom_col() + coord_flip() + labs(x="", y="Predicted MVP Points minus Actual MVP Points",
+                                   caption = "* Won MVP") +
+  ggtitle("Biggest MVP Surprises, 2000-2020", subtitle = "Players who did better than expected in MVP voting (including actual MVP's)")
 ```
 
