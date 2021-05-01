@@ -187,9 +187,10 @@ xgb_spec <-
   boost_tree(
     trees = 300,
     tree_depth = tune(), min_n = tune(),
-    loss_reduction = tune(), ## first three: model complexity
-    sample_size = tune(), mtry = tune(), ## randomness
-    learn_rate = tune(), ## step size
+    loss_reduction = tune(), 
+    sample_size = tune(), mtry = tune(), 
+    learn_rate = tune(), 
+    stop_iter = tune() 
   ) %>%
   set_engine("xgboost") %>%
   set_mode("regression")
@@ -248,32 +249,18 @@ final_xgb %>%
   vip(geom = "point")
 
 # fit model to training set and evaluate on test set. 
-final_res <- last_fit(final_xgb, mvp_split)
-collect_metrics(final_res)
+final_res <- 
+  last_fit(final_xgb, mvp_split)
 
-# final_res %>%
-#   collect_predictions() %>%
-#   mutate(pred_mvp = if_else(.pred_class == 0, 0, 1)) %>%
-#   roc_curve(is_mvp, pred_mvp) %>%
-#   ggplot(aes(x = 1 - specificity, y = sensitivity)) +
-#   geom_line(size = 1.5, color = "midnightblue") +
-#   geom_abline(
-#     lty = 2, alpha = 0.5,
-#     color = "gray50",
-#     size = 1.2
-#   )
+final_metrics <-
+  collect_metrics(final_res)
 
-# fit the final model and predict this year's MVP's
+# show metrics from test set evaluation
+final_metrics
 
-# evaluate the model on the test set
-
-
-glue("Model RMSE: {final_res %>% collect_metrics() %>% filter(.metric == \"rmse\") %>%
-     select(.estimate) %>% as.numeric() %>% round(1)} points")
-
+# extract final model and use it to predict MVP's
 mvp_mdl <- final_res$.workflow[[1]]
 
-# predict MVP's
 mvp_predictions <-
   master_df %>%
   filter(Season == current_year) %>%
@@ -290,8 +277,33 @@ mvp_predictions %>%
   labs(x="", y ="Predicted MVP Points")
 
 
-
-# at this point can I just use predict() on the 2021 data??
 ```
 
+```{r}
+analysis <-
+  master_df %>%
+  filter(Season != current_year) %>%
+  bind_cols(predict(mvp_mdl, new_data = .)) %>%
+  mutate(residual = .pred - mvp_points)
+
+analysis %>%
+  ggplot(aes(mvp_points, .pred)) + geom_point() +
+  geom_smooth(method = "lm")
+
+analysis %>% 
+  ggplot(aes(.pred, residual)) + geom_point() +
+  geom_hline(yintercept = 0, color = "blue")
+
+# find biggest MVP snubs, according to the model
+analysis %>%
+  group_by(Season, League) %>%
+  filter(mvp_points != max(mvp_points)) %>%   #remove actual MVP's
+  group_by(League) %>%
+  slice_max(n = 10, order_by = residual) %>%
+  unite(label, player_name, Season, sep = ", ") %>%
+  ggplot(aes(reorder(label, residual), residual)) +
+  facet_wrap(vars(League), scales = "free_y") +
+  geom_col() + coord_flip() + labs(x="", y="Predicted MVP Points minus Actual MVP Points") +
+  ggtitle("Biggest MVP Snubs, 2000-2020")
+```
 
