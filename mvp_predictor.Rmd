@@ -1,9 +1,12 @@
 ```{r}
 library(tidyverse)
 library(tidymodels)
+library(tidytext)
 library(lubridate)
 library(vip)
+library(glue)
 library(themis)
+library(rvest)
 
 
 
@@ -65,7 +68,7 @@ get_mvp_voting <- function(year) {
     x %>%
     pluck(2) %>%
     get_league_voting("NL", year)
-  
+
   bind_rows(al_voting, nl_voting)
 }
 
@@ -129,14 +132,14 @@ mvp_voting_data <-
   seq(year_min, year_max) %>%
   map_df(get_mvp_voting) %>%
   mutate(player_name = str_replace(player_name, "é", "e"))
-# TODO: non-pitcher names to handle: AJ Pollock, Carlos Ruiz, Dee Strange-Gordon 
+# TODO: non-pitcher names to handle: AJ Pollock, Carlos Ruiz, Dee Strange-Gordon
 # TODO handle pitchers in MVP dataset but not in master_df
 
 
 master_df <-
   inner_join(player_data, season_team_ranks, by = c("Season", "TeamId", "team", "League", "Division", "team_PCT")) %>%
   # prevent small-sample rate stats from leading the league. 2.93 PA/Game is the fewest any MVP ever had -- Stargell, 1979
-  
+
   group_by(Season, League) %>%
   # compute player's season-league ranking in major stats, where a rank of 1 indicates first place/league-leading.
   mutate(
@@ -150,10 +153,10 @@ master_df <-
   ungroup() %>%
   full_join(mvp_voting_data) %>%
   replace_na(list(mvp_points = 0)) %>%
-  filter(!is.na(playerid)) %>% # remove pitchers who received MVP votes from dataset. 
-  #filter(plate_appearances >= 2.93 * (team_games)) %>%
+  filter(!is.na(playerid)) %>%
+  # remove pitchers who received MVP votes from dataset.
+  # filter(plate_appearances >= 2.93 * (team_games)) %>%
   dplyr::select(playerid, player_name, Season, League, team, contains("rank"), mvp_points)
-
 ```
 
 
@@ -187,10 +190,9 @@ xgb_spec <-
   boost_tree(
     trees = 300,
     tree_depth = tune(), min_n = tune(),
-    loss_reduction = tune(), 
-    sample_size = tune(), mtry = tune(), 
-    learn_rate = tune(), 
-    stop_iter = tune() 
+    loss_reduction = tune(),
+    sample_size = tune(), mtry = tune(),
+    learn_rate = tune()
   ) %>%
   set_engine("xgboost") %>%
   set_mode("regression")
@@ -248,8 +250,8 @@ final_xgb %>%
   pull_workflow_fit() %>%
   vip(geom = "point")
 
-# fit model to training set and evaluate on test set. 
-final_res <- 
+# fit model to training set and evaluate on test set.
+final_res <-
   last_fit(final_xgb, mvp_split)
 
 final_metrics <-
@@ -274,9 +276,7 @@ mvp_predictions %>%
   geom_col() +
   coord_flip() +
   facet_wrap(vars(League), scales = "free_y") +
-  labs(x="", y ="Predicted MVP Points")
-
-
+  labs(x = "", y = "Predicted MVP Points")
 ```
 
 ```{r}
@@ -287,23 +287,28 @@ analysis <-
   mutate(residual = .pred - mvp_points)
 
 analysis %>%
-  ggplot(aes(mvp_points, .pred)) + geom_point() +
+  ggplot(aes(mvp_points, .pred)) +
+  geom_point() +
   geom_smooth(method = "lm")
 
-analysis %>% 
-  ggplot(aes(.pred, residual)) + geom_point() +
+analysis %>%
+  ggplot(aes(.pred, residual)) +
+  geom_point() +
   geom_hline(yintercept = 0, color = "blue")
 
 # find biggest MVP snubs, according to the model
 analysis %>%
+  # remove actual MVP's
   group_by(Season, League) %>%
-  filter(mvp_points != max(mvp_points)) %>%   #remove actual MVP's
+  filter(mvp_points != max(mvp_points)) %>%
   group_by(League) %>%
   slice_max(n = 10, order_by = residual) %>%
   unite(label, player_name, Season, sep = ", ") %>%
   ggplot(aes(reorder(label, residual), residual)) +
   facet_wrap(vars(League), scales = "free_y") +
-  geom_col() + coord_flip() + labs(x="", y="Predicted MVP Points minus Actual MVP Points") +
+  geom_col() +
+  coord_flip() +
+  labs(x = "", y = "Predicted MVP Points minus Actual MVP Points") +
   ggtitle("Biggest MVP Snubs, 2000-2020", subtitle = "Players who did worse than expected in MVP voting (excluding actual MVP's)")
 
 # biggest MVP surprises!
@@ -315,8 +320,11 @@ analysis %>%
   unite(label, player_name, Season, sep = ", ") %>%
   ggplot(aes(reorder(label, -residual), residual)) +
   facet_wrap(vars(League), scales = "free_y") +
-  geom_col() + coord_flip() + labs(x="", y="Predicted MVP Points minus Actual MVP Points",
-                                   caption = "* Won MVP") +
+  geom_col() +
+  coord_flip() +
+  labs(
+    x = "", y = "Predicted MVP Points minus Actual MVP Points",
+    caption = "* Won MVP"
+  ) +
   ggtitle("Biggest MVP Surprises, 2000-2020", subtitle = "Players who did better than expected in MVP voting (including actual MVP's)")
 ```
-
