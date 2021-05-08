@@ -207,15 +207,21 @@ xgb_grid <- grid_latin_hypercube(
   size = 50
 )
 
-xgb_wf <- workflow() %>%
-  add_formula(mvp_points ~ .) %>%
-  add_model(xgb_spec)
+xgb_recipe <-
+  recipe(mvp_points ~ ., data = mvp_train) %>%
+  step_normalize(all_predictors())
 
+xgb_wf <- 
+  workflow() %>%
+  #add_formula(mvp_points ~ .) %>%
+  add_model(xgb_spec) %>%
+  add_recipe(xgb_recipe)
+
+# find the optimal values of tuning parameters usiing 10-fold cross validation
 mvp_folds <- vfold_cv(mvp_train, strata = mvp_points)
 
 doParallel::registerDoParallel()
 
-# find the optimal values of tuning parameters usiing 10-fold cross validation
 xgb_res <- tune_grid(
   xgb_wf,
   resamples = mvp_folds,
@@ -265,7 +271,7 @@ mvp_mdl <- final_res$.workflow[[1]]
 
 mvp_predictions <-
   master_df %>%
-  filter(Season == current_year) %>%
+  filter(Season == year_to_predict) %>%
   bind_cols(predict(mvp_mdl, new_data = .))
 
 
