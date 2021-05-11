@@ -39,7 +39,7 @@ get_league_voting <- function(df, league, year) {
   # this function takes a tibble of data, scraped from bref, and formats
   # the data according to the league and year being requested
   df %>%
-    select(player_name = 2, mvp_points = 4) %>%
+   dplyr::select(player_name = 2, mvp_points = 4) %>%
     filter(row_number() != 1) %>%
     mutate(
       League = league,
@@ -208,8 +208,7 @@ xgb_grid <- grid_latin_hypercube(
 )
 
 xgb_recipe <-
-  recipe(mvp_points ~ ., data = mvp_train) %>%
-  step_normalize(all_predictors())
+  recipe(mvp_points ~ ., data = mvp_train)
 
 xgb_wf <- 
   workflow() %>%
