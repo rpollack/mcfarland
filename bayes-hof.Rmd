@@ -235,7 +235,7 @@ war_through_age <-
   dplyr::select(playerid, name, position = Position, last_year, is_scandal, age, cumulative_war, considered_hof, hof) %>%
   
   # force some positions for some inductees. fielding positional data from bb-ref and BB HOF website. need to be more specific for averill as there are 2 guys with his name. really this should be done with player ID's.
-  mutate(hof = factor(hof, levels = c("elected", "not_elected")),
+  mutate(
          position = case_when(
            name %in% c("Ty Cobb", "Earle Combs", "Edd Roush", "Hack Wilson", "Joe DiMaggio", "Lloyd Waner",
                        "Max Carey", "Tris Speaker", "Joe Jackson") | (name == "Earl Averill" & position == "OF") ~ "CF",
@@ -281,57 +281,59 @@ hof_split <-
   # train model only on players who have been considered for the HOF
   filter(considered_hof) %>%
   dplyr::select(-playerid, -name, -considered_hof, -last_year) %>%
-  initial_split(strata = hof, prop = 0.8)
+  initial_split(strata = hof)
 
 hof_train <- training(hof_split)
 hof_test <- testing(hof_split)
 
-# TODO: implement hyperparameter tuning and cross-validation
-
-# hof elections are highly imbalanced, so need to penaliize the model
-# to account for this.
-# To define the appropriate weight, we divide the fraction of the majority class
-# by the fraction of the minority # class to get how many times the former 
-# is larger than the latter.
-# this weight is unused as of now. 
-
-
 logistic_spec <-
-  logistic_reg(penalty = 0.000543, mixture = 1) %>%
+  logistic_reg(penalty = tune(), 
+               mixture = tune()) %>%
   set_mode("classification") %>%
   set_engine("glmnet")
 
-log_fit <-
-  logistic_spec %>%
-  fit(hof ~ ., data = hof_train)
 
-hof_results <-
-  hof_test %>%
-  bind_cols(predict(log_fit, new_data = .)) %>%
-  mutate(pred_hof = if_else(.pred_class == "elected", 1, 0))
+log_recipe <-
+  recipe(hof ~ ., data = hof_train) %>%
+  themis::step_upsample(hof)
 
-au_roc <-
-  hof_results %>%
-  roc_auc(truth = hof, pred_hof) %>%
-  dplyr::select(.estimate) %>%
-  as.numeric() %>%
-  round(3)
+logistic_grid <-
+  grid_latin_hypercube(
+    penalty(),
+    mixture(),
+    size = 10
+  )
 
-# plot the precision-recall curve. 
-hof_results %>%
-  roc_curve(truth = hof, pred_hof) %>%
-  autoplot() +
-  ggtitle("ROC Curve, HOF Model",
-          subtitle = glue("Area under the curve: {au_roc}"))
+log_wf <-
+  workflow() %>%
+  add_model(logistic_spec) %>%
+  add_recipe(log_recipe)
 
-hof_results %>% 
-  conf_mat(truth = hof, .pred_class)
+hof_folds <- vfold_cv(hof_train, strata = hof)
 
-hof_results %>% 
-  conf_mat(truth = hof, .pred_class) %>%
-  summary() %>%
-  ggplot(aes(.metric, .estimate)) + geom_col() +
-  coord_flip()
+doParallel::registerDoParallel()
+
+hof_res <-
+  tune_grid(
+    log_wf,
+    resamples = hof_folds,
+    grid = logistic_grid,
+    control = control_grid(save_pred = TRUE)
+  )
+
+best_auc <- select_best(hof_res, "roc")
+
+final_log <- 
+  finalize_workflow(
+  log_wf,
+  best_auc
+)
+
+final_log_res <-
+  last_fit(final_log, hof_split)
+
+final_hof_metrics <-
+  collect_metrics(final_log_res)
 
 ```
 

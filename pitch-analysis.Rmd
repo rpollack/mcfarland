@@ -231,8 +231,6 @@ fit <- gamlss(cbind(num_good_pitches, total_pitches - num_good_pitches) ~ log(to
   family = BB(mu.link = "identity")
 )
 
-td <- tidy(fit)
-
 mu <- fitted(fit, parameter = "mu")
 sigma <- fitted(fit, parameter = "sigma")
 
