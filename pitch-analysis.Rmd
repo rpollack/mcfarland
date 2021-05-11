@@ -53,11 +53,11 @@ id_info_q <- dbSendQuery(con, "select mlbamid, playerid from playerid_lookup")
 id_info <-
   dbFetch(id_info_q) %>%
   as_tibble()
-  
+
 dbClearResult(id_info_q)
 
 pitcher_type_q <-
-  dbSendQuery(con, "select PlayerId as playerid, FirstName, LastName, BISPosition as position from player_info 
+  dbSendQuery(con, "select PlayerId as playerid, FirstName, LastName, BISPosition as position from player_info
               where BISPosition in (\'SP\', \'RP')")
 
 pitcher_type <-
@@ -71,7 +71,7 @@ dbClearResult(pitcher_type_q)
 statcast_q <- dbSendQuery(con, "select pitcher, game_year, p_throws, pitch_type, plate_x, plate_z,
                           release_speed, release_spin_rate, balls, strikes, zone, stand, description, xwoba
                           from gd_savant_new
-                          where pitch_type in (\'FA\', \'FF\', \'FT\', \'FC\', \'FS\', \'SI\', \'SF\', 
+                          where pitch_type in (\'FA\', \'FF\', \'FT\', \'FC\', \'FS\', \'SI\', \'SF\',
                           \'SL\', \'CH\', \'CB\', \'CU\', \'KC\', \'KN\', \'EP\')
                           and game_type in (\'R\', \'F\', \'D\', \'L\', \'W\')
                           and zone != 0")
@@ -88,7 +88,7 @@ dbClearResult(statcast_q)
 ra9_q <- dbSendQuery(con, "select PlayerId, Season, ERA, R, IP from stats_pitching where Type = 0")
 
 pitcher_ra9 <-
-  dbFetch(ra9_q) %>% 
+  dbFetch(ra9_q) %>%
   as_tibble() %>%
   mutate(ra9 = R / IP * 9) %>%
   group_by(PlayerId) %>%
@@ -99,9 +99,6 @@ pitcher_ra9 <-
 dbClearResult(ra9_q)
 
 dbDisconnect(con)
-
-
-
 ```
 
 code for emilio pagan article.
@@ -111,7 +108,12 @@ code for emilio pagan article.
 data %>%
   filter(player_name == "Emilio Pagan") %>%
   filter(pitch_type == "FF") %>%
-  ggplot(aes(plate_x, plate_z)) + geom_point() + facet_wrap(vars(game_year)) + ggtitle("Horizontal Plate Location vs. Vertical Plate Location", subtitle = "Emilio Pagan, Four-seam Fastballs") + labs(x="Pitch Horizontal Location", y = "Pitch Vertical Location", caption = "Source: Baseball Savant") + ggsave("pagan-plate-location-fastball.png")
+  ggplot(aes(plate_x, plate_z)) +
+  geom_point() +
+  facet_wrap(vars(game_year)) +
+  ggtitle("Horizontal Plate Location vs. Vertical Plate Location", subtitle = "Emilio Pagan, Four-seam Fastballs") +
+  labs(x = "Pitch Horizontal Location", y = "Pitch Vertical Location", caption = "Source: Baseball Savant") +
+  ggsave("pagan-plate-location-fastball.png")
 
 data %>%
   filter(player_name == "Emilio Pagan") %>%
@@ -134,25 +136,14 @@ data %>%
 read_csv("~/Downloads/Pagan Pitches - Sheet1.csv") %>%
   mutate(`Whiff%` = `Whiff%` / 100) %>%
   gather(stat, value, -Year, -`Pitch Type`) %>%
-  ggplot(aes(as.character(Year), value, color = stat, group = stat)) + geom_point() + geom_line() + facet_wrap(vars(`Pitch Type`)) +
-  labs(x = "", caption = "Source: Baseball Savant") + ggtitle("Year vs. Effectiveness", subtitle = "Emilio Pagan, All Pitch Types") +
+  ggplot(aes(as.character(Year), value, color = stat, group = stat)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(vars(`Pitch Type`)) +
+  labs(x = "", caption = "Source: Baseball Savant") +
+  ggtitle("Year vs. Effectiveness", subtitle = "Emilio Pagan, All Pitch Types") +
   ggsave("pagan-pitch-effectiveness.png")
 ```
-
-
-
-
-```{r}
-data %>%
-  filter(pitch_type == "FF") %>%
-  mutate(bauer_units = as.numeric(release_spin_rate) / release_speed) %>%
-  group_by(game_year) %>%
-  mutate(lg_bauer_units = mean(bauer_units, na.rm = TRUE)) %>%
-  group_by(game_year, pitcher, player_name) %>%
-  summarize(bauer_units_plus = mean(bauer_units, na.rm = TRUE) / mean(lg_bauer_units) * 100)
-
-```
-
 
 group and clean data
 
@@ -178,8 +169,10 @@ data_grouped <-
   data %>%
   filter(
     description != "foul"
-  ) %>% # do not count foul balls as either good or bad
-  inner_join(median_xwoba, by = c("game_year", "position", "pitch_type")) %>% # add median xWOBA for each position type
+  ) %>%
+  # do not count foul balls as either good or bad
+  inner_join(median_xwoba, by = c("game_year", "position", "pitch_type")) %>%
+  # add median xWOBA for each position type
   mutate(
     zone_type_vertical = case_when(
       zone %in% c(11, 12, 1, 2, 3) ~ "High",
@@ -215,11 +208,7 @@ data_grouped <-
   ) %>%
   mutate(percentage = round(num_pitches / sum(num_pitches) * 100, 1))
 #  mutate(pitch_percentage = round(num_pitches / total_pitches_to_batters_of_this_hand * 100, 1))
-```
 
-
-
-```{r}
 # compute good-pitch rates for each pitcher in 2019. attach RA/9 information from FanGraphs
 by_pitcher <-
   data_grouped %>%
@@ -230,7 +219,7 @@ by_pitcher <-
   summarize(num_good_pitches = sum(num_pitches)) %>%
   mutate(good_pitch_percentage = round(num_good_pitches / total_pitches, 3)) %>%
   arrange(desc(good_pitch_percentage)) %>%
-  inner_join(id_info, by=c("pitcher" = "mlbamid"))
+  inner_join(id_info, by = c("pitcher" = "mlbamid"))
 
 # the following code uses a hierarchical beta-binomial regression model to estimate the prior expectations
 # of good-pitch rates for each pitcher
@@ -261,18 +250,17 @@ good_pitches_est <-
     low_credible = qbeta(.025, alpha1, beta1),
     high_credible = qbeta(.975, alpha1, beta1)
   ) %>%
-  left_join(pitcher_ra9, by=c("playerid" = "PlayerId", "game_year" = "Season")) %>%
+  left_join(pitcher_ra9, by = c("playerid" = "PlayerId", "game_year" = "Season")) %>%
   group_by(position) %>%
   arrange(desc(est_good_pitch_rate))
 
 # show that distributions of good-pitch rates are normal
-by_pitcher %>% ggplot(aes(good_pitch_percentage)) + geom_histogram() + facet_wrap(vars(position))
+by_pitcher %>% ggplot(aes(good_pitch_percentage)) +
+  geom_histogram() +
+  facet_wrap(vars(position))
 
-```
 
-graphs and such
 
-```{r, fig.height = 3}
 # 10 players who improved the most from 2018 to 2019, grouped by position
 
 current_year <- 2021
@@ -286,9 +274,12 @@ good_pitches_est %>%
   filter(est_good_pitch_rate >= mean(est_good_pitch_rate)) %>%
   top_n(25, wt = good_pitch_change) %>%
   mutate(player_name = reorder_within(player_name, good_pitch_change, position)) %>%
-  ggplot(aes(reorder(player_name, good_pitch_change), good_pitch_change)) + geom_col() +
-  coord_flip() + facet_wrap(vars(position), scales = "free_y") +
-  scale_x_reordered() + labs(x="") +
+  ggplot(aes(reorder(player_name, good_pitch_change), good_pitch_change)) +
+  geom_col() +
+  coord_flip() +
+  facet_wrap(vars(position), scales = "free_y") +
+  scale_x_reordered() +
+  labs(x = "") +
   ggtitle(glue("Most Improved Pitchers, {current_year - 1} - {current_year}"), subtitle = "Pitchers with an above-average good-pitch rate")
 
 # best pitchers of each type each year
@@ -300,13 +291,14 @@ good_pitches_est %>%
   ungroup() %>%
   unite(facet, position, game_year, sep = " ") %>%
   mutate(player_name = reorder_within(player_name, est_good_pitch_rate, facet)) %>%
-  ggplot(aes(reorder(player_name, est_good_pitch_rate), est_good_pitch_rate)) + coord_flip() +
-  geom_point(size = 0.7) + geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) + facet_wrap(vars(facet), scales = "free_y") +
+  ggplot(aes(reorder(player_name, est_good_pitch_rate), est_good_pitch_rate)) +
+  coord_flip() +
+  geom_point(size = 0.7) +
+  geom_errorbar(aes(ymin = low_credible, ymax = high_credible)) +
+  facet_wrap(vars(facet), scales = "free_y") +
   labs(x = "", y = "Estimated Good-Pitch Rate with 95% Credible Interval") +
   ggtitle("Highest Good-Pitch Rates") +
   scale_x_reordered()
-
-
 ```
 
 
@@ -321,22 +313,21 @@ pitch_cutoff <- 2 # get only zones/batters who've seen at least this many pitche
 # how to incorporate the count in it? that matters
 
 data_grouped %>%
-  filter(game_year == 2019,
-         outcome == "good") %>%
+  filter(
+    game_year == 2019,
+    outcome == "good"
+  ) %>%
   group_by(p_throws, pitch_type, count_type, zone_desc, stand) %>%
   top_n(10, wt = percentage) %>%
+  #  unite(label, player_name, pitch_type, count, zone_desc, stand, sep = " - ") %>%
 
-  
-
-  
-  
-#  unite(label, player_name, pitch_type, count, zone_desc, stand, sep = " - ") %>%
- 
 
 
   arrange(desc(percentage)) %>%
   head(10) %>%
-  ggplot(aes(reorder(player_name, percentage), percentage)) + geom_col() + coord_flip() +
+  ggplot(aes(reorder(player_name, percentage), percentage)) +
+  geom_col() +
+  coord_flip() +
   facet_wrap(vars(pitch_type, zone_desc, stand)) +
   ggtitle("Mean xWOBA by Pitch Type, Location, and Batter Handedness",
     subtitle = glue("For pitches thrown at least {percentage_cutoff}% of the time in that location to batters of that hand
@@ -346,7 +337,6 @@ data_grouped %>%
     x = "", y = "Percentage of Pitches that are Good",
     caption = "Good pitch: swinging strike, called strike, or batted ball with xWOBA less than the league median xWOBA"
   )
-
 ```
 
 ```{r}
@@ -359,7 +349,9 @@ data_grouped %>%
   unite(label, player_name, pitch_type, count, zone_desc, stand, sep = " - ") %>%
   arrange(desc(percentage)) %>%
   tail(25) %>%
-  ggplot(aes(reorder(label, -percentage), percentage)) + geom_col() + coord_flip() +
+  ggplot(aes(reorder(label, -percentage), percentage)) +
+  geom_col() +
+  coord_flip() +
   ggtitle(" by Pitch Type, Location, and Batter Handedness",
     subtitle = glue("For pitches thrown at least {percentage_cutoff}% of the time in that location to batters of that hand
                           For pitchers with at least {total_pitches_to_each_side_cutoff * 2} pitches in 2019")
@@ -367,5 +359,3 @@ data_grouped %>%
   facet_grid(vars(count)) +
   labs(x = "", y = "Percentage of Pitches that are Good")
 ```
-
-
