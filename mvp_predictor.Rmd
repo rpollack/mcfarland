@@ -117,7 +117,20 @@ player_data <-
 
 dbClearResult(player_info_query)
 
+
+# get shohei ohtani's pitching WAR. he's the only player for whom batting and pitching WAR
+# will be considered
+ohtani_pitching_q <-
+  dbSendQuery(con, "select PlayerId as playerid, Season, ValueW as ValueW_p from stats_pitching_master where PlayerId = 19755 and Type = 0")
+
+ohtani_pitching_war <-
+  dbFetch(ohtani_pitching_q) %>%
+  as_tibble()
+
+dbClearResult(ohtani_pitching_q)
+
 dbDisconnect(con)
+
 
 # compute where each team finished in its division for the year
 season_team_ranks <-
@@ -138,6 +151,9 @@ mvp_voting_data <-
 
 master_df <-
   inner_join(player_data, season_team_ranks, by = c("Season", "TeamId", "team", "League", "Division", "team_PCT")) %>%
+  full_join(ohtani_pitching_war, by = c("Season", "playerid")) %>%
+  mutate(WAR = if_else(is.na(ValueW_p), WAR, WAR + ValueW_p)) %>% 
+  dplyr::select(-ValueW_p) %>%
   # prevent small-sample rate stats from leading the league. 2.93 PA/Game is the fewest any MVP ever had -- Stargell, 1979
 
   group_by(Season, League) %>%
