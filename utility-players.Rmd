@@ -37,6 +37,11 @@ dbClearResult(fielding_q)
 
 dbDisconnect(con)
   
+utility_players %>% 
+  count(Season) %>% 
+  complete(Season = seq(1931, 2021), fill = list(n = 0)) %>% 
+  ggplot(aes(Season, n)) + geom_col() +
+  labs(y="Number of Players with 50+ Innings at 5+ Positions") 
 
 ```
 
