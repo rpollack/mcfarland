@@ -1,0 +1,42 @@
+```{r}
+
+
+con <-
+  DBI::dbConnect(RMariaDB::MariaDB(),
+    dbname = Sys.getenv("FG_DB"),
+    host = Sys.getenv("FG_HOST"),
+    user = Sys.getenv("FG_USER"),
+    password = Sys.getenv("FG_PW"),
+    port = 5001,
+    ssl.ca = "~/Documents/skysql_fangraphs-db.pem"
+  )
+
+
+
+fielding_q <- dbSendQuery(con, "select pi.PlayerId, pi.FirstName, pi.LastName, Season, sf.Position, Inn 
+                          from stats_fielding sf
+                          inner join player_info pi on sf.PlayerId = pi.PlayerId
+                          where sf.Type = 0
+                          and Inn >= 50
+                          and sf.Position != \"OF\"
+                          and Season >= 1931")
+
+
+utility_players <-
+  dbFetch(fielding_q) %>%
+  as_tibble() %>%
+  unite(name, FirstName, LastName, sep = " ") %>%
+  add_count(PlayerId, name, Season, name = "num_positions") %>%
+  filter(num_positions >= 5) %>%
+  dplyr::select(-num_positions, -PlayerId) %>%
+  mutate(Inn = round(Inn, 1)) %>%
+  pivot_wider(names_from = Position, values_from = Inn, names_prefix = "Innings_") %>%
+  arrange(Season) 
+
+dbClearResult(fielding_q)
+
+dbDisconnect(con)
+  
+
+```
+
