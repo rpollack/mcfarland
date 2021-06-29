@@ -113,7 +113,8 @@ player_data <-
   dbFetch(player_info_query) %>%
   as_tibble() %>%
   unite(player_name, FirstName, LastName, sep = " ") %>%
-  mutate(League = factor(League))
+  mutate(League = factor(League),
+         is_pitcher = 0)
 
 dbClearResult(player_info_query)
 
@@ -129,8 +130,26 @@ ohtani_pitching_war <-
 
 dbClearResult(ohtani_pitching_q)
 
-dbDisconnect(con)
 
+pitcher_query <- dbSendQuery(con, glue("select pi.PlayerId as playerid, pi.FirstName, pi.LastName, spmp.Season, spmp.IP as innings_pitched, spmp.ER as earned_runs, spmp.SO as strikeouts, spmp.ValueW as WAR,
+  st.TeamId, st.W / (st.W + st.L) AS team_PCT, st.League, st.G as team_games, st.AbbName as team, st.Division
+  from player_info pi
+  inner join stats_pitching_master_pfx spmp on pi.PlayerId = spmp.PlayerId
+  inner join season_team st on spmp.TeamId = st.TeamId AND spmp.Season = st.Season
+  where pi.Position = \'P\'
+  and spmp.Type = 0
+  and spmp.Season >= {year_min}"))
+
+pitcher_data <-
+  dbFetch(pitcher_query) %>%
+  as_tibble() %>%
+  unite(player_name, FirstName, LastName, sep = " ") %>%
+  mutate(League = factor(League),
+         is_pitcher = 1)
+
+dbClearResult(pitcher_query)
+
+dbDisconnect(con)
 
 # compute where each team finished in its division for the year
 season_team_ranks <-
@@ -149,11 +168,12 @@ mvp_voting_data <-
 # TODO handle pitchers in MVP dataset but not in master_df
 
 
-master_df <-
-  inner_join(player_data, season_team_ranks, by = c("Season", "TeamId", "team", "League", "Division", "team_PCT")) %>%
-  full_join(ohtani_pitching_war, by = c("Season", "playerid")) %>%
+player_ranks <-
+  player_data %>%
+full_join(ohtani_pitching_war, by = c("Season", "playerid")) %>%
   mutate(WAR = if_else(is.na(ValueW_p), WAR, WAR + ValueW_p)) %>% 
   dplyr::select(-ValueW_p) %>%
+  bind_rows(pitcher_data) %>%
   # prevent small-sample rate stats from leading the league. 2.93 PA/Game is the fewest any MVP ever had -- Stargell, 1979
 
   group_by(Season, League) %>%
@@ -164,15 +184,21 @@ master_df <-
     league_war_rank = min_rank(-WAR),
     league_sb_rank = min_rank(-stolen_bases),
     league_avg_rank = min_rank(-batting_average),
-    league_rbi_rank = min_rank(-rbi)
-  ) %>%
-  ungroup() %>%
+    league_rbi_rank = min_rank(-rbi),
+    league_war_rank = min_rank(-WAR),
+    league_ip_rank = min_rank(-innings_pitched),
+    league_earned_runs_rank = min_rank(earned_runs),
+    league_k_rank = min_rank(-strikeouts))
+
+master_df <-
+  player_ranks %>%
+  inner_join(season_team_ranks, by = c("Season", "TeamId", "team", "League", "Division", "team_PCT")) %>%
   full_join(mvp_voting_data) %>%
   replace_na(list(mvp_points = 0)) %>%
   filter(!is.na(playerid)) %>%
   # remove pitchers who received MVP votes from dataset.
   # filter(plate_appearances >= 2.93 * (team_games)) %>%
-  dplyr::select(playerid, player_name, Season, League, team, contains("rank"), mvp_points)
+  dplyr::select(playerid, player_name, is_pitcher, Season, League, team, contains("rank"), mvp_points)
 ```
 
 
@@ -182,7 +208,7 @@ do some exploratory data analysis.
 master_df %>%
   ggplot(aes(league_war_rank, mvp_points, color = Season)) +
   geom_point() +
-  facet_wrap(vars(League))
+  facet_wrap(vars(League, is_pitcher))
 ```
 
 
