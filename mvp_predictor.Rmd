@@ -167,6 +167,8 @@ mvp_voting_data <-
 # TODO: non-pitcher names to handle: AJ Pollock, Carlos Ruiz, Dee Strange-Gordon
 # TODO handle pitchers in MVP dataset but not in master_df
 
+# TODO: fix ohtani. his pitching stats aren't showing up. he should probably also be marked as a pitcher? maybe not,
+# as it's not his primary position. this will be tough.
 
 player_ranks <-
   player_data %>%
@@ -194,11 +196,11 @@ master_df <-
   player_ranks %>%
   inner_join(season_team_ranks, by = c("Season", "TeamId", "team", "League", "Division", "team_PCT")) %>%
   full_join(mvp_voting_data) %>%
-  replace_na(list(mvp_points = 0)) %>%
+  replace_na(list(league_ops_rank = 0, league_hr_rank = 0, league_sb_rank = 0, league_avg_rank = 0, league_rbi_rank = 0, league_ip_rank = 0, league_k_rank = 0, mvp_points = 0)) %>%
   filter(!is.na(playerid)) %>%
-  # remove pitchers who received MVP votes from dataset.
   # filter(plate_appearances >= 2.93 * (team_games)) %>%
-  dplyr::select(playerid, player_name, is_pitcher, Season, League, team, contains("rank"), mvp_points)
+  dplyr::select(playerid, player_name, is_pitcher, Season, League, team, contains("rank"), mvp_points) %>% 
+  ungroup()
 ```
 
 
@@ -220,7 +222,7 @@ master_df %>%
 mvp_split <-
   master_df %>%
   filter(Season != year_to_predict) %>%
-  dplyr::select(-playerid, -player_name, -team, -League, -Season) %>%
+  dplyr::select(is_pitcher, contains("rank"), mvp_points) %>%
   initial_split(strata = mvp_points)
 
 mvp_train <- training(mvp_split)
@@ -254,11 +256,10 @@ xgb_recipe <-
 
 xgb_wf <- 
   workflow() %>%
-  #add_formula(mvp_points ~ .) %>%
   add_model(xgb_spec) %>%
   add_recipe(xgb_recipe)
 
-# find the optimal values of tuning parameters usiing 10-fold cross validation
+# find the optimal values of tuning parameters using 10-fold cross validation
 mvp_folds <- vfold_cv(mvp_train, strata = mvp_points)
 
 doParallel::registerDoParallel()
