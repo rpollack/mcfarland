@@ -324,7 +324,9 @@ mvp_predictions %>%
   geom_col() +
   coord_flip() +
   facet_wrap(vars(League), scales = "free_y") +
-  labs(x = "", y = "Predicted MVP Points")
+  labs(x = "", y = "Predicted MVP Points") +
+  ggtitle(glue("Predicted MVP Voting, {year_to_predict}"),
+          subtitle = glue("Based on stats through {Sys.Date()-days(1)}"))
 ```
 
 ```{r}
