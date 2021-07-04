@@ -131,10 +131,9 @@ player_data <-
     League = factor(League),
     is_pitcher = 0,
   ) %>%
-  
   # grab player's steamer projected WAR
-  group_by(playerid, player_name) %>% 
-  arrange(Season, Type, .by_group = TRUE) %>% 
+  group_by(playerid, player_name) %>%
+  arrange(Season, Type, .by_group = TRUE) %>%
   mutate(proj_war = if_else(Type == 0 & Season == year_to_predict, lead(WAR), -1)) %>%
   filter(Type == 0) %>%
   dplyr::select(-Type)
@@ -149,11 +148,11 @@ ohtani_pitching_q <-
 ohtani_pitching_war <-
   dbFetch(ohtani_pitching_q) %>%
   as_tibble() %>%
-  arrange(Season, Type) %>% 
+  arrange(Season, Type) %>%
   mutate(proj_war_p = if_else(Type == 0 & Season == year_to_predict, lead(ValueW_p), -1)) %>%
   filter(Type == 0) %>%
   dplyr::select(-Type)
-  
+
 
 dbClearResult(ohtani_pitching_q)
 
@@ -188,10 +187,9 @@ pitcher_data <-
     League = factor(League),
     is_pitcher = 1
   ) %>%
-  
   # grab player's steamer-projected WAR
-  group_by(playerid, player_name) %>% 
-  arrange(Season, Type, .by_group = TRUE) %>% 
+  group_by(playerid, player_name) %>%
+  arrange(Season, Type, .by_group = TRUE) %>%
   mutate(proj_war = if_else(Type == 0 & Season == year_to_predict, lead(WAR), -1)) %>%
   filter(Type == 0) %>%
   dplyr::select(-Type)
@@ -215,13 +213,18 @@ mvp_voting_data <-
 player_ranks <-
   player_data %>%
   full_join(ohtani_pitching_war, by = c("Season", "playerid")) %>%
-  
   # compute batting + pitching WAR totals for ohtani
-  mutate(WAR = if_else(is.na(ValueW_p), WAR, WAR + ValueW_p),
-         proj_war = if_else(is.na(proj_war_p), proj_war, proj_war + proj_war_p)) %>%
+  mutate(
+    WAR = if_else(is.na(ValueW_p), WAR, WAR + ValueW_p),
+    proj_war = if_else(is.na(proj_war_p), proj_war, proj_war + proj_war_p)
+  ) %>%
   dplyr::select(-ValueW_p) %>%
   bind_rows(pitcher_data) %>%
-  filter(!is.na(TeamId)) %>%    # remove guys who changed teams in a year
+  filter(
+    !is.na(TeamId), # remove guys who changed teams in a year
+    !is.na(proj_war)
+  ) %>%
+  # remove guys without Steamer projections, this causes data errors
   group_by(Season, League) %>%
   # compute player's season-league ranking in major stats, where a rank of 1 indicates first place/league-leading.
   mutate(
@@ -231,7 +234,7 @@ player_ranks <-
     league_sb_rank = min_rank(-stolen_bases),
     league_avg_rank = min_rank(-batting_average),
     league_rbi_rank = min_rank(-rbi),
-    
+
     # for past seasons, use actual WAR rank. for current season, use projected EOY WAR rank
     league_war_rank = if_else(Season == year_to_predict, min_rank(-proj_war), min_rank(-WAR)),
     league_ip_rank = min_rank(-innings_pitched),
@@ -251,28 +254,9 @@ master_df <-
   inner_join(season_team_ranks, by = c("Season", "TeamId", "team", "League", "Division", "team_PCT")) %>%
   full_join(mvp_voting_data) %>%
   replace_na(list(league_ops_rank = 0, league_hr_rank = 0, league_sb_rank = 0, league_avg_rank = 0, league_rbi_rank = 0, league_ip_rank = 0, league_k_rank = 0, mvp_points = 0)) %>%
- # filter(!is.na(playerid)) %>%
+  # filter(!is.na(playerid)) %>%
   dplyr::select(playerid, player_name, is_pitcher, Season, League, team, contains("rank"), mvp_points) %>%
   ungroup()
-```
-
-what we want is, for training data, fetch historical data.
-
-for current-season data, fetch projected data. 
-
-where can i get projected team finishes?
-
-but we'll need to do the same transforms on each and same kinds of fetches for each. 
-
-So, perhaps just one fetch, distinguished by Type (0 or Steamer Update), and use
-
-do some exploratory data analysis. 
-
-```{r}
-master_df %>%
-  ggplot(aes(league_war_rank, mvp_points, color = Season)) +
-  geom_point() +
-  facet_wrap(vars(League, is_pitcher))
 ```
 
 
@@ -372,7 +356,9 @@ final_metrics
 
 # extract final model and use it to predict MVP's
 mvp_mdl <- final_res$.workflow[[1]]
+```
 
+```{r}
 mvp_predictions <-
   master_df %>%
   filter(Season == year_to_predict) %>%
