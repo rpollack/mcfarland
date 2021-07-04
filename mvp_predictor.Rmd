@@ -374,7 +374,8 @@ mvp_predictions %>%
   facet_wrap(vars(League), scales = "free_y") +
   labs(x = "", y = "Predicted MVP Points") +
   ggtitle(glue("Predicted MVP Voting, {year_to_predict}"),
-    subtitle = glue("Based on stats through {Sys.Date()-days(1)} and projected Steamer full-season WAR")
+    subtitle = glue("Based on stats through {Sys.Date()-days(1)}, current division standings, 
+                    and projected Steamer full-season WAR")
   )
 ```
 
