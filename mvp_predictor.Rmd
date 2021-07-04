@@ -165,7 +165,6 @@ mvp_voting_data <-
   map_df(get_mvp_voting) %>%
   mutate(player_name = str_replace(player_name, "é", "e"))
 # TODO: non-pitcher names to handle: AJ Pollock, Carlos Ruiz, Dee Strange-Gordon
-# TODO handle pitchers in MVP dataset but not in master_df
 
 # TODO: fix ohtani. his pitching stats aren't showing up. he should probably also be marked as a pitcher? maybe not,
 # as it's not his primary position. this will be tough.
