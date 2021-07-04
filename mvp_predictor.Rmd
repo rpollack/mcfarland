@@ -199,7 +199,6 @@ master_df <-
   full_join(mvp_voting_data) %>%
   replace_na(list(league_ops_rank = 0, league_hr_rank = 0, league_sb_rank = 0, league_avg_rank = 0, league_rbi_rank = 0, league_ip_rank = 0, league_k_rank = 0, mvp_points = 0)) %>%
   filter(!is.na(playerid)) %>%
-  # filter(plate_appearances >= 2.93 * (team_games)) %>%
   dplyr::select(playerid, player_name, is_pitcher, Season, League, team, contains("rank"), mvp_points) %>%
   ungroup()
 ```
