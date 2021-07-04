@@ -95,15 +95,32 @@ con <-
   )
 
 player_info_query <-
-  dbSendQuery(con, glue("select pi.PlayerId as playerid, pi.FirstName, pi.LastName, sbmp.Season, sbmp.AVG as batting_average, sbmp.PA as plate_appearances,
-  sbmp.HR as home_runs, sbmp.RBI as rbi, sbmp.OPS as ops, sbmp.SB as stolen_bases, sbmp.Fielding as defense, sbmp.G as games_played, sbmp.ValueW as WAR,
-  st.TeamId, st.W / (st.W + st.L) AS team_PCT, st.League, st.G as team_games, st.AbbName as team, st.Division
-  from player_info pi
-  inner join stats_batting_master_pfx sbmp on pi.PlayerId = sbmp.PlayerId
-  inner join season_team st on sbmp.TeamId = st.TeamId AND sbmp.Season = st.Season
-  where pi.Position != \'P\'
-  and sbmp.Type = 0
-  and sbmp.Season >= {year_min}"))
+  dbSendQuery(con, glue("select pi.PlayerId          as playerid,
+       pi.FirstName,
+       pi.LastName,
+       batting.Season,
+       batting.Type,
+       batting.AVG             as batting_average,
+       batting.PA              as plate_appearances,
+       batting.HR              as home_runs,
+       batting.RBI             as rbi,
+       batting.OPS             as ops,
+       batting.SB              as stolen_bases,
+       batting.Fielding        as defense,
+       batting.G               as games_played,
+       batting.ValueW          as WAR,
+       st.TeamId,
+       st.W / (st.W + st.L) AS team_PCT,
+       st.League,
+       st.G                 as team_games,
+       st.AbbName           as team,
+       st.Division
+from player_info pi
+         inner join stats_batting batting on pi.PlayerId = batting.PlayerId
+         left join season_team st on batting.TeamId = st.TeamId AND batting.Season = st.Season
+where pi.Position != 'P'
+  and batting.Type in (0, 1103)
+  and batting.Season >= {year_min}"))
 
 # fetch data, join with list of MVP's, clean up data, and compute ranks
 player_data <-
@@ -112,31 +129,55 @@ player_data <-
   unite(player_name, FirstName, LastName, sep = " ") %>%
   mutate(
     League = factor(League),
-    is_pitcher = 0
-  )
+    is_pitcher = 0,
+  ) %>%
+  
+  # grab player's steamer projected WAR
+  group_by(playerid, player_name) %>% 
+  arrange(Season, Type, .by_group = TRUE) %>% 
+  mutate(proj_war = if_else(Type == 0 & Season == year_to_predict, lead(WAR), -1)) %>%
+  filter(Type == 0) %>%
+  dplyr::select(-Type)
 
 dbClearResult(player_info_query)
-
 
 # get shohei ohtani's pitching WAR. he's the only player for whom batting and pitching WAR
 # will be considered
 ohtani_pitching_q <-
-  dbSendQuery(con, "select PlayerId as playerid, Season, ValueW as ValueW_p from stats_pitching_master where PlayerId = 19755 and Type = 0")
+  dbSendQuery(con, "select PlayerId as playerid, Season, Type, ValueW as ValueW_p from stats_pitching where PlayerId = 19755 and Type in (0, 1103)")
 
 ohtani_pitching_war <-
   dbFetch(ohtani_pitching_q) %>%
-  as_tibble()
+  as_tibble() %>%
+  arrange(Season, Type) %>% 
+  mutate(proj_war_p = if_else(Type == 0 & Season == year_to_predict, lead(ValueW_p), -1)) %>%
+  filter(Type == 0) %>%
+  dplyr::select(-Type)
+  
 
 dbClearResult(ohtani_pitching_q)
 
 
-pitcher_query <- dbSendQuery(con, glue("select pi.PlayerId as playerid, pi.FirstName, pi.LastName, spmp.Season, spmp.IP as innings_pitched, spmp.ER as earned_runs, spmp.SO as strikeouts, spmp.ValueW as WAR,
-  st.TeamId, st.W / (st.W + st.L) AS team_PCT, st.League, st.G as team_games, st.AbbName as team, st.Division
-  from player_info pi
-  inner join stats_pitching_master_pfx spmp on pi.PlayerId = spmp.PlayerId
-  inner join season_team st on spmp.TeamId = st.TeamId AND spmp.Season = st.Season
-  where pi.Position = \'P\'
-  and spmp.Type = 0
+pitcher_query <- dbSendQuery(con, glue("select pi.PlayerId          as playerid,
+       pi.FirstName,
+       pi.LastName,
+       spmp.Season,
+       spmp.Type,
+       spmp.IP              as innings_pitched,
+       spmp.ER              as earned_runs,
+       spmp.SO              as strikeouts,
+       spmp.ValueW          as WAR,
+       st.TeamId,
+       st.W / (st.W + st.L) AS team_PCT,
+       st.League,
+       st.G                 as team_games,
+       st.AbbName           as team,
+       st.Division
+from player_info pi
+         inner join stats_pitching spmp on pi.PlayerId = spmp.PlayerId
+         left join season_team st on spmp.TeamId = st.TeamId AND spmp.Season = st.Season
+where pi.Position = 'P'
+  and spmp.Type in (0, 1103)
   and spmp.Season >= {year_min}"))
 
 pitcher_data <-
@@ -146,18 +187,20 @@ pitcher_data <-
   mutate(
     League = factor(League),
     is_pitcher = 1
-  )
+  ) %>%
+  
+  # grab player's steamer-projected WAR
+  group_by(playerid, player_name) %>% 
+  arrange(Season, Type, .by_group = TRUE) %>% 
+  mutate(proj_war = if_else(Type == 0 & Season == year_to_predict, lead(WAR), -1)) %>%
+  filter(Type == 0) %>%
+  dplyr::select(-Type)
 
 dbClearResult(pitcher_query)
 
 dbDisconnect(con)
 
-# compute where each team finished in its division for the year
-season_team_ranks <-
-  player_data %>%
-  distinct(Season, League, Division, TeamId, team, team_PCT) %>%
-  group_by(Season, League, Division) %>%
-  mutate(team_division_rank = min_rank(-team_PCT))
+
 
 # get MVP voting data (mvp points player accrued in a year)
 # TODO: variableize the sequence of years to 21 years before this one, and 1 before this one
@@ -167,17 +210,18 @@ mvp_voting_data <-
   mutate(player_name = str_replace(player_name, "é", "e"))
 # TODO: non-pitcher names to handle: AJ Pollock, Carlos Ruiz, Dee Strange-Gordon
 
-# TODO: fix ohtani. his pitching stats aren't showing up. he should probably also be marked as a pitcher? maybe not,
-# as it's not his primary position. this will be tough.
+# TODO: fix ohtani. his pitching stats aren't showing up because he's listed as 'DH' in the tables. probably just as (position = P OR playerid = XXXXXX for him.)
 
 player_ranks <-
   player_data %>%
   full_join(ohtani_pitching_war, by = c("Season", "playerid")) %>%
-  mutate(WAR = if_else(is.na(ValueW_p), WAR, WAR + ValueW_p)) %>%
+  
+  # compute batting + pitching WAR totals for ohtani
+  mutate(WAR = if_else(is.na(ValueW_p), WAR, WAR + ValueW_p),
+         proj_war = if_else(is.na(proj_war_p), proj_war, proj_war + proj_war_p)) %>%
   dplyr::select(-ValueW_p) %>%
   bind_rows(pitcher_data) %>%
-  # prevent small-sample rate stats from leading the league. 2.93 PA/Game is the fewest any MVP ever had -- Stargell, 1979
-
+  filter(!is.na(TeamId)) %>%    # remove guys who changed teams in a year
   group_by(Season, League) %>%
   # compute player's season-league ranking in major stats, where a rank of 1 indicates first place/league-leading.
   mutate(
@@ -187,22 +231,40 @@ player_ranks <-
     league_sb_rank = min_rank(-stolen_bases),
     league_avg_rank = min_rank(-batting_average),
     league_rbi_rank = min_rank(-rbi),
-    league_war_rank = min_rank(-WAR),
+    
+    # for past seasons, use actual WAR rank. for current season, use projected EOY WAR rank
+    league_war_rank = if_else(Season == year_to_predict, min_rank(-proj_war), min_rank(-WAR)),
     league_ip_rank = min_rank(-innings_pitched),
     league_earned_runs_rank = min_rank(earned_runs),
     league_k_rank = min_rank(-strikeouts)
   )
+
+# compute where each team finished in its division for the year
+season_team_ranks <-
+  player_ranks %>%
+  distinct(Season, League, Division, TeamId, team, team_PCT) %>%
+  group_by(Season, League, Division) %>%
+  mutate(team_division_rank = min_rank(-team_PCT))
 
 master_df <-
   player_ranks %>%
   inner_join(season_team_ranks, by = c("Season", "TeamId", "team", "League", "Division", "team_PCT")) %>%
   full_join(mvp_voting_data) %>%
   replace_na(list(league_ops_rank = 0, league_hr_rank = 0, league_sb_rank = 0, league_avg_rank = 0, league_rbi_rank = 0, league_ip_rank = 0, league_k_rank = 0, mvp_points = 0)) %>%
-  filter(!is.na(playerid)) %>%
+ # filter(!is.na(playerid)) %>%
   dplyr::select(playerid, player_name, is_pitcher, Season, League, team, contains("rank"), mvp_points) %>%
   ungroup()
 ```
 
+what we want is, for training data, fetch historical data.
+
+for current-season data, fetch projected data. 
+
+where can i get projected team finishes?
+
+but we'll need to do the same transforms on each and same kinds of fetches for each. 
+
+So, perhaps just one fetch, distinguished by Type (0 or Steamer Update), and use
 
 do some exploratory data analysis. 
 
@@ -326,7 +388,7 @@ mvp_predictions %>%
   facet_wrap(vars(League), scales = "free_y") +
   labs(x = "", y = "Predicted MVP Points") +
   ggtitle(glue("Predicted MVP Voting, {year_to_predict}"),
-    subtitle = glue("Based on stats through {Sys.Date()-days(1)}")
+    subtitle = glue("Based on stats through {Sys.Date()-days(1)} and projected Steamer full-season WAR")
   )
 ```
 
