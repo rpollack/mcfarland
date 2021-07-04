@@ -39,7 +39,7 @@ get_league_voting <- function(df, league, year) {
   # this function takes a tibble of data, scraped from bref, and formats
   # the data according to the league and year being requested
   df %>%
-   dplyr::select(player_name = 2, mvp_points = 4) %>%
+    dplyr::select(player_name = 2, mvp_points = 4) %>%
     filter(row_number() != 1) %>%
     mutate(
       League = league,
@@ -71,9 +71,6 @@ get_mvp_voting <- function(year) {
 
   bind_rows(al_voting, nl_voting)
 }
-
-
-
 ```
 
 
@@ -113,8 +110,10 @@ player_data <-
   dbFetch(player_info_query) %>%
   as_tibble() %>%
   unite(player_name, FirstName, LastName, sep = " ") %>%
-  mutate(League = factor(League),
-         is_pitcher = 0)
+  mutate(
+    League = factor(League),
+    is_pitcher = 0
+  )
 
 dbClearResult(player_info_query)
 
@@ -144,8 +143,10 @@ pitcher_data <-
   dbFetch(pitcher_query) %>%
   as_tibble() %>%
   unite(player_name, FirstName, LastName, sep = " ") %>%
-  mutate(League = factor(League),
-         is_pitcher = 1)
+  mutate(
+    League = factor(League),
+    is_pitcher = 1
+  )
 
 dbClearResult(pitcher_query)
 
@@ -171,8 +172,8 @@ mvp_voting_data <-
 
 player_ranks <-
   player_data %>%
-full_join(ohtani_pitching_war, by = c("Season", "playerid")) %>%
-  mutate(WAR = if_else(is.na(ValueW_p), WAR, WAR + ValueW_p)) %>% 
+  full_join(ohtani_pitching_war, by = c("Season", "playerid")) %>%
+  mutate(WAR = if_else(is.na(ValueW_p), WAR, WAR + ValueW_p)) %>%
   dplyr::select(-ValueW_p) %>%
   bind_rows(pitcher_data) %>%
   # prevent small-sample rate stats from leading the league. 2.93 PA/Game is the fewest any MVP ever had -- Stargell, 1979
@@ -189,7 +190,8 @@ full_join(ohtani_pitching_war, by = c("Season", "playerid")) %>%
     league_war_rank = min_rank(-WAR),
     league_ip_rank = min_rank(-innings_pitched),
     league_earned_runs_rank = min_rank(earned_runs),
-    league_k_rank = min_rank(-strikeouts))
+    league_k_rank = min_rank(-strikeouts)
+  )
 
 master_df <-
   player_ranks %>%
@@ -198,7 +200,7 @@ master_df <-
   replace_na(list(league_ops_rank = 0, league_hr_rank = 0, league_sb_rank = 0, league_avg_rank = 0, league_rbi_rank = 0, league_ip_rank = 0, league_k_rank = 0, mvp_points = 0)) %>%
   filter(!is.na(playerid)) %>%
   # filter(plate_appearances >= 2.93 * (team_games)) %>%
-  dplyr::select(playerid, player_name, is_pitcher, Season, League, team, contains("rank"), mvp_points) %>% 
+  dplyr::select(playerid, player_name, is_pitcher, Season, League, team, contains("rank"), mvp_points) %>%
   ungroup()
 ```
 
@@ -253,7 +255,7 @@ xgb_grid <- grid_latin_hypercube(
 xgb_recipe <-
   recipe(mvp_points ~ ., data = mvp_train)
 
-xgb_wf <- 
+xgb_wf <-
   workflow() %>%
   add_model(xgb_spec) %>%
   add_recipe(xgb_recipe)
@@ -325,7 +327,8 @@ mvp_predictions %>%
   facet_wrap(vars(League), scales = "free_y") +
   labs(x = "", y = "Predicted MVP Points") +
   ggtitle(glue("Predicted MVP Voting, {year_to_predict}"),
-          subtitle = glue("Based on stats through {Sys.Date()-days(1)}"))
+    subtitle = glue("Based on stats through {Sys.Date()-days(1)}")
+  )
 ```
 
 ```{r}
