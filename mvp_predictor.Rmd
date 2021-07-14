@@ -134,7 +134,12 @@ player_data <-
   # grab player's steamer projected WAR
   group_by(playerid, player_name) %>%
   arrange(Season, Type, .by_group = TRUE) %>%
-  mutate(proj_war = if_else(Type == 0 & Season == year_to_predict, lead(WAR), -1)) %>%
+  mutate(proj_war = if_else(Type == 0 & Season == year_to_predict, lead(WAR), -1),
+         proj_avg = if_else(Type == 0 & Season == year_to_predict, lead(batting_average), -1),
+         proj_hr = if_else(Type == 0 & Season == year_to_predict, lead(home_runs), -1L),
+         proj_rbi = if_else(Type == 0 & Season == year_to_predict, lead(rbi), -1L),
+         proj_ops = if_else(Type == 0 & Season == year_to_predict, lead(ops), -1),
+         proj_sb = if_else(Type == 0 & Season == year_to_predict, lead(stolen_bases), -1L)) %>%
   filter(Type == 0) %>%
   dplyr::select(-Type)
 
@@ -227,13 +232,13 @@ player_ranks <-
   # remove guys without Steamer projections, this causes data errors
   group_by(Season, League) %>%
   # compute player's season-league ranking in major stats, where a rank of 1 indicates first place/league-leading.
+  # for the current year, use Steamer-projected ranks
   mutate(
-    league_ops_rank = min_rank(-ops),
-    league_hr_rank = min_rank(-home_runs),
-    league_war_rank = min_rank(-WAR),
-    league_sb_rank = min_rank(-stolen_bases),
-    league_avg_rank = min_rank(-batting_average),
-    league_rbi_rank = min_rank(-rbi),
+    league_ops_rank = if_else(Season == year_to_predict, min_rank(-proj_ops), min_rank(-ops)),
+    league_hr_rank = if_else(Season == year_to_predict, min_rank(-proj_hr), min_rank(-home_runs)),
+    league_sb_rank = if_else(Season == year_to_predict, min_rank(-proj_sb), min_rank(-stolen_bases)),
+    league_avg_rank = if_else(Season == year_to_predict, min_rank(-proj_avg), min_rank(-batting_average)),
+    league_rbi_rank = if_else(Season == year_to_predict, min_rank(-proj_rbi), min_rank(-rbi)),
 
     # for past seasons, use actual WAR rank. for current season, use projected EOY WAR rank
     league_war_rank = if_else(Season == year_to_predict, min_rank(-proj_war), min_rank(-WAR)),
@@ -374,8 +379,8 @@ mvp_predictions %>%
   facet_wrap(vars(League), scales = "free_y") +
   labs(x = "", y = "Predicted MVP Points") +
   ggtitle(glue("Predicted MVP Voting, {year_to_predict}"),
-    subtitle = glue("Based on stats through {Sys.Date()-days(1)}, current division standings, 
-                    and projected Steamer full-season WAR")
+    subtitle = glue("Based on current division standings, 
+                    and projected Steamer full-season stats as of {Sys.Date()-days(1)}")
   )
 ```
 
