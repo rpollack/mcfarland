@@ -1,9 +1,11 @@
 ```{r}
 library(tidyverse)
 library(tidymodels)
+library(DBI)
 library(tidytext)
 library(lubridate)
 library(vip)
+library(xgboost)
 library(glue)
 library(themis)
 library(rvest)
@@ -215,6 +217,10 @@ mvp_voting_data <-
 
 # TODO: fix ohtani. his pitching stats aren't showing up because he's listed as 'DH' in the tables. probably just as (position = P OR playerid = XXXXXX for him.)
 
+# TODO: handle guys who change teams in a year. put them on their final team. 
+
+# TODO: update to use pre-season STEAMER projections (Type = -105. after the season is over, there are no steamer in-season projections (Type = 1103). 
+
 player_ranks <-
   player_data %>%
   full_join(ohtani_pitching_war, by = c("Season", "playerid")) %>%
@@ -226,7 +232,7 @@ player_ranks <-
   dplyr::select(-ValueW_p) %>%
   bind_rows(pitcher_data) %>%
   filter(
-    !is.na(TeamId), # remove guys who changed teams in a year
+    !is.na(TeamId), # remove guys who changed teams in a year.  
     !is.na(proj_war)
   ) %>%
   # remove guys without Steamer projections, this causes data errors
