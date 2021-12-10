@@ -2,10 +2,10 @@
 library(tidyverse)
 library(stringr)
 library(plotly)
-library(RMySQL)
+library(RMariaDB)
 library(Lahman)
-library(broom)
 library(lubridate)
+library(glmnet)
 library(lazyeval)
 library(doParallel)
 library(rvest)
@@ -195,7 +195,7 @@ hof_players <-
 ```{r}
 
 # the most recent season played
-current_year <- 2020
+current_year <- 2021
 
 # combine batting & pitching WAR for all player-seasons.
 # add positional info where we can
