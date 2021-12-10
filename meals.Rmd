@@ -1,0 +1,61 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(googlesheets4)
+library(lubridate)
+```
+
+```{r}
+meal_data <-
+  read_sheet("https://docs.google.com/spreadsheets/d/1RBvCN7sc1CgGTVH9mnHADmJ6OflK0mAFMJGLt60CXog/edit#gid=0") %>%
+  filter(!is.na(Main)) %>%
+  select(meal = Main, last_eaten = `Last Eaten`) %>%
+  mutate(meal = tolower(meal),
+         last_eaten = ymd(last_eaten),
+    month_eaten = floor_date(last_eaten, unit = "month"),
+    protein = str_extract(meal, "steak|chicken breast|chicken thigh|chicken|pork|sausage|beef|turkey|bacon|chorizo|fish|tilapia|barbacoa|ribs"),
+    side = str_extract(meal, "(w/|with|\\+).*"),
+protein = str_replace_all(protein, c("chicken breast" = "chicken",
+                             "chicken thigh" = "chicken",
+                             "beef" = "ground beef",
+                             "ribs" = "pork")),
+method = str_extract(meal, "ip|instant pot|slow cooker|crock pot|roast|sautee|sous vide")) %>%
+  replace_na(list(protein = "none",
+                  method = "none specified"))
+         
+```
+
+method | prefix | protein | side
+
+```{r}
+
+
+meal_data_clean %>%
+  count(month_eaten, protein) %>%
+  complete(month_eaten, protein, fill = list(n=0)) %>%
+  ggplot(aes(month_eaten, n, fill = protein)) + geom_area()
+
+meal_data_clean %>%
+  count(protein, sort = TRUE) %>%
+  ggplot(aes(reorder(protein, n), n)) + geom_col() + coord_flip() +
+  labs(x="", y = "number of meals made")
+  
+meal_data_clean %>% 
+  count(meal, sort = TRUE)
+
+# how long has it been since i last made each meal?s
+meal_data_clean %>%
+  group_by(meal) %>%
+  filter(last_eaten == max(last_eaten)) %>%
+  mutate(days_since_cooked = difftime(Sys.Date(), last_eaten, unit = "days")) %>%
+  select(meal, last_eaten, days_since_cooked) %>%
+  arrange(desc(days_since_cooked)) %>%
+  View()
+
+
+```
+
