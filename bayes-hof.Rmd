@@ -227,12 +227,16 @@ war_through_age <-
   distinct() %>%
   na.omit() %>%
  # filter(age >= 19, age <= 38)  %>%
-  mutate(is_scandal = case_when(
-    name %in% c("Barry Bonds", "Roger Clemens", "Joe Jackson", "Robinson Cano", "Pete Rose", "Alex Rodriguez", "Manny Ramirez", "Mark McGwire", "Sammy Sosa", "Jose Canseco", "Rafael Palmeiro", "Jason Giambi", "Gary Sheffield", "Miguel Tejada", "Nelson Cruz", "Andy Pettite", "Ryan Braun", "Carlos Beltran", "Jose Altuve", "Alex Bregman", "David Ortiz", "Carlos Correa", "Melky Cabrera", "George Springer", "Curt Schilling", "Omar Vizquel") ~ 1,
-    TRUE ~ 0
+  mutate(scandal_type = case_when(
+    name %in% c("Barry Bonds", "Roger Clemens", "Jose Canseco", "Rafael Palmeiro", "Jason Giambi", "Gary Sheffield", "Miguel Tejada", "Nelson Cruz", "Andy Pettite", "Ryan Braun", "Manny Ramirez", "Alex Rodriguez", "Mark McGwire", "Sammy Sosa", "Robinson Cano", "Starling Marte", "Melky Cabrera", "David Ortiz", "Dee Gordon") ~ "PED's",
+    name %in% c("Joe Jackson", "Eddie Cicotte", "Buck Weaver", "Chick Gandil", "Fred McMullin", "Swede Risberg", "Lefty Williams", "Joe Gedeon", "Pete Rose") ~ "Gambling",
+    name %in% c("Carlos Beltran", "Jose Altuve", "Alex Bregman", "Alex Cora", "Carlos Correa", "George Springer", "Gaylord Perry") ~ "Cheating",
+    name %in% c("Curt Schilling") ~ "Misc.",
+    name %in% c("Marcell Ozuna", "Roberto Osuna", "Jose Reyes", "Aroldis Chapman", "Omar Vizquel") ~ "Domestic Violence",
+    TRUE ~ "None"
   )) %>%
   inner_join(positional_info, by=c("playerid" = "PlayerId")) %>%
-  dplyr::select(playerid, name, position = Position, last_year, is_scandal, age, cumulative_war, considered_hof, hof) %>%
+  dplyr::select(playerid, name, position = Position, last_year, scandal_type, age, cumulative_war, considered_hof, hof) %>%
   
   # force some positions for some inductees. fielding positional data from bb-ref and BB HOF website. need to be more specific for averill as there are 2 guys with his name. really this should be done with player ID's.
   mutate(
@@ -257,14 +261,14 @@ war_through_age <-
 
 exploratory data analysis
 
-```{r}
+```{r, fig.height = 3}
 war_through_age  %>%
   filter(considered_hof) %>%
   # group_by(age, position, hof) %>%
   # summarize(typical_cume_war = median(cumulative_war, na.rm = TRUE)) %>%
   ggplot(aes(age, cumulative_war, group = hof, color = hof)) +
   geom_point(size=0.5) + 
-  facet_wrap(vars(position)) +
+  facet_wrap(vars(position, scandal_type)) +
   ggtitle("Age vs. Typical WAR Trajectories, by HOF Inclusion Type") +
   labs(y="Cumulative fWAR")
 
@@ -302,14 +306,14 @@ xgb_grid <- grid_latin_hypercube(
   min_n(),
   loss_reduction(),
   sample_size = sample_prop(),
-  finalize(mtry(), mvp_train),
+  finalize(mtry(), hof_train),
   learn_rate(),
   size = 50
 )
 
 xgb_recipe <-
   recipe(hof ~ ., data = hof_train) %>%
-  step_dummy(position, is_scandal)
+  step_dummy(position, scandal_type)
 
 xgb_wf <-
   workflow() %>%
