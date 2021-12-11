@@ -9,6 +9,7 @@ library(glmnet)
 library(lazyeval)
 library(doParallel)
 library(rvest)
+library(styler)
 library(themis)
 library(vip)
 library(tidymodels)
@@ -404,7 +405,7 @@ war_through_age %>%
   ggplot(aes(reorder(name, prob_hof), prob_hof)) +
   geom_col() + coord_flip() + facet_wrap(vars(position), scales = "free_y") +
   labs(x="", y = "HOF Probability (%)") +
-  geom_hline(yintercept=50, color = "red") +
+  geom_hline(yintercept=50, color = "red", lty = "dashed") +
   ggtitle(glue("Probability of HOF election"), subtitle = "Active or recently retired eligible players")
 
 
@@ -427,7 +428,7 @@ war_through_age %>%
   ggplot(aes(reorder(name, prob_hof), prob_hof)) +
   geom_col() + coord_flip() + facet_wrap(vars(position), scales = "free_y") +
   labs(x="", y = "HOF Probability (%)") +
-  geom_hline(yintercept=50, color = "red") +
+  geom_hline(yintercept=50, color = "red", lty = "dashed") +
   ggtitle(glue("Probability of HOF election"), subtitle = "Players already considered for the HOF, may be inducted as manager")
 # evaluation: compute the area under the P-R curve
 
