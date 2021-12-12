@@ -179,11 +179,15 @@ hof_players <-
   mutate(
     HOF = "elected",
 
-    # correct some discrepancies
+    # correct some discrepancies between the datasets
     Name = str_replace(Name, "Cal Ripken Jr.", "Cal Ripken"),
     Name = str_replace(Name, "Henry Aaron", "Hank Aaron"),
     Name = str_replace(Name, "Old Hoss Radbourn", "Charley Radbourn"),
-    birth_year = ifelse(Name == "Frankie Frisch", 1898, birth_year)
+    birth_year = case_when(
+      Name == "Frankie Frisch" ~ 1898,
+      Name == "Phil Rizzuto" ~ 1916,
+      TRUE ~ birth_year
+    )
   )
 ```
 
@@ -459,6 +463,7 @@ war_through_age %>%
   coord_flip() +
   facet_wrap(vars(position), scales = "free_y") +
   labs(x = "", y = "HOF Probability (%)") +
-  geom_hline(yintercept = 50, color = "red", lty = "dashed") +
-  ggtitle(glue("Probability of HOF election"), subtitle = "Players already considered for the HOF, may be inducted as manager")
+geom_hline(yintercept = 50, color = "red", lty = "dashed") +
+geom_hline(yintercept = 75, color = "orange", lty = "dashed") +
+  geom_hline(yintercept = 95, color = "green", lty = "dashed") +  ggtitle(glue("Probability of HOF election"), subtitle = "Players already considered for the HOF, may be inducted as manager")
 ```
