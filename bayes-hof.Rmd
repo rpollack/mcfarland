@@ -369,20 +369,20 @@ hof_mdl <- final_res$.workflow[[1]]
 evaluate model using curves & area underneath it
 
 ```{r}
+
+# compute area under ROC using class probabilities
 area_under_curve <-
   final_res %>%
   collect_predictions() %>%
-  mutate(pred_hof = as.numeric(.pred_class)) %>%
-  roc_auc(hof, pred_hof, event_level = "second") %>%
+  roc_auc(truth = hof, .pred_1, event_level = "second") %>%
   dplyr::select(.estimate) %>%
   as.numeric() %>%
   round(2)
 
-# draw ROC curve
+# draw  ROC using class probabilities
 final_res %>%
   collect_predictions() %>%
-  mutate(pred_hof = as.numeric(.pred_class)) %>%
-  roc_curve(hof, pred_hof, event_level = "second") %>%
+  roc_curve(truth = hof, .pred_1, event_level = "second") %>%
   ggplot(aes(1 - specificity, sensitivity)) +
   geom_abline(lty = "dashed", color = "gray80", size = 1.5) +
   geom_path() +
@@ -428,7 +428,11 @@ war_through_age %>%
   facet_wrap(vars(position), scales = "free_y") +
   labs(x = "", y = "HOF Probability (%)") +
   geom_hline(yintercept = 50, color = "red", lty = "dashed") +
-  ggtitle(glue("Probability of HOF election"), subtitle = "Active or recently retired eligible players")
+geom_hline(yintercept = 75, color = "orange", lty = "dashed") +
+  geom_hline(yintercept = 95, color = "green", lty = "dashed") +
+
+
+  ggtitle(glue("Probability of HOF election"), subtitle = "Active or retired but not voted on yet")
 
 
 year_threshold <- 2
