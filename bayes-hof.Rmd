@@ -328,13 +328,13 @@ xgb_res <- tune_grid(
   resamples = hof_folds,
   grid = xgb_grid,
   control = control_grid(save_pred = TRUE),
-  metrics = metric_set(roc_auc)
+  metrics = metric_set(pr_auc)
 )
 
 # show how each parameter affects the model performance
 xgb_res %>%
   collect_metrics() %>%
-  filter(.metric == "roc_auc") %>%
+  filter(.metric == "pr_auc") %>%
   dplyr::select(mean, mtry:sample_size) %>%
   pivot_longer(mtry:sample_size,
     values_to = "value",
@@ -343,9 +343,9 @@ xgb_res %>%
   ggplot(aes(value, mean, color = parameter)) +
   geom_point(alpha = 0.8, show.legend = FALSE) +
   facet_wrap(~parameter, scales = "free_x") +
-  labs(x = NULL, y = "AUC")
+  labs(x = NULL, y = "PR_AUC")
 
-best_auc <- select_best(xgb_res, "roc_auc")
+best_auc <- select_best(xgb_res, "pr_auc")
 
 final_xgb <- finalize_workflow(
   xgb_wf,
@@ -374,7 +374,7 @@ evaluate model using curves & area underneath it
 area_under_curve <-
   final_res %>%
   collect_predictions() %>%
-  roc_auc(truth = hof, .pred_1, event_level = "second") %>%
+  pr_auc(truth = hof, .pred_1, event_level = "second") %>%
   dplyr::select(.estimate) %>%
   as.numeric() %>%
   round(2)
@@ -382,11 +382,10 @@ area_under_curve <-
 # draw  ROC using class probabilities
 final_res %>%
   collect_predictions() %>%
-  roc_curve(truth = hof, .pred_1, event_level = "second") %>%
-  ggplot(aes(1 - specificity, sensitivity)) +
-  geom_abline(lty = "dashed", color = "gray80", size = 1.5) +
-  geom_path() +
-  ggtitle("ROC Curve, HOF Prediction Model",
+  pr_curve(truth = hof, .pred_1, event_level = "second") %>%
+  ggplot(aes(recall, precision)) +
+  geom_path() + geom_hline(yintercept = 0.11, size = 1.1, color = "red", lty = "dashed") +
+  ggtitle("Precision-Recall Curve, HOF Prediction Model",
     subtitle = glue("Area Under Curve: {area_under_curve}")
   )
 ```
