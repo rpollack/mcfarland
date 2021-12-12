@@ -314,7 +314,8 @@ xgb_grid <- grid_latin_hypercube(
 
 xgb_recipe <-
   recipe(hof ~ ., data = hof_train) %>%
-  step_dummy(position, scandal_type)
+  step_dummy(position, scandal_type) %>%
+  step_smote(hof)
 
 xgb_wf <-
   workflow() %>%
