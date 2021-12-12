@@ -4,9 +4,6 @@ library(stringr)
 library(plotly)
 library(RMariaDB)
 library(Lahman)
-library(lubridate)
-library(glmnet)
-library(lazyeval)
 library(doParallel)
 library(rvest)
 library(styler)
@@ -29,8 +26,6 @@ fgt <- theme(
   # strip.background = element_rect(fill = "#50ae26"),
   strip.text = element_text(family = "Lato")
 )
-
-
 ```
 
 
@@ -50,20 +45,20 @@ con <-
     ssl.ca = "~/Documents/skysql_fangraphs-db.pem"
   )
 
-pitcher_stats_q <- 
-  dbSendQuery(con, "select PlayerId, ValueW, \`RA9-Wins\`, Age, GS, G 
-              from stats_pitching_master_pfx 
+pitcher_stats_q <-
+  dbSendQuery(con, "select PlayerId, ValueW, \`RA9-Wins\`, Age, GS, G
+              from stats_pitching_master_pfx
               where Type = 0")
 
 pitcher_stats <-
-  dbFetch(pitcher_stats_q) %>% 
+  dbFetch(pitcher_stats_q) %>%
   as_tibble() %>%
   mutate(WAR = round((ValueW + `RA9-Wins`) / 2, 1)) %>%
-  group_by(PlayerId) %>% 
-  filter(sum(GS) / sum(G) >= 0.5) %>% 
+  group_by(PlayerId) %>%
+  filter(sum(GS) / sum(G) >= 0.5) %>%
   ungroup() %>%
   dplyr::select(-G, -GS, -ValueW, -`RA9-Wins`)
-  
+
 dbClearResult(pitcher_stats_q)
 
 batter_stats_q <-
@@ -79,7 +74,7 @@ dbClearResult(batter_stats_q)
 player_info_q <-
   dbSendQuery(con, "select PlayerId, FirstName, LastName, BirthDate, LastGame, Position, BISPosition from player_info")
 
-player_info <- 
+player_info <-
   dbFetch(player_info_q) %>%
   as_tibble() %>%
   unite(Name, FirstName, LastName, sep = " ") %>%
@@ -125,7 +120,6 @@ dbDisconnect(con)
 
 fld <-
   fielding_data_raw %>%
-
   # omit stat lines that total up all outfield numbers. because we want more detailed positional info
   filter(Position != "OF") %>%
   group_by(PlayerId, Position) %>%
@@ -201,7 +195,7 @@ current_year <- 2021
 # combine batting & pitching WAR for all player-seasons.
 # add positional info where we can
 # discard players whose position is "OF". there are about 1,200 of them and only 4-5 HOFers; not enough data,
-# and no one is classified this way today, so not important. 
+# and no one is classified this way today, so not important.
 war_through_age <-
   player_info %>%
   dplyr::select(-Position, -BISPosition) %>%
@@ -213,7 +207,6 @@ war_through_age <-
   left_join(hof_players, by = c("Name", "birth_year")) %>% # joining by birth year prevents mis-identifying players w/same name
   replace_na(list(HOF = "not_elected")) %>%
   group_by(PlayerId, Name, last_year) %>%
-
   arrange(Age) %>%
   mutate(
     num_seasons = n(),
@@ -227,7 +220,6 @@ war_through_age <-
   ungroup() %>%
   distinct() %>%
   na.omit() %>%
- # filter(age >= 19, age <= 38)  %>%
   mutate(scandal_type = case_when(
     name %in% c("Barry Bonds", "Roger Clemens", "Jose Canseco", "Rafael Palmeiro", "Jason Giambi", "Gary Sheffield", "Miguel Tejada", "Nelson Cruz", "Andy Pettite", "Ryan Braun", "Manny Ramirez", "Alex Rodriguez", "Mark McGwire", "Sammy Sosa", "Robinson Cano", "Starling Marte", "Melky Cabrera", "David Ortiz", "Dee Gordon") ~ "PED's",
     name %in% c("Joe Jackson", "Eddie Cicotte", "Buck Weaver", "Chick Gandil", "Fred McMullin", "Swede Risberg", "Lefty Williams", "Joe Gedeon", "Pete Rose") ~ "Gambling",
@@ -236,42 +228,46 @@ war_through_age <-
     name %in% c("Marcell Ozuna", "Roberto Osuna", "Jose Reyes", "Aroldis Chapman", "Omar Vizquel") ~ "Domestic Violence",
     TRUE ~ "None"
   )) %>%
-  inner_join(positional_info, by=c("playerid" = "PlayerId")) %>%
+  inner_join(positional_info, by = c("playerid" = "PlayerId")) %>%
   dplyr::select(playerid, name, position = Position, last_year, scandal_type, age, cumulative_war, considered_hof, hof) %>%
-  
   # force some positions for some inductees. fielding positional data from bb-ref and BB HOF website. need to be more specific for averill as there are 2 guys with his name. really this should be done with player ID's.
   mutate(
-         position = case_when(
-           name %in% c("Ty Cobb", "Earle Combs", "Edd Roush", "Hack Wilson", "Joe DiMaggio", "Lloyd Waner",
-                       "Max Carey", "Tris Speaker", "Joe Jackson") | (name == "Earl Averill" & position == "OF") ~ "CF",
-           name %in% c("Al Simmons", "Chick Hafey", "Ed Delahanty", "Fred Clarke", "Goose Goslin", "Heine Manush",
-                       "Jesse Burkett", "Joe Medwick", "Zack Wheat", "Jim O'Rourke", "Joe Kelley") ~ "LF",
-           name %in% c("Babe Ruth", "Chuck Klein", "Elmer Flick", "Harry Heilmann", "Harry Hooper",
-                       "Mel Ott", "Paul Waner", "Ross Youngs", "Sam Crawford", "Sam Rice", "Willie Keeler", 
-                       "Kiki Cuyler", "Sam Thompson", "Tommy McCarthy") ~ "RF",
-           TRUE ~ position
-         )) %>%
+    position = case_when(
+      name %in% c(
+        "Ty Cobb", "Earle Combs", "Edd Roush", "Hack Wilson", "Joe DiMaggio", "Lloyd Waner",
+        "Max Carey", "Tris Speaker", "Joe Jackson"
+      ) | (name == "Earl Averill" & position == "OF") ~ "CF",
+      name %in% c(
+        "Al Simmons", "Chick Hafey", "Ed Delahanty", "Fred Clarke", "Goose Goslin", "Heine Manush",
+        "Jesse Burkett", "Joe Medwick", "Zack Wheat", "Jim O'Rourke", "Joe Kelley"
+      ) ~ "LF",
+      name %in% c(
+        "Babe Ruth", "Chuck Klein", "Elmer Flick", "Harry Heilmann", "Harry Hooper",
+        "Mel Ott", "Paul Waner", "Ross Youngs", "Sam Crawford", "Sam Rice", "Willie Keeler",
+        "Kiki Cuyler", "Sam Thompson", "Tommy McCarthy"
+      ) ~ "RF",
+      TRUE ~ position
+    )
+  ) %>%
   filter(position != "OF") %>%
   mutate(hof = as_factor(if_else(hof == "elected", 1, 0)))
 
 # no positional data for: billy hamilton, hugh duffy, willard brown
-
-
 ```
 
 
 exploratory data analysis
 
 ```{r, fig.height = 3}
-war_through_age  %>%
+war_through_age %>%
   filter(considered_hof) %>%
   # group_by(age, position, hof) %>%
   # summarize(typical_cume_war = median(cumulative_war, na.rm = TRUE)) %>%
   ggplot(aes(age, cumulative_war, group = hof, color = hof)) +
-  geom_point(size=0.5) + 
+  geom_point(size = 0.5) +
   facet_wrap(vars(position, scandal_type)) +
   ggtitle("Age vs. Typical WAR Trajectories, by HOF Inclusion Type") +
-  labs(y="Cumulative fWAR")
+  labs(y = "Cumulative fWAR")
 
 # position doesn't seem to matter too much except for DH (and probably relief pitcher, if I split those out). maybe can remove
 ```
@@ -331,10 +327,11 @@ xgb_res <- tune_grid(
   xgb_wf,
   resamples = hof_folds,
   grid = xgb_grid,
-  control = control_grid(save_pred = TRUE)
+  control = control_grid(save_pred = TRUE),
+  metrics = metric_set(roc_auc)
 )
 
-# show how each parameter affects the RMSE
+# show how each parameter affects the model performance
 xgb_res %>%
   collect_metrics() %>%
   filter(.metric == "roc_auc") %>%
@@ -367,38 +364,31 @@ final_res <-
 
 # extract final model and use it to predict MVP's
 hof_mdl <- final_res$.workflow[[1]]
-
 ```
 
-evaluate model
+evaluate model using curves & area underneath it
 
 ```{r}
-# show metrics from test set evaluation
-
-final_metrics <-
-  collect_metrics(final_res)
-
-final_metrics
-
-area_under_curve <- 
-  final_res %>% 
-    collect_predictions() %>% 
-    mutate(pred_hof = as.numeric(.pred_class)) %>% 
-    roc_auc(hof, pred_hof, event_level="second") %>%
+area_under_curve <-
+  final_res %>%
+  collect_predictions() %>%
+  mutate(pred_hof = as.numeric(.pred_class)) %>%
+  roc_auc(hof, pred_hof, event_level = "second") %>%
   dplyr::select(.estimate) %>%
   as.numeric() %>%
   round(2)
 
 # draw ROC curve
-final_res %>% 
-  collect_predictions() %>% 
-  mutate(pred_hof = as.numeric(.pred_class)) %>% 
-  roc_curve(hof, pred_hof, event_level="second") %>% 
+final_res %>%
+  collect_predictions() %>%
+  mutate(pred_hof = as.numeric(.pred_class)) %>%
+  roc_curve(hof, pred_hof, event_level = "second") %>%
   ggplot(aes(1 - specificity, sensitivity)) +
   geom_abline(lty = "dashed", color = "gray80", size = 1.5) +
   geom_path() +
   ggtitle("ROC Curve, HOF Prediction Model",
-          subtitle = glue("Area Under Curve: {area_under_curve}"))
+    subtitle = glue("Area Under Curve: {area_under_curve}")
+  )
 ```
 
 predict hall of famers
@@ -417,21 +407,27 @@ num_players <- 10
 
 war_through_age %>%
   add_count(playerid, name = "num_seasons") %>%
-  filter(position != "OF",
-         !considered_hof,
-         between(last_year, current_year - year_threshold, current_year) | num_seasons >= 10) %>% 
+  filter(
+    position != "OF",
+    !considered_hof,
+    between(last_year, current_year - year_threshold, current_year) | num_seasons >= 10
+  ) %>%
   group_by(playerid) %>%
   filter(age == max(age)) %>%
   ungroup() %>%
-  bind_cols(predict(hof_mdl, new_data = .),
-            predict(hof_mdl, new_data = ., type = "prob")) %>%
-  mutate(prob_hof = 100 * (.pred_1)) %>% 
+  bind_cols(
+    predict(hof_mdl, new_data = .),
+    predict(hof_mdl, new_data = ., type = "prob")
+  ) %>%
+  mutate(prob_hof = 100 * (.pred_1)) %>%
   group_by(position) %>%
   slice_max(n = num_players, order_by = prob_hof) %>%
   ggplot(aes(reorder(name, prob_hof), prob_hof)) +
-  geom_col() + coord_flip() + facet_wrap(vars(position), scales = "free_y") +
-  labs(x="", y = "HOF Probability (%)") +
-  geom_hline(yintercept=50, color = "red", lty = "dashed") +
+  geom_col() +
+  coord_flip() +
+  facet_wrap(vars(position), scales = "free_y") +
+  labs(x = "", y = "HOF Probability (%)") +
+  geom_hline(yintercept = 50, color = "red", lty = "dashed") +
   ggtitle(glue("Probability of HOF election"), subtitle = "Active or recently retired eligible players")
 
 
@@ -440,22 +436,26 @@ num_players <- 10
 
 war_through_age %>%
   add_count(playerid, name = "num_seasons") %>%
-  filter(position != "OF",
-         considered_hof,
-         hof == 0) %>% 
+  filter(
+    position != "OF",
+    considered_hof,
+    hof == 0
+  ) %>%
   group_by(playerid) %>%
   filter(age == max(age)) %>%
   ungroup() %>%
-  bind_cols(predict(hof_mdl, new_data = .),
-            predict(hof_mdl, new_data = ., type = "prob")) %>%
-  mutate(prob_hof = 100 * (.pred_1)) %>% 
+  bind_cols(
+    predict(hof_mdl, new_data = .),
+    predict(hof_mdl, new_data = ., type = "prob")
+  ) %>%
+  mutate(prob_hof = 100 * (.pred_1)) %>%
   group_by(position) %>%
   slice_max(n = num_players, order_by = prob_hof) %>%
   ggplot(aes(reorder(name, prob_hof), prob_hof)) +
-  geom_col() + coord_flip() + facet_wrap(vars(position), scales = "free_y") +
-  labs(x="", y = "HOF Probability (%)") +
-  geom_hline(yintercept=50, color = "red", lty = "dashed") +
+  geom_col() +
+  coord_flip() +
+  facet_wrap(vars(position), scales = "free_y") +
+  labs(x = "", y = "HOF Probability (%)") +
+  geom_hline(yintercept = 50, color = "red", lty = "dashed") +
   ggtitle(glue("Probability of HOF election"), subtitle = "Players already considered for the HOF, may be inducted as manager")
-# evaluation: compute the area under the P-R curve
-
 ```
