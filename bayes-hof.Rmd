@@ -228,7 +228,7 @@ war_through_age <-
     name %in% c("Barry Bonds", "Roger Clemens", "Jose Canseco", "Rafael Palmeiro", "Jason Giambi", "Gary Sheffield", "Miguel Tejada", "Nelson Cruz", "Andy Pettite", "Ryan Braun", "Manny Ramirez", "Alex Rodriguez", "Mark McGwire", "Sammy Sosa", "Robinson Cano", "Starling Marte", "Melky Cabrera", "David Ortiz", "Dee Gordon") ~ "PED's",
     name %in% c("Joe Jackson", "Eddie Cicotte", "Buck Weaver", "Chick Gandil", "Fred McMullin", "Swede Risberg", "Lefty Williams", "Joe Gedeon", "Pete Rose") ~ "Gambling",
     name %in% c("Carlos Beltran", "Jose Altuve", "Alex Bregman", "Alex Cora", "Carlos Correa", "George Springer", "Gaylord Perry") ~ "Cheating",
-    name %in% c("Curt Schilling") ~ "Misc.",
+    name %in% c("Curt Schilling", "Lenny Dykstra") ~ "Misc.",
     name %in% c("Marcell Ozuna", "Roberto Osuna", "Jose Reyes", "Aroldis Chapman", "Omar Vizquel") ~ "Domestic Violence",
     TRUE ~ "None"
   )) %>%
