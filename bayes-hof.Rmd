@@ -434,35 +434,4 @@ war_through_age %>%
   geom_hline(yintercept = 75, color = "orange", lty = "dashed") +
   geom_hline(yintercept = 95, color = "green", lty = "dashed") +
   ggtitle(glue("Probability of HOF election"), subtitle = "Active or retired but not voted on yet")
-
-
-year_threshold <- 2
-num_players <- 10
-
-war_through_age %>%
-  add_count(playerid, name = "num_seasons") %>%
-  filter(
-    position != "OF",
-    considered_hof,
-    hof == 0
-  ) %>%
-  group_by(playerid) %>%
-  filter(age == max(age)) %>%
-  ungroup() %>%
-  bind_cols(
-    predict(hof_mdl, new_data = .),
-    predict(hof_mdl, new_data = ., type = "prob")
-  ) %>%
-  mutate(prob_hof = 100 * (.pred_1)) %>%
-  group_by(position) %>%
-  slice_max(n = num_players, order_by = prob_hof) %>%
-  ggplot(aes(reorder(name, prob_hof), prob_hof)) +
-  geom_col() +
-  coord_flip() +
-  facet_wrap(vars(position), scales = "free_y") +
-  labs(x = "", y = "HOF Probability (%)") +
-  geom_hline(yintercept = 50, color = "red", lty = "dashed") +
-  geom_hline(yintercept = 75, color = "orange", lty = "dashed") +
-  geom_hline(yintercept = 95, color = "green", lty = "dashed") +
-  ggtitle(glue("Probability of HOF election"), subtitle = "Players already considered for the HOF, may be inducted as manager")
 ```
