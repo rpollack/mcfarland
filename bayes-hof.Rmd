@@ -10,6 +10,7 @@ library(styler)
 library(themis)
 library(vip)
 library(glue)
+library(probably)
 
 fgt <- theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
@@ -253,7 +254,7 @@ war_through_age <-
     )
   ) %>%
   filter(position != "OF") %>%
-  mutate(hof = as_factor(if_else(hof == "elected", 1, 0)))
+  mutate(hof = factor(hof, levels = c("elected", "not_elected")))
 
 # no positional data for: billy hamilton, hugh duffy, willard brown
 ```
@@ -373,25 +374,35 @@ evaluate model using curves & area underneath it
 
 ```{r}
 
+predictions <-
+  final_res %>%
+  collect_predictions()
+
 # compute area under ROC using class probabilities
 area_under_curve <-
-  final_res %>%
-  collect_predictions() %>%
-  pr_auc(truth = hof, .pred_1, event_level = "second") %>%
+  predictions %>%
+  pr_auc(truth = hof, .pred_elected) %>%
   dplyr::select(.estimate) %>%
   as.numeric() %>%
   round(2)
 
 # draw  ROC using class probabilities
-final_res %>%
-  collect_predictions() %>%
-  pr_curve(truth = hof, .pred_1, event_level = "second") %>%
+predictions %>%
+  pr_curve(truth = hof, .pred_elected) %>%
   ggplot(aes(recall, precision)) +
   geom_path() +
   geom_hline(yintercept = 0.11, size = 1.1, color = "red", lty = "dashed") +
   ggtitle("Precision-Recall Curve, HOF Prediction Model",
-    subtitle = glue("Area Under Curve: {area_under_curve}")
-  )
+    subtitle = glue("Area Under Curve: {area_under_curve}"))
+    
+predictions %>%
+  f_meas(truth = hof, estimate = .pred_class)
+
+# find optimal threshold for class predictions
+predictions %>%
+  threshold_perf(truth = hof, estimate = .pred_elected, thresholds = seq(0.1, 1, by = 0.0025)) %>%
+  group_by(.metric) %>%
+  filter(.estimate == max(.estimate))
 ```
 
 predict hall of famers
@@ -422,7 +433,7 @@ war_through_age %>%
     predict(hof_mdl, new_data = .),
     predict(hof_mdl, new_data = ., type = "prob")
   ) %>%
-  mutate(prob_hof = 100 * (.pred_1)) %>%
+  mutate(prob_hof = 100 * (.pred_elected)) %>%
   group_by(position) %>%
   slice_max(n = num_players, order_by = prob_hof) %>%
   ggplot(aes(reorder(name, prob_hof), prob_hof)) +
