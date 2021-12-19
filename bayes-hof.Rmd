@@ -360,7 +360,7 @@ final_xgb <- finalize_workflow(
 final_xgb %>%
   fit(data = hof_train) %>%
   extract_fit_parsnip() %>%
-  vip(geom = "point")
+  vip(num_features = 20)
 
 # fit model to training set and evaluate on test set.
 final_res <-
@@ -373,6 +373,7 @@ hof_mdl <- final_res$.workflow[[1]]
 evaluate model using curves & area underneath it
 
 ```{r}
+
 
 predictions <-
   final_res %>%
@@ -398,9 +399,11 @@ predictions %>%
 predictions %>%
   f_meas(truth = hof, estimate = .pred_class)
 
+
+
 # find optimal threshold for class predictions
 predictions %>%
-  threshold_perf(truth = hof, estimate = .pred_elected, thresholds = seq(0.1, 1, by = 0.0025)) %>%
+  threshold_perf(hof, .pred_elected, thresholds = seq(0.1, 1, by = 0.0025)) %>% View()
   group_by(.metric) %>%
   filter(.estimate == max(.estimate))
 ```
