@@ -96,7 +96,7 @@ plot_prior_posterior <- function(Name, alpha0, beta0, alpha1, beta1, est_hof_vot
     labs(
       x = "Estimated HOF Vote Share",
       color = "Distribution",
-      caption = "Sources:\nPast voting: Baseball Reference\n2019 voting: bbhoftracker.com"
+      caption = "Sources:\nPast voting: Baseball Reference\n2022 voting: bbhoftracker.com"
     ) +
     ggtitle(glue("{Name} HOF Voting 2022"),
       subtitle = glue("Estimated vote share: {est_hof_vote_share * 100}%")
@@ -261,7 +261,8 @@ repeat_players <-
   master_bayes %>%
   filter(
     year_on_ballot != 1,
-    !is.na(prev_year_vote_share)
+    !is.na(prev_year_vote_share),
+    vote_year == 2022
   ) %>%
   dplyr::select(-SV) %>%
   ungroup()
@@ -284,13 +285,12 @@ est_hof_repeat_players <-
     est_prior_hof_vote_share = alpha0 / (alpha0 + beta0),
     alpha1 = alpha0 + num_votes_received,
     beta1 = beta0 + total_ballots - num_votes_received,
-    est_hof_vote_share = round(alpha1 / (alpha1 + beta1), 1),
+    est_hof_vote_share = round(alpha1 / (alpha1 + beta1), 3),
     low_credible = qbeta(.025, alpha1, beta1),
     high_credible = qbeta(.975, alpha1, beta1),
     min_probable = qbeta(0.001, alpha1, beta1),
     max_probable = qbeta(.999, alpha1, beta1)
-  ) %>%
-  filter(vote_year == 2022) 
+  )
 
 # plot priors and posteriors for interesting players
 est_hof_repeat_players %>%
@@ -418,7 +418,7 @@ est_hof_all %>%
     `Chance of Elimination (%)` = round(pbeta(.049, alpha1, beta1), 3) * 100
   ) %>%
   dplyr::select(Name, contains("%")) %>%
-  arrange(desc(`Estimated Vote Share (%)`))
+  arrange(desc(`Chance of Induction (%)`))
 ```
 
 
