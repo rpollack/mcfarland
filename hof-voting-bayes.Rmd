@@ -244,8 +244,8 @@ master_bayes <-
   arrange(year_on_ballot) %>%
   mutate(prev_year_vote_share = lag(num_votes_received) / lag(total_ballots)) %>%
   dplyr::select(
-    Name, num_votes_received, year_on_ballot, vote_year, total_ballots, bj_hof_monitor,
-    SV, position_class, prev_year_vote_share
+    Name, vote_year, year_on_ballot, num_votes_received, total_ballots, prev_year_vote_share, bj_hof_monitor,
+    SV, position_class
   ) %>%
   ungroup()
 ```
@@ -284,18 +284,18 @@ est_hof_repeat_players <-
     est_prior_hof_vote_share = alpha0 / (alpha0 + beta0),
     alpha1 = alpha0 + num_votes_received,
     beta1 = beta0 + total_ballots - num_votes_received,
-    est_hof_vote_share = round(alpha1 / (alpha1 + beta1), 3),
+    est_hof_vote_share = round(alpha1 / (alpha1 + beta1), 1),
     low_credible = qbeta(.025, alpha1, beta1),
     high_credible = qbeta(.975, alpha1, beta1),
     min_probable = qbeta(0.001, alpha1, beta1),
     max_probable = qbeta(.999, alpha1, beta1)
   ) %>%
-  filter(vote_year == 2021) # TODO: two vote years with 2021 for some reason ...
+  filter(vote_year == 2022) 
 
 # plot priors and posteriors for interesting players
 est_hof_repeat_players %>%
   dplyr::select(Name, alpha0, beta0, alpha1, beta1, est_hof_vote_share) %>%
-  filter(Name %in% c("Curt Schilling", "Barry Bonds", "Todd Helton", "Omar Vizquel")) %>%
+  filter(Name %in% c("Curt Schilling", "Barry Bonds", "Todd Helton", "Omar Vizquel", "Scott Rolen", "Roger Clemens")) %>%
   pmap(plot_prior_posterior)
 ```
 
@@ -336,11 +336,11 @@ est_hof_first_year_starters <-
     low_credible = qbeta(.025, alpha1, beta1),
     high_credible = qbeta(.975, alpha1, beta1)
   ) %>%
-  filter(vote_year == 2021)
+  filter(vote_year == 2022)
 
 est_hof_first_year_starters %>%
   dplyr::select(Name, alpha0, beta0, alpha1, beta1, est_hof_vote_share) %>%
-  filter(Name %in% c("Mark Buehrle", "Tim Hudson")) %>%
+  filter(Name %in% c("David Ortiz", "Jimmy Rollins")) %>%
   pmap(plot_prior_posterior)
 ```
 
@@ -352,7 +352,7 @@ master_relievers <-
   filter(
     year_on_ballot == 1,
     position_class == "Relief pitcher",
-    vote_year == 2021
+    vote_year == 2022
   ) %>%
   dplyr::select(-prev_year_vote_share)
 
@@ -382,55 +382,12 @@ est_hof_first_year_relievers <-
 
 est_hof_first_year_relievers %>%
   dplyr::select(Name, alpha0, beta0, alpha1, beta1, est_hof_vote_share) %>%
-  filter(Name %in% c("Mariano Rivera", "Darren Oliver")) %>%
+  filter(Name %in% c("Joe Nathan", "Jonathan Papelbon")) %>%
   pmap(plot_prior_posterior)
 ```
 
 
-```{r, fig.height=3}
 
-# plot posterior curves of some players, to show what pre-flattening looks like
-
-ggplot() +
-  geom_histogram(binwidth = 0.1, aes(y = ..density..)) +
-  stat_function(
-    fun = dbeta,
-    args = list(shape1 = 48.59796, shape2 = 209.2028),
-    aes(color = "Scott Rolen")
-  ) +
-  stat_function(
-    fun = dbeta,
-    args = list(shape1 = 181.7613, shape2 = 76.03944),
-    aes(color = "Roger Clemens")
-  ) +
-  stat_function(
-    fun = dbeta,
-    args = list(shape1 = 91.63613, shape2 = 166.1647),
-    aes(color = "Fred McGriff")
-  ) +
-  stat_function(
-    fun = dbeta,
-    args = list(shape1 = 21.97254, shape2 = 235.8282),
-    aes(color = "Andruw Jones")
-  ) +
-  stat_function(
-    fun = dbeta,
-    args = list(shape1 = 155.6397, shape2 = 102.1611),
-    aes(color = "Larry Walker")
-  ) +
-  xlim(0, 1) +
-  labs(
-    x = "Estimated HOF Vote Share",
-    color = "Player",
-    caption = "Sources:\nPast voting: Baseball Reference\n2019 voting: bbhoftracker.com"
-  ) +
-  ggtitle(glue("HOF Voting 2019: Example Posterior Distributions",
-    subtitle = glue("After {known_votes} ballots revealed")
-  )) +
-  fgt +
-  geom_vline(xintercept = 0.75, linetype = "dashed", color = "green", lwd = 1.1) +
-  geom_vline(xintercept = .05, linetype = "dashed", color = "red", lwd = 1.1)
-```
 
 
 ```{r}
