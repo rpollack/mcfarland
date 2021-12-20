@@ -257,7 +257,8 @@ war_through_age <-
     )
   ) %>%
   filter(position != "OF") %>%
-  mutate(hof = factor(hof, levels = c("elected", "not_elected")))
+  mutate(hof = factor(hof, levels = c("elected", "not_elected"))) %>% 
+  distinct() 
 
 # no positional data for: billy hamilton, hugh duffy, willard brown
 ```
@@ -444,11 +445,10 @@ war_through_age %>%
   slice_max(n = num_players, order_by = prob_hof) %>%
   ggplot(aes(reorder(name, prob_hof), prob_hof)) +
   geom_col() +
+  ylim(0, 100) +
   coord_flip() +
   facet_wrap(vars(position), scales = "free_y") +
   labs(x = "", y = "HOF Probability (%)") +
-  geom_hline(yintercept = 50, color = "red", lty = "dashed") +
-  geom_hline(yintercept = 75, color = "orange", lty = "dashed") +
-  geom_hline(yintercept = 95, color = "green", lty = "dashed") +
+  geom_hline(yintercept = 50, lty = "dashed") +
   ggtitle(glue("Probability of HOF election"), subtitle = "Active or retired but not voted on yet")
 ```
