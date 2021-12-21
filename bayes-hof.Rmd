@@ -110,9 +110,9 @@ ids <-
 
 dbClearResult(id_q)
 
-# get fielding data from detailed FG table
-
-fielding_q <- dbSendQuery(con, "select PlayerId, Position, Season, Type, G, Inn from stats_fielding")
+# get career fielding data from detailed FG table. A type of -1 is the full career info at that position. Omit "OF" entries;
+# those just total up LF/CF/RF which isn't as usesful as the more detailed positional info.
+fielding_q <- dbSendQuery(con, "select PlayerId, Position, Season, G, Inn from stats_fielding where Type = -1 and Position != 'OF'")
 
 fielding_data_raw <-
   dbFetch(fielding_q) %>%
@@ -124,12 +124,9 @@ dbDisconnect(con)
 fld <-
   fielding_data_raw %>%
   # omit stat lines that total up all outfield numbers. because we want more detailed positional info
-  filter(Position != "OF") %>%
-  group_by(PlayerId, Position) %>%
-  summarize(total_innings = sum(Inn)) %>%
   group_by(PlayerId) %>%
-  filter(total_innings == max(total_innings)) %>%
-  dplyr::select(-total_innings)
+  filter(Inn == max(Inn)) %>%
+  dplyr::select(PlayerId, Position)
 
 # take player ID's, add in Lahman fielding data, and more detailed FG dielding data.
 # see what we're left with
@@ -313,7 +310,7 @@ xgb_grid <- grid_latin_hypercube(
   sample_size = sample_prop(),
   finalize(mtry(), hof_train),
   learn_rate(),
-  size = 50
+  size = 150
 )
 
 xgb_recipe <-
@@ -453,4 +450,6 @@ war_through_age %>%
   labs(x = "", y = "HOF Probability (%)") +
   geom_hline(yintercept = 50, lty = "dashed") +
   ggtitle(glue("Probability of HOF election"), subtitle = "Active or retired but not voted on yet")
+
+ggsave("hof-predictions-final.png", width = 10)
 ```
