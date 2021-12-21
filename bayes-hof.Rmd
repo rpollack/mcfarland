@@ -403,6 +403,8 @@ predictions %>%
 predictions %>%
   f_meas(truth = hof, estimate = .pred_class)
 
+predictions %>%
+  conf_mat(truth = hof, estimate = .pred_class)
 
 
 # find optimal threshold for class predictions
