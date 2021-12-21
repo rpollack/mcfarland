@@ -369,12 +369,8 @@ final_res <-
 
 # extract final model and use it to predict MVP's
 hof_mdl <- final_res$.workflow[[1]]
-```
 
-evaluate model using curves & area underneath it
-
-```{r}
-
+# evaluate model using curves & area underneath it
 
 predictions <-
   final_res %>%
