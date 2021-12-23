@@ -331,7 +331,7 @@ repeat_players <-
   dplyr::select(-SV) %>%
   ungroup()
 
-fit <- gamlss(cbind(num_votes_received, total_ballots - num_votes_received) ~ prev_year_vote_share,
+fit <- gamlss(cbind(num_votes_received, total_ballots - num_votes_received) ~ prev_year_vote_share + vote_year,
   data = repeat_players,
   family = BB(mu.link = "identity")
 )
