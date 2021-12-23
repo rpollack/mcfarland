@@ -74,7 +74,8 @@ fix_name <- function(name) {
     name,
     c(
       "X-" = "",
-      "\\sHOF" = ""
+      "\\sHOF" = "",
+      "Á" = "A"
     )
   )
 }
@@ -247,8 +248,71 @@ master_bayes <-
     Name, vote_year, year_on_ballot, num_votes_received, total_ballots, prev_year_vote_share, bj_hof_monitor,
     SV, position_class
   ) %>%
-  ungroup()
+  ungroup() %>%
+  mutate(log_bill_james = log(bj_hof_monitor),
+         is_scandal = if_else(Name %in% c("Curt Schilling", "Barry Bonds", "Roger Clemens", "Alex Rodriguez", "Manny Ramirez"), 1, 0)) %>%
+  replace_na(list(
+    prev_year_vote_share = 0,
+    log_bill_james = 0
+  ))
 ```
+
+
+```{r}
+
+master_bayes_no_sv <-
+  master_bayes %>%
+  dplyr::select(-SV)
+
+fit <- gamlss(cbind(num_votes_received, total_ballots - num_votes_received) ~ prev_year_vote_share,
+  data = master_bayes_no_sv,
+  family = BB(mu.link = "identity")
+)
+
+master_bayes_no_sv %>%
+  augment(fit, newdata = .) %>%
+  mutate(
+    alpha0 = .fitted / sigma,
+    beta0 = (1 - .fitted) / sigma,
+    alpha1 = alpha0 + num_votes_received,
+    beta1 = beta0 + total_ballots - num_votes_received,
+    estimate = (alpha1 / (alpha1 + beta1) * 100),
+    credible_low = qbeta(.025, alpha1, beta1) * 100,
+    credible_high = qbeta(.975, alpha1, beta1) * 100
+  ) %>%
+  filter(vote_year == 2022) %>%
+  ggplot(aes(estimate, reorder(Name, estimate))) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = credible_low, xmax = credible_high)) +
+  labs(x = "HOF Vote Share w/ 95% credible interval", y = "") +
+  geom_vline(xintercept = 75, lty = "dashed") +
+  geom_vline(xintercept = 5, lty = "dashed")
+```
+
+
+```{r}
+# td <- tidy(fit)
+mu <- fitted(fit, parameter = "mu")
+sigma <- fitted(fit, parameter = "sigma")
+
+est_hof_repeat_players <-
+  repeat_players %>%
+  mutate(
+    mu = mu,
+    sigma = sigma,
+    alpha0 = mu / sigma,
+    beta0 = (1 - mu) / sigma,
+    est_prior_hof_vote_share = alpha0 / (alpha0 + beta0),
+    alpha1 = alpha0 + num_votes_received,
+    beta1 = beta0 + total_ballots - num_votes_received,
+    est_hof_vote_share = round(alpha1 / (alpha1 + beta1), 3),
+    low_credible = qbeta(.025, alpha1, beta1),
+    high_credible = qbeta(.975, alpha1, beta1),
+    min_probable = qbeta(0.001, alpha1, beta1),
+    max_probable = qbeta(.999, alpha1, beta1)
+  )
+```
+
 
 for players returning to the ballot, voting heavily depends on the prior year's voting (r^2 = 0.93)
 i can prove this with a scatterplot
@@ -272,7 +336,7 @@ fit <- gamlss(cbind(num_votes_received, total_ballots - num_votes_received) ~ pr
   family = BB(mu.link = "identity")
 )
 
-#td <- tidy(fit)
+# td <- tidy(fit)
 mu <- fitted(fit, parameter = "mu")
 sigma <- fitted(fit, parameter = "sigma")
 
@@ -280,7 +344,7 @@ est_hof_repeat_players <-
   repeat_players %>%
   mutate(
     mu = mu,
-    sigma = sigma, 
+    sigma = sigma,
     alpha0 = mu / sigma,
     beta0 = (1 - mu) / sigma,
     est_prior_hof_vote_share = alpha0 / (alpha0 + beta0),
