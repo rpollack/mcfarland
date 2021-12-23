@@ -405,7 +405,7 @@ est_hof_first_year_starters <-
 
 est_hof_first_year_starters %>%
   dplyr::select(Name, alpha0, beta0, alpha1, beta1, est_hof_vote_share) %>%
-  filter(Name %in% c("David Ortiz", "Jimmy Rollins")) %>%
+  filter(Name %in% c("David Ortiz", "Jimmy Rollins", "Alex Rodriguez")) %>%
   pmap(plot_prior_posterior)
 ```
 
