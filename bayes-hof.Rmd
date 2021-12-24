@@ -274,6 +274,20 @@ war_through_age %>%
   ggtitle("Age vs. Typical WAR Trajectories, by HOF Inclusion Type") +
   labs(y = "Cumulative fWAR")
 
+# number of elected vs. not-elected at each position, by mean year over time.
+war_through_age %>%
+  filter(last_year < 2016) %>% # only those who've been voted on
+  mutate(decade = mean_year - mean_year %% 10) %>%
+  distinct(playerid, decade, position, hof) %>% 
+  count(decade, position, hof) %>%
+  ungroup() %>%
+  complete(decade, position, hof, fill = list(n = 0)) %>%
+  group_by(decade, position) %>%
+  mutate(prop = n / sum(n) * 100) %>% 
+  filter(hof == "elected") %>%
+  ggplot(aes(decade, prop)) + facet_wrap(vars(position), scales = "free_y") +
+  geom_point() + geom_path() + geom_smooth()
+
 # position doesn't seem to matter too much except for DH (and probably relief pitcher, if I split those out). maybe can remove
 ```
 
@@ -310,7 +324,7 @@ xgb_grid <- grid_latin_hypercube(
   sample_size = sample_prop(),
   finalize(mtry(), hof_train),
   learn_rate(),
-  size = 150
+  size = 50
 )
 
 xgb_recipe <-
