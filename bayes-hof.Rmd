@@ -317,6 +317,8 @@ xgb_spec <-
   set_engine("xgboost") %>%
   set_mode("classification")
 
+# TODO: set higher tree depths and mtry's. the accuracy seems to increase with those as higher values. 
+
 xgb_grid <- grid_latin_hypercube(
   tree_depth(),
   min_n(),
@@ -463,3 +465,136 @@ war_through_age %>%
 
 ggsave("hof-predictions-final.png", width = 10)
 ```
+
+
+other fun: predicting career WAR
+
+```{r}
+war_through_age %>%
+  group_by(playerid) %>%
+  filter(age == max(age)) %>%
+  ggplot(aes(cumulative_war)) + geom_histogram()
+
+war_age_data <-
+  war_through_age %>%
+  mutate(active = if_else(last_year < 2020, FALSE, TRUE)) %>%
+  ungroup()
+
+war_split <-
+  war_age_data %>%
+  filter(!active,
+         cumulative_war >= 0.5) %>%
+  dplyr::select(position, mean_year, age, cumulative_war) %>%
+  initial_split(strata = cumulative_war)
+
+war_train <- training(war_split)
+war_test <- testing(war_split)
+
+war_spec <-
+  boost_tree(
+    trees = 150,
+    tree_depth = tune(), min_n = tune(),
+    loss_reduction = tune(),
+    sample_size = tune(), mtry = tune(),
+    learn_rate = tune()
+  ) %>%
+  set_engine("xgboost") %>%
+  set_mode("regression")
+
+
+war_grid <- grid_latin_hypercube(
+  tree_depth(),
+  min_n(),
+  loss_reduction(),
+  sample_size = sample_prop(),
+  finalize(mtry(), hof_train),
+  learn_rate(),
+  size = 50
+)
+
+war_recipe <-
+  recipe(cumulative_war ~ ., data = war_train) %>%
+  step_dummy(position)
+
+war_wf <-
+  workflow() %>%
+  add_model(war_spec) %>%
+  add_recipe(war_recipe)
+
+# find the optimal values of tuning parameters using 10-fold cross validation
+war_folds <- vfold_cv(war_train, strata = cumulative_war)
+
+doParallel::registerDoParallel()
+
+war_res <- tune_grid(
+  war_wf,
+  resamples = war_folds,
+  grid = war_grid
+)
+
+# show how each parameter affects the model performance
+war_res %>%
+  collect_metrics() %>%
+  filter(.metric == "rmse") %>%
+  dplyr::select(mean, mtry:sample_size) %>%
+  pivot_longer(mtry:sample_size,
+    values_to = "value",
+    names_to = "parameter"
+  ) %>%
+  ggplot(aes(value, mean, color = parameter)) +
+  geom_point(alpha = 0.8, show.legend = FALSE) +
+  facet_wrap(~parameter, scales = "free_x") +
+  labs(x = NULL, y = "RMSE")
+
+best_war <- select_best(war_res, "rmse")
+
+final_war <- finalize_workflow(
+  war_wf,
+  best_war
+)
+
+# show the important of each variable
+final_war %>%
+  fit(data = war_train) %>%
+  extract_fit_parsnip() %>%
+  vip(num_features = 20)
+
+# fit model to training set and evaluate on test set.
+war_res <-
+  last_fit(final_war, war_split)
+
+# extract final model and use it to predict cumulative WAR
+war_mdl <- war_res$.workflow[[1]]
+
+# evaluate model using curves & area underneath it
+
+war_res %>%
+  collect_metrics()
+
+war_predictions <-
+  war_res %>%
+  collect_predictions() %>%
+  mutate(residual = .pred - cumulative_war)
+
+war_predictions %>%
+  ggplot(aes(cumulative_war, .pred)) +
+  geom_point() + geom_smooth(method = "lm")
+
+war_predictions %>%
+  ggplot(aes(cumulative_war, residual)) +
+  geom_point() + geom_hline(yintercept = 0, color = "blue")
+
+
+war_age_data %>%
+  filter(last_year == 2021) %>%
+  group_by(playerid) %>%
+  filter(age == max(age)) %>%
+  bind_cols(
+    predict(war_mdl, new_data = .)) %>%
+  arrange(desc(.pred))
+
+
+
+
+```
+
