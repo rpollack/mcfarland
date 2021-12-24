@@ -320,11 +320,11 @@ xgb_spec <-
 # TODO: set higher tree depths and mtry's. the accuracy seems to increase with those as higher values. 
 
 xgb_grid <- grid_latin_hypercube(
-  tree_depth(),
+  tree_depth(range = c(16, 32)),
   min_n(),
   loss_reduction(),
   sample_size = sample_prop(),
-  finalize(mtry(), hof_train),
+  mtry(range = c(6, 22)),
   learn_rate(),
   size = 50
 )
