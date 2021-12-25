@@ -223,7 +223,6 @@ war_through_age <-
   ) %>%
   ungroup() %>%
   distinct() %>%
-  na.omit() %>%
   mutate(scandal_type = case_when(
     name %in% c("Barry Bonds", "Roger Clemens", "Jose Canseco", "Rafael Palmeiro", "Jason Giambi", "Gary Sheffield", "Miguel Tejada", "Nelson Cruz", "Andy Pettite", "Ryan Braun", "Manny Ramirez", "Alex Rodriguez", "Mark McGwire", "Sammy Sosa", "Robinson Cano", "Starling Marte", "Melky Cabrera", "David Ortiz", "Dee Gordon", "Bartolo Colon") ~ "PED's",
     name %in% c("Joe Jackson", "Eddie Cicotte", "Buck Weaver", "Chick Gandil", "Fred McMullin", "Swede Risberg", "Lefty Williams", "Joe Gedeon", "Pete Rose") ~ "Gambling",
@@ -255,7 +254,9 @@ war_through_age <-
   ) %>%
   filter(position != "OF") %>%
   mutate(hof = factor(hof, levels = c("elected", "not_elected"))) %>% 
-  distinct() 
+  distinct() %>%
+  filter(!name %in% c("Satchel Paige", "Monte Irvin")) %>%
+  na.omit()
 
 # no positional data for: billy hamilton, hugh duffy, willard brown
 ```
@@ -320,11 +321,11 @@ xgb_spec <-
 # TODO: set higher tree depths and mtry's. the accuracy seems to increase with those as higher values. 
 
 xgb_grid <- grid_latin_hypercube(
-  tree_depth(range = c(16, 32)),
+  tree_depth(range = c(6,32)),
   min_n(),
   loss_reduction(),
   sample_size = sample_prop(),
-  mtry(range = c(6, 22)),
+  finalize(mtry(), hof_train),
   learn_rate(),
   size = 50
 )
