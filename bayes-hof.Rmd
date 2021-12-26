@@ -325,7 +325,7 @@ xgb_grid <- grid_latin_hypercube(
   min_n(),
   loss_reduction(),
   sample_size = sample_prop(),
-  finalize(mtry(), hof_train),
+  mtry(range(6,32)),
   learn_rate(),
   size = 50
 )
@@ -341,7 +341,7 @@ xgb_wf <-
   add_recipe(xgb_recipe)
 
 # find the optimal values of tuning parameters using 10-fold cross validation
-hof_folds <- vfold_cv(hof_train, strata = hof)
+hof_folds <- vfold_cv(hof_train, strata = hof, repeats = 5)
 
 doParallel::registerDoParallel()
 
