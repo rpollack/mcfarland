@@ -399,23 +399,26 @@ area_under_curve <-
   pr_auc(truth = hof, .pred_elected) %>%
   dplyr::select(.estimate) %>%
   as.numeric() %>%
-  round(2)
+  round(3)
 
-# draw  ROC using class probabilities
+# draw  PR Curve using class probabilities
 predictions %>%
   pr_curve(truth = hof, .pred_elected) %>%
   ggplot(aes(recall, precision)) +
   geom_path() +
-  geom_hline(yintercept = 0.11, size = 1.1, color = "red", lty = "dashed") +
+  geom_hline(yintercept = 0.079, size = 1.1, color = "red", lty = "dashed") +
   ggtitle("Precision-Recall Curve, HOF Prediction Model",
     subtitle = glue("Area Under Curve: {area_under_curve}"))
     
-predictions %>%
-  f_meas(truth = hof, estimate = .pred_class)
 
 predictions %>%
   conf_mat(truth = hof, estimate = .pred_class)
 
+predictions %>%
+  f_meas(truth = hof, estimate = .pred_class)
+
+predictions %>% 
+  bal_accuracy(truth = hof, estimate = .pred_class)
 
 # find optimal threshold for class predictions
 predictions %>%
@@ -461,14 +464,28 @@ war_through_age %>%
   coord_flip() +
   facet_wrap(vars(position), scales = "free_y") +
   labs(x = "", y = "HOF Probability (%)") +
-  geom_hline(yintercept = 50, lty = "dashed") +
-  ggtitle(glue("Probability of HOF election"), subtitle = "Active or retired but not voted on yet")
+  geom_hline(yintercept = 25, lty = "dashed") +
+  ggtitle(glue("Probability of HOF election"), subtitle = "Active or retired but not voted on yet. 25% = Predicted Hall of Famer")
 
 ggsave("hof-predictions-final.png", width = 10)
 ```
 
 
+```{r}
+war_age_data %>%
+  inner_join(war_age_data %>%
+    filter(!active) %>%
+    group_by(playerid) %>%
+    arrange(age, .by_group = TRUE) %>%
+    filter(row_number() == n()) %>%
+    dplyr::select(name, final_war = cumulative_war), by="name") %>%
+  View()
+```
+
+
 other fun: predicting career WAR
+
+need to add final war by player. that is the missing piece. 
 
 ```{r}
 war_through_age %>%
@@ -481,12 +498,20 @@ war_age_data <-
   mutate(active = if_else(last_year < 2020, FALSE, TRUE)) %>%
   ungroup()
 
+# add data point "final_war" to every player. this is what we're going to predict
 war_split <-
   war_age_data %>%
-  filter(!active,
-         cumulative_war >= 0.5) %>%
-  dplyr::select(position, mean_year, age, cumulative_war) %>%
-  initial_split(strata = cumulative_war)
+  filter(!active) %>%
+  inner_join(war_age_data %>%
+    filter(!active) %>%
+    group_by(playerid) %>%
+    arrange(age, .by_group = TRUE) %>%
+    filter(row_number() == n()) %>%
+    ungroup() %>%
+    dplyr::select(name, final_war = cumulative_war), by = "name") %>%
+  ungroup() %>%
+  dplyr::select(position, mean_year, age, cumulative_war, final_war) %>%
+  initial_split(strata = final_war)
 
 war_train <- training(war_split)
 war_test <- testing(war_split)
@@ -508,14 +533,15 @@ war_grid <- grid_latin_hypercube(
   min_n(),
   loss_reduction(),
   sample_size = sample_prop(),
-  finalize(mtry(), hof_train),
+  finalize(mtry(), war_train),
   learn_rate(),
   size = 50
 )
 
 war_recipe <-
-  recipe(cumulative_war ~ ., data = war_train) %>%
-  step_dummy(position)
+  recipe(final_war ~ ., data = war_train) %>%
+  step_dummy(position) %>%
+  step_BoxCox(cumulative_war)
 
 war_wf <-
   workflow() %>%
@@ -523,7 +549,7 @@ war_wf <-
   add_recipe(war_recipe)
 
 # find the optimal values of tuning parameters using 10-fold cross validation
-war_folds <- vfold_cv(war_train, strata = cumulative_war)
+war_folds <- vfold_cv(war_train, strata = final_war)
 
 doParallel::registerDoParallel()
 
@@ -575,14 +601,14 @@ war_res %>%
 war_predictions <-
   war_res %>%
   collect_predictions() %>%
-  mutate(residual = .pred - cumulative_war)
+  mutate(residual = .pred - final_war)
 
 war_predictions %>%
-  ggplot(aes(cumulative_war, .pred)) +
+  ggplot(aes(final_war, .pred)) +
   geom_point() + geom_smooth(method = "lm")
 
 war_predictions %>%
-  ggplot(aes(cumulative_war, residual)) +
+  ggplot(aes(final_war, residual)) +
   geom_point() + geom_hline(yintercept = 0, color = "blue")
 
 
@@ -592,10 +618,97 @@ war_age_data %>%
   filter(age == max(age)) %>%
   bind_cols(
     predict(war_mdl, new_data = .)) %>%
-  arrange(desc(.pred))
+  arrange(desc(.pred)) %>%
+  dplyr::select(name, position, age, cumulative_war, predicted_final_war = .pred)
 
 
 
+
+```
+war through age and MVP shares.
+
+```{r}
+shares_url <- "https://www.baseball-reference.com/leaders/mvp_cya.shtml"
+
+shares_html <- read_html(shares_url)
+
+mvp_shares <-
+  shares_html %>%
+  html_table() %>%
+  pluck(1)
+
+cya_shares <-
+  shares_html %>%
+  html_table() %>%
+  pluck(2)
+
+mvp_names <-
+  mvp_shares %>%
+  mutate(name = str_trim(str_replace_all(`Most Valuable Player`, c(
+    "\\*" = "",
+    "\\([:digit:] wins\\)" = "",
+    "\\(1 win\\)" = ""
+  )), side = "both")) %>%
+  dplyr::select(name, mvp_shares = `Award Shares`) %>%
+  mutate(
+    name = str_replace_all(name, "\\s", " "), # fix non-breaking spaces
+    name =
+      str_replace_all(name, c(
+        "Cal Ripken Jr." = "Cal Ripken",
+        "Henry Aaron" = "Hank Aaron"
+      ))
+  )
+
+cya_names <-
+  cya_shares %>%
+  mutate(name = str_trim(str_replace_all(`Cy Young Award`, c(
+    "\\*" = "",
+    "\\([:digit:] wins\\)" = "",
+    "\\(1 win\\)" = ""
+  )), side = "both")) %>%
+  dplyr::select(name, cya_shares = `Award Shares`) %>%
+  mutate(name = str_replace_all(name, "\\s", " ")) # fix non-breaking spaces
+
+#TODO: there are multiple players names Randy Johnson, Jose Ramirez, Bob Gibson, Chris Carpenter, Pete Rose, Frank Thomas, Joe Morgan, Billy Williams, Boog Powell, earl averill  ...going to have to join by player ID's here! 
+
+```
+
+```{r}
+war_shares_data <-
+  war_through_age %>%
+  left_join(cya_names, by = "name") %>%
+  left_join(mvp_names, by = "name") %>%
+  replace_na(list(
+    mvp_shares = 0,
+    cya_shares = 0
+  )) %>%
+  group_by(playerid) %>%
+  filter(age == max(age),
+         position != "P",
+         mean_year >= 1931) # played most of their career after 1931 when the award was first given
+
+war_shares_data %>% 
+  ggplot(aes(cumulative_war, mvp_shares)) +
+  geom_point()
+
+
+# best position players to have 0 MVP shares
+war_shares_data %>% 
+  ungroup() %>%
+  filter(mvp_shares == 0) %>% 
+  arrange(desc(cumulative_war)) %>%
+  slice_head(n=25)
+
+# worst players to receive the highest amount of MVP shares
+war_shares_data %>% 
+  ungroup() %>%
+  filter(mvp_shares > 0) %>% 
+  arrange(cumulative_war) %>%
+  filter(!playerid %in% c(1009178, 1011218, 1012976, 1013976, 15103, 6141, 1000379)) %>%  # get rid of 'impostor' players
+  mutate(shares_per_war = round(mvp_shares/cumulative_war, 3)) %>%
+  arrange(shares_per_war) %>%
+  slice_head(n=25) %>%
+  dplyr::select(playerid, name, cumulative_war, mvp_shares, shares_per_war)
 
 ```
 
