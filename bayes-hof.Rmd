@@ -183,7 +183,7 @@ hof_players <-
   mutate(birth_year = as.numeric(str_extract(Years, "^[0-9]{4}"))) %>%
   dplyr::select(Name, birth_year) %>%
   mutate(
-    HOF = "elected",
+    hof = "elected",
     Name = str_replace_all(Name, c(
       "\\s" = " ", # fix non-breaking spacess
       # align some B-R names to the FG names
@@ -231,7 +231,7 @@ war_through_age <-
   # mutate(WAR = if_else(Position == "P", WAR_pitch, WAR_bat)) %>% View()
   # dplyr::select(-WAR_bat, -WAR_pitch) %>%
   left_join(hof_players, by = c("Name", "birth_year")) %>% # joining by birth year prevents mis-identifying players w/same name
-  replace_na(list(HOF = "not_elected")) %>%
+  replace_na(list(hof = "not_elected")) %>%
   group_by(PlayerId, Name, last_year) %>%
   arrange(Age) %>%
   mutate(
@@ -249,7 +249,7 @@ war_through_age <-
     Name %in% c("Marcell Ozuna", "Roberto Osuna", "Jose Reyes", "Aroldis Chapman", "Omar Vizquel") ~ "Domestic Violence",
     TRUE ~ "None"
   )) %>%
-  dplyr::select(playerid = PlayerId, name = Name, position = Position, last_year, mean_year, scandal_type, age = Age, cumulative_war, considered_hof, hof = HOF) %>%
+  dplyr::select(playerid = PlayerId, name = Name, position = Position, last_year, mean_year, scandal_type, age = Age, cumulative_war, considered_hof, hof) %>%
   # force some positions for some inductees. fielding positional data from bb-ref and BB HOF website. need to be more specific for averill as there are 2 guys with his name. really this should be done with player ID's.
   mutate(
     position = case_when(
