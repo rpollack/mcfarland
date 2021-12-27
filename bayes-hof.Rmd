@@ -47,23 +47,29 @@ con <-
   )
 
 pitcher_stats_q <-
-  dbSendQuery(con, "select PlayerId, ValueW, \`RA9-Wins\`, Age, GS, G
-              from stats_pitching_master_pfx
-              where Type = 0")
+  dbSendQuery(con, "select spmp.PlayerId, ValueW as FIP_WAR, \`RA9-Wins\`, Age, GS, G
+              from stats_pitching_master_pfx spmp
+join player_info pi on spmp.PlayerId = pi.PlayerId
+              where Type = 0
+and pi.position like '%P%'")
 
 pitcher_stats <-
   dbFetch(pitcher_stats_q) %>%
   as_tibble() %>%
-  mutate(WAR = round((ValueW + `RA9-Wins`) / 2, 1)) %>%
+  mutate(WAR = round((FIP_WAR + `RA9-Wins`) / 2, 1)) %>%
   group_by(PlayerId) %>%
   filter(sum(GS) / sum(G) >= 0.5) %>%
   ungroup() %>%
-  dplyr::select(-G, -GS, -ValueW, -`RA9-Wins`)
+  dplyr::select(-G, -GS, -FIP_WAR, -`RA9-Wins`)
 
 dbClearResult(pitcher_stats_q)
 
 batter_stats_q <-
-  dbSendQuery(con, "select playerid AS PlayerId, ValueW as WAR, Age from stats_batting where Type = 0")
+  dbSendQuery(con, "select sb.playerid AS PlayerId, ValueW as WAR, Age
+from stats_batting sb
+         join player_info pi on sb.playerid = pi.PlayerId
+where sb.Type = 0
+  and pi.Position not like '%P%'")
 
 batter_stats <-
   dbFetch(batter_stats_q) %>%
@@ -189,6 +195,17 @@ hof_players <-
       TRUE ~ birth_year
     )
   )
+
+
+#TODO: how to avoid including batting WAR for pitchers? this causes joel peralta, mariano rivera, fernando rodney, etc. to show up and muck up the dataset.
+
+player_seasons <-
+  pitcher_stats %>% 
+  inner_join(player_info, by = "PlayerId") %>%
+  bind_rows(batter_stats %>% inner_join(player_info, by="PlayerId"))
+
+
+
 ```
 
 ```{r}
@@ -201,16 +218,16 @@ current_year <- 2021
 # discard players whose position is "OF". there are about 1,200 of them and only 4-5 HOFers; not enough data,
 # and no one is classified this way today, so not important.
 
+
 war_through_age <-
-  player_info %>%
+  player_seasons %>%
   dplyr::select(-Position, -BISPosition) %>%
-  full_join(batter_stats, by = "PlayerId") %>%
-  full_join(pitcher_stats, by = c("PlayerId", "Age"), suffix = c("_bat", "_pitch")) %>%
-  replace_na(list(WAR_bat = 0, WAR_pitch = 0)) %>%
-  inner_join(positional_info, by = "PlayerId") %>%
-  mutate(WAR = if_else(Position == "P", WAR_pitch, WAR_bat)) %>%
-  dplyr::select(-WAR_bat, -WAR_pitch) %>%
-  
+  # left_join(batter_stats, by = "PlayerId") %>% 
+  # left_join(pitcher_stats, by = c("PlayerId", "Age") %>% View()
+  # replace_na(list(WAR_bat = 0, WAR_pitch = 0)) %>%
+  inner_join(positional_info, by = "PlayerId") %>% 
+ # mutate(WAR = if_else(Position == "P", WAR_pitch, WAR_bat)) %>% View()
+  #dplyr::select(-WAR_bat, -WAR_pitch) %>%
   left_join(hof_players, by = c("Name", "birth_year")) %>% # joining by birth year prevents mis-identifying players w/same name
   replace_na(list(HOF = "not_elected")) %>%
   group_by(PlayerId, Name, last_year) %>%
@@ -268,7 +285,7 @@ war_through_age %>%
   # group_by(age, position, hof) %>%
   # summarize(typical_cume_war = median(cumulative_war, na.rm = TRUE)) %>%
   ggplot(aes(age, cumulative_war, group = hof, color = hof)) +
-  geom_point(size = 0.5) +
+  geom_point(size = 0.5, alpha = 0.75) +
   facet_wrap(vars(position, scandal_type)) +
   ggtitle("Age vs. Typical WAR Trajectories, by HOF Inclusion Type") +
   labs(y = "Cumulative fWAR")
