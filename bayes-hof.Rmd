@@ -483,8 +483,8 @@ war_through_age %>%
   coord_flip() +
   facet_wrap(vars(position), scales = "free_y") +
   labs(x = "", y = "HOF Probability (%)") +
-  geom_hline(yintercept = 13.5, lty = "dashed") +
-  ggtitle(glue("Probability of HOF election"), subtitle = "Active or retired but not voted on yet. 13.5% = Predicted Hall of Famer")
+  geom_hline(yintercept = 16.75, lty = "dashed") +
+  ggtitle(glue("Probability of HOF election"), subtitle = "Active or retired but not voted on yet. 16.75% = Predicted Hall of Famer")
 
 ggsave("hof-predictions-final.png", width = 10)
 ```
