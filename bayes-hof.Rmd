@@ -255,10 +255,10 @@ war_through_age <-
     position = case_when(
       name %in% c(
         "Ty Cobb", "Earle Combs", "Edd Roush", "Hack Wilson", "Joe DiMaggio", "Lloyd Waner",
-        "Max Carey", "Tris Speaker", "Joe Jackson"
-      ) | (name == "Earl Averill" & position == "OF") ~ "CF",
+        "Max Carey", "Tris Speaker", "Joe Jackson", "Hugh Duffy"
+      ) | (name == "Earl Averill" & position == "OF") | (name == "Billy Hamilton" & position == "OF") ~ "CF",
       name %in% c(
-        "Al Simmons", "Chick Hafey", "Ed Delahanty", "Fred Clarke", "Goose Goslin", "Heine Manush",
+        "Al Simmons", "Chick Hafey", "Ed Delahanty", "Fred Clarke", "Goose Goslin",
         "Jesse Burkett", "Joe Medwick", "Zack Wheat", "Jim O'Rourke", "Joe Kelley", "Heinie Manush"
       ) ~ "LF",
       name %in% c(
@@ -272,10 +272,8 @@ war_through_age <-
   filter(position != "OF") %>%
   mutate(hof = factor(hof, levels = c("elected", "not_elected"))) %>%
   distinct() %>%
-  filter(!name %in% c("Satchel Paige", "Monte Irvin")) %>%
+  filter(!name %in% c("Satchel Paige", "Monte Irvin")) %>% # filter out some Negro Leagues players
   na.omit()
-
-# no positional data for: billy hamilton, hugh duffy, willard brown
 ```
 
 
