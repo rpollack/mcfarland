@@ -259,7 +259,7 @@ war_through_age <-
       ) | (name == "Earl Averill" & position == "OF") ~ "CF",
       name %in% c(
         "Al Simmons", "Chick Hafey", "Ed Delahanty", "Fred Clarke", "Goose Goslin", "Heine Manush",
-        "Jesse Burkett", "Joe Medwick", "Zack Wheat", "Jim O'Rourke", "Joe Kelley"
+        "Jesse Burkett", "Joe Medwick", "Zack Wheat", "Jim O'Rourke", "Joe Kelley", "Heinie Manush"
       ) ~ "LF",
       name %in% c(
         "Babe Ruth", "Chuck Klein", "Elmer Flick", "Harry Heilmann", "Harry Hooper",
