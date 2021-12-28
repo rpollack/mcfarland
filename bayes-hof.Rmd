@@ -231,7 +231,22 @@ hof_positions <-
            str_detect(value, "Outfielder") ~ "OF",
            str_detect(value, "Designated Hitter") ~ "DH",
            TRUE ~ NA_character_
-         )) %>%
+         ),
+    name = str_replace_all(name, c(
+      "\\s" = " ", # fix non-breaking spaces
+      # align some names to the FG names
+      "Cal Ripken Jr." = "Cal Ripken",
+      "Henry Aaron" = "Hank Aaron",
+      "Old Hoss Radbourn" = "Charley Radbourn",
+      "Home Run Baker" = "Frank Baker",
+      "Charles Bender" = "Chief Bender",
+      "High Pockets Kelly" = "George Kelly",
+      "Tim Raines Sr." = "Tim Raines",
+      "é" = "e", # tony perez
+      "ñ" = "n",
+      "á" = "a",
+      "í" = "i"  # pedro martinez, ivan rodriguez
+    ))) %>%
   dplyr::select(name, position)
 
 hof_inductees <-
