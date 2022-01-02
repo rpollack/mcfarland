@@ -436,7 +436,8 @@ final_xgb <- finalize_workflow(
 final_xgb %>%
   fit(data = hof_train) %>%
   extract_fit_parsnip() %>%
-  vip(num_features = 20)
+  vip(num_features = 20) +
+  ggtitle("Predictor Importance, HOF Prediction Model")
 
 # fit model to training set and evaluate on test set.
 final_res <-
@@ -457,21 +458,28 @@ area_under_curve <-
   pr_auc(truth = hof, .pred_elected) %>%
   dplyr::select(.estimate) %>%
   as.numeric() %>%
-  round(3)
+  round(2)
 
 # draw  PR Curve using class probabilities
 predictions %>%
   pr_curve(truth = hof, .pred_elected) %>%
   ggplot(aes(recall, precision)) +
   geom_path() +
-  geom_hline(yintercept = 0.079, size = 1.1, color = "red", lty = "dashed") +
+  geom_hline(yintercept = 0.121, size = 1.1, color = "red", lty = "dashed") +
   ggtitle("Precision-Recall Curve, HOF Prediction Model",
     subtitle = glue("Area Under Curve: {area_under_curve}")
   )
 
 
 predictions %>%
-  conf_mat(truth = hof, estimate = .pred_class)
+  conf_mat(truth = hof, estimate = .pred_class) %>%
+  pluck(1) %>%
+  as_tibble() %>%
+  ggplot(aes(Prediction, Truth)) + 
+  geom_tile(show.legend = FALSE) +
+  geom_text(aes(label = n), colour = "white", alpha = 1) +
+  ggtitle("Confusion Matrix, HOF Prediction Model")
+
 
 predictions %>%
   f_meas(truth = hof, estimate = .pred_class)
@@ -523,8 +531,8 @@ war_through_age %>%
   coord_flip() +
   facet_wrap(vars(position), scales = "free_y") +
   labs(x = "", y = "HOF Probability (%)") +
-  geom_hline(yintercept = 16.75, lty = "dashed") +
-  ggtitle(glue("Probability of HOF election"), subtitle = "Active or retired but not voted on yet. 16.75% = Predicted Hall of Famer")
+  geom_hline(yintercept = 21.25, lty = "dashed") +
+  ggtitle(glue("Probability of HOF election"), subtitle = "Active or retired but not voted on yet. 21.25% = Predicted Hall of Famer")
 
 ggsave("hof-predictions-final.png", width = 10)
 ```
@@ -609,7 +617,7 @@ war_wf <-
   add_recipe(war_recipe)
 
 # find the optimal values of tuning parameters using 10-fold cross validation
-war_folds <- vfold_cv(war_train, strata = final_war)
+war_folds <- vfold_cv(war_train, strata = final_war, repeats =)
 
 doParallel::registerDoParallel()
 
@@ -739,7 +747,10 @@ war_shares_data <-
   replace_na(list(
     mvp_shares = 0,
     cya_shares = 0
-  )) %>%
+  )) 
+
+mvp_shares_data <-
+  war_shares_data %>%
   group_by(playerid) %>%
   filter(
     age == max(age),
@@ -747,26 +758,23 @@ war_shares_data <-
     mean_year >= 1931
   ) # played most of their career after 1931 when the award was first given
 
-war_shares_data %>%
+mvp_shares_data %>%
   ggplot(aes(cumulative_war, mvp_shares)) +
   geom_point()
 
 
 # best position players to have 0 MVP shares
-war_shares_data %>%
+mvp_shares_data %>%
   ungroup() %>%
   filter(mvp_shares == 0) %>%
   arrange(desc(cumulative_war)) %>%
   slice_head(n = 25)
 
 # worst players to receive the highest amount of MVP shares
-war_shares_data %>%
+mvp_shares_data %>%
   ungroup() %>%
-  filter(mvp_shares > 0) %>%
-  arrange(cumulative_war) %>%
-  filter(!playerid %in% c(1009178, 1011218, 1012976, 1013976, 15103, 6141, 1000379)) %>% # get rid of 'impostor' players
+  filter(!playerid %in% c(1009178, 1011218, 1012976, 1013976, 15103, 6141, 1000379)) %>% # get rid of 'impostor' players who have the same names as HOF'ers
   mutate(shares_per_war = round(mvp_shares / cumulative_war, 3)) %>%
-  arrange(shares_per_war) %>%
-  slice_head(n = 25) %>%
-  dplyr::select(playerid, name, cumulative_war, mvp_shares, shares_per_war)
+  dplyr::select(playerid, name, mean_year, cumulative_war, mvp_shares, shares_per_war) %>%
+  arrange(shares_per_war, desc(cumulative_war))
 ```
