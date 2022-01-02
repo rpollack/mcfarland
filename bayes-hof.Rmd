@@ -432,12 +432,8 @@ final_xgb <- finalize_workflow(
   best_auc
 )
 
-# show the important of each variable
-final_xgb %>%
-  fit(data = hof_train) %>%
-  extract_fit_parsnip() %>%
-  vip(num_features = 20) +
-  ggtitle("Predictor Importance, HOF Prediction Model")
+
+
 
 # fit model to training set and evaluate on test set.
 final_res <-
@@ -465,10 +461,13 @@ predictions %>%
   pr_curve(truth = hof, .pred_elected) %>%
   ggplot(aes(recall, precision)) +
   geom_path() +
-  geom_hline(yintercept = 0.121, size = 1.1, color = "red", lty = "dashed") +
+  geom_hline(yintercept = 0.121, color = "blue", lty = "dashed") +
   ggtitle("Precision-Recall Curve, HOF Prediction Model",
     subtitle = glue("Area Under Curve: {area_under_curve}")
   )
+
+ggsave("hof-mdl-pr-curve.png")
+
 
 
 predictions %>%
@@ -480,12 +479,26 @@ predictions %>%
   geom_text(aes(label = n), colour = "white", alpha = 1) +
   ggtitle("Confusion Matrix, HOF Prediction Model")
 
+ggsave("hof-mdl-confusion-matrix.png")
+
 
 predictions %>%
   f_meas(truth = hof, estimate = .pred_class)
 
 predictions %>%
   bal_accuracy(truth = hof, estimate = .pred_class)
+
+# show the importance of each variable. remove 'X's from positions for readibility
+final_xgb %>%
+  fit(data = hof_train) %>%
+  extract_fit_parsnip() %>% 
+  vip::vi() %>%
+  mutate(Variable = str_replace_all(Variable, "X", "")) %>%
+  ggplot(aes(reorder(Variable, Importance), Importance)) + geom_col() +
+  coord_flip() + labs(x="") +
+  ggtitle("Relative Predictor Importance, HOF Prediction Model") 
+
+ggsave("hof-mdl-variable-importance.png")
 
 # find optimal threshold for class predictions
 predictions %>%
