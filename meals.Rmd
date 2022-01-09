@@ -35,21 +35,21 @@ method | prefix | protein | side
 ```{r}
 
 
-meal_data_clean %>%
+meal_data %>%
   count(month_eaten, protein) %>%
   complete(month_eaten, protein, fill = list(n=0)) %>%
   ggplot(aes(month_eaten, n, fill = protein)) + geom_area()
 
-meal_data_clean %>%
+meal_data %>%
   count(protein, sort = TRUE) %>%
   ggplot(aes(reorder(protein, n), n)) + geom_col() + coord_flip() +
   labs(x="", y = "number of meals made")
   
-meal_data_clean %>% 
+meal_data %>% 
   count(meal, sort = TRUE)
 
 # how long has it been since i last made each meal?s
-meal_data_clean %>%
+meal_data %>%
   group_by(meal) %>%
   filter(last_eaten == max(last_eaten)) %>%
   mutate(days_since_cooked = difftime(Sys.Date(), last_eaten, unit = "days")) %>%
@@ -70,12 +70,12 @@ games_played_2021 <-
   "Mass Effect: Legendary Edition", 5,
   "Guardians of the Galaxy", 19,
   "Star Wars: Squadrons", 167,
-  "NiER: Automata", 27,
+  "NieR: Automata GotY Edition", 27,
   "Tales of Arise", 59,
-  "Bloodborne + The Old Hunters", 99,
+  "Bloodborne + The Old Hunters DLC", 99,
   "Returnal", 5,
   "Dark Souls II: Scholar of the First Sin", 17,
-  "Dark Souls: Remastered", 33,
+  "Dark Souls: Remastered + Artorias of the Abyss DLC", 33,
   "Demon's Souls", 29,
   "Death Stranding", 70,
   "Astro's Playroom", 2,
@@ -86,7 +86,7 @@ games_played_2021 <-
   "God of War (2018)", 20,
   "Dragon Quest XI", 12,
   "Borderlands: The Handsome Collection", 5,
-  "Borderlands: GOTY Edition", 17
+  "Borderlands: GotY Edition", 17
 )
 
 hours_played <- sum(games_played_2021$hours_played)
@@ -95,7 +95,7 @@ games_played_2021 %>%
   ggplot(aes(reorder(game, hours_played), hours_played)) +
   geom_col() + coord_flip() +
   ggtitle("PS4/5 Games Played, 2021", subtitle = glue("{hours_played} total hours")) +
-  labs(x="")
+  labs(x="", caption = "Source: PS5 Profile")
 
 ```
 
