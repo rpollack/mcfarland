@@ -306,7 +306,7 @@ war_through_age <-
         "Babe Ruth", "Chuck Klein", "Elmer Flick", "Harry Heilmann", "Harry Hooper",
         "Mel Ott", "Paul Waner", "Ross Youngs", "Sam Crawford", "Sam Rice", "Willie Keeler",
         "Kiki Cuyler", "Sam Thompson", "Tommy McCarthy"
-      ) ~ "RF",
+      ) | (playerid == 1005166) ~ "RF",  # this playerId is Tony Gwynn Sr. 
       TRUE ~ position
     )
   ) %>%
@@ -565,8 +565,6 @@ war_age_data %>%
 
 other fun: predicting career WAR
 
-need to add final war by player. that is the missing piece. 
-
 ```{r}
 war_through_age %>%
   group_by(playerid) %>%
@@ -591,7 +589,7 @@ war_split <-
     ungroup() %>%
     dplyr::select(name, final_war = cumulative_war), by = "name") %>%
   ungroup() %>%
-  dplyr::select(position, mean_year, age, cumulative_war, final_war) %>%
+  dplyr::select(position, age, cumulative_war, final_war) %>%
   initial_split(strata = final_war)
 
 war_train <- training(war_split)
@@ -599,7 +597,7 @@ war_test <- testing(war_split)
 
 war_spec <-
   boost_tree(
-    trees = 150,
+    trees = 50,
     tree_depth = tune(), min_n = tune(),
     loss_reduction = tune(),
     sample_size = tune(), mtry = tune(),
@@ -609,7 +607,7 @@ war_spec <-
   set_mode("regression")
 
 
-war_grid <- grid_latin_hypercube(
+war_grid <- grid_max_entropy(
   tree_depth(),
   min_n(),
   loss_reduction(),
@@ -621,8 +619,7 @@ war_grid <- grid_latin_hypercube(
 
 war_recipe <-
   recipe(final_war ~ ., data = war_train) %>%
-  step_dummy(position) %>%
-  step_BoxCox(cumulative_war)
+  step_dummy(position)
 
 war_wf <-
   workflow() %>%
@@ -630,14 +627,15 @@ war_wf <-
   add_recipe(war_recipe)
 
 # find the optimal values of tuning parameters using 10-fold cross validation
-war_folds <- vfold_cv(war_train, strata = final_war, repeats =)
+war_folds <- vfold_cv(war_train, strata = final_war)
 
 doParallel::registerDoParallel()
 
 war_res <- tune_grid(
   war_wf,
   resamples = war_folds,
-  grid = war_grid
+  grid = war_grid,
+  metrics = metric_set(rmse)
 )
 
 # show how each parameter affects the model performance
@@ -753,41 +751,39 @@ cya_names <-
 ```
 
 ```{r}
-war_shares_data <-
-  war_through_age %>%
-  left_join(cya_names, by = "name") %>%
-  left_join(mvp_names, by = "name") %>%
-  replace_na(list(
-    mvp_shares = 0,
-    cya_shares = 0
-  )) 
 
-mvp_shares_data <-
-  war_shares_data %>%
-  group_by(playerid) %>%
-  filter(
-    age == max(age),
-    position != "P",
-    mean_year >= 1931
-  ) # played most of their career after 1931 when the award was first given
+# TODO: there are multiple players names Randy Johnson, Jose Ramirez, Bob Gibson, Chris Carpenter, Pete Rose, Frank Thomas, Joe Morgan, Billy Williams, Boog Powell, earl averill, Tony Gwynn, Frank Thomas, Randy Johnson, Luis Gonzalez, Reggie Sanders, Bill Doran, Frank Thomas, John Mayberry, Bernie Williams,   ...going to have to join by player ID's here! 
 
-mvp_shares_data %>%
-  ggplot(aes(cumulative_war, mvp_shares)) +
+# TODO: how to find duplicate players: war_mvp_data %>% arrange(player_name) %>% filter(player_name == dplyr::lag(player_name)) %>% View()
+
+
+war_mvp_data <-
+  mvp_voting_data %>%
+  mutate(
+    player_name = str_replace_all(player_name, "\\s", " "), # fix non-breaking spaces
+    player_name =
+      str_replace_all(player_name, c(
+        "Cal Ripken Jr." = "Cal Ripken",
+        "Henry Aaron" = "Hank Aaron"
+      ))
+  ) %>%
+  group_by(player_name) %>%
+  summarize(total_mvp_points = sum(mvp_points)) %>%
+  right_join(war_through_age %>% 
+               group_by(playerid) %>% 
+               filter(age == max(age)), 
+             by = c("player_name" = "name")) %>%
+  filter(position != "P",
+         mean_year >= 1931) %>%
+  dplyr::select(playerid, player_name, cumulative_war, total_mvp_points) %>%
+  replace_na(list(total_mvp_points = 0)) %>%
+  mutate(points_per_war = total_mvp_points / cumulative_war)
+  
+war_mvp_data %>%
+  ggplot(aes(cumulative_war, total_mvp_points)) + 
   geom_point()
 
 
-# best position players to have 0 MVP shares
-mvp_shares_data %>%
-  ungroup() %>%
-  filter(mvp_shares == 0) %>%
-  arrange(desc(cumulative_war)) %>%
-  slice_head(n = 25)
-
-# worst players to receive the highest amount of MVP shares
-mvp_shares_data %>%
-  ungroup() %>%
-  filter(!playerid %in% c(1009178, 1011218, 1012976, 1013976, 15103, 6141, 1000379)) %>% # get rid of 'impostor' players who have the same names as HOF'ers
-  mutate(shares_per_war = round(mvp_shares / cumulative_war, 3)) %>%
-  dplyr::select(playerid, name, mean_year, cumulative_war, mvp_shares, shares_per_war) %>%
-  arrange(shares_per_war, desc(cumulative_war))
 ```
+
+
