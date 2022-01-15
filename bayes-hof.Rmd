@@ -283,7 +283,7 @@ war_through_age <-
   ungroup() %>%
   distinct() %>%
   mutate(scandal_type = case_when(
-    Name %in% c("Barry Bonds", "Roger Clemens", "Jose Canseco", "Rafael Palmeiro", "Jason Giambi", "Gary Sheffield", "Miguel Tejada", "Nelson Cruz", "Andy Pettite", "Ryan Braun", "Manny Ramirez", "Alex Rodriguez", "Mark McGwire", "Sammy Sosa", "Robinson Cano", "Starling Marte", "Melky Cabrera", "David Ortiz", "Dee Gordon", "Bartolo Colon") ~ "PED's",
+    Name %in% c("Barry Bonds", "Roger Clemens", "Jose Canseco", "Rafael Palmeiro", "Jason Giambi", "Gary Sheffield", "Miguel Tejada", "Nelson Cruz", "Andy Pettitte", "Ryan Braun", "Manny Ramirez", "Alex Rodriguez", "Mark McGwire", "Sammy Sosa", "Robinson Cano", "Starling Marte", "Melky Cabrera", "David Ortiz", "Dee Gordon", "Bartolo Colon") ~ "PED's",
     Name %in% c("Joe Jackson", "Eddie Cicotte", "Buck Weaver", "Chick Gandil", "Fred McMullin", "Swede Risberg", "Lefty Williams", "Joe Gedeon", "Pete Rose") ~ "Gambling",
     Name %in% c("Carlos Beltran", "Jose Altuve", "Alex Bregman", "Alex Cora", "Carlos Correa", "George Springer", "Gaylord Perry") ~ "Cheating",
     Name %in% c("Curt Schilling", "Lenny Dykstra", "Roberto Alomar") ~ "Misc.",
@@ -296,7 +296,7 @@ war_through_age <-
     position = case_when(
       name %in% c(
         "Ty Cobb", "Earle Combs", "Edd Roush", "Hack Wilson", "Joe DiMaggio", "Lloyd Waner",
-        "Max Carey", "Tris Speaker", "Joe Jackson", "Hugh Duffy"
+        "Max Carey", "Tris Speaker", "Joe Jackson", "Hugh Duffy", "Cody Bellinger"
       ) | (name == "Earl Averill" & position == "OF") | (name == "Billy Hamilton" & position == "OF") ~ "CF",
       name %in% c(
         "Al Simmons", "Chick Hafey", "Ed Delahanty", "Fred Clarke", "Goose Goslin",
