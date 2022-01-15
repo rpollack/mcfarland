@@ -212,26 +212,27 @@ hof_site <- "https://baseballhall.org/discover-more/stories/hall-of-famer-facts/
 hof_page <- read_html(hof_site)
 
 hof_positions <-
-  hof_page %>% 
-  html_elements(".hof-ref-item") %>% 
-  html_text2() %>% 
+  hof_page %>%
+  html_elements(".hof-ref-item") %>%
+  html_text2() %>%
   as_tibble_col() %>%
   filter(!str_detect(value, "Manager|Executive|Umpire")) %>%
-  mutate(name = str_trim(str_extract(value, ".*(?=Inducted)")),
-         position = case_when(
-           str_detect(value, "Pitcher") ~ "P",
-           str_detect(value, "Catcher") ~ "C",
-           str_detect(value, "1st") ~ "1B",
-           str_detect(value, "2nd") ~ "2B",
-           str_detect(value, "3rd") ~ "3B",
-           str_detect(value, "Shortstop") ~ "SS",
-           str_detect(value, "Left Fielder") ~ "LF",
-           str_detect(value, "Right Fielder") ~ "RF",
-           str_detect(value, "Center Fielder") ~ "CF",
-           str_detect(value, "Outfielder") ~ "OF",
-           str_detect(value, "Designated Hitter") ~ "DH",
-           TRUE ~ NA_character_
-         ),
+  mutate(
+    name = str_trim(str_extract(value, ".*(?=Inducted)")),
+    position = case_when(
+      str_detect(value, "Pitcher") ~ "P",
+      str_detect(value, "Catcher") ~ "C",
+      str_detect(value, "1st") ~ "1B",
+      str_detect(value, "2nd") ~ "2B",
+      str_detect(value, "3rd") ~ "3B",
+      str_detect(value, "Shortstop") ~ "SS",
+      str_detect(value, "Left Fielder") ~ "LF",
+      str_detect(value, "Right Fielder") ~ "RF",
+      str_detect(value, "Center Fielder") ~ "CF",
+      str_detect(value, "Outfielder") ~ "OF",
+      str_detect(value, "Designated Hitter") ~ "DH",
+      TRUE ~ NA_character_
+    ),
     name = str_replace_all(name, c(
       "\\s" = " ", # fix non-breaking spaces
       # align some names to the FG names
@@ -245,14 +246,14 @@ hof_positions <-
       "é" = "e", # tony perez
       "ñ" = "n",
       "á" = "a",
-      "í" = "i"  # pedro martinez, ivan rodriguez
-    ))) %>%
+      "í" = "i" # pedro martinez, ivan rodriguez
+    ))
+  ) %>%
   dplyr::select(name, position)
 
 hof_inductees <-
-  hof_players %>% 
-  inner_join(hof_positions, by=c("Name" = "name"))
-
+  hof_players %>%
+  inner_join(hof_positions, by = c("Name" = "name"))
 ```
 
 ```{r}
@@ -270,7 +271,7 @@ war_through_age <-
   player_seasons %>%
   dplyr::select(-Position, -BISPosition) %>%
   left_join(hof_inductees, by = c("Name", "birth_year")) %>% # joining by birth year prevents mis-identifying players w/same name
-  inner_join(positional_info, by = "PlayerId", suffix=c("_inducted", "_played")) %>%
+  inner_join(positional_info, by = "PlayerId", suffix = c("_inducted", "_played")) %>%
   replace_na(list(hof = "not_elected")) %>%
   group_by(PlayerId, Name, last_year) %>%
   arrange(Age) %>%
@@ -306,7 +307,7 @@ war_through_age <-
         "Babe Ruth", "Chuck Klein", "Elmer Flick", "Harry Heilmann", "Harry Hooper",
         "Mel Ott", "Paul Waner", "Ross Youngs", "Sam Crawford", "Sam Rice", "Willie Keeler",
         "Kiki Cuyler", "Sam Thompson", "Tommy McCarthy"
-      ) | (playerid == 1005166) ~ "RF",  # this playerId is Tony Gwynn Sr. 
+      ) | (playerid == 1005166) ~ "RF", # this playerId is Tony Gwynn Sr.
       TRUE ~ position
     )
   ) %>%
@@ -470,7 +471,7 @@ predictions %>%
   conf_mat(truth = hof, estimate = .pred_class) %>%
   pluck(1) %>%
   as_tibble() %>%
-  ggplot(aes(Prediction, Truth)) + 
+  ggplot(aes(Prediction, Truth)) +
   geom_tile(show.legend = FALSE) +
   geom_text(aes(label = n), colour = "white", alpha = 1) +
   ggtitle("Confusion Matrix, HOF Prediction Model")
@@ -487,12 +488,14 @@ predictions %>%
 # show the importance of each variable. remove 'X's from positions for readibility
 final_xgb %>%
   fit(data = hof_train) %>%
-  extract_fit_parsnip() %>% 
+  extract_fit_parsnip() %>%
   vip::vi() %>%
   mutate(Variable = str_replace_all(Variable, "X", "")) %>%
-  ggplot(aes(reorder(Variable, Importance), Importance)) + geom_col() +
-  coord_flip() + labs(x="") +
-  ggtitle("Relative Predictor Importance, HOF Prediction Model") 
+  ggplot(aes(reorder(Variable, Importance), Importance)) +
+  geom_col() +
+  coord_flip() +
+  labs(x = "") +
+  ggtitle("Relative Predictor Importance, HOF Prediction Model")
 
 ggsave("hof-mdl-variable-importance.png")
 
@@ -748,7 +751,7 @@ cya_names <-
 
 ```{r}
 
-# TODO: there are multiple players names Randy Johnson, Jose Ramirez, Bob Gibson, Chris Carpenter, Pete Rose, Frank Thomas, Joe Morgan, Billy Williams, Boog Powell, earl averill, Tony Gwynn, Frank Thomas, Randy Johnson, Luis Gonzalez, Reggie Sanders, Bill Doran, Frank Thomas, John Mayberry, Bernie Williams,   ...going to have to join by player ID's here! 
+# TODO: there are multiple players names Randy Johnson, Jose Ramirez, Bob Gibson, Chris Carpenter, Pete Rose, Frank Thomas, Joe Morgan, Billy Williams, Boog Powell, earl averill, Tony Gwynn, Frank Thomas, Randy Johnson, Luis Gonzalez, Reggie Sanders, Bill Doran, Frank Thomas, John Mayberry, Bernie Williams,   ...going to have to join by player ID's here!
 
 # TODO: how to find duplicate players: war_mvp_data %>% arrange(player_name) %>% filter(player_name == dplyr::lag(player_name)) %>% View()
 
@@ -765,21 +768,20 @@ war_mvp_data <-
   ) %>%
   group_by(player_name) %>%
   summarize(total_mvp_points = sum(mvp_points)) %>%
-  right_join(war_through_age %>% 
-               group_by(playerid) %>% 
-               filter(age == max(age)), 
-             by = c("player_name" = "name")) %>%
-  filter(position != "P",
-         mean_year >= 1931) %>%
+  right_join(war_through_age %>%
+    group_by(playerid) %>%
+    filter(age == max(age)),
+  by = c("player_name" = "name")
+  ) %>%
+  filter(
+    position != "P",
+    mean_year >= 1931
+  ) %>%
   dplyr::select(playerid, player_name, cumulative_war, total_mvp_points) %>%
   replace_na(list(total_mvp_points = 0)) %>%
   mutate(points_per_war = total_mvp_points / cumulative_war)
-  
+
 war_mvp_data %>%
-  ggplot(aes(cumulative_war, total_mvp_points)) + 
+  ggplot(aes(cumulative_war, total_mvp_points)) +
   geom_point()
-
-
 ```
-
-
