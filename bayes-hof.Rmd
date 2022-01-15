@@ -373,10 +373,8 @@ xgb_spec <-
     sample_size = tune(), mtry = tune(),
     learn_rate = tune()
   ) %>%
-  set_engine("xgboost") %>%
+  set_engine("xgboost", nthread = "6") %>%
   set_mode("classification")
-
-# TODO: set higher tree depths and mtry's. the accuracy seems to increase with those as higher values.
 
 xgb_grid <- grid_latin_hypercube(
   tree_depth(range = c(6, 32)),
@@ -391,7 +389,7 @@ xgb_grid <- grid_latin_hypercube(
 xgb_recipe <-
   recipe(hof ~ ., data = hof_train) %>%
   step_dummy(position, scandal_type) %>%
-  step_smote(hof)
+  step_smote(hof) # smote increases AUPRC, bal acc, and F1 by a meaningful amount.
 
 xgb_wf <-
   workflow() %>%
@@ -400,8 +398,6 @@ xgb_wf <-
 
 # find the optimal values of tuning parameters using 10-fold cross validation
 hof_folds <- vfold_cv(hof_train, strata = hof, repeats = 5)
-
-doParallel::registerDoParallel()
 
 xgb_res <- tune_grid(
   xgb_wf,
