@@ -68,10 +68,10 @@ dbClearResult(pitcher_stats_q)
 # compute "one-team percentage. See https://www.billjamesonline.com/vagabonds_and_homebodies/
 one_team_percentage_pit <-
   pitcher_stats %>%
-  mutate(WAR = if_else(WAR < 0, 0, WAR)) %>%  # consider negative WAR as zero so the math works
+  mutate(WAR = if_else(WAR < 0, 0, WAR)) %>% # consider negative WAR as zero so the math works
   group_by(PlayerId, franchise) %>%
   summarize(franchise_war = sum(WAR)) %>%
-  mutate(one_team_pct = round(franchise_war / sum(franchise_war), 4)) %>% 
+  mutate(one_team_pct = round(franchise_war / sum(franchise_war), 4)) %>%
   group_by(PlayerId) %>%
   filter(one_team_pct == max(one_team_pct)) %>%
   dplyr::select(PlayerId, one_team_franchise = franchise, one_team_pct) %>%
@@ -79,13 +79,13 @@ one_team_percentage_pit <-
 
 # Compute total WAR per each age. this is needed because the dataset contains split seasons for players
 # who appeared for >1 team in a season.
-pitchers_full <- 
+pitchers_full <-
   pitcher_stats %>%
   group_by(PlayerId, Age) %>%
   mutate(WAR = sum(WAR)) %>%
   ungroup() %>%
   distinct(PlayerId, Age, WAR) %>%
-  inner_join(one_team_percentage_pit, by="PlayerId")
+  inner_join(one_team_percentage_pit, by = "PlayerId")
 
 
 batter_stats_q <-
@@ -101,31 +101,31 @@ batter_stats <-
   dbFetch(batter_stats_q) %>%
   as_tibble()
 
-# now do two things: 
-#1. find a player's 'one-team percentage'. e.g. the highest % of career WAR accumulated with one franchise.
+# now do two things:
+# 1. find a player's 'one-team percentage'. e.g. the highest % of career WAR accumulated with one franchise.
 # this will be 1 for players who stayed with one team their entire career and very low for players who bounced around.
 
 one_team_percentage_bat <-
   batter_stats %>%
-  mutate(WAR = if_else(WAR < 0, 0, WAR)) %>%  # consider negative WAR as zero so the math works
+  mutate(WAR = if_else(WAR < 0, 0, WAR)) %>% # consider negative WAR as zero so the math works
   group_by(PlayerId, franchise) %>%
   summarize(franchise_war = sum(WAR)) %>%
-  mutate(one_team_pct = round(franchise_war / sum(franchise_war), 4)) %>% 
+  mutate(one_team_pct = round(franchise_war / sum(franchise_war), 4)) %>%
   group_by(PlayerId) %>%
   filter(one_team_pct == max(one_team_pct)) %>%
   dplyr::select(PlayerId, one_team_franchise = franchise, one_team_pct) %>%
   ungroup()
 
-#2 - compute total WAR per each age. this is needed because the dataset contains split seasons for players
+# 2 - compute total WAR per each age. this is needed because the dataset contains split seasons for players
 # who appeared for >1 team in a season.
-batters_full <- 
+batters_full <-
   batter_stats %>%
   group_by(PlayerId, Age) %>%
   mutate(WAR = sum(WAR)) %>%
   ungroup() %>%
   distinct(PlayerId, Age, WAR) %>%
-  inner_join(one_team_percentage_bat, by="PlayerId")
-  
+  inner_join(one_team_percentage_bat, by = "PlayerId")
+
 
 dbClearResult(batter_stats_q)
 
@@ -426,7 +426,7 @@ xgb_spec <-
     sample_size = tune(), mtry = tune(),
     learn_rate = tune()
   ) %>%
-  set_engine("xgboost", nthread = "4") %>%
+  set_engine("xgboost", nthread = 4) %>%
   set_mode("classification")
 
 xgb_grid <- grid_latin_hypercube(
@@ -451,6 +451,8 @@ xgb_wf <-
 
 # find the optimal values of tuning parameters using 10-fold cross validation
 hof_folds <- vfold_cv(hof_train, strata = hof, repeats = 5)
+
+doParallel::registerDoParallel(4)
 
 xgb_res <- tune_grid(
   xgb_wf,
@@ -550,17 +552,21 @@ final_xgb %>%
   ggtitle("Relative Predictor Importance, HOF Prediction Model")
 
 ggsave("hof-mdl-variable-importance.png")
-
-# find optimal threshold for class predictions
-predictions %>%
-  threshold_perf(hof, .pred_elected, thresholds = seq(0.1, 1, by = 0.0025)) %>%
-  group_by(.metric) %>%
-  filter(.estimate == max(.estimate))
 ```
 
 predict hall of famers
 
 ```{r fig.height=3, fig.width=5}
+
+# find optimal threshold for class predictions by maximizing the j index
+optimal_threshold <-
+  predictions %>%
+  threshold_perf(hof, .pred_elected, thresholds = seq(0.01, 1, by = 0.0025)) %>%
+  filter(.metric == "j_index") %>%
+  arrange(desc(.estimate)) %>%
+  filter(row_number() == 1) %>%
+  dplyr::select(.threshold) %>%
+  as.numeric() * 100
 
 # predict HOF chances for players who meet the following criteria:
 # have not been considered for the HOF
@@ -568,6 +574,7 @@ predict hall of famers
 # have at least 10 seasons in the majors (they are eligible at some point soon)
 # this avoids predicting players like Brandon Webb and Josh Hamilton
 # who are retired but didn't play 10 years so aren't eligible and will never be
+
 
 year_threshold <- 2
 num_players <- 10
@@ -595,8 +602,8 @@ war_through_age %>%
   coord_flip() +
   facet_wrap(vars(position), scales = "free_y") +
   labs(x = "", y = "HOF Probability (%)") +
-  geom_hline(yintercept = 20.25, lty = "dashed") +
-  ggtitle(glue("Probability of HOF election"), subtitle = "Active or retired but not voted on yet. 21.25% = Predicted Hall of Famer")
+  geom_hline(yintercept = optimal_threshold, lty = "dashed") +
+  ggtitle(glue("Probability of HOF election"), subtitle = glue("Active or retired but not voted on yet. {optimal_threshold}% = Predicted Hall of Famer"))
 
 ggsave("hof-predictions-final.png", width = 10)
 ```
