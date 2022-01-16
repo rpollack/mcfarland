@@ -47,10 +47,11 @@ con <-
   )
 
 pitcher_stats_q <-
-  dbSendQuery(con, "select spmp.PlayerId, ValueW as FIP_WAR, \`RA9-Wins\`, Age, GS, G
+  dbSendQuery(con, "select spmp.PlayerId, ValueW as FIP_WAR, \`RA9-Wins\`, Age, spmp.GS, spmp.G, st.DBFranchId as franchise
               from stats_pitching_master_pfx spmp
 join player_info pi on spmp.PlayerId = pi.PlayerId
-              where Type = 0
+join season_team st on spmp.TeamId = st.TeamId and spmp.Season = st.Season
+              where spmp.Type >=0 and spmp.Type <=10
 and pi.position like '%P%'")
 
 pitcher_stats <-
@@ -60,20 +61,71 @@ pitcher_stats <-
   group_by(PlayerId) %>%
   filter(sum(GS) / sum(G) >= 0.5) %>%
   ungroup() %>%
-  dplyr::select(-G, -GS, -FIP_WAR, -`RA9-Wins`)
+  dplyr::select(-G, -GS, -FIP_WAR, -`RA9-Wins`, franchise)
 
 dbClearResult(pitcher_stats_q)
 
+# compute "one-team percentage. See https://www.billjamesonline.com/vagabonds_and_homebodies/
+one_team_percentage_pit <-
+  pitcher_stats %>%
+  mutate(WAR = if_else(WAR < 0, 0, WAR)) %>%  # consider negative WAR as zero so the math works
+  group_by(PlayerId, franchise) %>%
+  summarize(franchise_war = sum(WAR)) %>%
+  mutate(one_team_pct = round(franchise_war / sum(franchise_war), 4)) %>% 
+  group_by(PlayerId) %>%
+  filter(one_team_pct == max(one_team_pct)) %>%
+  dplyr::select(PlayerId, one_team_franchise = franchise, one_team_pct) %>%
+  ungroup()
+
+ompute total WAR per each age. this is needed because the dataset contains split seasons for players
+# who appeared for >1 team in a season.
+pitchers_full <- 
+  pitcher_stats %>%
+  group_by(PlayerId, Age) %>%
+  mutate(WAR = sum(WAR)) %>%
+  ungroup() %>%
+  distinct(PlayerId, Age, WAR) %>%
+  inner_join(one_team_percentage_pit, by="PlayerId")
+
+
 batter_stats_q <-
-  dbSendQuery(con, "select sb.playerid AS PlayerId, ValueW as WAR, Age
+  dbSendQuery(con, "select sb.playerid AS PlayerId, ValueW as WAR, Age, st.DBFranchId as franchise
 from stats_batting sb
          join player_info pi on sb.playerid = pi.PlayerId
-where sb.Type = 0
+         left join season_team st on sb.TeamId = st.TeamId and sb.Season = st.Season
+where sb.Type >= 0 and sb.Type <= 10
+and st.DBFranchId IS NOT NULL   -- prevent getting full-season records from years players changed teams
   and pi.Position not like '%P%'")
 
 batter_stats <-
   dbFetch(batter_stats_q) %>%
   as_tibble()
+
+# now do two things: 
+#1. find a player's 'one-team percentage'. e.g. the highest % of career WAR accumulated with one franchise.
+# this will be 1 for players who stayed with one team their entire career and very low for players who bounced around.
+
+one_team_percentage_bat <-
+  batter_stats %>%
+  mutate(WAR = if_else(WAR < 0, 0, WAR)) %>%  # consider negative WAR as zero so the math works
+  group_by(PlayerId, franchise) %>%
+  summarize(franchise_war = sum(WAR)) %>%
+  mutate(one_team_pct = round(franchise_war / sum(franchise_war), 4)) %>% 
+  group_by(PlayerId) %>%
+  filter(one_team_pct == max(one_team_pct)) %>%
+  dplyr::select(PlayerId, one_team_franchise = franchise, one_team_pct) %>%
+  ungroup()
+
+#2 - compute total WAR per each age. this is needed because the dataset contains split seasons for players
+# who appeared for >1 team in a season.
+batters_full <- 
+  batter_stats %>%
+  group_by(PlayerId, Age) %>%
+  mutate(WAR = sum(WAR)) %>%
+  ungroup() %>%
+  distinct(PlayerId, Age, WAR) %>%
+  inner_join(one_team_percentage_bat, by="PlayerId")
+  
 
 dbClearResult(batter_stats_q)
 
@@ -202,9 +254,9 @@ hof_players <-
   )
 
 player_seasons <-
-  pitcher_stats %>%
+  pitchers_full %>%
   inner_join(player_info, by = "PlayerId") %>%
-  bind_rows(batter_stats %>% inner_join(player_info, by = "PlayerId"))
+  bind_rows(batters_full %>% inner_join(player_info, by = "PlayerId"))
 
 # get positional data for HOF'ers inducted as players.
 hof_site <- "https://baseballhall.org/discover-more/stories/hall-of-famer-facts/hall-of-famers-by-position"
@@ -291,7 +343,7 @@ war_through_age <-
     Name %in% c("Marcell Ozuna", "Roberto Osuna", "Jose Reyes", "Aroldis Chapman", "Omar Vizquel") ~ "Domestic Violence",
     TRUE ~ "None"
   )) %>%
-  dplyr::select(playerid = PlayerId, name = Name, position, last_year, mean_year, scandal_type, age = Age, cumulative_war, considered_hof, hof) %>%
+  dplyr::select(playerid = PlayerId, name = Name, position, last_year, mean_year, scandal_type, age = Age, cumulative_war, one_team_franchise, one_team_pct, considered_hof, hof) %>%
   # force some positions for some inductees. fielding positional data from bb-ref and BB HOF website. need to be more specific for averill as there are 2 guys with his name. really this should be done with player ID's.
   mutate(
     position = case_when(
@@ -360,7 +412,7 @@ hof_split <-
   war_through_age %>%
   # train model only on players who have been considered for the HOF
   filter(considered_hof) %>%
-  dplyr::select(-playerid, -name, -considered_hof, -last_year) %>%
+  dplyr::select(-playerid, -name, -considered_hof, -last_year, -one_team_franchise) %>%
   initial_split(strata = hof)
 
 hof_train <- training(hof_split)
@@ -374,7 +426,7 @@ xgb_spec <-
     sample_size = tune(), mtry = tune(),
     learn_rate = tune()
   ) %>%
-  set_engine("xgboost", nthread = "6") %>%
+  set_engine("xgboost", nthread = "4") %>%
   set_mode("classification")
 
 xgb_grid <- grid_latin_hypercube(
@@ -543,7 +595,7 @@ war_through_age %>%
   coord_flip() +
   facet_wrap(vars(position), scales = "free_y") +
   labs(x = "", y = "HOF Probability (%)") +
-  geom_hline(yintercept = 21.25, lty = "dashed") +
+  geom_hline(yintercept = 20.25, lty = "dashed") +
   ggtitle(glue("Probability of HOF election"), subtitle = "Active or retired but not voted on yet. 21.25% = Predicted Hall of Famer")
 
 ggsave("hof-predictions-final.png", width = 10)
