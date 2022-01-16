@@ -77,7 +77,7 @@ one_team_percentage_pit <-
   dplyr::select(PlayerId, one_team_franchise = franchise, one_team_pct) %>%
   ungroup()
 
-ompute total WAR per each age. this is needed because the dataset contains split seasons for players
+# Compute total WAR per each age. this is needed because the dataset contains split seasons for players
 # who appeared for >1 team in a season.
 pitchers_full <- 
   pitcher_stats %>%
