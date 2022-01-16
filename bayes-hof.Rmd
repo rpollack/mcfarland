@@ -340,7 +340,7 @@ war_through_age <-
     Name %in% c("Joe Jackson", "Eddie Cicotte", "Buck Weaver", "Chick Gandil", "Fred McMullin", "Swede Risberg", "Lefty Williams", "Joe Gedeon", "Pete Rose") ~ "Gambling",
     Name %in% c("Carlos Beltran", "Jose Altuve", "Alex Bregman", "Alex Cora", "Carlos Correa", "George Springer", "Gaylord Perry") ~ "Cheating",
     Name %in% c("Curt Schilling", "Lenny Dykstra", "Roberto Alomar") ~ "Misc.",
-    Name %in% c("Marcell Ozuna", "Roberto Osuna", "Jose Reyes", "Aroldis Chapman", "Omar Vizquel") ~ "Domestic Violence",
+    Name %in% c("Marcell Ozuna", "Roberto Osuna", "Jose Reyes", "Aroldis Chapman", "Omar Vizquel", "Addison Russell") ~ "Domestic Violence",
     TRUE ~ "None"
   )) %>%
   dplyr::select(playerid = PlayerId, name = Name, position, last_year, mean_year, scandal_type, age = Age, cumulative_war, one_team_franchise, one_team_pct, considered_hof, hof) %>%
