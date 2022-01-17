@@ -442,7 +442,8 @@ xgb_grid <- grid_latin_hypercube(
 xgb_recipe <-
   recipe(hof ~ ., data = hof_train) %>%
   step_dummy(position, scandal_type) %>%
-  step_smote(hof) # smote increases AUPRC, bal acc, and F1 by a meaningful amount.
+  step_smote(hof) %>% # smote increases AUPRC, bal acc, and F1 by a meaningful amount.
+  step_log(one_team_pct)
 
 xgb_wf <-
   workflow() %>%
@@ -458,8 +459,10 @@ xgb_res <- tune_grid(
   xgb_wf,
   resamples = hof_folds,
   grid = xgb_grid,
-  control = control_grid(save_pred = TRUE),
-  metrics = metric_set(pr_auc)
+  control = control_grid(save_pred = TRUE,
+                         parallel_over = "everything"),
+  metrics = metric_set(pr_auc),
+  
 )
 
 # show how each parameter affects the model performance
