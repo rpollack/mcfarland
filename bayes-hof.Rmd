@@ -61,20 +61,18 @@ pitcher_stats <-
   group_by(PlayerId) %>%
   filter(sum(GS) / sum(G) >= 0.5) %>%
   ungroup() %>%
-  dplyr::select(-G, -GS, -FIP_WAR, -`RA9-Wins`, franchise)
+  dplyr::select(-GS, -FIP_WAR, -`RA9-Wins`, franchise)
 
 dbClearResult(pitcher_stats_q)
 
 # compute "one-team percentage. See https://www.billjamesonline.com/vagabonds_and_homebodies/
 one_team_percentage_pit <-
   pitcher_stats %>%
-  mutate(WAR = if_else(WAR < 0, 0, WAR)) %>% # consider negative WAR as zero so the math works
   group_by(PlayerId, franchise) %>%
-  summarize(franchise_war = sum(WAR)) %>%
-  mutate(one_team_pct = round(franchise_war / sum(franchise_war), 4)) %>%
+  summarize(franchise_g = sum(G)) %>%
   group_by(PlayerId) %>%
-  filter(one_team_pct == max(one_team_pct)) %>%
-  dplyr::select(PlayerId, one_team_franchise = franchise, one_team_pct) %>%
+  filter(franchise_g == max(franchise_g)) %>%
+  dplyr::select(PlayerId, one_team_franchise = franchise, max_franchise_g = franchise_g) %>%
   ungroup()
 
 # Compute total WAR per each age. this is needed because the dataset contains split seasons for players
@@ -89,7 +87,7 @@ pitchers_full <-
 
 
 batter_stats_q <-
-  dbSendQuery(con, "select sb.playerid AS PlayerId, ValueW as WAR, Age, st.DBFranchId as franchise
+  dbSendQuery(con, "select sb.playerid AS PlayerId, ValueW as WAR, Age, sb.G, st.DBFranchId as franchise
 from stats_batting sb
          join player_info pi on sb.playerid = pi.PlayerId
          left join season_team st on sb.TeamId = st.TeamId and sb.Season = st.Season
@@ -107,13 +105,11 @@ batter_stats <-
 
 one_team_percentage_bat <-
   batter_stats %>%
-  mutate(WAR = if_else(WAR < 0, 0, WAR)) %>% # consider negative WAR as zero so the math works
   group_by(PlayerId, franchise) %>%
-  summarize(franchise_war = sum(WAR)) %>%
-  mutate(one_team_pct = round(franchise_war / sum(franchise_war), 4)) %>%
+  summarize(franchise_g = sum(G)) %>%
   group_by(PlayerId) %>%
-  filter(one_team_pct == max(one_team_pct)) %>%
-  dplyr::select(PlayerId, one_team_franchise = franchise, one_team_pct) %>%
+  filter(franchise_g == max(franchise_g)) %>%
+  dplyr::select(PlayerId, one_team_franchise = franchise, max_franchise_g = franchise_g) %>%
   ungroup()
 
 # 2 - compute total WAR per each age. this is needed because the dataset contains split seasons for players
@@ -343,7 +339,7 @@ war_through_age <-
     Name %in% c("Marcell Ozuna", "Roberto Osuna", "Jose Reyes", "Aroldis Chapman", "Omar Vizquel", "Addison Russell") ~ "Domestic Violence",
     TRUE ~ "None"
   )) %>%
-  dplyr::select(playerid = PlayerId, name = Name, position, last_year, mean_year, scandal_type, age = Age, cumulative_war, one_team_franchise, one_team_pct, considered_hof, hof) %>%
+  dplyr::select(playerid = PlayerId, name = Name, position, last_year, mean_year, scandal_type, age = Age, cumulative_war, one_team_franchise, max_franchise_g, considered_hof, hof) %>%
   # force some positions for some inductees. fielding positional data from bb-ref and BB HOF website. need to be more specific for averill as there are 2 guys with his name. really this should be done with player ID's.
   mutate(
     position = case_when(
@@ -443,7 +439,7 @@ xgb_recipe <-
   recipe(hof ~ ., data = hof_train) %>%
   step_dummy(position, scandal_type) %>%
   step_smote(hof) %>% # smote increases AUPRC, bal acc, and F1 by a meaningful amount.
-  step_log(one_team_pct)
+  step_log(max_franchise_g) # log-transform this very skewed predictor
 
 xgb_wf <-
   workflow() %>%
