@@ -68,12 +68,20 @@ dbClearResult(pitcher_stats_q)
 # compute "one-team percentage. See https://www.billjamesonline.com/vagabonds_and_homebodies/
 one_team_percentage_pit <-
   pitcher_stats %>%
+  # compute running G total for each player in their time with a franchise
   group_by(PlayerId, franchise) %>%
-  summarize(franchise_g = sum(G)) %>%
+  arrange(Age, .by_group = TRUE) %>%
+  mutate(franchise_g = cumsum(G)) %>% 
+  
+  # compute the maximum franchise/G total for each year of a player's season up to that point
   group_by(PlayerId) %>%
-  filter(franchise_g == max(franchise_g)) %>%
-  dplyr::select(PlayerId, one_team_franchise = franchise, max_franchise_g = franchise_g) %>%
-  ungroup()
+  arrange(Age, .by_group = TRUE) %>%
+  mutate(max_franchise_g = cummax(franchise_g)) %>%  
+  
+  # now ensure seasons where players are traded use the highest value to that point
+  group_by(PlayerId, Age) %>%
+  mutate(max_franchise_g = max(max_franchise_g)) %>%
+  dplyr::select(-G, -franchise, -franchise_g)
 
 # Compute total WAR per each age. this is needed because the dataset contains split seasons for players
 # who appeared for >1 team in a season.
@@ -83,7 +91,7 @@ pitchers_full <-
   mutate(WAR = sum(WAR)) %>%
   ungroup() %>%
   distinct(PlayerId, Age, WAR) %>%
-  inner_join(one_team_percentage_pit, by = "PlayerId")
+  inner_join(one_team_percentage_pit, by = c("PlayerId", "Age", "WAR"))
 
 
 batter_stats_q <-
@@ -105,12 +113,20 @@ batter_stats <-
 
 one_team_percentage_bat <-
   batter_stats %>%
+  # compute running G total for each player in their time with a franchise
   group_by(PlayerId, franchise) %>%
-  summarize(franchise_g = sum(G)) %>%
+  arrange(Age, .by_group = TRUE) %>%
+  mutate(franchise_g = cumsum(G)) %>% 
+  
+  # compute the maximum franchise/G total for each year of a player's season up to that point
   group_by(PlayerId) %>%
-  filter(franchise_g == max(franchise_g)) %>%
-  dplyr::select(PlayerId, one_team_franchise = franchise, max_franchise_g = franchise_g) %>%
-  ungroup()
+  arrange(Age, .by_group = TRUE) %>%
+  mutate(max_franchise_g = cummax(franchise_g)) %>%  
+  
+  # now ensure seasons where players are traded use the highest value to that point
+  group_by(PlayerId, Age) %>%
+  mutate(max_franchise_g = max(max_franchise_g)) %>%
+  dplyr::select(-G, -franchise, -franchise_g)
 
 # 2 - compute total WAR per each age. this is needed because the dataset contains split seasons for players
 # who appeared for >1 team in a season.
@@ -120,7 +136,7 @@ batters_full <-
   mutate(WAR = sum(WAR)) %>%
   ungroup() %>%
   distinct(PlayerId, Age, WAR) %>%
-  inner_join(one_team_percentage_bat, by = "PlayerId")
+  inner_join(one_team_percentage_bat, by = c("PlayerId", "Age", "WAR"))
 
 
 dbClearResult(batter_stats_q)
@@ -305,6 +321,38 @@ hof_inductees <-
 ```
 
 ```{r}
+batter_stats %>% 
+  
+  
+
+  
+  # TODO: this doesn't handle Sheffield's case in MIL where his WAR total decreased his last year.
+  # his franchise WAR for MIL should be 1.25 in his time there. so instead of taking the max, take the last value with the franchise.
+
+  # TODO: test with players who return to a franchise, like Ichiro.
+  
+  # taking the max always works with G because they incrase. but WAR can decrease.
+  
+
+# sheffield: 114
+    # trea turner: 16252
+# ichiro: 1101
+# yadier molina: 7007 
+# cal ripken jr.
+# russell martin: 4616
+# clemen
+
+# sure this WORKS, but ... what value to keep?
+
+# at each age, keep the most number of games played for a team TO THAT POINT. so for Trea it'll be WSN up until he surpasses 637 G with LA (or another franchise.)
+
+# for sheffield, it should change: it'll be MIL until he is 27, then change to FLA 383 at age 27, then get to FLA 558 at age 29, then stay that way forever. 
+
+# for molina, ripken jr -- it'll be constant throughout. 
+```
+
+
+```{r}
 
 # the most recent season played
 current_year <- 2021
@@ -339,7 +387,7 @@ war_through_age <-
     Name %in% c("Marcell Ozuna", "Roberto Osuna", "Jose Reyes", "Aroldis Chapman", "Omar Vizquel", "Addison Russell") ~ "Domestic Violence",
     TRUE ~ "None"
   )) %>%
-  dplyr::select(playerid = PlayerId, name = Name, position, last_year, mean_year, scandal_type, age = Age, cumulative_war, one_team_franchise, max_franchise_g, considered_hof, hof) %>%
+  dplyr::select(playerid = PlayerId, name = Name, position, last_year, mean_year, scandal_type, age = Age, cumulative_war, max_franchise_g, considered_hof, hof) %>%
   # force some positions for some inductees. fielding positional data from bb-ref and BB HOF website. need to be more specific for averill as there are 2 guys with his name. really this should be done with player ID's.
   mutate(
     position = case_when(
@@ -408,7 +456,7 @@ hof_split <-
   war_through_age %>%
   # train model only on players who have been considered for the HOF
   filter(considered_hof) %>%
-  dplyr::select(-playerid, -name, -considered_hof, -last_year, -one_team_franchise) %>%
+  dplyr::select(-playerid, -name, -considered_hof, -last_year) %>%
   initial_split(strata = hof)
 
 hof_train <- training(hof_split)
@@ -481,9 +529,6 @@ final_xgb <- finalize_workflow(
   xgb_wf,
   best_auc
 )
-
-
-
 
 # fit model to training set and evaluate on test set.
 final_res <-
@@ -579,6 +624,7 @@ year_threshold <- 2
 num_players <- 10
 
 war_through_age %>%
+  dplyr::select(-hof) %>%
   add_count(playerid, name = "num_seasons") %>%
   filter(
     position != "OF",
@@ -594,7 +640,7 @@ war_through_age %>%
   ) %>%
   mutate(prob_hof = 100 * (.pred_elected)) %>%
   group_by(position) %>%
-  slice_max(n = num_players, order_by = prob_hof) %>%
+  slice_max(n = num_players, order_by = prob_hof) %>% 
   ggplot(aes(reorder(name, prob_hof), prob_hof)) +
   geom_col() +
   ylim(0, 100) +
