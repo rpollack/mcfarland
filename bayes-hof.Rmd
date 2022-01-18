@@ -431,6 +431,7 @@ war_through_age %>%
 war_through_age %>%
   filter(last_year < 2016) %>% # only those who've been voted on
   mutate(decade = mean_year - mean_year %% 10) %>%
+  filter(decade >= 1950) %>%
   distinct(playerid, decade, position, hof) %>%
   count(decade, position, hof) %>%
   ungroup() %>%
@@ -442,7 +443,7 @@ war_through_age %>%
   facet_wrap(vars(position), scales = "free_y") +
   geom_point() +
   geom_path() +
-  geom_smooth()
+  labs(x="career_decade")
 
 # position doesn't seem to matter too much except for DH (and probably relief pitcher, if I split those out). maybe can remove
 ```
@@ -461,16 +462,20 @@ hof_split <-
 
 hof_train <- training(hof_split)
 hof_test <- testing(hof_split)
+```
 
+```{r}
+# build a specification. set scale_pos_weight to 6, this is num(not_elected) / num(elected)
 xgb_spec <-
   boost_tree(
     trees = 150,
     tree_depth = tune(), min_n = tune(),
     loss_reduction = tune(),
     sample_size = tune(), mtry = tune(),
-    learn_rate = tune()
+    learn_rate = tune(),
+    stop_iter = 25,
   ) %>%
-  set_engine("xgboost", nthread = 4) %>%
+  set_engine("xgboost", scale_pos_weight = 6.18) %>%
   set_mode("classification")
 
 xgb_grid <- grid_latin_hypercube(
@@ -479,14 +484,14 @@ xgb_grid <- grid_latin_hypercube(
   loss_reduction(),
   sample_size = sample_prop(),
   mtry(range(6, 32)),
-  learn_rate(),
+  learn_rate(),  
   size = 50
 )
 
 xgb_recipe <-
   recipe(hof ~ ., data = hof_train) %>%
   step_dummy(position, scandal_type) %>%
-  step_smote(hof) %>% # smote increases AUPRC, bal acc, and F1 by a meaningful amount.
+#  step_smote(hof) %>% # smote increases AUPRC, bal acc, and F1 by a meaningful amount.
   step_log(max_franchise_g) # log-transform this very skewed predictor
 
 xgb_wf <-
@@ -497,16 +502,17 @@ xgb_wf <-
 # find the optimal values of tuning parameters using 10-fold cross validation
 hof_folds <- vfold_cv(hof_train, strata = hof, repeats = 5)
 
-doParallel::registerDoParallel(4)
+
+cores <- detectCores(logical = FALSE)
+cl <- makePSOCKcluster(cores)
+registerDoParallel(cl)
 
 xgb_res <- tune_grid(
   xgb_wf,
   resamples = hof_folds,
   grid = xgb_grid,
-  control = control_grid(save_pred = TRUE,
-                         parallel_over = "everything"),
+  control = control_grid(save_pred = TRUE),
   metrics = metric_set(pr_auc),
-  
 )
 
 # show how each parameter affects the model performance
@@ -650,7 +656,7 @@ war_through_age %>%
   geom_hline(yintercept = optimal_threshold, lty = "dashed") +
   ggtitle(glue("Probability of HOF election"), subtitle = glue("Active or retired but not voted on yet. {optimal_threshold}% = Predicted Hall of Famer"))
 
-ggsave("hof-predictions-final.png", width = 10)
+# ggsave("hof-predictions-final.png", width = 10)
 ```
 
 
@@ -881,7 +887,7 @@ war_mvp_data <-
     position != "P",
     mean_year >= 1931
   ) %>%
-  dplyr::select(playerid, player_name, cumulative_war, total_mvp_points) %>%
+  dplyr::select(playerid, player_name, cumulative_war, total_mvp_points, max_franchise_g) %>%
   replace_na(list(total_mvp_points = 0)) %>%
   mutate(points_per_war = total_mvp_points / cumulative_war)
 
