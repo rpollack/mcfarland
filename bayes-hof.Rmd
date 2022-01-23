@@ -936,9 +936,20 @@ player_ids <-
   dbFetch(playerid_q) %>%
   as_tibble()
 
+# TODO: not sure if i can fix this at all, but a lot of guys like mookie betts, mike trout, etc do not have ref ID's -- so they will show up as having zero MVP points. 
+
 dbClearResult(playerid_q)
 
 dbDisconnect(con)
+
+# found some more player ID's at https://www.smartfantasybaseball.com/tools/
+more_player_ids <-
+  read_csv("~/Downloads/SFBB Player ID Map - PLAYERIDMAP.csv") %>%
+  mutate(playerid = as.numeric(IDFANGRAPHS)) %>%
+    dplyr::select(playerid, refid = BREFID) %>%
+  bind_rows(player_ids) %>%
+  filter(!is.na(refid)) %>%
+  distinct()
 
 # combine datasets for non-pitchers who played most of their careers 1931 and later
 war_mvp_data <-
@@ -948,7 +959,7 @@ war_mvp_data <-
   group_by(playerid) %>%
   filter(age == max(age)) %>%
   dplyr::select(playerid, name, position, cumulative_war) %>%
-  inner_join(player_ids, by = "playerid") %>%
+  inner_join(more_player_ids, by = "playerid") %>%
   left_join(mvp_voting_data, by=c("refid" = "value")) %>%
   replace_na(list(total_mvp_points = 0)) %>%
   mutate(points_per_war = total_mvp_points / cumulative_war)
@@ -963,6 +974,10 @@ war_mvp_data %>%
   geom_point() +
   geom_smooth(method = "lm")
 
-View(war_mvp_data)
+# best players to get no MVP points
+
+war_mvp_data %>%
+  filter(total_mvp_points == 0) %>%
+  arrange(desc(cumulative_war))
 ```
 
