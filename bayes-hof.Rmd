@@ -866,33 +866,103 @@ cya_names <-
 
 # TODO: how to find duplicate players: war_mvp_data %>% arrange(player_name) %>% filter(player_name == dplyr::lag(player_name)) %>% View()
 
+# get mvp voting by year
 
+get_mvp_voting <- function(year) {
+  awards_html <-
+    read_html(glue("https://www.baseball-reference.com/awards/awards_{year}.shtml"))
+
+  al_points <-
+    awards_html %>%
+    html_elements(css = "#AL_MVP_voting") %>%
+    html_table() %>%
+    pluck(1) %>%
+    dplyr::select(mvp_points = 4) %>%
+    filter(row_number() != 1) %>%
+    mutate(mvp_points = as.numeric(mvp_points))
+
+  al_player_ids <- awards_html %>%
+    html_element(css = "#AL_MVP_voting") %>%
+    html_elements("td") %>%
+    html_attr("data-append-csv") %>%
+    as_tibble() %>%
+    filter(!is.na(value))
+
+  al_data <-
+    bind_cols(al_player_ids, al_points)
+
+  nl_points <-
+    awards_html %>%
+    html_elements(css = "#NL_MVP_voting") %>%
+    html_table() %>%
+    pluck(1) %>%
+    dplyr::select(mvp_points = 4) %>%
+    filter(row_number() != 1) %>%
+    mutate(mvp_points = as.numeric(mvp_points))
+
+  nl_player_ids <- awards_html %>%
+    html_element(css = "#NL_MVP_voting") %>%
+    html_elements("td") %>%
+    html_attr("data-append-csv") %>%
+    as_tibble() %>%
+    filter(!is.na(value))
+
+  nl_data <-
+    bind_cols(nl_player_ids, nl_points)
+
+  bind_rows(al_data, nl_data) %>%
+    mutate(season = year)
+}
+
+mvp_voting_data <-
+  seq(1931, 2021) %>%
+  map_df(get_mvp_voting) %>%
+  count(value, wt = mvp_points, name = "total_mvp_points", sort = TRUE)
+
+
+con <-
+  DBI::dbConnect(RMariaDB::MariaDB(),
+    dbname = Sys.getenv("FG_DB"),
+    host = Sys.getenv("FG_HOST"),
+    user = Sys.getenv("FG_USER"),
+    password = Sys.getenv("FG_PW"),
+    port = 5001,
+    ssl.ca = "~/Documents/skysql_fangraphs-db.pem"
+  )
+
+playerid_q <- dbSendQuery(con, "select playerid, refid from playerid_lookup")
+
+player_ids <-
+  dbFetch(playerid_q) %>%
+  as_tibble()
+
+dbClearResult(playerid_q)
+
+dbDisconnect(con)
+
+# combine datasets for non-pitchers who played most of their careers 1931 and later
 war_mvp_data <-
-  mvp_voting_data %>%
-  mutate(
-    player_name = str_replace_all(player_name, "\\s", " "), # fix non-breaking spaces
-    player_name =
-      str_replace_all(player_name, c(
-        "Cal Ripken Jr." = "Cal Ripken",
-        "Henry Aaron" = "Hank Aaron"
-      ))
-  ) %>%
-  group_by(player_name) %>%
-  summarize(total_mvp_points = sum(mvp_points)) %>%
-  right_join(war_through_age %>%
-    group_by(playerid) %>%
-    filter(age == max(age)),
-  by = c("player_name" = "name")
-  ) %>%
-  filter(
-    position != "P",
-    mean_year >= 1931
-  ) %>%
-  dplyr::select(playerid, player_name, cumulative_war, total_mvp_points, max_franchise_g) %>%
+  war_through_age %>%
+  filter(position != "P",
+         mean_year >= 1931) %>%
+  group_by(playerid) %>%
+  filter(age == max(age)) %>%
+  dplyr::select(playerid, name, position, cumulative_war) %>%
+  inner_join(player_ids, by = "playerid") %>%
+  left_join(mvp_voting_data, by=c("refid" = "value")) %>%
   replace_na(list(total_mvp_points = 0)) %>%
   mutate(points_per_war = total_mvp_points / cumulative_war)
+```
+
+```{r}
+
+
 
 war_mvp_data %>%
   ggplot(aes(cumulative_war, total_mvp_points)) +
-  geom_point()
+  geom_point() +
+  geom_smooth(method = "lm")
+
+View(war_mvp_data)
 ```
+
