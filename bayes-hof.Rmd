@@ -216,7 +216,7 @@ lahman_fielding_grouped <-
 # order of operations for delineating outfielders: prefer fg detail over lahman over BISposition
 positional_info <-
   ids %>%
-  left_join(lahman_fielding_grouped, by = "refid") %>%
+  left_join(lahman_fielding_grouped, by = "refid") %>% 
   left_join(fld, by = c("playerid" = "PlayerId"), suffix = c("_lahman", "_fgdetail")) %>%
   left_join(player_info, by = c("playerid" = "PlayerId")) %>%
   mutate(real_position = case_when(
@@ -228,7 +228,8 @@ positional_info <-
     ),
     TRUE ~ Position
   )) %>%
-  dplyr::select(PlayerId = playerid, position = real_position)
+  dplyr::select(PlayerId = playerid, position = real_position) %>%
+  distinct()
 
 # Get list of players in the HOF (who were voted in as players)
 
@@ -320,36 +321,6 @@ hof_inductees <-
   inner_join(hof_positions, by = c("Name" = "name"))
 ```
 
-```{r}
-batter_stats %>% 
-  
-  
-
-  
-  # TODO: this doesn't handle Sheffield's case in MIL where his WAR total decreased his last year.
-  # his franchise WAR for MIL should be 1.25 in his time there. so instead of taking the max, take the last value with the franchise.
-
-  # TODO: test with players who return to a franchise, like Ichiro.
-  
-  # taking the max always works with G because they incrase. but WAR can decrease.
-  
-
-# sheffield: 114
-    # trea turner: 16252
-# ichiro: 1101
-# yadier molina: 7007 
-# cal ripken jr.
-# russell martin: 4616
-# clemen
-
-# sure this WORKS, but ... what value to keep?
-
-# at each age, keep the most number of games played for a team TO THAT POINT. so for Trea it'll be WSN up until he surpasses 637 G with LA (or another franchise.)
-
-# for sheffield, it should change: it'll be MIL until he is 27, then change to FLA 383 at age 27, then get to FLA 558 at age 29, then stay that way forever. 
-
-# for molina, ripken jr -- it'll be constant throughout. 
-```
 
 
 ```{r}
@@ -813,53 +784,6 @@ war_age_data %>%
   arrange(desc(.pred)) %>%
   dplyr::select(name, position, age, cumulative_war, predicted_final_war = .pred)
 ```
-war through age and MVP shares.
-
-```{r}
-shares_url <- "https://www.baseball-reference.com/leaders/mvp_cya.shtml"
-
-shares_html <- read_html(shares_url)
-
-mvp_shares <-
-  shares_html %>%
-  html_table() %>%
-  pluck(1)
-
-cya_shares <-
-  shares_html %>%
-  html_table() %>%
-  pluck(2)
-
-mvp_names <-
-  mvp_shares %>%
-  mutate(name = str_trim(str_replace_all(`Most Valuable Player`, c(
-    "\\*" = "",
-    "\\([:digit:] wins\\)" = "",
-    "\\(1 win\\)" = ""
-  )), side = "both")) %>%
-  dplyr::select(name, mvp_shares = `Award Shares`) %>%
-  mutate(
-    name = str_replace_all(name, "\\s", " "), # fix non-breaking spaces
-    name =
-      str_replace_all(name, c(
-        "Cal Ripken Jr." = "Cal Ripken",
-        "Henry Aaron" = "Hank Aaron"
-      ))
-  )
-
-cya_names <-
-  cya_shares %>%
-  mutate(name = str_trim(str_replace_all(`Cy Young Award`, c(
-    "\\*" = "",
-    "\\([:digit:] wins\\)" = "",
-    "\\(1 win\\)" = ""
-  )), side = "both")) %>%
-  dplyr::select(name, cya_shares = `Award Shares`) %>%
-  mutate(name = str_replace_all(name, "\\s", " ")) # fix non-breaking spaces
-
-# TODO: there are multiple players names Randy Johnson, Jose Ramirez, Bob Gibson, Chris Carpenter, Pete Rose, Frank Thomas, Joe Morgan, Billy Williams, Boog Powell, earl averill  ...going to have to join by player ID's here!
-```
-
 
 overlooked players.
 
@@ -867,7 +791,7 @@ considers MVP voting.
 
 things to add:
 
-- all star selections
+- nonstandard all star selections (years where there were 2 ASG's)
 - gold gloves
 - silver sluggers
 
@@ -963,35 +887,12 @@ mvp_voting_data <-
   map_df(get_mvp_voting) %>%
   count(value, wt = mvp_points, name = "total_mvp_points", sort = TRUE)
 
-
-con <-
-  DBI::dbConnect(RMariaDB::MariaDB(),
-    dbname = Sys.getenv("FG_DB"),
-    host = Sys.getenv("FG_HOST"),
-    user = Sys.getenv("FG_USER"),
-    password = Sys.getenv("FG_PW"),
-    port = 5001,
-    ssl.ca = "~/Documents/skysql_fangraphs-db.pem"
-  )
-
-playerid_q <- dbSendQuery(con, "select playerid, refid from playerid_lookup")
-
-player_ids <-
-  dbFetch(playerid_q) %>%
-  as_tibble()
-
-# TODO: not sure if i can fix this at all, but a lot of guys like mookie betts, mike trout, etc do not have ref ID's -- so they will show up as having zero MVP points. 
-
-dbClearResult(playerid_q)
-
-dbDisconnect(con)
-
 # found some more player ID's at https://www.smartfantasybaseball.com/tools/
 more_player_ids <-
   read_csv("~/Downloads/SFBB Player ID Map - PLAYERIDMAP.csv") %>%
   mutate(playerid = as.numeric(IDFANGRAPHS)) %>%
     dplyr::select(playerid, refid = BREFID) %>%
-  bind_rows(player_ids) %>%
+  bind_rows(ids) %>%   # this is obtained above in the first data-gathering section
   filter(!is.na(refid)) %>%
   distinct()
 
@@ -1001,7 +902,7 @@ war_mvp_data <-
   filter(position != "P",
          mean_year >= 1931) %>%
   group_by(playerid) %>%
-  filter(age == max(age)) %>%
+  filter(age == max(age)) %>% 
   dplyr::select(playerid, name, position, cumulative_war) %>%
   inner_join(more_player_ids, by = "playerid") %>%
   left_join(mvp_voting_data, by=c("refid" = "value")) %>%
