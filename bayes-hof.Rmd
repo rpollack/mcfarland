@@ -860,13 +860,56 @@ cya_names <-
 # TODO: there are multiple players names Randy Johnson, Jose Ramirez, Bob Gibson, Chris Carpenter, Pete Rose, Frank Thomas, Joe Morgan, Billy Williams, Boog Powell, earl averill  ...going to have to join by player ID's here!
 ```
 
+
+overlooked players.
+
+considers MVP voting.
+
+things to add:
+
+- all star selections
+- gold gloves
+- silver sluggers
+
 ```{r}
 
-# TODO: there are multiple players names Randy Johnson, Jose Ramirez, Bob Gibson, Chris Carpenter, Pete Rose, Frank Thomas, Joe Morgan, Billy Williams, Boog Powell, earl averill, Tony Gwynn, Frank Thomas, Randy Johnson, Luis Gonzalez, Reggie Sanders, Bill Doran, Frank Thomas, John Mayberry, Bernie Williams,   ...going to have to join by player ID's here!
+get_all_star_rosters <- function(year) {
+  print(year)
+  
+  read_html(glue("https://www.baseball-reference.com/allstar/{year}-allstar-game.shtml")) %>%
+    html_element(xpath = "//*[@id='all_lineups']/comment()") %>%
+    html_text() %>%
+    str_extract_all("[:alpha:]{7}[:digit:].*(?=\\.shtml)") %>%
+    as_tibble(.name_repair = "minimal") %>%
+    select(brefid = 1) %>%
+    mutate(Season = year)
+}
 
-# TODO: how to find duplicate players: war_mvp_data %>% arrange(player_name) %>% filter(player_name == dplyr::lag(player_name)) %>% View()
+all_star_data_first <-
+  seq(1933, 1944) %>%
+  map_df(get_all_star_rosters)
 
-# get mvp voting by year
+
+
+all_star_data_second <-
+  seq(1946, 1958) %>%
+  map_df(get_all_star_rosters)
+
+# TODO: handle the two games in 1959, 1960, 1961, and 1962
+
+all_star_data_third <-
+  seq(1963, 2021) %>%
+  map_df(get_all_star_rosters)
+
+all_star_data <-
+  bind_rows(all_star_data_first, all_star_data_second, all_star_data_third) %>%
+  count(brefid, name = "num_asgs", sort = TRUE)
+  
+```
+
+
+
+```{r}
 
 get_mvp_voting <- function(year) {
   awards_html <-
@@ -914,6 +957,7 @@ get_mvp_voting <- function(year) {
     mutate(season = year)
 }
 
+# get mvp voting by year
 mvp_voting_data <-
   seq(1931, 2021) %>%
   map_df(get_mvp_voting) %>%
@@ -961,8 +1005,11 @@ war_mvp_data <-
   dplyr::select(playerid, name, position, cumulative_war) %>%
   inner_join(more_player_ids, by = "playerid") %>%
   left_join(mvp_voting_data, by=c("refid" = "value")) %>%
-  replace_na(list(total_mvp_points = 0)) %>%
-  mutate(points_per_war = total_mvp_points / cumulative_war)
+  left_join(all_star_data, by=c("refid" = "brefid")) %>%
+  replace_na(list(total_mvp_points = 0,
+                  num_asgs = 0)) %>%
+  mutate(points_per_war = total_mvp_points / cumulative_war) %>% 
+  ungroup()
 ```
 
 ```{r}
@@ -977,7 +1024,10 @@ war_mvp_data %>%
 # best players to get no MVP points
 
 war_mvp_data %>%
-  filter(total_mvp_points == 0) %>%
-  arrange(desc(cumulative_war))
+  ungroup() %>%
+  filter(total_mvp_points == 0,
+         num_asgs == 0) %>%
+  arrange(desc(cumulative_war)) %>%
+  filter(row_number() <= 10)
 ```
 
