@@ -36,6 +36,9 @@ fgt <- theme(
 # regex for finding bb-ref player ID's. between 3 and 7 alpha chars followed by exactly 2 digits. 
 bref_id_regex <- "[:alpha:]{3,7}[:digit:]{2}"
 
+# the most recent season played
+most_recent_year <- 2021
+
 # get seasonal pitching WAR for players. remove relievers.
 # use average of FIP-based and run-based WAR
 
@@ -350,7 +353,7 @@ all_star_data_first <-
 # TODO: handle the two games in 1959, 1960, 1961, and 1962
 
 all_star_data_third <-
-  seq(1963, 2021) %>%
+  seq(1963, most_recent_year) %>%
   map_df(get_all_star_rosters)
 
 all_star_seasonal <-
@@ -406,7 +409,7 @@ get_mvp_voting <- function(year) {
 # get mvp voting by year
 
 mvp_voting_seasonal <-
-  seq(1931, 2021) %>%
+  seq(1931, most_recent_year) %>%
   map_df(get_mvp_voting)
 ```
 
@@ -418,6 +421,10 @@ awards_html <- read_html("https://www.baseball-reference.com/awards/awards_2021.
 ```
 
 ```{r}
+
+
+# TODO: let's start by doing from 1967-on and going from there. 
+# TODO: then handle from 1956 to 1966 when voting was league-wide
 
 # get player ID's
 cya_ids <-
@@ -444,9 +451,6 @@ bind_cols(cya_ids, cya_points)
 
 
 ```{r}
-
-# the most recent season played
-current_year <- 2021
 
 # combine batting & pitching WAR for all player-seasons.
 # add positional info where we can
@@ -480,7 +484,7 @@ war_through_age <-
     cumulative_war = round(cumsum(WAR), 1),
     cumulative_mvp_points = cumsum(mvp_points),
     cumulative_asg = cumsum(asg),
-    considered_hof = if_else((last_year <= current_year - 6 & num_seasons >= 10) | Name == "Addie Joss", TRUE, FALSE),
+    considered_hof = if_else((last_year <= most_recent_year - 6 & num_seasons >= 10) | Name == "Addie Joss", TRUE, FALSE),
   ) %>%
   ungroup() %>%
   distinct() %>%
@@ -741,7 +745,7 @@ war_through_age %>%
   filter(
     position != "OF",
     !considered_hof,
-    between(last_year, current_year - year_threshold, current_year) | num_seasons >= 10
+    between(last_year, most_recent_year - year_threshold, most_recent_year) | num_seasons >= 10
   ) %>%
   group_by(playerid) %>%
   filter(age == max(age)) %>%
