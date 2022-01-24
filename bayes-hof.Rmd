@@ -71,13 +71,11 @@ one_team_percentage_pit <-
   # compute running G total for each player in their time with a franchise
   group_by(PlayerId, franchise) %>%
   arrange(Age, .by_group = TRUE) %>%
-  mutate(franchise_g = cumsum(G)) %>% 
-  
+  mutate(franchise_g = cumsum(G)) %>%
   # compute the maximum franchise/G total for each year of a player's season up to that point
   group_by(PlayerId) %>%
   arrange(Age, .by_group = TRUE) %>%
-  mutate(max_franchise_g = cummax(franchise_g)) %>%  
-  
+  mutate(max_franchise_g = cummax(franchise_g)) %>%
   # now ensure seasons where players are traded use the highest value to that point
   group_by(PlayerId, Age) %>%
   mutate(max_franchise_g = max(max_franchise_g)) %>%
@@ -116,13 +114,11 @@ one_team_percentage_bat <-
   # compute running G total for each player in their time with a franchise
   group_by(PlayerId, franchise) %>%
   arrange(Age, .by_group = TRUE) %>%
-  mutate(franchise_g = cumsum(G)) %>% 
-  
+  mutate(franchise_g = cumsum(G)) %>%
   # compute the maximum franchise/G total for each year of a player's season up to that point
   group_by(PlayerId) %>%
   arrange(Age, .by_group = TRUE) %>%
-  mutate(max_franchise_g = cummax(franchise_g)) %>%  
-  
+  mutate(max_franchise_g = cummax(franchise_g)) %>%
   # now ensure seasons where players are traded use the highest value to that point
   group_by(PlayerId, Age) %>%
   mutate(max_franchise_g = max(max_franchise_g)) %>%
@@ -184,8 +180,8 @@ dbClearResult(id_q)
 more_player_ids <-
   read_csv("~/Downloads/SFBB Player ID Map - PLAYERIDMAP.csv") %>%
   mutate(playerid = as.numeric(IDFANGRAPHS)) %>%
-    dplyr::select(playerid, refid = BREFID) %>%
-  bind_rows(ids) %>%   # this is obtained above in the first data-gathering section
+  dplyr::select(playerid, refid = BREFID) %>%
+  bind_rows(ids) %>% # this is obtained above in the first data-gathering section
   filter(!is.na(refid)) %>%
   distinct()
 
@@ -226,7 +222,7 @@ lahman_fielding_grouped <-
 # order of operations for delineating outfielders: prefer fg detail over lahman over BISposition
 positional_info <-
   more_player_ids %>%
-  left_join(lahman_fielding_grouped, by = "refid") %>% 
+  left_join(lahman_fielding_grouped, by = "refid") %>%
   left_join(fld, by = c("playerid" = "PlayerId"), suffix = c("_lahman", "_fgdetail")) %>%
   left_join(player_info, by = c("playerid" = "PlayerId")) %>%
   mutate(real_position = case_when(
@@ -342,7 +338,6 @@ get_all_star_rosters <- function(year) {
       select(brefid = 1) %>%
       mutate(Season = year)
   }
-
 }
 
 all_star_data_first <-
@@ -358,7 +353,7 @@ all_star_data_third <-
 all_star_seasonal <-
   bind_rows(all_star_data_first, all_star_data_third) %>%
   mutate(asg = 1)
-  
+
 get_mvp_voting <- function(year) {
   awards_html <-
     read_html(glue("https://www.baseball-reference.com/awards/awards_{year}.shtml"))
@@ -410,7 +405,6 @@ get_mvp_voting <- function(year) {
 mvp_voting_seasonal <-
   seq(1931, 2021) %>%
   map_df(get_mvp_voting)
-
 ```
 
 
@@ -431,13 +425,19 @@ war_through_age <-
   dplyr::select(-Position, -BISPosition) %>%
   left_join(hof_inductees, by = c("Name", "birth_year")) %>% # joining by birth year prevents mis-identifying players w/same name
   inner_join(positional_info, by = "PlayerId", suffix = c("_inducted", "_played")) %>%
-  left_join(mvp_voting_seasonal, by=c("refid" = "value",
-                                      "Season" = "season")) %>%
-  left_join(all_star_seasonal, by=c("refid" = "brefid",
-                                     "Season")) %>%
-  replace_na(list(hof = "not_elected",
-                  mvp_points = 0,
-                  asg = 0)) %>%
+  left_join(mvp_voting_seasonal, by = c(
+    "refid" = "value",
+    "Season" = "season"
+  )) %>%
+  left_join(all_star_seasonal, by = c(
+    "refid" = "brefid",
+    "Season"
+  )) %>%
+  replace_na(list(
+    hof = "not_elected",
+    mvp_points = 0,
+    asg = 0
+  )) %>%
   group_by(PlayerId, Name, last_year) %>%
   arrange(Age) %>%
   mutate(
@@ -514,7 +514,7 @@ war_through_age %>%
   facet_wrap(vars(position), scales = "free_y") +
   geom_point() +
   geom_path() +
-  labs(x="career_decade")
+  labs(x = "career_decade")
 
 # position doesn't seem to matter too much except for DH (and probably relief pitcher, if I split those out). maybe can remove
 ```
@@ -540,7 +540,7 @@ hof_test <- testing(hof_split)
 xgb_spec <-
   boost_tree(
     trees = 1000,
-    tree_depth = tune(), min_n =                   tune(),
+    tree_depth = tune(), min_n = tune(),
     loss_reduction = tune(),
     sample_size = tune(), mtry = tune(),
     learn_rate = tune(),
@@ -550,13 +550,13 @@ xgb_spec <-
   set_mode("classification")
 
 xgb_grid <- grid_latin_hypercube(
-  tree_depth(range = c(12,32)),
+  tree_depth(range = c(12, 32)),
   min_n(range = c(35, 50)),
   loss_reduction(),
   sample_size = sample_prop(),
-  mtry(range= c(6, 32)),
- # finalize(mtry(), hof_train %>% dplyr::select(-hof)),
-  learn_rate(),  
+  mtry(range = c(6, 32)),
+  # finalize(mtry(), hof_train %>% dplyr::select(-hof)),
+  learn_rate(),
   size = 50
 )
 
@@ -718,7 +718,7 @@ war_through_age %>%
   ) %>%
   mutate(prob_hof = 100 * (.pred_elected)) %>%
   group_by(position) %>%
-  slice_max(n = num_players, order_by = prob_hof) %>% 
+  slice_max(n = num_players, order_by = prob_hof) %>%
   ggplot(aes(reorder(name, prob_hof), prob_hof)) +
   geom_col() +
   ylim(0, 100) +
@@ -897,7 +897,6 @@ things to add:
 
 ```{r}
 
-
 ```
 
 ```{r}
@@ -913,9 +912,10 @@ war_mvp_data %>%
 
 war_mvp_data %>%
   ungroup() %>%
-  filter(total_mvp_points == 0,
-         num_asgs == 0) %>%
+  filter(
+    total_mvp_points == 0,
+    num_asgs == 0
+  ) %>%
   arrange(desc(cumulative_war)) %>%
   filter(row_number() <= 10)
 ```
-
