@@ -27,6 +27,140 @@ fgt <- theme(
   # strip.background = element_rect(fill = "#50ae26"),
   strip.text = element_text(family = "Lato")
 )
+
+# functions
+get_all_star_rosters <- function(year) {
+  # TODO: handle years with multiple all star games.
+
+  if (!year %in% c(1945, 2020)) {
+    read_html(glue("https://www.baseball-reference.com/allstar/{year}-allstar-game.shtml")) %>%
+      html_element(xpath = "//*[@id='all_lineups']/comment()") %>%
+      html_text() %>%
+      str_extract_all(bref_id_regex) %>%
+      as_tibble(.name_repair = "minimal") %>%
+      select(brefid = 1) %>%
+      mutate(Season = year)
+  }
+}
+
+get_mvp_voting <- function(year) {
+  awards_html <-
+    read_html(glue("https://www.baseball-reference.com/awards/awards_{year}.shtml"))
+
+  al_points <-
+    awards_html %>%
+    html_elements(css = "#AL_MVP_voting") %>%
+    html_table() %>%
+    pluck(1) %>%
+    dplyr::select(mvp_points = 4) %>%
+    filter(row_number() != 1) %>%
+    mutate(mvp_points = as.numeric(mvp_points))
+
+  al_player_ids <- awards_html %>%
+    html_element(css = "#AL_MVP_voting") %>%
+    html_elements("td") %>%
+    html_attr("data-append-csv") %>%
+    as_tibble() %>%
+    filter(!is.na(value))
+
+  al_data <-
+    bind_cols(al_player_ids, al_points)
+
+  nl_points <-
+    awards_html %>%
+    html_elements(css = "#NL_MVP_voting") %>%
+    html_table() %>%
+    pluck(1) %>%
+    dplyr::select(mvp_points = 4) %>%
+    filter(row_number() != 1) %>%
+    mutate(mvp_points = as.numeric(mvp_points))
+
+  nl_player_ids <- awards_html %>%
+    html_element(css = "#NL_MVP_voting") %>%
+    html_elements("td") %>%
+    html_attr("data-append-csv") %>%
+    as_tibble() %>%
+    filter(!is.na(value))
+
+  nl_data <-
+    bind_cols(nl_player_ids, nl_points)
+
+  bind_rows(al_data, nl_data) %>%
+    mutate(season = year)
+}
+
+get_cy_young_voting_points <- function(year) {
+  awards_html <- read_html(glue("https://www.baseball-reference.com/awards/awards_{year}.shtml"))
+
+  if (year < 1967) {
+    ml <-
+      awards_html %>%
+      html_elements(xpath = "//*[@id='all_ML_CYA_voting']/comment()") %>%
+      html_text()
+
+    ml_ids <-
+      ml %>%
+      str_extract_all(bref_id_regex) %>%
+      as_tibble(.name_repair = "minimal") %>%
+      dplyr::select(refid = 1) %>%
+      distinct()
+
+    ml_points <-
+      ml %>%
+      str_extract_all('(?<=_won" >)[:digit:]{1,3}\\.0') %>%
+      as_tibble(.name_repair = "minimal") %>%
+      dplyr::select(cya_points = 1) %>%
+      mutate(cya_points = as.numeric(cya_points))
+
+    bind_cols(ml_ids, ml_points) %>%
+      mutate(Season = year)
+  } else {
+    al <-
+      awards_html %>%
+      html_elements(xpath = "//*[@id='all_AL_CYA_voting']/comment()") %>%
+      html_text()
+
+    al_ids <-
+      al %>%
+      str_extract_all(bref_id_regex) %>%
+      as_tibble(.name_repair = "minimal") %>%
+      dplyr::select(refid = 1) %>%
+      distinct()
+
+    al_points <-
+      al %>%
+      str_extract_all('(?<=_won" >)[:digit:]{1,3}\\.0') %>%
+      as_tibble(.name_repair = "minimal") %>%
+      dplyr::select(cya_points = 1) %>%
+      mutate(cya_points = as.numeric(cya_points))
+
+    al_data <- bind_cols(al_ids, al_points)
+
+    nl <-
+      awards_html %>%
+      html_elements(xpath = "//*[@id='all_NL_CYA_voting']/comment()") %>%
+      html_text()
+
+    nl_ids <-
+      nl %>%
+      str_extract_all(bref_id_regex) %>%
+      as_tibble(.name_repair = "minimal") %>%
+      dplyr::select(refid = 1) %>%
+      distinct()
+
+    nl_points <-
+      nl %>%
+      str_extract_all('(?<=_won" >)[:digit:]{1,3}\\.0') %>%
+      as_tibble(.name_repair = "minimal") %>%
+      dplyr::select(cya_points = 1) %>%
+      mutate(cya_points = as.numeric(cya_points))
+
+    nl_data <- bind_cols(nl_ids, nl_points)
+
+    bind_rows(al_data, nl_data) %>%
+      mutate(Season = year)
+  }
+}
 ```
 
 
@@ -142,7 +276,6 @@ batters_full <-
 
 
 dbClearResult(batter_stats_q)
-
 
 player_info_q <-
   dbSendQuery(con, "select PlayerId, FirstName, LastName, BirthDate, Debut, LastGame, Position, BISPosition from player_info")
@@ -332,20 +465,6 @@ hof_inductees <-
   hof_players %>%
   inner_join(hof_positions, by = c("Name" = "name"))
 
-get_all_star_rosters <- function(year) {
- # print(year)
-
-  if (!year %in% c(1945, 2020)) {
-    read_html(glue("https://www.baseball-reference.com/allstar/{year}-allstar-game.shtml")) %>%
-      html_element(xpath = "//*[@id='all_lineups']/comment()") %>%
-      html_text() %>%
-      str_extract_all(bref_id_regex) %>%
-      as_tibble(.name_repair = "minimal") %>%
-      select(brefid = 1) %>%
-      mutate(Season = year)
-  }
-}
-
 all_star_data_first <-
   seq(1933, 1958) %>%
   map_df(get_all_star_rosters)
@@ -360,115 +479,16 @@ all_star_seasonal <-
   bind_rows(all_star_data_first, all_star_data_third) %>%
   mutate(asg = 1)
 
-get_mvp_voting <- function(year) {
-  awards_html <-
-    read_html(glue("https://www.baseball-reference.com/awards/awards_{year}.shtml"))
-
-  al_points <-
-    awards_html %>%
-    html_elements(css = "#AL_MVP_voting") %>%
-    html_table() %>%
-    pluck(1) %>%
-    dplyr::select(mvp_points = 4) %>%
-    filter(row_number() != 1) %>%
-    mutate(mvp_points = as.numeric(mvp_points))
-
-  al_player_ids <- awards_html %>%
-    html_element(css = "#AL_MVP_voting") %>%
-    html_elements("td") %>%
-    html_attr("data-append-csv") %>%
-    as_tibble() %>%
-    filter(!is.na(value))
-
-  al_data <-
-    bind_cols(al_player_ids, al_points)
-
-  nl_points <-
-    awards_html %>%
-    html_elements(css = "#NL_MVP_voting") %>%
-    html_table() %>%
-    pluck(1) %>%
-    dplyr::select(mvp_points = 4) %>%
-    filter(row_number() != 1) %>%
-    mutate(mvp_points = as.numeric(mvp_points))
-
-  nl_player_ids <- awards_html %>%
-    html_element(css = "#NL_MVP_voting") %>%
-    html_elements("td") %>%
-    html_attr("data-append-csv") %>%
-    as_tibble() %>%
-    filter(!is.na(value))
-
-  nl_data <-
-    bind_cols(nl_player_ids, nl_points)
-
-  bind_rows(al_data, nl_data) %>%
-    mutate(season = year)
-}
-
 # get mvp voting by year
 
 mvp_voting_seasonal <-
   seq(1931, most_recent_year) %>%
   map_df(get_mvp_voting)
 
-get_cy_young_voting_points <- function(year) {
-  print(year)
-
-  awards_html <- read_html(glue("https://www.baseball-reference.com/awards/awards_{year}.shtml"))
-
-  al <-
-    awards_html %>%
-    html_elements(xpath = "//*[@id='all_AL_CYA_voting']/comment()") %>%
-    html_text()
-
-  al_ids <-
-    al %>%
-    str_extract_all(bref_id_regex) %>%
-    as_tibble(.name_repair = "minimal") %>%
-    dplyr::select(refid = 1) %>%
-    distinct()
-
-  al_points <-
-    al %>%
-    str_extract_all('(?<=_won" >)[:digit:]{1,3}\\.0') %>%
-    as_tibble(.name_repair = "minimal") %>%
-    dplyr::select(cya_points = 1) %>%
-    mutate(cya_points = as.numeric(cya_points))
-
-  al_data <- bind_cols(al_ids, al_points)
-
-  nl <-
-    awards_html %>%
-    html_elements(xpath = "//*[@id='all_NL_CYA_voting']/comment()") %>%
-    html_text()
-
-  nl_ids <-
-    nl %>%
-    str_extract_all(bref_id_regex) %>%
-    as_tibble(.name_repair = "minimal") %>%
-    dplyr::select(refid = 1) %>%
-    distinct()
-
-  nl_points <-
-    nl %>%
-    str_extract_all('(?<=_won" >)[:digit:]{1,3}\\.0') %>%
-    as_tibble(.name_repair = "minimal") %>%
-    dplyr::select(cya_points = 1) %>%
-    mutate(cya_points = as.numeric(cya_points))
-
-  nl_data <- bind_cols(nl_ids, nl_points)
-
-  bind_rows(al_data, nl_data) %>%
-    mutate(Season = year)
-}
 
 cy_young_points <-
-  seq(1967, most_recent_year) %>%
+  seq(1956, most_recent_year) %>%
   map_df(get_cy_young_voting_points)
-  
-# TODO: then handle from 1956 to 1966 when voting was league-wide
-
 ```
 
 
@@ -975,17 +995,17 @@ things to add:
 
 war_through_age %>%
   group_by(playerid) %>%
-  filter(age == max(age)) %>%
-  filter(mean_year >= 1931,
-         cumulative_mvp_points == 0,
-         cumulative_asg == 0,
-         cumulative_cy_points == 0) %>%
+  filter(age == max(age), position != "P") %>%
+  filter(
+    mean_year >= 1931,
+    cumulative_mvp_points == 0,
+    cumulative_asg == 0,
+    cumulative_cy_points == 0
+  ) %>%
   ungroup() %>%
   arrange(desc(cumulative_war)) %>%
-  dplyr::select(name, position, cumulative_war) %>%
+  dplyr::select(name, position, cumulative_war, mean_year) %>%
   filter(row_number() <= 10)
 
 # worst player with multiple all star games
-
-
 ```
