@@ -629,14 +629,14 @@ hof_test <- testing(hof_split)
 # build a specification. set scale_pos_weight to 6, this is num(not_elected) / num(elected)
 xgb_spec <-
   boost_tree(
-    trees = 1000,
+    trees = 2000,
     tree_depth = tune(), min_n = tune(),
     loss_reduction = tune(),
     sample_size = tune(), mtry = tune(),
     learn_rate = tune(),
     stop_iter = 25,
   ) %>%
-  set_engine("xgboost", scale_pos_weight = 6.18) %>%
+  set_engine("xgboost", scale_pos_weight = 6.14) %>%
   set_mode("classification")
 
 xgb_grid <- grid_latin_hypercube(
