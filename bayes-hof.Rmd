@@ -33,8 +33,8 @@ fgt <- theme(
 # Get Player Data
 
 ```{r}
-# regex for finding bb-ref player ID's. between 3 and 7 alpha chars followed by exactly 2 digits. 
-bref_id_regex <- "[:alpha:]{3,7}[:digit:]{2}"
+# regex for finding bb-ref player ID's. between 3 and 7 alpha chars, followed by 0 or 1 periods, followed by exactly 2 digits. the periods are for id's like CC Sabathia and AJ Burnett
+bref_id_regex <- "[:alpha:]{3,7}\\.{0,1}[:digit:]{2}"
 
 # the most recent season played
 most_recent_year <- 2021
@@ -411,42 +411,68 @@ get_mvp_voting <- function(year) {
 mvp_voting_seasonal <-
   seq(1931, most_recent_year) %>%
   map_df(get_mvp_voting)
-```
 
+get_cy_young_voting_points <- function(year) {
+  print(year)
 
-```{r}
-awards_html <- read_html("https://www.baseball-reference.com/awards/awards_2021.shtml#NL_CYA_voting_link") %>%
-  html_elements(xpath = "//*[@id='all_AL_CYA_voting']/comment()") %>%
-  html_text()
-```
+  awards_html <- read_html(glue("https://www.baseball-reference.com/awards/awards_{year}.shtml"))
 
-```{r}
+  al <-
+    awards_html %>%
+    html_elements(xpath = "//*[@id='all_AL_CYA_voting']/comment()") %>%
+    html_text()
 
+  al_ids <-
+    al %>%
+    str_extract_all(bref_id_regex) %>%
+    as_tibble(.name_repair = "minimal") %>%
+    dplyr::select(refid = 1) %>%
+    distinct()
 
-# TODO: let's start by doing from 1967-on and going from there. 
+  al_points <-
+    al %>%
+    str_extract_all('(?<=_won" >)[:digit:]{1,3}\\.0') %>%
+    as_tibble(.name_repair = "minimal") %>%
+    dplyr::select(cya_points = 1) %>%
+    mutate(cya_points = as.numeric(cya_points))
+
+  al_data <- bind_cols(al_ids, al_points)
+
+  nl <-
+    awards_html %>%
+    html_elements(xpath = "//*[@id='all_NL_CYA_voting']/comment()") %>%
+    html_text()
+
+  nl_ids <-
+    nl %>%
+    str_extract_all(bref_id_regex) %>%
+    as_tibble(.name_repair = "minimal") %>%
+    dplyr::select(refid = 1) %>%
+    distinct()
+
+  nl_points <-
+    nl %>%
+    str_extract_all('(?<=_won" >)[:digit:]{1,3}\\.0') %>%
+    as_tibble(.name_repair = "minimal") %>%
+    dplyr::select(cya_points = 1) %>%
+    mutate(cya_points = as.numeric(cya_points))
+
+  nl_data <- bind_cols(nl_ids, nl_points)
+
+  bind_rows(al_data, nl_data) %>%
+    mutate(Season = year)
+}
+
+cy_young_points <-
+  seq(1967, most_recent_year) %>%
+  map_df(get_cy_young_voting_points)
+  
 # TODO: then handle from 1956 to 1966 when voting was league-wide
 
-# get player ID's
-cya_ids <-
-  awards_html %>%
-  str_extract_all(bref_id_regex) %>%
-      as_tibble(.name_repair = "minimal") %>%
-  dplyr::select(refid = 1) %>%
-  distinct()
-
-# get their CYA points
-cya_points <-
-  awards_html %>%
-  str_extract_all('(?<=_won" >)[:digit:]{1,3}\\.0') %>%
-  as_tibble(.name_repair = "minimal") %>%
-  dplyr::select(cya_points = 1) %>%
-  mutate(cya_points = as.numeric(cya_points))
-
-bind_cols(cya_ids, cya_points)
-
-# data-stat="points_won" >3.0
-
 ```
+
+
+
 
 
 
@@ -471,10 +497,15 @@ war_through_age <-
     "refid" = "brefid",
     "Season"
   )) %>%
+  left_join(cy_young_points, by = c(
+    "refid",
+    "Season"
+  )) %>%
   replace_na(list(
     hof = "not_elected",
     mvp_points = 0,
-    asg = 0
+    asg = 0,
+    cya_points = 0
   )) %>%
   group_by(PlayerId, Name, last_year) %>%
   arrange(Age) %>%
@@ -484,6 +515,7 @@ war_through_age <-
     cumulative_war = round(cumsum(WAR), 1),
     cumulative_mvp_points = cumsum(mvp_points),
     cumulative_asg = cumsum(asg),
+    cumulative_cy_points = cumsum(cya_points),
     considered_hof = if_else((last_year <= most_recent_year - 6 & num_seasons >= 10) | Name == "Addie Joss", TRUE, FALSE),
   ) %>%
   ungroup() %>%
@@ -496,7 +528,7 @@ war_through_age <-
     Name %in% c("Marcell Ozuna", "Roberto Osuna", "Jose Reyes", "Aroldis Chapman", "Omar Vizquel", "Addison Russell") ~ "Domestic Violence",
     TRUE ~ "None"
   )) %>%
-  dplyr::select(playerid = PlayerId, name = Name, position, last_year, mean_year, scandal_type, age = Age, cumulative_war, max_franchise_g, cumulative_mvp_points, cumulative_asg, considered_hof, hof) %>%
+  dplyr::select(playerid = PlayerId, name = Name, position, last_year, mean_year, scandal_type, age = Age, cumulative_war, max_franchise_g, cumulative_mvp_points, cumulative_asg, cumulative_cy_points, considered_hof, hof) %>%
   # force some positions for some inductees. fielding positional data from bb-ref and BB HOF website. need to be more specific for averill as there are 2 guys with his name. really this should be done with player ID's.
   mutate(
     position = case_when(
@@ -938,22 +970,22 @@ things to add:
 ```
 
 ```{r}
+# best players with no mvp votes, all star games, or cy young votes
 
 
-
-war_mvp_data %>%
-  ggplot(aes(cumulative_war, total_mvp_points)) +
-  geom_point() +
-  geom_smooth(method = "lm")
-
-# best players to get no MVP points
-
-war_mvp_data %>%
+war_through_age %>%
+  group_by(playerid) %>%
+  filter(age == max(age)) %>%
+  filter(mean_year >= 1931,
+         cumulative_mvp_points == 0,
+         cumulative_asg == 0,
+         cumulative_cy_points == 0) %>%
   ungroup() %>%
-  filter(
-    total_mvp_points == 0,
-    num_asgs == 0
-  ) %>%
   arrange(desc(cumulative_war)) %>%
+  dplyr::select(name, position, cumulative_war) %>%
   filter(row_number() <= 10)
+
+# worst player with multiple all star games
+
+
 ```
