@@ -162,43 +162,47 @@ get_cy_young_voting_points <- function(year) {
   }
 }
 
-get_silver_sluggers <- function(league){
-    read_html(glue("https://www.baseball-reference.com/awards/silver_slugger_{league}.shtml")) %>%
-  html_element("table") %>%
-  html_elements("a") %>%
-  html_attr("href") %>%
-  as_tibble() %>%
-  mutate(refid = str_extract(value, bref_id_regex),
-         Season = str_extract(value, "[:digit:]{4}")) %>% 
-  fill(Season) %>%
-  na.omit() %>% 
-  
-  # remove the last 9 rows; as these are the 'multiple award winners'
-  filter(row_number() <= n()-9) %>%
-  dplyr::select(refid, Season) %>%
-    mutate(silver_slugger = 1,
-           Season = as.numeric(Season))
+get_silver_sluggers <- function(league) {
+  read_html(glue("https://www.baseball-reference.com/awards/silver_slugger_{league}.shtml")) %>%
+    html_element("table") %>%
+    html_elements("a") %>%
+    html_attr("href") %>%
+    as_tibble() %>%
+    mutate(
+      refid = str_extract(value, bref_id_regex),
+      Season = str_extract(value, "[:digit:]{4}")
+    ) %>%
+    fill(Season) %>%
+    na.omit() %>%
+    # remove the last 9 rows; as these are the 'multiple award winners'
+    filter(row_number() <= n() - 9) %>%
+    dplyr::select(refid, Season) %>%
+    mutate(
+      silver_slugger = 1,
+      Season = as.numeric(Season)
+    )
 }
 
-get_gold_gloves <- function(league){
-    read_html(glue("https://www.baseball-reference.com/awards/gold_glove_{league}.shtml")) %>%
-  html_element("table") %>%
-  html_elements("a") %>%
-  html_attr("href") %>%
-  as_tibble() %>%
-  mutate(refid = str_extract(value, bref_id_regex),
-         Season = str_extract(value, "[:digit:]{4}")) %>% 
-  fill(Season) %>%
-  na.omit() %>% 
-  
-  # remove the last 9 rows; as these are the 'multiple award winners'
-  filter(row_number() <= n()-9) %>%
-  dplyr::select(refid, Season) %>%
-    mutate(gold_glove = 1,
-           Season = as.numeric(Season))
+get_gold_gloves <- function(league) {
+  read_html(glue("https://www.baseball-reference.com/awards/gold_glove_{league}.shtml")) %>%
+    html_element("table") %>%
+    html_elements("a") %>%
+    html_attr("href") %>%
+    as_tibble() %>%
+    mutate(
+      refid = str_extract(value, bref_id_regex),
+      Season = str_extract(value, "[:digit:]{4}")
+    ) %>%
+    fill(Season) %>%
+    na.omit() %>%
+    # remove the last 9 rows; as these are the 'multiple award winners'
+    filter(row_number() <= n() - 9) %>%
+    dplyr::select(refid, Season) %>%
+    mutate(
+      gold_glove = 1,
+      Season = as.numeric(Season)
+    )
 }
-
-
 ```
 
 
@@ -568,7 +572,7 @@ war_through_age <-
     "refid",
     "Season"
   )) %>%
-  left_join(gold_gloves, by=c(
+  left_join(gold_gloves, by = c(
     "refid",
     "Season"
   )) %>%
