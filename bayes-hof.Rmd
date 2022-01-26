@@ -595,7 +595,7 @@ war_through_age <-
     cumulative_cy_points = cumsum(cya_points),
     cumulative_silver_sluggers = cumsum(silver_slugger),
     cumulative_gold_gloves = cumsum(gold_glove),
-    considered_hof = if_else((last_year <= 2022 - 6 & num_seasons >= 10) | Name == "Addie Joss", TRUE, FALSE),
+    considered_hof = if_else((last_year < 2022 - 5 & num_seasons >= 10) | Name == "Addie Joss", TRUE, FALSE),
   ) %>%
   ungroup() %>%
   distinct() %>%
@@ -628,13 +628,13 @@ war_through_age <-
     )
   ) %>%
   filter(position != "OF") %>%
+  
+  # TODO: remove temp code to patch in Ortiz as the 2022 HOF inductee
+  mutate(hof = if_else(name == "David Ortiz", "elected", hof)) %>%
   mutate(hof = factor(hof, levels = c("elected", "not_elected"))) %>%
   distinct() %>%
   filter(!name %in% c("Satchel Paige", "Monte Irvin")) %>% # filter out some Negro Leagues players
-  na.omit() %>%
-  
-  # temp code to patch in Ortiz as the 2022 HOF inductee
-  mutate(hof = if_else(name == "David Ortiz", "elected", "not_elected"))
+  na.omit() 
 ```
 
 exploratory data analysis
@@ -652,7 +652,7 @@ war_through_age %>%
 
 # number of elected vs. not-elected at each position, by mean year over time.
 war_through_age %>%
-  filter(last_year < 2016) %>% # only those who've been voted on
+  filter(considered_hof) %>% # only those who've been voted on
   mutate(decade = mean_year - mean_year %% 10) %>%
   filter(decade >= 1950) %>%
   distinct(playerid, decade, position, hof) %>%
@@ -688,7 +688,7 @@ hof_test <- testing(hof_split)
 ```
 
 ```{r}
-# build a specification. set scale_pos_weight to 6, this is num(not_elected) / num(elected)
+# build a specification. set scale_pos_weight to 6-ish, this is num(not_elected) / num(elected)
 xgb_spec <-
   boost_tree(
     trees = 2000,
@@ -698,7 +698,7 @@ xgb_spec <-
     learn_rate = tune(),
     stop_iter = 25,
   ) %>%
-  set_engine("xgboost", scale_pos_weight = 6.14) %>%
+  set_engine("xgboost", scale_pos_weight = 6.2) %>%
   set_mode("classification")
 
 xgb_grid <- grid_latin_hypercube(
