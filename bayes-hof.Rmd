@@ -161,6 +161,44 @@ get_cy_young_voting_points <- function(year) {
       mutate(Season = year)
   }
 }
+
+get_silver_sluggers <- function(league){
+    read_html(glue("https://www.baseball-reference.com/awards/silver_slugger_{league}.shtml")) %>%
+  html_element("table") %>%
+  html_elements("a") %>%
+  html_attr("href") %>%
+  as_tibble() %>%
+  mutate(refid = str_extract(value, bref_id_regex),
+         Season = str_extract(value, "[:digit:]{4}")) %>% 
+  fill(Season) %>%
+  na.omit() %>% 
+  
+  # remove the last 9 rows; as these are the 'multiple award winners'
+  filter(row_number() <= n()-9) %>%
+  dplyr::select(refid, Season) %>%
+    mutate(silver_slugger = 1,
+           Season = as.numeric(Season))
+}
+
+get_gold_gloves <- function(league){
+    read_html(glue("https://www.baseball-reference.com/awards/gold_glove_{league}.shtml")) %>%
+  html_element("table") %>%
+  html_elements("a") %>%
+  html_attr("href") %>%
+  as_tibble() %>%
+  mutate(refid = str_extract(value, bref_id_regex),
+         Season = str_extract(value, "[:digit:]{4}")) %>% 
+  fill(Season) %>%
+  na.omit() %>% 
+  
+  # remove the last 9 rows; as these are the 'multiple award winners'
+  filter(row_number() <= n()-9) %>%
+  dplyr::select(refid, Season) %>%
+    mutate(gold_glove = 1,
+           Season = as.numeric(Season))
+}
+
+
 ```
 
 
@@ -479,21 +517,26 @@ all_star_seasonal <-
   bind_rows(all_star_data_first, all_star_data_third) %>%
   mutate(asg = 1)
 
-# get mvp voting by year
+# get voting for major seasonal awards, by year
 
 mvp_voting_seasonal <-
   seq(1931, most_recent_year) %>%
   map_df(get_mvp_voting)
 
-
 cy_young_points <-
   seq(1956, most_recent_year) %>%
   map_df(get_cy_young_voting_points)
+
+leagues <- c("al", "nl")
+
+silver_sluggers <-
+  leagues %>%
+  map_df(get_silver_sluggers)
+
+gold_gloves <-
+  leagues %>%
+  map_df(get_gold_gloves)
 ```
-
-
-
-
 
 
 ```{r}
@@ -521,13 +564,23 @@ war_through_age <-
     "refid",
     "Season"
   )) %>%
+  left_join(silver_sluggers, by = c(
+    "refid",
+    "Season"
+  )) %>%
+  left_join(gold_gloves, by=c(
+    "refid",
+    "Season"
+  )) %>%
   replace_na(list(
     hof = "not_elected",
     mvp_points = 0,
     asg = 0,
-    cya_points = 0
+    cya_points = 0,
+    silver_slugger = 0,
+    gold_glove = 0
   )) %>%
-  group_by(PlayerId, Name, last_year) %>%
+  group_by(PlayerId) %>%
   arrange(Age) %>%
   mutate(
     position = if_else(hof == "elected", position_inducted, position_played), # reconcile position for inductees
@@ -536,6 +589,8 @@ war_through_age <-
     cumulative_mvp_points = cumsum(mvp_points),
     cumulative_asg = cumsum(asg),
     cumulative_cy_points = cumsum(cya_points),
+    cumulative_silver_sluggers = cumsum(silver_slugger),
+    cumulative_gold_gloves = cumsum(gold_glove),
     considered_hof = if_else((last_year <= most_recent_year - 6 & num_seasons >= 10) | Name == "Addie Joss", TRUE, FALSE),
   ) %>%
   ungroup() %>%
@@ -548,7 +603,7 @@ war_through_age <-
     Name %in% c("Marcell Ozuna", "Roberto Osuna", "Jose Reyes", "Aroldis Chapman", "Omar Vizquel", "Addison Russell") ~ "Domestic Violence",
     TRUE ~ "None"
   )) %>%
-  dplyr::select(playerid = PlayerId, name = Name, position, last_year, mean_year, scandal_type, age = Age, cumulative_war, max_franchise_g, cumulative_mvp_points, cumulative_asg, cumulative_cy_points, considered_hof, hof) %>%
+  dplyr::select(playerid = PlayerId, name = Name, position, last_year, mean_year, scandal_type, age = Age, cumulative_war, max_franchise_g, cumulative_mvp_points, cumulative_asg, cumulative_cy_points, cumulative_silver_sluggers, cumulative_gold_gloves, considered_hof, hof) %>%
   # force some positions for some inductees. fielding positional data from bb-ref and BB HOF website. need to be more specific for averill as there are 2 guys with his name. really this should be done with player ID's.
   mutate(
     position = case_when(
@@ -818,7 +873,7 @@ war_through_age %>%
   geom_hline(yintercept = optimal_threshold, lty = "dashed") +
   ggtitle(glue("Probability of HOF election"), subtitle = glue("Active or retired but not voted on yet. {optimal_threshold}% = Predicted Hall of Famer"))
 
-# ggsave("hof-predictions-final.png", width = 10)
+ggsave("hof-predictions-final.png", width = 10)
 ```
 
 
