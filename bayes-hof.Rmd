@@ -595,7 +595,7 @@ war_through_age <-
     cumulative_cy_points = cumsum(cya_points),
     cumulative_silver_sluggers = cumsum(silver_slugger),
     cumulative_gold_gloves = cumsum(gold_glove),
-    considered_hof = if_else((last_year <= most_recent_year - 6 & num_seasons >= 10) | Name == "Addie Joss", TRUE, FALSE),
+    considered_hof = if_else((last_year <= 2022 - 6 & num_seasons >= 10) | Name == "Addie Joss", TRUE, FALSE),
   ) %>%
   ungroup() %>%
   distinct() %>%
@@ -631,7 +631,10 @@ war_through_age <-
   mutate(hof = factor(hof, levels = c("elected", "not_elected"))) %>%
   distinct() %>%
   filter(!name %in% c("Satchel Paige", "Monte Irvin")) %>% # filter out some Negro Leagues players
-  na.omit()
+  na.omit() %>%
+  
+  # temp code to patch in Ortiz as the 2022 HOF inductee
+  mutate(hof = if_else(name == "David Ortiz", "elected", "not_elected"))
 ```
 
 exploratory data analysis
