@@ -713,7 +713,7 @@ xgb_recipe <-
   recipe(hof ~ ., data = hof_train) %>%
   step_dummy(position, scandal_type) %>%
   step_smote(hof) %>% # smote increases AUPRC, bal acc, and F1 by a meaningful amount.
-  step_log(max_franchise_g) # log-transform this very skewed predictor
+  step_log(max_franchise_g, contains("cumulative"), offset = .1) # log-transform skewed predictors
 
 xgb_wf <-
   workflow() %>%
