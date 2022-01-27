@@ -595,6 +595,8 @@ war_through_age <-
     cumulative_cy_points = cumsum(cya_points),
     cumulative_silver_sluggers = cumsum(silver_slugger),
     cumulative_gold_gloves = cumsum(gold_glove),
+    
+    # TODO: change 2022 back to 'most_recent_year', set that variable to 2022 above
     considered_hof = if_else((last_year < 2022 - 5 & num_seasons >= 10) | Name == "Addie Joss", TRUE, FALSE),
   ) %>%
   ungroup() %>%
@@ -716,7 +718,7 @@ xgb_recipe <-
   recipe(hof ~ ., data = hof_train) %>%
   step_dummy(position, scandal_type) %>%
   step_smote(hof) %>% # smote increases AUPRC, bal acc, and F1 by a meaningful amount.
-  step_log(max_franchise_g, contains("cumulative"), offset = .1) # log-transform skewed predictors
+  step_log(max_franchise_g) # log-transform skewed predictors
 
 xgb_wf <-
   workflow() %>%
