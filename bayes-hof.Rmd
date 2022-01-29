@@ -261,7 +261,8 @@ one_team_percentage_pit <-
   # now ensure seasons where players are traded use the highest value to that point
   group_by(PlayerId, Age) %>%
   mutate(max_franchise_g = max(max_franchise_g)) %>%
-  dplyr::select(-G, -franchise, -franchise_g)
+# eliminate multiple-team seasons
+  distinct(PlayerId, Season, Age, max_franchise_g)
 
 # Compute total WAR per each age. this is needed because the dataset contains split seasons for players
 # who appeared for >1 team in a season.
@@ -304,7 +305,10 @@ one_team_percentage_bat <-
   # now ensure seasons where players are traded use the highest value to that point
   group_by(PlayerId, Age) %>%
   mutate(max_franchise_g = max(max_franchise_g)) %>%
-  dplyr::select(-G, -franchise, -franchise_g)
+  
+  # eliminate multiple-team seasons
+  distinct(PlayerId, Season, Age, max_franchise_g)
+
 
 # 2 - compute total WAR per each age. this is needed because the dataset contains split seasons for players
 # who appeared for >1 team in a season.
@@ -314,7 +318,7 @@ batters_full <-
   mutate(WAR = sum(WAR)) %>%
   ungroup() %>%
   distinct(PlayerId, Age, WAR) %>%
-  inner_join(one_team_percentage_bat, by = c("PlayerId", "Age", "WAR"))
+  inner_join(one_team_percentage_bat, by = c("PlayerId", "Age"))
 
 
 dbClearResult(batter_stats_q)
