@@ -635,8 +635,6 @@ war_through_age <-
   ) %>%
   filter(position != "OF") %>%
   
-  # TODO: remove temp code to patch in Ortiz as the 2022 HOF inductee
-  mutate(hof = if_else(name == "David Ortiz", "elected", hof)) %>%
   mutate(hof = factor(hof, levels = c("elected", "not_elected"))) %>%
   distinct() %>%
   filter(!name %in% c("Satchel Paige", "Monte Irvin")) %>% # filter out some Negro Leagues players
@@ -691,6 +689,14 @@ hof_split <-
 
 hof_train <- training(hof_split)
 hof_test <- testing(hof_split)
+
+pos_weight <-
+  hof_train %>% 
+  count(hof) %>% 
+  mutate(weight = round(n/dplyr::lag(n), 2)) %>%
+  dplyr::select(weight) %>%
+  na.omit() %>%
+  as.numeric()
 ```
 
 ```{r}
@@ -704,7 +710,7 @@ xgb_spec <-
     learn_rate = tune(),
     stop_iter = 25,
   ) %>%
-  set_engine("xgboost", scale_pos_weight = 6.2) %>%
+  set_engine("xgboost", scale_pos_weight = 7) %>%
   set_mode("classification")
 
 xgb_grid <- grid_latin_hypercube(
