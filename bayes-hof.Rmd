@@ -639,12 +639,21 @@ war_through_age <-
   distinct() %>%
   filter(!name %in% c("Satchel Paige", "Monte Irvin")) %>% # filter out some Negro Leagues players
   na.omit() 
+
+pitchers <- war_through_age %>% 
+  filter(position == "P") %>%
+  dplyr::select(-position)
+
+position_players <- 
+  war_through_age %>%
+  filter(position != "P") %>%
+  dplyr::select(-cumulative_cy_points)
 ```
 
 exploratory data analysis
 
 ```{r, fig.height = 3}
-war_through_age %>%
+position_players %>%
   filter(considered_hof) %>%
   # group_by(age, position, hof) %>%
   # summarize(typical_cume_war = median(cumulative_war, na.rm = TRUE)) %>%
@@ -681,7 +690,7 @@ build and evaluate a classification model using xgboost
 
 
 hof_split <-
-  war_through_age %>%
+  position_players %>%
   # train model only on players who have been considered for the HOF
   filter(considered_hof) %>%
   dplyr::select(-playerid, -name, -considered_hof, -last_year) %>%
@@ -710,7 +719,7 @@ xgb_spec <-
     learn_rate = tune(),
     stop_iter = 25,
   ) %>%
-  set_engine("xgboost", scale_pos_weight = 7) %>%
+  set_engine("xgboost", scale_pos_weight = 7.2) %>%
   set_mode("classification")
 
 xgb_grid <- grid_latin_hypercube(
@@ -865,7 +874,7 @@ optimal_threshold <-
 year_threshold <- 2
 num_players <- 10
 
-war_through_age %>%
+position_players %>%
   dplyr::select(-hof) %>%
   add_count(playerid, name = "num_seasons") %>%
   filter(
@@ -880,7 +889,7 @@ war_through_age %>%
     predict(hof_mdl, new_data = .),
     predict(hof_mdl, new_data = ., type = "prob")
   ) %>%
-  mutate(prob_hof = 100 * (.pred_elected)) %>%
+  mutate(prob_hof = 100 * (.pred_elected)) %>% 
   group_by(position) %>%
   slice_max(n = num_players, order_by = prob_hof) %>%
   ggplot(aes(reorder(name, prob_hof), prob_hof)) +
