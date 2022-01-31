@@ -714,7 +714,7 @@ xgb_spec <-
     learn_rate = tune(),
     stop_iter = 25,
   ) %>%
-  set_engine("xgboost", scale_pos_weight = 13.98) %>%
+  set_engine("xgboost", scale_pos_weight = 13.99) %>%
   set_mode("classification")
 
 xgb_grid <- grid_latin_hypercube(
