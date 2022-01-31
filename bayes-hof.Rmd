@@ -12,6 +12,7 @@ library(vip)
 library(glue)
 library(lubridate)
 library(probably)
+library(finetune)
 
 fgt <- theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
@@ -546,15 +547,9 @@ gold_gloves <-
   map_df(get_gold_gloves)
 ```
 
-
 ```{r}
-
-# combine batting & pitching WAR for all player-seasons.
-# add positional info where we can
-# discard players whose position is "OF". there are about 1,200 of them and only 4-5 HOFers; not enough data,
-# and no one is classified this way today, so not important.
-
-
+# build master dataset, adding posittional info where we can and computing
+# cumulative awards/totals for each player's season. 
 war_through_age <-
   player_seasons %>%
   dplyr::select(-Position, -BISPosition) %>%
@@ -601,7 +596,7 @@ war_through_age <-
     cumulative_gold_gloves = cumsum(gold_glove),
     
     # TODO: change 2022 back to 'most_recent_year', set that variable to 2022 above
-    considered_hof = if_else((last_year < 2022 - 5 & num_seasons >= 10) | Name == "Addie Joss", TRUE, FALSE),
+    considered_hof = if_else(last_year < 2022 - 5, TRUE, FALSE),
   ) %>%
   ungroup() %>%
   distinct() %>%
@@ -712,14 +707,14 @@ pos_weight <-
 # build a specification. set scale_pos_weight to 6-ish, this is num(not_elected) / num(elected)
 xgb_spec <-
   boost_tree(
-    trees = 2000,
+    trees = 2500,
     tree_depth = tune(), min_n = tune(),
     loss_reduction = tune(),
     sample_size = tune(), mtry = tune(),
     learn_rate = tune(),
     stop_iter = 25,
   ) %>%
-  set_engine("xgboost", scale_pos_weight = 7.2) %>%
+  set_engine("xgboost", scale_pos_weight = 13.98) %>%
   set_mode("classification")
 
 xgb_grid <- grid_latin_hypercube(
@@ -752,13 +747,23 @@ cores <- detectCores(logical = FALSE)
 cl <- makePSOCKcluster(cores)
 registerDoParallel(cl)
 
-xgb_res <- tune_grid(
+
+xgb_res <- tune_race_anova(
   xgb_wf,
   resamples = hof_folds,
   grid = xgb_grid,
-  control = control_grid(save_pred = TRUE),
+  control = control_race(save_pred = TRUE, 
+                         verbose_elim = TRUE),
   metrics = metric_set(pr_auc),
 )
+
+# xgb_res <- tune_grid(
+#   xgb_wf,
+#   resamples = hof_folds,
+#   grid = xgb_grid,
+#   control = control_grid(save_pred = TRUE),
+#   metrics = metric_set(pr_auc),
+# )
 
 # show how each parameter affects the model performance
 xgb_res %>%
