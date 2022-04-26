@@ -5,7 +5,7 @@ library(tidyverse)
 library(baseballr)
 ```
 
-```{r, fig.height=3}
+```{r}
 
 # get swings
 swing_data <-
@@ -44,25 +44,25 @@ swing_data %>%
   ggplot(aes(plate_x, plate_z)) +
   geom_rect(aes(xmin = -.708, xmax = .708, ymin = sz_bot, ymax = sz_top), color = "grey", fill = "palegreen", alpha = 0.1, lty = "dashed") +
   geom_point(alpha = 0.7) +
-  facet_wrap(vars(player_name)) +
+  facet_wrap(vars(player_name), ncol=5) +
   ylim(0, 5) +
   xlim(-2, 2) +
-  ggtitle("Free Swingers, 2022", subtitle = "10 largest swing zones, min. 50 swings") +
-  labs(x = "Pitch Horizontal Location (ft)", y = "Pitch Height (ft)", caption = "Source: Baseball Savant through April 24, 2022")
+  ggtitle("Free Swingers, 2022", subtitle = "Batters with the widest 'swing zones'") +
+  labs(x = "Pitch Horizontal Location (ft)", y = "Pitch Height (ft)", caption = "Source: Baseball Savant through April 24, 2022. Min 28 swings")
 
 
-ggsave("free-swingers.png")
+ggsave("free-swingers.png", height = 8, width = 10)
 
 swing_data %>%
   filter(player_name %in% least_aggressive$player_name) %>%
   ggplot(aes(plate_x, plate_z)) +
   geom_rect(aes(xmin = -.708, xmax = .708, ymin = sz_bot, ymax = sz_top), color = "grey", fill = "palegreen", alpha = 0.1, lty = "dashed") +
   geom_point(alpha = 0.7) +
-  facet_wrap(vars(player_name)) +
+  facet_wrap(vars(player_name), ncol = 5) +
   ylim(0, 5) +
   xlim(-2, 2) +
-  ggtitle("Looking For Their Pitch, 2022", subtitle = "10 smallest swing zones, min. 50 swings") +
-  labs(x = "Pitch Horizontal Location (ft)", y = "Pitch Height (ft)", caption = "Source: Baseball Savant through April 24, 2022")
+  ggtitle("Looking For Their Pitch, 2022", subtitle = "Batters with the smallest 'swing zones'") +
+  labs(x = "Pitch Horizontal Location (ft)", y = "Pitch Height (ft)", caption = "Source: Baseball Savant through April 24, 2022. Min 28 swings")
 
-ggsave("patient-swingers.png")
+ggsave("patient-swingers.png", height = 8, width = 10)
 ```
