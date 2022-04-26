@@ -1,0 +1,73 @@
+
+
+```{r}
+library(tidyverse)
+library(baseballr)
+```
+
+```{r, fig.height=3}
+
+# get swings
+swing_data <-
+  statcast_search("2022-04-07", Sys.Date(), player_type = "batter") %>%
+  filter(description %in% c("hit_into_play", "foul", "swinging_strike", "foul_tip", "swinging_strike_blocked"))
+
+# set swing floor as the first quantile
+min_swings <- 28
+
+swing_grouped <-
+  swing_data %>%
+  group_by(player_name) %>%
+  summarize(
+    mad_x = mad(plate_x),
+    mad_z = mad(plate_z),
+    mean_sz_top = mean(sz_top),
+    mean_sz_bot = mean(sz_bot),
+    num_swings = n()
+  ) %>%
+  mutate(plate_cov = mad_x * mad_z) %>%
+  filter(num_swings >= min_swings)
+
+most_aggressive <-
+  swing_grouped %>%
+  arrange(desc(plate_cov)) %>%
+  filter(row_number() <= 10)
+
+least_aggressive <-
+  swing_grouped %>%
+  arrange(plate_cov) %>%
+  filter(row_number() <= 10)
+  
+
+swing_data %>%
+  filter(player_name %in% most_aggressive$player_name) %>%
+  ggplot(aes(plate_x, plate_z)) +
+  geom_rect(aes(xmin = -.708, xmax = .708, ymin = sz_bot, ymax = sz_top), color = "grey", fill = "palegreen", alpha = 0.1, lty = "dashed") +
+  geom_point(alpha = 0.7) +
+  facet_wrap(vars(player_name)) +
+  ylim(0, 5) +
+  xlim(-2, 2) +
+  ggtitle("Free Swingers, 2022", subtitle = "10 largest swing zones, min. 50 swings") +
+  labs(x = "Pitch Horizontal Location (ft)", y = "Pitch Height (ft)", caption = "Source: Baseball Savant through April 24, 2022")
+
+
+ggsave("free-swingers.png")
+
+swing_data %>%
+  filter(player_name %in% least_aggressive$player_name) %>%
+  ggplot(aes(plate_x, plate_z)) +
+  geom_rect(aes(xmin = -.708, xmax = .708, ymin = sz_bot, ymax = sz_top), color = "grey", fill = "palegreen", alpha = 0.1, lty = "dashed") +
+  geom_point(alpha = 0.7) +
+  facet_wrap(vars(player_name)) +
+  ylim(0, 5) +
+  xlim(-2, 2) +
+  ggtitle("Looking For Their Pitch, 2022", subtitle = "10 smallest swing zones, min. 50 swings") +
+  labs(x = "Pitch Horizontal Location (ft)", y = "Pitch Height (ft)", caption = "Source: Baseball Savant through April 24, 2022")
+
+ggsave("patient-swingers.png")
+
+
+
+  
+```
+
