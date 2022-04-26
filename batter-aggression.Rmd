@@ -37,7 +37,7 @@ least_aggressive <-
   swing_grouped %>%
   arrange(plate_cov) %>%
   filter(row_number() <= 10)
-  
+
 
 swing_data %>%
   filter(player_name %in% most_aggressive$player_name) %>%
@@ -65,9 +65,4 @@ swing_data %>%
   labs(x = "Pitch Horizontal Location (ft)", y = "Pitch Height (ft)", caption = "Source: Baseball Savant through April 24, 2022")
 
 ggsave("patient-swingers.png")
-
-
-
-  
 ```
-
