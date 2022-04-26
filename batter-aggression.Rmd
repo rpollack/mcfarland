@@ -3,29 +3,32 @@
 ```{r}
 library(tidyverse)
 library(baseballr)
+library(glue)
 ```
 
 ```{r}
 
 # get swings
 swing_data <-
-  statcast_search("2022-04-07", Sys.Date(), player_type = "batter") %>%
-  filter(description %in% c("hit_into_play", "foul", "swinging_strike", "foul_tip", "swinging_strike_blocked"))
+  read_csv("~/Downloads/savant_data-7.csv")
 
-# set swing floor as the first quantile
-min_swings <- 28
+# commented out b/c for now this is missing the first week of the 2022 season
+  # statcast_search(start_date = "2022-04-07", end_date = Sys.Date(), player_type = "batter") %>%
+  # filter(description %in% c("hit_into_play", "foul", "swinging_strike", "foul_tip", "swinging_strike_blocked"))
 
+# set miinimum number of swings to be graphed
+min_swings <- 50
+
+# for each player, compute the median absolute deviation in both axes, number of swings, and total plate coverage
 swing_grouped <-
   swing_data %>%
   group_by(player_name) %>%
   summarize(
     mad_x = mad(plate_x),
     mad_z = mad(plate_z),
-    mean_sz_top = mean(sz_top),
-    mean_sz_bot = mean(sz_bot),
     num_swings = n()
   ) %>%
-  mutate(plate_cov = mad_x * mad_z) %>%
+  mutate(plate_cov = mad_x * mad_z) %>%  # plate coverage in sq. feet
   filter(num_swings >= min_swings)
 
 most_aggressive <-
@@ -47,11 +50,11 @@ swing_data %>%
   facet_wrap(vars(player_name), ncol=5) +
   ylim(0, 5) +
   xlim(-2, 2) +
-  ggtitle("Free Swingers, 2022", subtitle = "Batters with the widest 'swing zones'") +
-  labs(x = "Pitch Horizontal Location (ft)", y = "Pitch Height (ft)", caption = "Source: Baseball Savant through April 24, 2022. Min 28 swings")
+  ggtitle("Free Swingers, 2022", subtitle = "Batters with the widest 'swing zones'. One point = one swing") +
+  labs(x = "Pitch Horizontal Location (ft)", y = "Pitch Height (ft)", caption = glue("Source: Baseball Savant through April 24. Min {min_swings} swings"))
 
 
-ggsave("free-swingers.png", height = 8, width = 10)
+ggsave("free-swingers.png", height = 8, width = 15)
 
 swing_data %>%
   filter(player_name %in% least_aggressive$player_name) %>%
@@ -61,8 +64,8 @@ swing_data %>%
   facet_wrap(vars(player_name), ncol = 5) +
   ylim(0, 5) +
   xlim(-2, 2) +
-  ggtitle("Looking For Their Pitch, 2022", subtitle = "Batters with the smallest 'swing zones'") +
-  labs(x = "Pitch Horizontal Location (ft)", y = "Pitch Height (ft)", caption = "Source: Baseball Savant through April 24, 2022. Min 28 swings")
+  ggtitle("Looking For Their Pitch, 2022", subtitle = "Batters with the smallest 'swing zones'. One point = one swing") +
+  labs(x = "Pitch Horizontal Location (ft)", y = "Pitch Height (ft)", caption = glue("Source: Baseball Savant through April 24. Min {min_swings} swings"))
 
-ggsave("patient-swingers.png", height = 8, width = 10)
+ggsave("patient-swingers.png", height = 8, width = 15)
 ```
