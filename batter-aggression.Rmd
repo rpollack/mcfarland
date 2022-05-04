@@ -2,34 +2,38 @@
 
 ```{r}
 library(tidyverse)
+library(lubridate)
 library(baseballr)
 library(glue)
 ```
 
 ```{r}
 
-# get swings
+# get all pitches in 2022
 swing_data <-
-  read_csv("~/Downloads/savant_data-7.csv")
+  read_csv("~/Downloads/savant_data-14.csv")
 
 # commented out b/c for now this is missing the first week of the 2022 season
   # statcast_search(start_date = "2022-04-07", end_date = Sys.Date(), player_type = "batter") %>%
   # filter(description %in% c("hit_into_play", "foul", "swinging_strike", "foul_tip", "swinging_strike_blocked"))
 
-# set miinimum number of swings to be graphed
-min_swings <- 50
+# set minimum number of pitched as the median
+min_pitches <- 
+  swing_data %>% count(player_name) %>% summarize(q = quantile(n, .5)) %>% as.numeric() %>% ceiling()
 
 # for each player, compute the median absolute deviation in both axes, number of swings, and total plate coverage
 swing_grouped <-
   swing_data %>%
   group_by(player_name) %>%
+  filter(n() >= min_pitches)   %>% # 
+  # retain swings only
+  filter(description %in% c("hit_into_play", "foul", "swinging_strike", "foul_tip", "swinging_strike_blocked")) %>%
   summarize(
-    mad_x = mad(plate_x),
-    mad_z = mad(plate_z),
+    mad_x = mad(plate_x, na.rm = TRUE),
+    mad_z = mad(plate_z, na.rm = TRUE),
     num_swings = n()
   ) %>%
-  mutate(plate_cov = mad_x * mad_z) %>%  # plate coverage in sq. feet
-  filter(num_swings >= min_swings)
+  mutate(plate_cov = mad_x * mad_z) 
 
 most_aggressive <-
   swing_grouped %>%
@@ -44,28 +48,47 @@ least_aggressive <-
 
 swing_data %>%
   filter(player_name %in% most_aggressive$player_name) %>%
+  # prevent drawing multiple strike zone rectangles on screen by computing mean strike zone boundaries
+  group_by(player_name) %>%
+  mutate(
+    mean_sz_bot = mean(sz_bot),
+    mean_sz_top = mean(sz_top)
+  ) %>%
   ggplot(aes(plate_x, plate_z)) +
-  geom_rect(aes(xmin = -.708, xmax = .708, ymin = sz_bot, ymax = sz_top), color = "grey", fill = "palegreen", alpha = 0.1, lty = "dashed") +
   geom_point(alpha = 0.7) +
-  facet_wrap(vars(player_name), ncol=5) +
+  geom_density_2d_filled(alpha = 0.7) +
+  geom_density_2d(color = "black", alpha = 0.5) +
+  geom_rect(aes(xmin = -.708, xmax = .708, ymin = mean_sz_bot, ymax = mean_sz_top), color = "grey", fill = NA, lty = "dashed") +
+
+  facet_wrap(vars(player_name), ncol = 5) +
   ylim(0, 5) +
   xlim(-2, 2) +
-  ggtitle("Free Swingers, 2022", subtitle = "Batters with the widest 'swing zones'. One point = one swing") +
-  labs(x = "Pitch Horizontal Location (ft)", y = "Pitch Height (ft)", caption = glue("Source: Baseball Savant through April 24. Min {min_swings} swings"))
+  ggtitle("Free Swingers, 2022", subtitle = "Batters with the largest 'swing zones'. One point = one swing") +
+  labs(x = "Pitch Horizontal Location (ft)", y = "Pitch Height (ft)", caption = glue("Source: Baseball Savant through {Sys.Date() - days(1)}. Min {min_pitches} pitches seen")) +
+  theme(legend.position = "none")
 
 
 ggsave("free-swingers.png", height = 8, width = 15)
 
 swing_data %>%
   filter(player_name %in% least_aggressive$player_name) %>%
+  group_by(player_name) %>%
+  mutate(
+    mean_sz_bot = mean(sz_bot),
+    mean_sz_top = mean(sz_top)
+  ) %>%
   ggplot(aes(plate_x, plate_z)) +
-  geom_rect(aes(xmin = -.708, xmax = .708, ymin = sz_bot, ymax = sz_top), color = "grey", fill = "palegreen", alpha = 0.1, lty = "dashed") +
   geom_point(alpha = 0.7) +
+  geom_density_2d_filled(alpha = 0.7) +
+  geom_density_2d(color = "black", alpha = 0.5) +
+  geom_rect(aes(xmin = -.708, xmax = .708, ymin = mean_sz_bot, ymax = mean_sz_top), color = "grey", fill = NA, lty = "dashed") +
+
   facet_wrap(vars(player_name), ncol = 5) +
   ylim(0, 5) +
   xlim(-2, 2) +
   ggtitle("Looking For Their Pitch, 2022", subtitle = "Batters with the smallest 'swing zones'. One point = one swing") +
-  labs(x = "Pitch Horizontal Location (ft)", y = "Pitch Height (ft)", caption = glue("Source: Baseball Savant through April 24. Min {min_swings} swings"))
+  labs(x = "Pitch Horizontal Location (ft)", y = "Pitch Height (ft)", caption = glue("Source: Baseball Savant through {Sys.Date() - days(1)}. Min {min_pitches} pitches seen")) +
+  theme(legend.position = "none")
 
 ggsave("patient-swingers.png", height = 8, width = 15)
 ```
