@@ -1,5 +1,3 @@
-
-
 ```{r}
 library(tidyverse)
 library(lubridate)
@@ -25,12 +23,20 @@ min_pitches <-
 swing_grouped <-
   swing_data %>%
   group_by(player_name) %>%
-  filter(n() >= min_pitches)   %>% # 
+  filter(n() >= min_pitches) %>% 
+  
+  # compute the p95 for the tops and bottoms of players' strike zones
+  mutate( 
+    p95_sz_bot = quantile(sz_bot, .95, na.rm = TRUE),
+    p95_sz_top = quantile(sz_top, .95, na.rm = TRUE),
+    center_z = (p95_sz_bot + p95_sz_top) / 2) %>% # vertical center of the zone depends on zone height
   # retain swings only
   filter(description %in% c("hit_into_play", "foul", "swinging_strike", "foul_tip", "swinging_strike_blocked")) %>%
+  
+  # show MAD of swing coordinates, centering on most common strike zones
   summarize(
-    mad_x = mad(plate_x, na.rm = TRUE),
-    mad_z = mad(plate_z, na.rm = TRUE),
+    mad_x = mad(plate_x, center = 0, na.rm = TRUE),  # horiz. center of zone is always coord. 0
+    mad_z = mad(plate_z, center = center_z, na.rm = TRUE),
     num_swings = n()
   ) %>%
   mutate(plate_cov = mad_x * mad_z) 
@@ -51,15 +57,14 @@ swing_data %>%
   # prevent drawing multiple strike zone rectangles on screen by computing mean strike zone boundaries
   group_by(player_name) %>%
   mutate(
-    mean_sz_bot = mean(sz_bot),
-    mean_sz_top = mean(sz_top)
+    p95_sz_bot = quantile(sz_bot, .95, na.rm = TRUE),
+    p95_sz_top = quantile(sz_top, .95, na.rm = TRUE),
   ) %>%
   ggplot(aes(plate_x, plate_z)) +
   geom_point(alpha = 0.7) +
   geom_density_2d_filled(alpha = 0.7) +
-  geom_density_2d(color = "black", alpha = 0.5) +
-  geom_rect(aes(xmin = -.708, xmax = .708, ymin = mean_sz_bot, ymax = mean_sz_top), color = "grey", fill = NA, lty = "dashed") +
-
+  geom_density_2d(alpha = 0.1) +
+  geom_rect(aes(xmin = -.708, xmax = .708, ymin = p95_sz_bot, ymax = p95_sz_top), color = "grey", fill = NA, lty = "dashed") +
   facet_wrap(vars(player_name), ncol = 5) +
   ylim(0, 5) +
   xlim(-2, 2) +
@@ -74,15 +79,14 @@ swing_data %>%
   filter(player_name %in% least_aggressive$player_name) %>%
   group_by(player_name) %>%
   mutate(
-    mean_sz_bot = mean(sz_bot),
-    mean_sz_top = mean(sz_top)
+    p95_sz_bot = quantile(sz_bot, .95, na.rm = TRUE),
+    p95_sz_top = quantile(sz_top, .95, na.rm = TRUE),
   ) %>%
   ggplot(aes(plate_x, plate_z)) +
   geom_point(alpha = 0.7) +
   geom_density_2d_filled(alpha = 0.7) +
-  geom_density_2d(color = "black", alpha = 0.5) +
-  geom_rect(aes(xmin = -.708, xmax = .708, ymin = mean_sz_bot, ymax = mean_sz_top), color = "grey", fill = NA, lty = "dashed") +
-
+  geom_density_2d(alpha = 0.1) +
+  geom_rect(aes(xmin = -.708, xmax = .708, ymin = p95_sz_bot, ymax = p95_sz_top), color = "grey", fill = NA, lty = "dashed") +
   facet_wrap(vars(player_name), ncol = 5) +
   ylim(0, 5) +
   xlim(-2, 2) +
