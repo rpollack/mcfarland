@@ -61,7 +61,7 @@ swing_data %>%
     p95_sz_top = quantile(sz_top, .95, na.rm = TRUE),
   ) %>%
   ggplot(aes(plate_x, plate_z)) +
-  geom_point(alpha = 0.7) +
+  geom_point(alpha = 0.4) +
   geom_density_2d_filled(alpha = 0.7) +
   geom_density_2d(alpha = 0.1) +
   geom_rect(aes(xmin = -.708, xmax = .708, ymin = p95_sz_bot, ymax = p95_sz_top), color = "grey", fill = NA, lty = "dashed") +
@@ -83,7 +83,7 @@ swing_data %>%
     p95_sz_top = quantile(sz_top, .95, na.rm = TRUE),
   ) %>%
   ggplot(aes(plate_x, plate_z)) +
-  geom_point(alpha = 0.7) +
+  geom_point(alpha = 0.4) +
   geom_density_2d_filled(alpha = 0.7) +
   geom_density_2d(alpha = 0.1) +
   geom_rect(aes(xmin = -.708, xmax = .708, ymin = p95_sz_bot, ymax = p95_sz_top), color = "grey", fill = NA, lty = "dashed") +
