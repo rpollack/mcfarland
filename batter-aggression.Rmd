@@ -8,12 +8,19 @@ library(glue)
 ```{r}
 
 # get all pitches in 2022
-swing_data <-
-  read_csv("~/Downloads/savant_data-14.csv")
+# swing_data <-
+#   read_csv("~/Downloads/savant_data-21.csv")
 
-# commented out b/c for now this is missing the first week of the 2022 season
-  # statcast_search(start_date = "2022-04-07", end_date = Sys.Date(), player_type = "batter") %>%
-  # filter(description %in% c("hit_into_play", "foul", "swinging_strike", "foul_tip", "swinging_strike_blocked"))
+get_statcast_data <- function(date){
+  statcast_search(start_date = date, end_date = date, player_type = "batter")
+ 
+}
+
+start_date <- as.Date("2022-04-07")
+
+swing_data <-
+  seq.Date(start_date, Sys.Date() - 1, by = "day") %>%
+  map_df(get_statcast_data)
 
 # set minimum number of pitched as the median
 min_pitches <- 
@@ -96,3 +103,8 @@ swing_data %>%
 
 ggsave("patient-swingers.png", height = 8, width = 15)
 ```
+
+```{r}
+
+```
+
