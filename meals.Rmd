@@ -28,13 +28,6 @@ method = str_extract(meal, "ip|instant pot|slow cooker|crock pot|roast|sautee|so
   replace_na(list(protein = "none",
                   method = "none specified"))
          
-```
-
-method | prefix | protein | side
-
-```{r}
-
-
 meal_data %>%
   count(month_eaten, protein) %>%
   complete(month_eaten, protein, fill = list(n=0)) %>%
