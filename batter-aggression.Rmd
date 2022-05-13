@@ -20,11 +20,7 @@ start_date <- as.Date("2022-04-07")
 swing_data <-
   seq.Date(start_date, Sys.Date() - 1, by = "day") %>%
   map_df(get_statcast_data)
-```
 
-
-
-```{r}
 # set minimum number of pitched as the median
 min_pitches <-
   swing_data %>%
