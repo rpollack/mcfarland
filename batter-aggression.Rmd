@@ -15,11 +15,40 @@ get_statcast_data <- function(date) {
   statcast_search(start_date = date, end_date = date, player_type = "batter")
 }
 
-start_date <- as.Date("2022-04-07")
+# read in previously acquired data
 
-swing_data <-
-  seq.Date(start_date, Sys.Date() - 1, by = "day") %>%
-  map_df(get_statcast_data)
+filename <- "swing_data_2022.rds"
+
+old_data <- readRDS(filename)
+
+# set start_date to the most recent date in the data file
+start_date <-
+  as.Date(
+    swing_data %>%
+      filter(game_date == max(game_date)) %>%
+      distinct(game_date) %>%
+      pull()
+  )
+
+# if needed, append new swing data to the dataset. always ensure swing_data
+# is the output variable name
+if (start_date != Sys.Date() - 1) {
+
+  # get new data
+  new_data <-
+    seq.Date(start_date, Sys.Date() - 1, by = "day") %>%
+    map_df(get_statcast_data)
+
+  # append to old data
+  swing_data <- bind_rows(old_data, new_data) %>%
+    arrange(game_date)
+
+  # save updated dataset to disk for later usage
+  saveRDS(swing_data, filename)
+} else {
+  swing_data <- old_data
+  remove(old_data) # no longer needed
+}
 
 # set minimum number of pitched as the median
 min_pitches <-
@@ -124,7 +153,7 @@ swing_data %>%
   facet_wrap(vars(player_name), ncol = 5) +
   ylim(0, 5) +
   xlim(-2, 2) +
-  ggtitle("Looking For Their Pitch, 2022", subtitle = "Batters with the smallest 'swing zones' relative to their height. One point = one swing") +
+  ggtitle("Selective Hitters, 2022", subtitle = "Batters with the smallest 'swing zones' relative to their height. One point = one swing") +
   labs(x = "Pitch Horizontal Location (ft)", y = "Pitch Height (ft)", caption = glue("Source: Baseball Savant through {Sys.Date() - days(1)}. Min {min_pitches} pitches seen")) +
   theme(legend.position = "none")
 
