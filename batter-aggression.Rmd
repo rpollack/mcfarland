@@ -131,7 +131,7 @@ swing_data %>%
   facet_wrap(vars(player_name), ncol = 5) +
   ylim(0, 5) +
   xlim(-2, 2) +
-  ggtitle("Free Swingers, 2022", subtitle = "Batters with the largest 'swing zones' relative to their height. One point = one swing") +
+  ggtitle("Aggressive Swingers, 2022", subtitle = "Batters with the largest 'swing zones' relative to their height. One point = one swing") +
   labs(x = "Pitch Horizontal Location (ft)", y = "Pitch Height (ft)", caption = glue("Source: Baseball Savant through {Sys.Date() - days(1)}. Min {min_pitches} pitches seen")) +
   theme(legend.position = "none")
 
