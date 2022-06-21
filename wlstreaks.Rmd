@@ -1,0 +1,124 @@
+---
+title: "Untitled"
+output: html_document
+date: '2022-06-19'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(rvest)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r }
+
+get_game_results <- function(team, year) {
+  url <- glue("https://www.baseball-reference.com/teams/{team}/{year}-schedule-scores.shtml")
+
+  read_html(url) %>%
+    html_elements(css = "#all_team_schedule") %>%
+    html_table() %>%
+    pluck(1) %>%
+    select(game_number = `Gm#`, result = `W/L`, streak = Streak) %>%
+    
+    # remove header rows
+    filter(streak != "Streak") %>%
+    mutate(
+      type = str_extract(result, "W|L"),
+      length = str_length(streak),
+      year = year,
+      team = team
+    ) 
+}
+
+
+```
+
+```{r}
+
+# build list of teams and years. uses proper abbreviations. e.g. TBR for 2008 and after; TBD in years prior. 
+
+
+
+
+streak_data <-
+  expand_grid(team = c("BAL", "CLE", "DET", "NYY"), year = 1954:2022) %>%
+  pmap_dfr(get_game_results) %>%
+   # identify nonconsecutive streaks in a season. this prevents 11 game streaks from also counting as streaks of 10, 9. 8, etc. games
+  mutate(consec = case_when(
+    row_number() == 1 ~ TRUE,
+    TRUE ~ if_else(type == lag(type), TRUE, FALSE))
+  ) %>%
+  filter(consec != lead(consec),
+         length >= 4) %>%         # we only care about streaks of 4 or more games. 
+  unite(streak_type, type, length, sep = "-") %>%
+  mutate(year = as.character(year)) %>%
+  count(year, streak_type, name = "num_streaks") %>%
+  ungroup() %>%
+  complete(year, streak_type, fill = list(num_streaks = 0)) 
+  
+  
+
+
+```
+
+```{r, fig.height=3}
+streak_data %>%
+  mutate(year = as.Date(glue("{year}-01-01"))) %>%
+  ggplot(aes(year, num_streaks, group = streak_type, fill = streak_type, color = streak_type)) +
+  geom_point(size = 0.2) + geom_path() + 
+  facet_wrap(vars(streak_type)) +
+  scale_x_date()
+```
+
+
+get_game_results(2017) %>%
+  
+  %>%
+  group_by(year, team) %>%
+  
+  # TODO: fix streak_prob; it should be divided by 162 or something else. 
+  mutate(streak_prob = num_streaks / sum(num_streaks)) %>%
+  arrange(desc(streak_prob))
+    
+    
+```
+
+
+``` {r} 
+
+%>%
+  
+
+  
+  
+```
+
+
+there are a couple ways we can measure this:
+
+max streak length
+
+probability of n-game winning streak occurring. ex: 2019 Rays had multiple 6 game winning streaks. 1993 Orioles had 3 separate 8 game winning streaks, a 9 game win streak, a 10 game win streak, and an 8 game losing streak. 
+^^^ do this first, then restrict the data to what's below:
+
+I also think we want to retain the longest of each streak type.e.g. if an 8 game win streak stops there, we want to count 8. however if it becomes an 11 game winning streak, we want to stop it at 11. the 8 shouldn't also count.
+
+
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
