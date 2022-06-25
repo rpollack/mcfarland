@@ -12,37 +12,86 @@ library(rvest)
 
 ```{r}
 
-playoff_url <- read_html("https://www.baseball-reference.com/leagues/majors/2022-playoff-odds.shtml")
-
+# get today' schedule
 todays_games <-
   mlb_schedule(season = 2022) %>%
   filter(date == Sys.Date()) %>%
   select(contains("team_name"))
 
-poff_chances <-
+# get playoff odds from baseball-reference
+playoff_url <- read_html("https://www.baseball-reference.com/leagues/majors/2022-playoff-odds.shtml")
+
+poff_chances_bbref <-
   playoff_url %>%
   html_elements("table") %>%
   pluck(2) %>%
   html_table() %>%
-  select(team = 2, poff_chance = 20) %>%
+  select(team_name = 2, poff_chance = 20) %>%
   mutate(poff_chance = as.numeric(str_extract(poff_chance, "[:digit:]*\\.[:digit:]"))) %>%
   filter(!is.na(poff_chance))
+
+# get odds from 538 and average them with BB-ref odds
+
+playoff_538 <- read_html("https://projects.fivethirtyeight.com/2022-mlb-predictions/")
+
+poff_chances <-
+  playoff_538 %>%
+  html_table() %>%
+  pluck(1) %>%
+  select(team_name = 1, poff_chance = 7) %>%
+  mutate(
+    team_name = case_when(
+      str_detect(team_name, "Dodgers") ~ "Los Angeles Dodgers",
+      str_detect(team_name, "Yankees") ~ "New York Yankees",
+      str_detect(team_name, "Orioles") ~ "Baltimore Orioles",
+      str_detect(team_name, "Red Sox") ~ "Boston Red Sox",
+      str_detect(team_name, "Blue Jays") ~ "Toronto Blue Jays",
+      str_detect(team_name, "Rays") ~ "Tampa Bay Rays",
+      str_detect(team_name, "Guardians") ~ "Cleveland Guardians",
+      str_detect(team_name, "Twins") ~ "Minnesota Twins",
+      str_detect(team_name, "White Sox") ~ "Chicago White Sox",
+      str_detect(team_name, "Tigers") ~ "Detroit Tigers",
+      str_detect(team_name, "Royals") ~ "Kansas City Royals",
+      str_detect(team_name, "Astros") ~ "Houston Astros",
+      str_detect(team_name, "Angels") ~ "Los Angeles Angels",
+      str_detect(team_name, "Athletics") ~ "Oakland Athletics",
+      str_detect(team_name, "Mariners") ~ "Seattle Mariners",
+      str_detect(team_name, "Nationals") ~ "Washington Nationals",
+      str_detect(team_name, "Marlins") ~ "Miami Marlins",
+      str_detect(team_name, "Mets") ~ "New York Mets",
+      str_detect(team_name, "Phillies") ~ "Philadelphia Phillies",
+      str_detect(team_name, "Cubs") ~ "Chicago Cubs",
+      str_detect(team_name, "Brewers") ~ "Milwaukee Brewers",
+      str_detect(team_name, "Reds") ~ "Cincinnati Reds",
+      str_detect(team_name, "Rangers") ~ "Texas Rangers",
+      str_detect(team_name, "Padres") ~ "San Diego Padres",
+      str_detect(team_name, "Giants") ~ "San Francisco Giants",
+      str_detect(team_name, "Cardinals") ~ "St. Louis Cardinals",
+      str_detect(team_name, "Rockies") ~ "Colorado Rockies",
+      str_detect(team_name, "Braves") ~ "Atlanta Braves",
+      str_detect(team_name, "Diamondbacks") ~ "Arizona Diamondbacks",
+      TRUE ~ NA_character_
+    ),
+    poff_chance = as.numeric(str_extract(poff_chance, "[:digit:]{1,2}"))
+  ) %>%
+  filter(!is.na(team_name)) %>%
+  inner_join(poff_chances_bbref, by = "team_name", suffix = c("_538", "_bbref")) %>%
+  mutate(avg_poff_chance = round((poff_chance_538 + poff_chance_bbref) / 2, 0),
+         
+         # compute 'interest' based off playoff chances. teams closer to 50% should be more interesting, and higher scores should be more interessting
+         interest = 50 - abs(50 - avg_poff_chance))
 ```
 
 
 ```{r}
-# compute 'interest' based off playoff chances. teams closer to 50% should be more interesting.
 todays_games %>%
-  inner_join(poff_chances, by = c("teams_away_team_name" = "team")) %>%
-  select(contains("team_name"), poff_chance_away = poff_chance) %>%
-  inner_join(poff_chances, by = c("teams_home_team_name" = "team")) %>%
-  select(contains("team_name"), poff_chance_away, poff_chance_home = poff_chance) %>%
-  # compute interest. teams closer to 50% chance should be more interesting.
+  inner_join(poff_chances, by = c("teams_away_team_name" = "team_name")) %>%
+  select(contains("team_name"), poff_chance_away = avg_poff_chance, interest_away = interest) %>%
+  inner_join(poff_chances, by = c("teams_home_team_name" = "team_name")) %>%
+  select(contains("team_name"), poff_chance_away, interest_away, poff_chance_home = avg_poff_chance, interest_home = interest) %>%
   mutate(
-    away_interest = 50 - abs(poff_chance_away - 50),
-    home_interest = 50 - abs(poff_chance_home - 50),
-    interest = away_interest + home_interest,
-    interest_plus = round(interest / mean(interest) * 100, 0),
+    interest_game = interest_away + interest_home, # simple addition suggested by https://www.reddit.com/user/daedeloth86/
+    interest_plus = round(interest_game / mean(interest_game) * 100, 0),
   ) %>%
   arrange(desc(interest_plus)) %>%
   View()
