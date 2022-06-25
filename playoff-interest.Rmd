@@ -1,0 +1,52 @@
+---
+title: "playoff-interesst"
+output: html_document
+date: '`r Sys.Date()`'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(rvest)
+```
+
+```{r}
+
+playoff_url <- read_html("https://www.baseball-reference.com/leagues/majors/2022-playoff-odds.shtml")
+
+todays_games <-
+  mlb_schedule(season = 2022) %>%
+  filter(date == Sys.Date()) %>%
+  select(contains("team_name"))
+
+poff_chances <-
+  playoff_url %>%
+  html_elements("table") %>%
+  pluck(2) %>%
+  html_table() %>%
+  select(team = 2, poff_chance = 20) %>%
+  mutate(poff_chance = as.numeric(str_extract(poff_chance, "[:digit:]*\\.[:digit:]"))) %>%
+  filter(!is.na(poff_chance))
+```
+
+
+```{r}
+# compute 'interest' based off playoff chances. teams closer to 50% should be more interesting.
+todays_games %>%
+  inner_join(poff_chances, by = c("teams_away_team_name" = "team")) %>%
+  select(contains("team_name"), poff_chance_away = poff_chance) %>%
+  inner_join(poff_chances, by = c("teams_home_team_name" = "team")) %>%
+  select(contains("team_name"), poff_chance_away, poff_chance_home = poff_chance) %>%
+  # compute interest. teams closer to 50% chance should be more interesting.
+  mutate(
+    away_interest = 50 - abs(poff_chance_away - 50),
+    home_interest = 50 - abs(poff_chance_home - 50),
+    interest = away_interest + home_interest,
+    interest_plus = round(interest / mean(interest) * 100, 0),
+  ) %>%
+  arrange(desc(interest_plus)) %>%
+  View()
+
+# minimum interest score (most interesting) = 0
+# maximum = 50
+```
