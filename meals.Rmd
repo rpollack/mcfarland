@@ -50,6 +50,12 @@ meal_data %>%
   arrange(desc(days_since_cooked)) %>%
   View()
 
+# one random meal for each protein group eaten at least 3 months prior
+meal_data %>%
+  filter(last_eaten <== Sys.Date() - days(90)) %>%
+  group_by(protein) %>%
+  slice_sample(n=1)
+
 
 ```
 
