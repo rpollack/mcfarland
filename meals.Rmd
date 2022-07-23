@@ -47,14 +47,17 @@ meal_data %>%
   filter(last_eaten == max(last_eaten)) %>%
   mutate(days_since_cooked = difftime(Sys.Date(), last_eaten, unit = "days")) %>%
   select(meal, last_eaten, days_since_cooked) %>%
-  arrange(desc(days_since_cooked)) %>%
-  View()
+  arrange(desc(days_since_cooked))
 
 # one random meal for each protein group eaten at least 3 months prior
 meal_data %>%
-  filter(last_eaten <== Sys.Date() - days(90)) %>%
+  group_by(meal) %>%
+  filter(last_eaten == max(last_eaten)) %>%
+  ungroup() %>%
+  filter(last_eaten <= Sys.Date() - days(90)) %>%
   group_by(protein) %>%
-  slice_sample(n=1)
+  slice_sample(n=1) %>%
+  select(protein, meal, last_eaten)
 
 
 ```

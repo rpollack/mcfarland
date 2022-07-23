@@ -82,7 +82,7 @@ get, clean, mutate, and join data
 
 
 
-year_to_predict <- 2021
+year_to_predict <- 2022
 year_min <- year_to_predict - 21
 year_max <- year_to_predict - 1
 
@@ -210,7 +210,7 @@ dbDisconnect(con)
 # get MVP voting data (mvp points player accrued in a year)
 # TODO: variableize the sequence of years to 21 years before this one, and 1 before this one
 mvp_voting_data <-
-  seq(year_min, year_max) %>%
+  seq(1931, 2021) %>%
   map_df(get_mvp_voting) %>%
   mutate(player_name = str_replace(player_name, "é", "e"))
 # TODO: non-pitcher names to handle: AJ Pollock, Carlos Ruiz, Dee Strange-Gordon, Hyun Jin Ryu, Michael Morse?
@@ -367,6 +367,8 @@ final_metrics
 
 # extract final model and use it to predict MVP's
 mvp_mdl <- final_res$.workflow[[1]]
+
+# TODO: need to evluate the model's predictions here. 
 ```
 
 ```{r}

@@ -641,7 +641,7 @@ pitchers <- war_through_age %>%
 
 position_players <- 
   war_through_age %>%
-  filter(position != "P") %>%
+  filter(position =="3B") %>%
   dplyr::select(-cumulative_cy_points)
 ```
 
@@ -688,7 +688,7 @@ hof_split <-
   position_players %>%
   # train model only on players who have been considered for the HOF
   filter(considered_hof) %>%
-  dplyr::select(-playerid, -name, -considered_hof, -last_year) %>%
+  dplyr::select(-playerid, -name, -considered_hof, -last_year, -position) %>%
   initial_split(strata = hof)
 
 hof_train <- training(hof_split)
@@ -714,7 +714,7 @@ xgb_spec <-
     learn_rate = tune(),
     stop_iter = 25,
   ) %>%
-  set_engine("xgboost", scale_pos_weight = 13.99) %>%
+  set_engine("xgboost", scale_pos_weight = 21.15) %>%
   set_mode("classification")
 
 xgb_grid <- grid_latin_hypercube(
@@ -730,7 +730,7 @@ xgb_grid <- grid_latin_hypercube(
 
 xgb_recipe <-
   recipe(hof ~ ., data = hof_train) %>%
-  step_dummy(position, scandal_type) %>%
+  step_dummy(scandal_type) %>%
   step_smote(hof) %>% # smote increases AUPRC, bal acc, and F1 by a meaningful amount.
   step_log(max_franchise_g) # log-transform skewed predictors
 
@@ -904,7 +904,7 @@ position_players %>%
   facet_wrap(vars(position), scales = "free_y") +
   labs(x = "", y = "HOF Probability (%)") +
   geom_hline(yintercept = optimal_threshold, lty = "dashed") +
-  ggtitle(glue("Probability of HOF election"), subtitle = glue("Active or retired but not voted on yet. {optimal_threshold}% = Predicted Hall of Famer"))
+  ggtitle(glue("Probability of HOF election"), subtitle = glue("Players not voted on yet. {optimal_threshold}% = Predicted Hall of Famer"))
 
 ggsave("hof-predictions-final.png", width = 10)
 ```

@@ -60,12 +60,19 @@ oob_season_team <-
   events %>% 
   mutate(batting_team = if_else(inning_top_bottom == "N", home_team, away_team)) %>%
   filter(str_detect(des, "out at 1st on|out at 2nd on|out at 3rd on|out at home on")) %>% 
+  mutate(player = str_extract(des, "(?<=\\.).*(?=out at)")) # try to get player's name
+
+#TODO: extract the base thrown out at. 
+
   count(game_year, batting_team, name="oob") %>%
+  complete(game_year, batting_team, fill = list(oob = 0)) %>%
   mutate(oob_per_game = case_when(
     game_year %in% c(2015, 2016, 2017, 2018, 2019) ~ round(oob / 162, 3),
     game_year == 2020 ~ round(oob/60, 3),
-    game_year == 2021 ~ round(oob/77, 3)
+    game_year == 2021 ~ round(oob/150, 3)
   ))
+
+# TODO: get the name of the player who's been thrown out! (could be more than one)
 
 # which teams/seasons had the largest increase in OOB?
 oob_changes <-
@@ -74,7 +81,9 @@ oob_changes <-
   arrange(game_year, .by_group = TRUE) %>% 
   mutate(label = glue("{lag(game_year)} - {game_year}"), 
          oob_change = oob - lag(oob),
-         oob_rate_change = oob_per_game - lag(oob_per_game)) 
+         oob_rate_change = oob_per_game - lag(oob_per_game)) %>%
+  filter(!is.na(oob_change) & !is.na(oob_rate_change)) %>%
+  ungroup()
 
 oob_season_team %>% 
   group_by(game_year) %>%
@@ -85,6 +94,12 @@ oob_season_team %>%
   ggplot(aes(game_year, oob_per_game)) + 
   geom_point() + geom_path() +
   facet_wrap(vars(batting_team))
+
+oob_changes %>%
+  slice_max(order_by = oob_rate_change, n = 25) 
+
+oob_changes %>%
+  slice_min(order_by = oob_rate_change, n = 25)
   
 ```
 

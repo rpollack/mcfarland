@@ -80,10 +80,7 @@ poff_chances <-
          
          # compute 'interest' based off playoff chances. teams closer to 50% should be more interesting, and higher scores should be more interessting
          interest = 50 - abs(50 - avg_poff_chance))
-```
 
-
-```{r}
 todays_games %>%
   inner_join(poff_chances, by = c("teams_away_team_name" = "team_name")) %>%
   select(contains("team_name"), poff_chance_away = avg_poff_chance, interest_away = interest) %>%

@@ -23,12 +23,15 @@ fgt <- theme(
   strip.text = element_text(family = "Lato")
 )
 
-fg_db <- dplyr::src_mysql(
-  dbname = Sys.getenv("FG_DB"),
-  host = Sys.getenv("FG_HOST"),
-  user = Sys.getenv("FG_USER"),
-  password = Sys.getenv("FG_PW")
-)
+fg_db <-
+  DBI::dbConnect(RMariaDB::MariaDB(),
+    dbname = Sys.getenv("FG_DB"),
+    host = Sys.getenv("FG_HOST"),
+    user = Sys.getenv("FG_USER"),
+    password = Sys.getenv("FG_PW"),
+    port = 5001,
+    ssl.ca = "~/Documents/skysql_fangraphs-db.pem"
+  )
 
 train_and_assess_model <- function(algorithm, train_df, assess_df, eval_metric, player_type = NULL) {
   # train a model on a specified algorithm and assess it using the held-out test set
@@ -130,7 +133,7 @@ get data, clean up, and engineer some features.
 ```{r}
 
 
-year_to_predict <- 2021
+year_to_predict <- 2022
 first_training_year <- 1966
 last_training_year <- year_to_predict - 1
 

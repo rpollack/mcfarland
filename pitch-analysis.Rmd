@@ -8,6 +8,7 @@ library(gamlss)
 library(styler)
 library(ggridges)
 library(glue)
+library(tidytext)
 
 fgt <- theme(
   panel.background = element_rect(color = "lightgrey", fill = "white"),
@@ -337,6 +338,9 @@ data_grouped %>%
   )
 ```
 
+
+
+
 ```{r}
 
 data_grouped %>%
@@ -357,3 +361,4 @@ data_grouped %>%
   facet_grid(vars(count)) +
   labs(x = "", y = "Percentage of Pitches that are Good")
 ```
+
