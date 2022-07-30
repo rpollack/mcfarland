@@ -8,6 +8,11 @@ date: '`r Sys.Date()`'
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(rvest)
+library(baseballr)
+
+fix_team_name <- function(in_name){
+  
+}
 ```
 
 ```{r}
@@ -30,8 +35,61 @@ poff_chances_bbref <-
   mutate(poff_chance = as.numeric(str_extract(poff_chance, "[:digit:]*\\.[:digit:]"))) %>%
   filter(!is.na(poff_chance))
 
-# get odds from 538 and average them with BB-ref odds
+# get playoff odds from clay davenport's forecast site
+playoff_davenport <- read_html("http://www.claydavenport.com/stats/ps_oddspec.html") %>%
+  html_elements("pre") %>%
+  html_text2() %>%
+  str_split("\n")
 
+# the above returns a list of data frames. iterate through them and pull out the information
+playoff_chances_davenport <-
+  playoff_davenport %>%
+  map_df(function(x) {
+    pluck(x) %>%
+      as_tibble() %>%
+      filter(row_number() > 3) %>%
+      separate(value, c("one", "two", "three", "four", "five", "six", "seven", "eight", "nine"), sep = "\\s{2,}") %>%
+      filter(one != "") %>%
+      select(team_name = one, poff_chance = nine) %>%
+      mutate(poff_chance = as.numeric(poff_chance)) %>%
+      filter(!is.na(poff_chance))
+  }) %>%
+  mutate(
+    team_name = case_when(
+      str_detect(team_name, "Dodgers") ~ "Los Angeles Dodgers",
+      str_detect(team_name, "Yankees") ~ "New York Yankees",
+      str_detect(team_name, "Orioles") ~ "Baltimore Orioles",
+      str_detect(team_name, "Red Sox") ~ "Boston Red Sox",
+      str_detect(team_name, "Blue Jays") ~ "Toronto Blue Jays",
+      str_detect(team_name, "Rays") ~ "Tampa Bay Rays",
+      str_detect(team_name, "Guardians") ~ "Cleveland Guardians",
+      str_detect(team_name, "Twins") ~ "Minnesota Twins",
+      str_detect(team_name, "White Sox") ~ "Chicago White Sox",
+      str_detect(team_name, "Tigers") ~ "Detroit Tigers",
+      str_detect(team_name, "Royals") ~ "Kansas City Royals",
+      str_detect(team_name, "Astros") ~ "Houston Astros",
+      str_detect(team_name, "Angels") ~ "Los Angeles Angels",
+      str_detect(team_name, "Athletics") ~ "Oakland Athletics",
+      str_detect(team_name, "Mariners") ~ "Seattle Mariners",
+      str_detect(team_name, "Nationals") ~ "Washington Nationals",
+      str_detect(team_name, "Marlins") ~ "Miami Marlins",
+      str_detect(team_name, "Mets") ~ "New York Mets",
+      str_detect(team_name, "Phillies") ~ "Philadelphia Phillies",
+      str_detect(team_name, "Cubs") ~ "Chicago Cubs",
+      str_detect(team_name, "Brewers") ~ "Milwaukee Brewers",
+      str_detect(team_name, "Reds") ~ "Cincinnati Reds",
+      str_detect(team_name, "Rangers") ~ "Texas Rangers",
+      str_detect(team_name, "Padres") ~ "San Diego Padres",
+      str_detect(team_name, "Giants") ~ "San Francisco Giants",
+      str_detect(team_name, "Cardinals") ~ "St. Louis Cardinals",
+      str_detect(team_name, "Rockies") ~ "Colorado Rockies",
+      str_detect(team_name, "Braves") ~ "Atlanta Braves",
+      str_detect(team_name, "Diamondbacks") ~ "Arizona Diamondbacks",
+      TRUE ~ NA_character_
+    ))
+
+  
+# get odds from 538 and average them with BB-ref odds
 playoff_538 <- read_html("https://projects.fivethirtyeight.com/2022-mlb-predictions/")
 
 poff_chances <-
@@ -76,7 +134,9 @@ poff_chances <-
   ) %>%
   filter(!is.na(team_name)) %>%
   inner_join(poff_chances_bbref, by = "team_name", suffix = c("_538", "_bbref")) %>%
-  mutate(avg_poff_chance = round((poff_chance_538 + poff_chance_bbref) / 2, 0),
+  inner_join(playoff_chances_davenport, by="team_name") %>%
+  select(team_name, poff_chance_538, poff_chance_bbref, poff_chance_davenport = poff_chance) %>%
+  mutate(avg_poff_chance = round((poff_chance_538 + poff_chance_bbref + poff_chance_davenport) / 3, 0),
          
          # compute 'interest' based off playoff chances. teams closer to 50% should be more interesting, and higher scores should be more interessting
          interest = 50 - abs(50 - avg_poff_chance))
