@@ -12,7 +12,15 @@ library(glue)
 #   read_csv("~/Downloads/savant_data-21.csv")
 
 get_statcast_data <- function(date) {
-  statcast_search(start_date = date, end_date = date, player_type = "batter")
+  print(date)
+  tryCatch(
+    {
+      statcast_search(start_date = date, end_date = date, player_type = "batter")
+    },
+    warning = function(cond) {
+      return(NULL)
+    }
+  )
 }
 
 # read in previously acquired data
@@ -24,7 +32,7 @@ old_data <- readRDS(filename)
 # set start_date to the most recent date in the data file
 start_date <-
   as.Date(
-    swing_data %>%
+    old_data %>%
       filter(game_date == max(game_date)) %>%
       distinct(game_date) %>%
       pull()
@@ -40,7 +48,8 @@ if (start_date != Sys.Date() - 1) {
     map_df(get_statcast_data)
 
   # append to old data
-  swing_data <- bind_rows(old_data, new_data) %>%
+  swing_data <- 
+    bind_rows(old_data, new_data) %>%
     arrange(game_date)
 
   # save updated dataset to disk for later usage
