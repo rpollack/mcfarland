@@ -9,6 +9,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(tidyverse)
 library(rvest)
+library(lubridate)
+library(glue)
 ```
 
 ## R Markdown
@@ -38,8 +40,12 @@ get_game_results <- function(team, year) {
     ) 
 }
 
+\
 
 ```
+
+
+
 
 ```{r}
 
@@ -87,18 +93,43 @@ get_game_results(2017) %>%
   # TODO: fix streak_prob; it should be divided by 162 or something else. 
   mutate(streak_prob = num_streaks / sum(num_streaks)) %>%
   arrange(desc(streak_prob))
-    
-    
-```
+   
 
+```{r}
+get_run_diff <- function(year) {
+  url <- glue("https://www.baseball-reference.com/teams/HOU/{year}-schedule-scores.shtml")
 
-``` {r} 
+  read_html(url) %>%
+    html_elements(css = "#all_team_schedule") %>%
+    html_table() %>%
+    pluck(1) %>%
+    select(Date, R, RA) %>%
+    mutate(season = year)
+}
 
-%>%
-  
+foo <-
+  seq(1962, 2022) %>%
+  map_df(get_run_diff) %>%
+  mutate(
+    runs_scored = as.numeric(R),
+    runs_allowed = as.numeric(RA),
+    run_differential = runs_scored - runs_allowed,
+    date = as_date(Date, "%A, %B %d", tz = NULL),
+    month = month(date),
+    day = day(date),
+    game_date = as_date(glue("{season}-{month}-{day}"))
+  ) %>%
+  filter(!is.na(runs_scored)) %>%
+  select(game_date, season, runs_scored, runs_allowed, run_differential) %>%
+  #  group_by(season) %>%
+  mutate(cumulative_run_differential = cumsum(run_differential)) %>%
+  complete(game_date = seq.Date(as.Date("1954-01-01"), Sys.Date(), by = "day"), fill = list(cumulative_run_differential = NA))
 
-  
-  
+foo %>%
+  ggplot(aes(game_date, cumulative_run_differential)) +
+  geom_path() +
+  ggtitle("Baltimore Orioles Cumulative Run Differential, 1954-present") +
+  labs(x = "Game Day", y = "Cumulative Run Differential", caption = "Source: baseball-reference")
 ```
 
 
