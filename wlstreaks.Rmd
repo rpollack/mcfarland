@@ -19,9 +19,45 @@ This is an R Markdown document. Markdown is a simple formatting syntax for autho
 
 When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
+
+
+```{r}
+# create table of franchise abbreviations and years
+
+franchises <- c("BAL", "TOR", "BOS", "NYY", "TBD",
+                "MIN", "CHA", "CLE", "KCR", "DET",
+                "HOU", "TEX", "SEA", "ANA", "OAK",
+                "WSN", "FLA", "ATL", "NYN", "PHI",
+                "PIT", "CIN", "MIL", "CHN", "STL",
+                "LAD", "COL", "SDP", "ARI", "SFG")
+
+get_urls <- function(franch){
+  print(glue("getting abbreviations and years for {franch}"))
+  read_html(glue("https://www.baseball-reference.com/teams/{franch}/index.shtml")) %>%
+   html_elements("tr") %>% 
+  html_elements("a") %>%
+  html_attr("href") %>% 
+  unlist() %>%
+  as_tibble() %>%
+  filter(str_detect(value, "teams")) %>%
+  distinct() %>%
+    mutate(franchise = franch)
+
+}
+
+urls <-
+  franchises %>%
+  map_dfr(get_urls) %>%
+  mutate(abbrev = str_extract(value, "[A-Z]{2,3}"),
+         year = str_extract(value, "[:digit:]{4}"),
+         url = glue("https://www.baseball-reference.com/teams/{abbrev}/{year}-schedule-scores.shtml"))
+```
+
+
+
 ```{r }
 
-get_game_results <- function(team, year) {
+get_game_results <- function(year) {
   url <- glue("https://www.baseball-reference.com/teams/{team}/{year}-schedule-scores.shtml")
 
   read_html(url) %>%
@@ -40,20 +76,7 @@ get_game_results <- function(team, year) {
     ) 
 }
 
-\
-
-```
-
-
-
-
-```{r}
-
 # build list of teams and years. uses proper abbreviations. e.g. TBR for 2008 and after; TBD in years prior. 
-
-
-
-
 streak_data <-
   expand_grid(team = c("BAL", "CLE", "DET", "NYY"), year = 1954:2022) %>%
   pmap_dfr(get_game_results) %>%
@@ -71,11 +94,6 @@ streak_data <-
   complete(year, streak_type, fill = list(num_streaks = 0)) 
   
   
-
-
-```
-
-```{r, fig.height=3}
 streak_data %>%
   mutate(year = as.Date(glue("{year}-01-01"))) %>%
   ggplot(aes(year, num_streaks, group = streak_type, fill = streak_type, color = streak_type)) +
@@ -85,31 +103,79 @@ streak_data %>%
 ```
 
 
-get_game_results(2017) %>%
-  
-  %>%
-  group_by(year, team) %>%
-  
-  # TODO: fix streak_prob; it should be divided by 162 or something else. 
-  mutate(streak_prob = num_streaks / sum(num_streaks)) %>%
-  arrange(desc(streak_prob))
-   
-
 ```{r}
-get_run_diff <- function(year) {
-  url <- glue("https://www.baseball-reference.com/teams/HOU/{year}-schedule-scores.shtml")
 
-  read_html(url) %>%
-    html_elements(css = "#all_team_schedule") %>%
-    html_table() %>%
-    pluck(1) %>%
-    select(Date, R, RA) %>%
-    mutate(season = year)
+
+get_run_diff <- function(url) {
+  tryCatch(
+    {
+      read_html(url) %>%
+        html_elements(css = "#all_team_schedule") %>%
+        html_table() %>%
+        pluck(1) %>%
+        select(Date, R, RA) %>%
+        mutate(url = url)
+    },
+    error = function(cond) {
+      print(cond)
+      print(glue("Cannot open {url}."))
+      tibble()
+    }
+  )
 }
 
-foo <-
-  seq(1962, 2022) %>%
-  map_df(get_run_diff) %>%
+get_run_diff_v <- Vectorize(get_run_diff)
+
+game_info <-
+  urls %>%
+  distinct(url) %>%
+#  slice_head(n=1000) %>%
+  pmap_dfr(get_run_diff) %>%
+  inner_join(urls, by="url") %>%
+  mutate(
+    runs_scored = as.numeric(R),
+    runs_allowed = as.numeric(RA),
+    run_differential = runs_scored - runs_allowed,
+    date = as_date(Date, "%A, %B %d", tz = NULL),
+    month = month(date),
+    day = day(date),
+    game_date = as_date(glue("{year}-{month}-{day}"))
+  ) %>%
+  filter(!is.na(runs_scored)) %>%
+  select(game_date, year, franchise, team = abbrev, runs_scored, runs_allowed, run_differential) %>%
+  group_by(franchise) %>%
+  arrange(game_date) %>%
+  mutate(cumulative_run_differential = cumsum(run_differential)) %>%
+  ungroup() %>%
+  complete(franchise, game_date, fill = list(cumulative_run_differential = NA)) %>%
+  ungroup()
+  
+
+# i think the problem is that get_run_diff_v returns data frames of different sizes (some 167, some 169?)
+
+```
+
+```{r, fig.height=4}
+game_info %>%
+  # mutate(game_month = floor_date(game_date, "month")) %>%
+  # group_by(franchise, game_month) %>%
+  # summarize(cume_run_diff = sum(cumulative_run_differential)) %>%
+  mutate(franchise = str_replace_all(franchise, c("CHN" = "CHC",
+                                            "CHA" = "CHW",
+                                            "NYN" = "NYM",
+                                            "FLA" = "MIA",
+                                            "NYA" = "NYY",
+                                            "WSN" = "WAS",
+                                            "TBD" = "TB"))) %>%
+  ggplot(aes(game_date, cumulative_run_differential)) +
+  geom_path() +
+  facet_wrap(vars(franchise), scales = "free") +
+  labs(x = "Game Day", y = "Cumulative Run Differential", caption = "Source: Baseball Reference") +
+  ggtitle("Game Day vs. Cumulative Run Differential")
+```
+
+
+%>%
   mutate(
     runs_scored = as.numeric(R),
     runs_allowed = as.numeric(RA),
@@ -121,15 +187,21 @@ foo <-
   ) %>%
   filter(!is.na(runs_scored)) %>%
   select(game_date, season, runs_scored, runs_allowed, run_differential) %>%
-  #  group_by(season) %>%
+  group
   mutate(cumulative_run_differential = cumsum(run_differential)) %>%
-  complete(game_date = seq.Date(as.Date("1954-01-01"), Sys.Date(), by = "day"), fill = list(cumulative_run_differential = NA))
+  complete(game_date = seq.Date(as.Date(glue("{start_year}-01-01")), Sys.Date(), by = "day"), fill = list(cumulative_run_differential = NA))
 
 foo %>%
   ggplot(aes(game_date, cumulative_run_differential)) +
   geom_path() +
-  ggtitle("Baltimore Orioles Cumulative Run Differential, 1954-present") +
+  ggtitle(glue("Philadelphia Phillies Franchise Cumulative Run Differential, {start_year}-present")) +
   labs(x = "Game Day", y = "Cumulative Run Differential", caption = "Source: baseball-reference")
+
+# phillies as requested by /u/Alkynesofchemistry/
+
+ggsave("phillies.png")
+
+# after this: dodgers franchise. BRO 1884-1957, LAD 1958-present. requested by /u/greycubed
 ```
 
 
