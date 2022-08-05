@@ -216,3 +216,24 @@ todays_games %>%
 # minimum interest score (most interesting) = 0
 # maximum = 50
 ```
+
+```{r, fig.height=3, fig.width=3}
+poff_chances %>%
+  pivot_longer(2:5, names_to = "site") %>%
+  select(team_name, site, playoff_chance = value) %>%
+  mutate(site = case_when(
+    site == "poff_chance_538" ~ "FiveThirtyEight",
+    site == "poff_chance_bbref" ~ "Baseball Reference",
+    site == "poff_chance_davenport" ~ "Clay Davenport",
+    site == "poff_chance_fg" ~ "FanGraphs",
+  )) %>%
+  ggplot(aes(x=team_name, y=playoff_chance)) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_jitter(aes(color = site), size = 0.5) +
+  coord_flip() +
+  labs(y = "Playoff Chance (%)", x = "") + 
+  ggtitle("MLB Team Playoff Chances", subtitle = glue("Prior to Games Played on {Sys.Date()}"))
+
+
+ggsave("playoff_chances.png")
+```
