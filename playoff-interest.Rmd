@@ -9,13 +9,66 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(rvest)
 library(baseballr)
+library(httr)
+library(jsonlite)
 
-fix_team_name <- function(in_name){
-  
+fix_team_name <- function(in_name) {
+
 }
 ```
 
+
 ```{r}
+# get FG playoff odds
+headers <- c(
+  "user-agent" = "Mozilla/5.0",
+  "content-type" = "application/json;charset=UTF-8"
+)
+
+url <- glue("https://www.fangraphs.com/api/playoff-odds/odds?dateEnd={Sys.Date()}&dateDelta=&projectionMode=2&standingsType=div")
+
+poff_chances_fg <-
+  GET(url, add_headers(headers)) %>%
+  content() %>%
+  as_tbl_json() %>%
+  gather_array() %>%
+  spread_all() %>%
+  select(abbName, poff_chance = endData.poffTitle) %>%
+  mutate(poff_chance = round(poff_chance, 2) * 100) %>%
+  as_tibble() %>%
+  mutate(team_name = case_when(
+    abbName == "LAA" ~ "Los Angeles Angels",
+    abbName == "BAL" ~ "Baltimore Orioles",
+    abbName == "BOS" ~ "Boston Red Sox",
+    abbName == "CHW" ~ "Chicago White Sox",
+    abbName == "CLE" ~ "Cleveland Guardians",
+    abbName == "DET" ~ "Detroit Tigers",
+    abbName == "KCR" ~ "Kansas City Royals",
+    abbName == "MIN" ~ "Minnesota Twins",
+    abbName == "NYY" ~ "New York Yankees",
+    abbName == "OAK" ~ "Oakland Athletics",
+    abbName == "SEA" ~ "Seattle Mariners",
+    abbName == "TBR" ~ "Tampa Bay Rays",
+    abbName == "TEX" ~ "Texas Rangers",
+    abbName == "TOR" ~ "Toronto Blue Jays",
+    abbName == "ARI" ~ "Arizona Diamondbacks",
+    abbName == "ATL" ~ "Atlanta Braves",
+    abbName == "CHC" ~ "Chicago Cubs",
+    abbName == "CIN" ~ "Cincinnati Reds",
+    abbName == "COL" ~ "Colorado Rockies",
+    abbName == "MIA" ~ "Miami Marlins",
+    abbName == "HOU" ~ "Houston Astros",
+    abbName == "LAD" ~ "Los Angeles Dodgers",
+    abbName == "MIL" ~ "Milwaukee Brewers",
+    abbName == "WSN" ~ "Washington Nationals",
+    abbName == "NYM" ~ "New York Mets",
+    abbName == "PHI" ~ "Philadelphia Phillies",
+    abbName == "PIT" ~ "Pittsburgh Pirates",
+    abbName == "STL" ~ "St. Louis Cardinals",
+    abbName == "SFG" ~ "San Francisco Giants",
+    abbName == "SDP" ~ "San Diego Padres",
+  )) %>%
+  select(team_name, poff_chance)
 
 # get today' schedule
 todays_games <-
@@ -87,9 +140,10 @@ playoff_chances_davenport <-
       str_detect(team_name, "Braves") ~ "Atlanta Braves",
       str_detect(team_name, "Diamondbacks") ~ "Arizona Diamondbacks",
       TRUE ~ NA_character_
-    ))
+    )
+  )
 
-  
+
 # get odds from 538 and average them with BB-ref odds
 playoff_538 <- read_html("https://projects.fivethirtyeight.com/2022-mlb-predictions/")
 
@@ -136,12 +190,16 @@ poff_chances <-
   ) %>%
   filter(!is.na(team_name)) %>%
   inner_join(poff_chances_bbref, by = "team_name", suffix = c("_538", "_bbref")) %>%
-  inner_join(playoff_chances_davenport, by="team_name") %>%
+  inner_join(playoff_chances_davenport, by = "team_name") %>%
   select(team_name, poff_chance_538, poff_chance_bbref, poff_chance_davenport = poff_chance) %>%
-  mutate(avg_poff_chance = round((poff_chance_538 + poff_chance_bbref + poff_chance_davenport) / 3, 0),
-         
-         # compute 'interest' based off playoff chances. teams closer to 50% should be more interesting, and higher scores should be more interessting
-         interest = 50 - abs(50 - avg_poff_chance))
+  inner_join(poff_chances_fg, by = "team_name") %>%
+  select(team_name, poff_chance_538, poff_chance_bbref, poff_chance_davenport, poff_chance_fg = poff_chance) %>%
+  mutate(
+    avg_poff_chance = round((poff_chance_538 + poff_chance_bbref + poff_chance_davenport + poff_chance_fg) / 4, 0),
+
+    # compute 'interest' based off playoff chances. teams closer to 50% should be more interesting, and higher scores should be more interessting
+    interest = 50 - abs(50 - avg_poff_chance)
+  )
 
 todays_games %>%
   inner_join(poff_chances, by = c("teams_away_team_name" = "team_name")) %>%
