@@ -227,7 +227,9 @@ poff_chances %>%
     site == "poff_chance_davenport" ~ "Clay Davenport",
     site == "poff_chance_fg" ~ "FanGraphs",
   )) %>%
-  ggplot(aes(x=team_name, y=playoff_chance)) +
+  group_by(team_name) %>%
+  mutate(median_poff_chance = median(playoff_chance)) %>%
+  ggplot(aes(x=reorder(team_name, median_playoff_chance), y=playoff_chance)) +
   geom_boxplot(outlier.shape = NA) +
   geom_jitter(aes(color = site), size = 0.5) +
   coord_flip() +
