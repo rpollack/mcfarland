@@ -17,7 +17,48 @@ fix_team_name <- function(in_name) {
 }
 ```
 
+
 ```{r}
+# get odds from teamrankings.com
+
+poff_chance_teamrankings <-
+read_html("https://www.teamrankings.com/mlb/") %>%
+  html_elements("table") %>%
+  pluck(1) %>%
+  html_table() %>%
+  mutate(team_name = str_replace_all(Team, c("LA Dodgers" = "Los Angeles Dodgers",
+                                                  "NY Yankees" = "New York Yankees",
+                                                  "Houston" = "Houston Astros",
+                                                  "Toronto" = "Toronto Blue Jays",
+                                                  "NY Mets" = "New York Mets",
+                                                  "Atlanta" = "Atlanta Braves",
+                                                  "Philadelphia" = "Philadelphia Phillies",
+                                                  "Tampa Bay" = "Tampa Bay Rays",
+                                                  "San Diego" = "San Diego Padres",
+                                                  "Chi Sox" = "Chicago White Sox",
+                                                  "Milwaukee" = "Milwaukee Brewers",
+                                                  "Seattle" = "Seattle Mariners",
+                                                  "St. Louis" = "St. Louis Cardinals",
+                                                  "Boston" = "Boston Red Sox",
+                                                  "Minnesota" = "Minnesota Twins",
+                                                  "LA Angels" = "Los Angeles Angels",
+                                                  "SF Giants" = "San Francisco Giants",
+                                                  "Cleveland" = "Cleveland Guardians",
+                                                  "Texas" = "Texas Rangers", 
+                                                  "Miami" = "Miami Marlins",
+                                                  "Baltimore" = "Baltimore Orioles",
+                                                  "Chi Cubs" = "Chicago Cubs",
+                                                  "Arizona" = "Arizona Diamondbacks",
+                                                  "Cincinnati" = "Cincinnati Reds",
+                                                  "Detroit" = "Detroit Tigers",
+                                                  "Kansas City" = "Kansas City Royals",
+                                                  "Oakland" = "Oakland Athletics",
+                                                  "Colorado" = "Colorado Rockies",
+                                                  "Washington" = "Washington Nationals",
+                                                  "Pittsburgh" = "Pittsburgh Pirates")),
+         team_name = str_extract(team_name, ".*[a-z]"),
+         poff_chance = as.numeric(str_extract(Playoffs, "[:digit:]{1,3}\\.[:digit:]{1}"))) %>%
+  select(team_name, poff_chance)
 
 # get odds from numberFire
 numberfire <- 
@@ -35,11 +76,7 @@ poff_chance_numberfire <-
     mutate(team_name = str_extract(Team, ".*[a-z]"),
            poff_chance = as.numeric(str_extract(Playoffs, "[:digit:]{1,3}\\.[:digit:]{1}"))) %>%
   select(team_name,poff_chance)
-```
 
-
-
-```{r}
 # get FG playoff odds
 headers <- c(
   "user-agent" = "Mozilla/5.0",
@@ -217,8 +254,11 @@ poff_chances <-
   select(team_name, poff_chance_538, poff_chance_bbref, poff_chance_davenport, poff_chance_fg = poff_chance) %>%
   inner_join(poff_chance_numberfire, by="team_name") %>%
     select(team_name, poff_chance_538, poff_chance_bbref, poff_chance_davenport, poff_chance_fg, poff_chance_numberfire = poff_chance) %>%
+  inner_join(poff_chance_teamrankings, by="team_name") %>%
+      select(team_name, poff_chance_538, poff_chance_bbref, poff_chance_davenport, poff_chance_fg, poff_chance_numberfire, poff_chance_teamrankings = poff_chance) %>%
+
   mutate(
-    avg_poff_chance = round((poff_chance_538 + poff_chance_bbref + poff_chance_davenport + poff_chance_fg + poff_chance_numberfire) / 5, 0),
+    avg_poff_chance = round((poff_chance_538 + poff_chance_bbref + poff_chance_davenport + poff_chance_fg + poff_chance_numberfire + poff_chance_teamrankings) / 6, 0),
 
     # compute 'interest' based off playoff chances. teams closer to 50% should be more interesting, and higher scores should be more interessting
     interest = 50 - abs(50 - avg_poff_chance)
@@ -242,14 +282,15 @@ todays_games %>%
 
 ```{r, fig.height=3, fig.width=3}
 poff_chances %>%
-  pivot_longer(2:6, names_to = "site") %>%
+  pivot_longer(2:7, names_to = "site") %>%
   select(team_name, site, playoff_chance = value) %>%
   mutate(site = case_when(
     site == "poff_chance_538" ~ "FiveThirtyEight",
     site == "poff_chance_bbref" ~ "Baseball Reference",
     site == "poff_chance_davenport" ~ "Clay Davenport",
     site == "poff_chance_fg" ~ "FanGraphs",
-    site == "poff_chance_numberfire" ~ "numberFire"
+    site == "poff_chance_numberfire" ~ "numberFire",
+    site == "poff_chance_teamrankings" ~ "TeamRankings.com"
   )) %>%
   group_by(team_name) %>%
   mutate(median_poff_chance = median(playoff_chance)) %>%
