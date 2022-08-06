@@ -17,6 +17,27 @@ fix_team_name <- function(in_name) {
 }
 ```
 
+```{r}
+
+# get odds from numberFire
+numberfire <- 
+  read_html("https://www.numberfire.com/mlb/teams/power-rankings") %>%
+  html_elements("table") %>%
+  html_table()
+
+poff_chance_numberfire <-
+  numberfire %>%
+  pluck(1) %>%
+  bind_cols(
+    numberfire %>%
+      pluck(2)
+  ) %>%
+    mutate(team_name = str_extract(Team, ".*[a-z]"),
+           poff_chance = as.numeric(str_extract(Playoffs, "[:digit:]{1,3}\\.[:digit:]{1}"))) %>%
+  select(team_name,poff_chance)
+```
+
+
 
 ```{r}
 # get FG playoff odds
@@ -194,8 +215,10 @@ poff_chances <-
   select(team_name, poff_chance_538, poff_chance_bbref, poff_chance_davenport = poff_chance) %>%
   inner_join(poff_chances_fg, by = "team_name") %>%
   select(team_name, poff_chance_538, poff_chance_bbref, poff_chance_davenport, poff_chance_fg = poff_chance) %>%
+  inner_join(poff_chance_numberfire, by="team_name") %>%
+    select(team_name, poff_chance_538, poff_chance_bbref, poff_chance_davenport, poff_chance_fg, poff_chance_numberfire = poff_chance) %>%
   mutate(
-    avg_poff_chance = round((poff_chance_538 + poff_chance_bbref + poff_chance_davenport + poff_chance_fg) / 4, 0),
+    avg_poff_chance = round((poff_chance_538 + poff_chance_bbref + poff_chance_davenport + poff_chance_fg + poff_chance_numberfire) / 5, 0),
 
     # compute 'interest' based off playoff chances. teams closer to 50% should be more interesting, and higher scores should be more interessting
     interest = 50 - abs(50 - avg_poff_chance)
@@ -219,13 +242,14 @@ todays_games %>%
 
 ```{r, fig.height=3, fig.width=3}
 poff_chances %>%
-  pivot_longer(2:5, names_to = "site") %>%
+  pivot_longer(2:6, names_to = "site") %>%
   select(team_name, site, playoff_chance = value) %>%
   mutate(site = case_when(
     site == "poff_chance_538" ~ "FiveThirtyEight",
     site == "poff_chance_bbref" ~ "Baseball Reference",
     site == "poff_chance_davenport" ~ "Clay Davenport",
     site == "poff_chance_fg" ~ "FanGraphs",
+    site == "poff_chance_numberfire" ~ "numberFire"
   )) %>%
   group_by(team_name) %>%
   mutate(median_poff_chance = median(playoff_chance)) %>%
