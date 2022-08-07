@@ -312,8 +312,8 @@ poff_chances <-
   pivot_longer(-team_name, names_to = "site", values_to = "poff_chance")
 
 poff_chances_today <-
-  poff_chances %>% 
-  group_by(team_name) %>% 
+  poff_chances %>%
+  group_by(team_name) %>%
   summarize(median_poff_chance = round(median(poff_chance), 1)) %>%
   mutate(
     # compute 'interest' based off playoff chances. teams closer to 50% should be more interesting, and higher scores should be more interessting
