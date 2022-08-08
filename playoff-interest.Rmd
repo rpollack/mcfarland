@@ -320,7 +320,8 @@ poff_chances_today <-
     interest = 50 - abs(50 - median_poff_chance)
   )
 
-todays_games %>%
+sched <- 
+  todays_games %>%
   inner_join(poff_chances_today, by = c("teams_away_team_name" = "team_name")) %>%
   select(contains("team"), poff_chance_away = median_poff_chance, interest_away = interest) %>%
   inner_join(poff_chances_today, by = c("teams_home_team_name" = "team_name")) %>%
@@ -329,12 +330,14 @@ todays_games %>%
     interest_game = interest_away + interest_home, # simple addition suggested by https://www.reddit.com/user/daedeloth86/
     interest_plus = round(interest_game / mean(interest_game) * 100, 0),
   ) %>%
-  arrange(desc(interest_plus)) %>%
-  View()
+  arrange(desc(interest_plus))
+
+sched
 
 # minimum interest score (most interesting) = 0
 # maximum = 50
 ```
+
 
 ```{r, fig.height=3, fig.width=3}
 poff_chances %>%
@@ -361,3 +364,38 @@ poff_chances %>%
 
 ggsave("playoff_chances.png")
 ```
+
+
+# make tweet
+
+```{r}
+#TODO: make twitter handles for each team via mutate, 
+
+tweet_data <-
+  sched %>% 
+  filter(row_number() == 1)
+
+away <- tweet_data$teams_away_team_name
+away_pct <- tweet_data$poff_chance_away
+away_interest <- tweet_data$interest_away
+
+home <- tweet_data$teams_home_team_name
+home_pct <- tweet_data$poff_chance_home
+home_interest <- tweet_data$interest_home
+
+interest <- tweet_data$interest_game
+interest_plus <- tweet_data$interest_plus
+
+tweet <- glue("Most interesting game today: @CHW at @TEX. Interest score of {interest}
+
+Highes interest score = 50% playoff chance. Teams' scores are summed. Max game score: 100.
+
+CLE score: {round(away_interest, 1)} ({away_pct}% chance)
+TEX score: {round(home_interest, 1)} ({home_pct}% chance)
+
+Chances from: @fangraphs @baseball_ref @baseballpro Clay Davenport @FiveThirtyEight @numberFire @teamRankings")
+
+tweet
+nchar(tweet)
+```
+
