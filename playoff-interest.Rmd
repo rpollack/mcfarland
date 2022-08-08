@@ -330,7 +330,8 @@ sched <-
     interest_game = interest_away + interest_home, # simple addition suggested by https://www.reddit.com/user/daedeloth86/
     interest_plus = round(interest_game / mean(interest_game) * 100, 0),
   ) %>%
-  arrange(desc(interest_plus))
+  arrange(desc(interest_plus)) %>%
+  select(teams_away_team_name, teams_home_team_name, interest_plus, interest_game, everything())
 
 sched
 
