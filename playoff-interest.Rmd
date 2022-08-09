@@ -320,7 +320,44 @@ poff_chances_today <-
     interest = 50 - abs(50 - median_poff_chance)
   )
 
-sched <- 
+twitter_handles <-
+  poff_chances %>%
+  distinct(team_name) %>%
+  mutate(handle = case_when(
+    team_name == "Baltimore Orioles" ~ "@Orioles",
+    team_name == "Boston Red Sox" ~ "@RedSox",
+    team_name == "Chicago White Sox" ~ "@WhiteSox",
+    team_name == "Cleveland Guardians" ~ "@CleGuardians",
+    team_name == "Detroit Tigers" ~ "@Tigers",
+    team_name == "Houston Astros" ~ "@Astros",
+    team_name == "Kansas City Royals" ~ "@Royals",
+    team_name == "Los Angeles Angels" ~ "@Angels",
+    team_name == "Minnesota Twins" ~ "@Twins",
+    team_name == "New York Yankees" ~ "@Yankees",
+    team_name == "Oakland Athletics" ~ "@Athletics",
+    team_name == "Seattle Mariners" ~ "@Mariners",
+    team_name == "Tampa Bay Rays" ~ "@RaysBaseball",
+    team_name == "Texas Rangers" ~ "@Rangers",
+    team_name == "Toronto Blue Jays" ~ "@BlueJays",
+    team_name == "Arizona Diamondbacks" ~ "@Dbacks",
+    team_name == "Atlanta Braves" ~ "@Braves",
+    team_name == "Chicago Cubs" ~ "@Cubs",
+    team_name == "Cincinnati Reds" ~ "@Reds",
+    team_name == "Colorado Rockies" ~ "@Rockies",
+    team_name == "Los Angeles Dodgers" ~ "@Dodgers",
+    team_name == "Miami Marlins" ~ "@Marlins",
+    team_name == "Milwaukee Brewers" ~ "@Brewers",
+    team_name == "New York Mets" ~ "@Mets",
+    team_name == "Philadelphia Phillies" ~ "@Phillies",
+    team_name == "Pittsburgh Pirates" ~ "@Pirates",
+    team_name == "San Diego Padres" ~ "@Padres",
+    team_name == "San Francisco Giants" ~ "@SFGiants",
+    team_name == "St. Louis Cardinals" ~ "@Cardinals",
+    team_name == "Washington Nationals" ~ "@Nationals",
+  ))
+
+
+sched <-
   todays_games %>%
   inner_join(poff_chances_today, by = c("teams_away_team_name" = "team_name")) %>%
   select(contains("team"), poff_chance_away = median_poff_chance, interest_away = interest) %>%
@@ -370,33 +407,38 @@ ggsave("playoff_chances.png")
 # make tweet
 
 ```{r}
-#TODO: make twitter handles for each team via mutate, 
+# TODO: make twitter handles for each team via mutate,
 
 tweet_data <-
-  sched %>% 
-  filter(row_number() == 1)
+  sched %>%
+  filter(row_number() == 1) %>%
+  inner_join(twitter_handles, by = c("teams_away_team_name" = "team_name")) %>%
+  select(everything(), away_handle = handle) %>%
+  inner_join(twitter_handles, by = c("teams_home_team_name" = "team_name")) %>%
+  select(everything(), home_handle = handle)
+
 
 away <- tweet_data$teams_away_team_name
 away_pct <- tweet_data$poff_chance_away
-away_interest <- tweet_data$interest_away
+away_handle <- tweet_data$away_handle
 
 home <- tweet_data$teams_home_team_name
 home_pct <- tweet_data$poff_chance_home
-home_interest <- tweet_data$interest_home
+home_handle <- tweet_data$home_handle
 
 interest <- tweet_data$interest_game
 interest_plus <- tweet_data$interest_plus
 
-tweet <- glue("Most interesting game today: @CHW at @TEX. Interest score of {interest}
+playoff_start <- "2022-10-07"
 
-Highes interest score = 50% playoff chance. Teams' scores are summed. Max game score: 100.
+tweet <- glue("The MLB playoffs start in {difftime(playoff_start, Sys.Date(), units = 'days') %>% floor() %>% as.numeric()} days.
 
-CLE score: {round(away_interest, 1)} ({away_pct}% chance)
-TEX score: {round(home_interest, 1)} ({home_pct}% chance)
+The playoff picture right now is attached.
 
-Chances from: @fangraphs @baseball_ref @baseballpro Clay Davenport @FiveThirtyEight @numberFire @teamRankings")
+Today's most impactful game: {away_handle} ({away_pct}% chance) at {home_handle} ({home_pct}% chance).
+
+Sources: @fangraphs @baseball_ref @baseballpro Clay Davenport @FiveThirtyEight @numberFire @teamRankings")
 
 tweet
 nchar(tweet)
 ```
-
