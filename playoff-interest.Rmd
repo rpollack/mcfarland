@@ -378,7 +378,7 @@ sched
 ```
 
 
-```{r, fig.height=3, fig.width=3}
+```{r, fig.height = 2.5, fig.width=5}
 poff_chances %>%
   mutate(site = case_when(
     site == "poff_chance_538" ~ "FiveThirtyEight",
@@ -388,7 +388,16 @@ poff_chances %>%
     site == "poff_chance_numberfire" ~ "numberFire",
     site == "poff_chance_teamrankings" ~ "TeamRankings.com",
     site == "poff_chance_pecota" ~ "Baseball Prospectus (PECOTA)"
-  )) %>%
+  ),
+  division = case_when(
+    str_detect(team_name, "Orioles|Red Sox|Yankees|Blue Jays|Rays") ~ "AL East",
+    str_detect(team_name, "White Sox|Twins|Tigers|Royals|Guardians") ~ "AL Central",
+    str_detect(team_name, "Astros|Athletics|Angels|Rangers|Mariners") ~ "AL West",
+    str_detect(team_name, "Mets|Phillies|Marlins|Braves|Nationals") ~ "NL East",
+    str_detect(team_name, "Pirates|Reds|Brewers|Cardinals|Cubs") ~ "NL Central",
+    str_detect(team_name, "Dodgers|Padres|Rockies|Diamondbacks|Giants") ~ "NL West"
+  ),
+  league = if_else(str_detect(division, "AL"), "American League", "National League")) %>%
   group_by(team_name) %>%
   mutate(median_poff_chance = median(poff_chance)) %>%
   ungroup() %>%
@@ -398,6 +407,7 @@ poff_chances %>%
   coord_flip() +
   labs(y = "Playoff Chance (%)", x = "") +
   geom_hline(yintercept = 50, lty = "dashed") +
+  facet_wrap(vars(league), scales = "free_y") +
   ggtitle("MLB Team Playoff Chances", subtitle = glue("Prior to Games Played on {Sys.Date()}"))
 
 
@@ -438,7 +448,7 @@ The current playoff picture is attached.
 
 Most impactful game today: {away_handle} ({away_pct}% chance) at {home_handle} ({home_pct}% chance).
 
-Sources: @fangraphs @baseball_ref @baseballpro Clay Davenport @FiveThirtyEight @numberFire @teamRankings")
+Srcs: @fangraphs @baseball_ref @baseballpro Clay Davenport @FiveThirtyEight @numberFire @teamRankings")
 
 tweet
 nchar(tweet)
