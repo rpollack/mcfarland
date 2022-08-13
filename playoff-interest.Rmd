@@ -442,7 +442,7 @@ interest_plus <- tweet_data$interest_plus
 
 playoff_start <- "2022-10-07"
 
-tweet <- glue("Good morning! The MLB playoffs start in {difftime(playoff_start, Sys.Date(), units = 'days') %>% floor() %>% as.numeric()} days.
+tweet <- glue("Good morning! The @MLB playoffs start in {difftime(playoff_start, Sys.Date(), units = 'days') %>% floor() %>% as.numeric()} days.
 
 The current playoff picture is attached.
 
