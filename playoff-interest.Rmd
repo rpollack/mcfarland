@@ -444,7 +444,7 @@ playoff_start <- "2022-10-07"
 
 tweet <- glue("Good morning! The @MLB playoffs start in {difftime(playoff_start, Sys.Date(), units = 'days') %>% floor() %>% as.numeric()} days. The current playoff picture is attached.
 
-Most impactful game today: {away_handle} ({away_pct %>% round(0)}% chance) at {home_handle} ({home_pct %>% round(0)}% chance).
+Most impactful game today: {away_handle} ({away_pct %>% round(0)}% chance) at {home_handle} ({home_pct %>% round(0)}%).
 
 Srcs: @fangraphs @baseball_ref @baseballpro Clay Davenport @FiveThirtyEight @numberFire @teamRankings")
 
