@@ -210,7 +210,7 @@ poff_chances_fg <-
   gather_array() %>%
   spread_all() %>%
   select(abbName, poff_chance = endData.poffTitle) %>%
-  mutate(poff_chance = round(poff_chance, 2) * 100) %>%
+  mutate(poff_chance = round(poff_chance, 3) * 100) %>%
   as_tibble() %>%
   mutate(team_name = case_when(
     abbName == "LAA" ~ "Los Angeles Angels",
@@ -525,7 +525,7 @@ nchar(tweet)
   select(Visitor = teams_away_team_name, `Visitor Playoff Chance (%)` = poff_chance_away, `Home Team` = teams_home_team_name, `Home Team Playoff Chance (%)` = poff_chance_home, Interest = interest_game, `Interest+` = interest_plus) %>%
   mutate(across(is.numeric, ~ round(.x, 0))) %>%
   kbl() %>%
-  kable_paper()
+  kable_classic()
 
 ```
 
