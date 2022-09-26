@@ -10,8 +10,10 @@ library(tidyverse)
 library(rvest)
 library(baseballr)
 library(httr)
+library(tidyjson)
 library(jsonlite)
 library(rtweet)
+library(glue)
 ```
 
 
@@ -362,9 +364,14 @@ poff_chances <-
       str_detect(team_name, "Diamondbacks") ~ "Arizona Diamondbacks",
       TRUE ~ NA_character_
     ),
-    poff_chance = as.numeric(str_extract(poff_chance, "[:digit:]{1,2}"))
+    
+    # handle special characters for clinches (checkmark) and elimination (dash)
+    poff_chance = case_when(
+      poff_chance == "✓" ~ 100,
+      poff_chance == "—" ~ 0,
+      TRUE ~ as.numeric(str_extract(poff_chance, "[:digit:]{1,2}"))
+    )
   ) %>%
-  replace_na(list(poff_chance = 0)) %>%
   filter(!is.na(team_name)) %>%
   inner_join(poff_chances_bbref, by = "team_name", suffix = c("_538", "_bbref")) %>%
   inner_join(playoff_chances_davenport, by = "team_name") %>%
