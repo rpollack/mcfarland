@@ -532,7 +532,7 @@ nchar(tweet)
 ```{r}
 sched %>%
   select(Visitor = teams_away_team_name, `Visitor Playoff Chance (%)` = poff_chance_away, `Home Team` = teams_home_team_name, `Home Team Playoff Chance (%)` = poff_chance_home, Interest = interest_game, `Interest+` = interest_plus) %>%
-  mutate(across(is.numeric, ~ round(.x, 0))) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 0))) %>%
   kbl(align = "c") %>%
   kable_classic()
 
