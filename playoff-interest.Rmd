@@ -18,7 +18,7 @@ library(kableExtra)
 ```
 
 
-```{r, fig.height = 2.5, fig.width=5}
+```{r, fig.width=9}
 
 # get playoff chances from ESPN
 # espn <- read_html("https://www.espn.com/mlb/standings")
@@ -452,7 +452,6 @@ sched
 
 # minimum interest score (most interesting) = 0
 # maximum = 50
-
 
 poff_chances %>%
   mutate(site = case_when(
