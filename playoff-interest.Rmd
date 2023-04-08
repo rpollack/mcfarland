@@ -18,7 +18,7 @@ library(kableExtra)
 ```
 
 
-```{r, fig.width=9}
+```{r echo=FALSE, fig.width=9, message=FALSE, warning=FALSE}
 
 # get playoff chances from ESPN
 # espn <- read_html("https://www.espn.com/mlb/standings")
@@ -549,9 +549,9 @@ Tigers(0%) at White Sox (42%)
 
 
 ```{r}
-bot <- rtweet_app()
-auth_as(bot)
-
-post_tweet(status="testing")
+# bot <- rtweet_app()
+# auth_as(bot)
+# 
+# post_tweet(status="testing")
 ```
 
