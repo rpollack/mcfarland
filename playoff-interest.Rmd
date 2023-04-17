@@ -262,10 +262,11 @@ poff_chances_bbref <-
   playoff_url %>%
   html_elements("table") %>%
   pluck(2) %>%
-  html_table() %>%
-  select(team_name = 2, poff_chance = 20) %>%
-  mutate(poff_chance = as.numeric(str_extract(poff_chance, "[:digit:]*\\.[:digit:]"))) %>%
-  filter(!is.na(poff_chance))
+  html_table() %>% 
+  select(team_name = 2, poff_chance = 20) %>% 
+  mutate(poff_chance = as.numeric(str_extract(poff_chance, "[:digit:]*\\.[:digit:]"))) %>% 
+  replace_na(list(poff_chance = 0)) |> # some teams aren't numeric because bbref lists them as "<0.1%"
+  filter(!str_detect(team_name, "Tm|East|Central|West") & team_name != "")
 
 # get playoff odds from clay davenport's forecast site
 playoff_davenport <- read_html("http://www.claydavenport.com/stats/ps_oddspec.html") %>%
@@ -544,7 +545,46 @@ Guardians (62%) at Blue Jays (85%)
 Twins (48%) at Angels (0%)
 Tigers(0%) at White Sox (42%)
 
+```{r}
+foo <-
+  mlb_schedule(season = 2023) %>%
+    filter(date == Sys.Date()) |> 
+  mutate(game_start = as_datetime(game_date, tz = "US/Eastern"),
+         start_hour = hour(game_start)) |> 
+  select(contains("team_name"), game_start, start_hour)
 
+first_hour_start <- foo |>
+  filter(row_number() == 1) |>
+  pull(start_hour)
+
+foo |>
+  mutate(hrs_from_start = start_hour - first_hour_start,
+         mod = start_hour - first_hour_start %% 2,
+         chunk = case_when(
+           hrs_from_start < 2 ~ "One",
+           hrs_from_start < 4 ~ "Two",
+           hrs_from_start < 6 ~ "Three",
+           hrs_from_start < 8 ~ "Four",
+           hrs_from_start < 10 ~ "Five",
+           hrs_from_start < 12 ~ "Six"
+         ))
+  
+
+# goal is to separate out chunks of games starting more than 2 hours apart
+
+# |>
+#   mutate(start_class = case_when(
+#     start_hour < 12 ~ "Morning",
+#     between(start_hour, 12, 16) ~ "Afternoon",
+#     between(start_hour, 17, 19) ~ "Evening",
+#     start_hour > 19 ~ "Night"
+#   ))
+  
+```
+
+```{r}
+read_html("https://ans.mlb.com/b/ss/mlbglobal08,mlbcom08/1/H.27.4/s7244009547094?AQB=1&ndh=1&t=13%2F3%2F2023%2018%3A50%3A49%204%20300&mid=90337289130997972743705511536346669406&ce=UTF-8&ns=mlb&pageName=Baseballsavant.com%20Site%3A%20Statcast%20Expected%20wOBA%2C%20xBA%2C%20xSLG&g=https%3A%2F%2Fbaseballsavant.mlb.com%2Fleaderboard%2Fexpected_statistics%3Ftype%3Dpitcher&r=https%3A%2F%2Fbaseballsavant.mlb.com%2Fleaderboard%2Fstatcast%3Ftype%3Dpitcher&cc=USD&ch=Baseballsavant.com%20Site&events=event4&c1=Baseballsavant.com%20Site&c24=mlbglobal08%2Cmlbcom08&c35=4%2F13%2F2023%2019%3A50%3A49&c64=D%3Ds_vi&v64=D%3Ds_vi&s=1680x1050&c=24&j=1.6&v=N&k=Y&bw=1563&bh=554&p=PDF%20Viewer%3BChrome%20PDF%20Viewer%3BChromium%20PDF%20Viewer%3BMicrosoft%20Edge%20PDF%20Viewer%3BWebKit%20built-in%20PDF%3B&AQE=1")
+```
 
 
 
