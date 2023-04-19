@@ -25,7 +25,9 @@ protein = str_replace_all(protein, c("chicken breast" = "chicken",
                              "chicken thigh" = "chicken",
                              "beef" = "ground beef",
                              "ribs" = "pork", 
-                             "tilapia" = "fish")),
+                             "tilapia" = "fish",
+                             "flounder" = "fish",
+                             "haddock" = "fish")),
 method = str_extract(meal, "ip|instant pot|slow cooker|crock pot|roast|sautee|sous vide")) %>%
   replace_na(list(protein = "none",
                   method = "none specified"))
@@ -43,7 +45,7 @@ meal_data %>%
 meal_data %>% 
   count(meal, sort = TRUE)
 
-# how long has it been since i last made each meal?s
+# how long has it been since i last made each meal?
 meal_data %>%
   group_by(meal) %>%
   filter(last_eaten == max(last_eaten)) %>%
@@ -51,14 +53,12 @@ meal_data %>%
   select(meal, last_eaten, days_since_cooked) %>%
   arrange(desc(days_since_cooked))
 
-# one random meal for each protein group eaten at least 3 months prior
+# 10 random meals eaten at least 3 months prior
 meal_data %>%
-  group_by(meal) %>%
-  filter(last_eaten == max(last_eaten)) %>%
   ungroup() %>%
+  distinct(meal) |>
   filter(last_eaten <= Sys.Date() - days(90)) %>%
-  group_by(protein) %>%
-  slice_sample(n=1) %>%
+  slice_sample(n=10) %>%
   select(protein, meal, last_eaten)
 
 
@@ -152,12 +152,14 @@ For example, you had a $620 total return on a $2,000 investment over three years
 
 investments <-
   read_sheet("https://docs.google.com/spreadsheets/d/1SUvyFzTDKHP_AOXjkQeplC9ovJjwPBjxbTauNOSq4Ks/edit#gid=249938722",
-  sheet = "Retirement - Balances"
-) %>%
+    sheet = "Retirement - Balances"
+  ) %>%
   slice_head(n = 10) %>%
   pivot_longer(-Account, names_to = "month") %>%
-  mutate(month = my(month),
-         year = year(month)) 
+  mutate(
+    month = my(month),
+    year = year(month)
+  )
   
 investments %>%  
   ggplot(aes(month, value, color = Account)) +
@@ -172,6 +174,24 @@ investments %>%
   ggplot(aes(month, total)) + geom_path() +
   scale_y_continuous(labels=scales::dollar_format()) +
   ggtitle("Total Investments")
+
+# get the beginning and current amounts for all accounts; calculate gains
+investments %>%
+  group_by(Account) %>%
+  filter(month == min(month) | month == max(month)) %>%
+  select(Account, month, value) %>%
+  pivot_wider(names_from = month, values_from = value) %>%
+  select(Account, start = `2018-06-01`, current = `2022-05-01`) %>%
+  mutate(
+    # fees = case_when(
+    #   str_detect(Account, "Park Ave") ~ .014,
+    #   Account == "Betterment (IRA)" ~ 0.0025,
+    #   TRUE ~ NA_character_
+    # ),
+    gain = current - start,
+    pct_gain = gain / start * 100,
+    simple_annual_pct = pct_gain / 4
+  )
 
 ```
 
