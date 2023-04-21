@@ -55,11 +55,12 @@ meal_data %>%
 
 # 10 random meals eaten at least 3 months prior
 meal_data %>%
-  ungroup() %>%
-  distinct(meal) |>
-  filter(last_eaten <= Sys.Date() - days(90)) %>%
+  group_by(meal) |>
+  filter(last_eaten == max(last_eaten),
+         last_eaten <= Sys.Date() - days(90)) %>%
+  ungroup() |>
   slice_sample(n=10) %>%
-  select(protein, meal, last_eaten)
+  select(meal, last_eaten)
 
 
 ```
