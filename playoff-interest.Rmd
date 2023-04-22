@@ -13,6 +13,7 @@ library(httr)
 library(tidyjson)
 library(jsonlite)
 library(rtweet)
+library(styler)
 library(glue)
 library(kableExtra)
 ```
@@ -454,7 +455,12 @@ sched
 # minimum interest score (most interesting) = 0
 # maximum = 50
 
-poff_chances %>%
+
+# take the current playoff chances, add the date, bind all the rows from the existing disk file, then save the new combined/appended file
+
+
+poff_chances_clean <-
+  poff_chances %>%
   mutate(site = case_when(
     site == "poff_chance_538" ~ "FiveThirtyEight",
     site == "poff_chance_bbref" ~ "Baseball Reference",
@@ -476,7 +482,9 @@ poff_chances %>%
   league = if_else(str_detect(division, "AL"), "American League", "National League")) %>%
   group_by(team_name) %>%
   mutate(median_poff_chance = median(poff_chance)) %>%
-  ungroup() %>%
+  ungroup()
+
+poff_chances_clean |>
   ggplot(aes(x = reorder(team_name, median_poff_chance), y = poff_chance)) +
   geom_boxplot(outlier.shape = NA) +
   geom_jitter(aes(color = site), size = 0.5) +
