@@ -496,6 +496,14 @@ poff_chances_clean |>
 
 
 ggsave("playoff_chances.png")
+
+# append data to disk
+poff_chances_clean |>
+  mutate(prediction_date = Sys.Date()) |>
+  select(prediction_date, everything(), -median_poff_chance) |>
+  write_csv(file="playoff_chances.csv", append = TRUE)
+  
+
 ```
 
 
