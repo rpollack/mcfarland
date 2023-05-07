@@ -553,10 +553,13 @@ poff_chance_change |>
     str_detect(team_name, "Cardinals") ~ "STL",
     TRUE ~ NA_character_
   )) |>
-  ggplot(aes(change, current)) + geom_label_repel(aes(label=abbrev)) + geom_point() +
+  ggplot(aes(change, current)) + geom_label_repel(aes(label=abbrev), max.overlaps = 20) + geom_point() +
   ggtitle("Playoff Chances & Changes",
           subtitle = glue("From 2023-04-22 to {Sys.Date()}")) +
-  labs(x="Change Since April 22nd (percentage points)", y = "Current Playoff Chance (%)")
+  labs(x="Change Since April 22nd (percentage points)", y = "Current Playoff Chance (%)") +
+  geom_hline(yintercept = 50, lty = "dashed", color = "gray") +
+  geom_vline(xintercept = 0, lty = "dashed", color = "gray") +
+  xlim(-30, 30)
 ```
 
 
