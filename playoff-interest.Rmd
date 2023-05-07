@@ -12,18 +12,17 @@ library(baseballr)
 library(httr)
 library(tidyjson)
 library(jsonlite)
-library(rtweet)
 library(styler)
+library(ggrepel)
 library(glue)
 library(kableExtra)
 ```
 
 
 ```{r echo=FALSE, fig.width=9, message=FALSE, warning=FALSE}
-
 # get playoff chances from ESPN
 # espn <- read_html("https://www.espn.com/mlb/standings")
-# 
+#
 # al <- espn %>%
 #   html_elements("table") %>%
 #   pluck(1) %>%
@@ -32,9 +31,9 @@ library(kableExtra)
 #     html_elements("table") %>%
 #     pluck(2) %>%
 #     html_table())
-# 
-# nl <- 
-#   espn %>% 
+#
+# nl <-
+#   espn %>%
 #   html_elements("table") %>%
 #   pluck(3) %>%
 #   html_table() %>%
@@ -42,7 +41,7 @@ library(kableExtra)
 #     html_elements("table") %>%
 #     pluck(4) %>%
 #     html_table())
-# 
+#
 # playoff_chances_espn <-
 #   bind_rows(al, nl) %>%
 #   select(team_name = 1, poff = X12) %>%
@@ -211,7 +210,7 @@ poff_chances_fg <-
   GET(url, add_headers(headers)) %>%
   content() %>%
   as_tbl_json() %>%
- # gather_array() %>%
+  # gather_array() %>%
   spread_all() %>%
   select(abbName, poff_chance = endData.poffTitle) %>%
   mutate(poff_chance = round(poff_chance, 3) * 100) %>%
@@ -263,9 +262,9 @@ poff_chances_bbref <-
   playoff_url %>%
   html_elements("table") %>%
   pluck(2) %>%
-  html_table() %>% 
-  select(team_name = 2, poff_chance = 20) %>% 
-  mutate(poff_chance = as.numeric(str_extract(poff_chance, "[:digit:]*\\.[:digit:]"))) %>% 
+  html_table() %>%
+  select(team_name = 2, poff_chance = 20) %>%
+  mutate(poff_chance = as.numeric(str_extract(poff_chance, "[:digit:]*\\.[:digit:]"))) %>%
   replace_na(list(poff_chance = 0)) |> # some teams aren't numeric because bbref lists them as "<0.1%"
   filter(!str_detect(team_name, "Tm|East|Central|West") & team_name != "")
 
@@ -367,7 +366,7 @@ poff_chances <-
       str_detect(team_name, "Diamondbacks") ~ "Arizona Diamondbacks",
       TRUE ~ NA_character_
     ),
-    
+
     # handle special characters for clinches (checkmark) and elimination (dash)
     poff_chance = case_when(
       poff_chance == "✓" ~ 100,
@@ -461,25 +460,27 @@ sched
 
 poff_chances_clean <-
   poff_chances %>%
-  mutate(site = case_when(
-    site == "poff_chance_538" ~ "FiveThirtyEight",
-    site == "poff_chance_bbref" ~ "Baseball Reference",
-    site == "poff_chance_davenport" ~ "Clay Davenport",
-    site == "poff_chance_fg" ~ "FanGraphs",
-    site == "poff_chance_numberfire" ~ "numberFire",
-    site == "poff_chance_teamrankings" ~ "TeamRankings.com",
-    site == "poff_chance_pecota" ~ "Baseball Prospectus (PECOTA)",
-    site == "poff_chance_espn" ~ "ESPN",
-  ),
-  division = case_when(
-    str_detect(team_name, "Orioles|Red Sox|Yankees|Blue Jays|Rays") ~ "AL East",
-    str_detect(team_name, "White Sox|Twins|Tigers|Royals|Guardians") ~ "AL Central",
-    str_detect(team_name, "Astros|Athletics|Angels|Rangers|Mariners") ~ "AL West",
-    str_detect(team_name, "Mets|Phillies|Marlins|Braves|Nationals") ~ "NL East",
-    str_detect(team_name, "Pirates|Reds|Brewers|Cardinals|Cubs") ~ "NL Central",
-    str_detect(team_name, "Dodgers|Padres|Rockies|Diamondbacks|Giants") ~ "NL West"
-  ),
-  league = if_else(str_detect(division, "AL"), "American League", "National League")) %>%
+  mutate(
+    site = case_when(
+      site == "poff_chance_538" ~ "FiveThirtyEight",
+      site == "poff_chance_bbref" ~ "Baseball Reference",
+      site == "poff_chance_davenport" ~ "Clay Davenport",
+      site == "poff_chance_fg" ~ "FanGraphs",
+      site == "poff_chance_numberfire" ~ "numberFire",
+      site == "poff_chance_teamrankings" ~ "TeamRankings.com",
+      site == "poff_chance_pecota" ~ "Baseball Prospectus (PECOTA)",
+      site == "poff_chance_espn" ~ "ESPN",
+    ),
+    division = case_when(
+      str_detect(team_name, "Orioles|Red Sox|Yankees|Blue Jays|Rays") ~ "AL East",
+      str_detect(team_name, "White Sox|Twins|Tigers|Royals|Guardians") ~ "AL Central",
+      str_detect(team_name, "Astros|Athletics|Angels|Rangers|Mariners") ~ "AL West",
+      str_detect(team_name, "Mets|Phillies|Marlins|Braves|Nationals") ~ "NL East",
+      str_detect(team_name, "Pirates|Reds|Brewers|Cardinals|Cubs") ~ "NL Central",
+      str_detect(team_name, "Dodgers|Padres|Rockies|Diamondbacks|Giants") ~ "NL West"
+    ),
+    league = if_else(str_detect(division, "AL"), "American League", "National League")
+  ) %>%
   group_by(team_name) %>%
   mutate(median_poff_chance = median(poff_chance)) %>%
   ungroup()
@@ -501,10 +502,63 @@ ggsave("playoff_chances.png")
 poff_chances_clean |>
   mutate(prediction_date = Sys.Date()) |>
   select(prediction_date, everything(), -median_poff_chance) |>
-  write_csv(file="playoff_chances.csv", append = TRUE)
-  
-
+  write_csv(file = "playoff_chances.csv", append = TRUE)
 ```
+
+# compute playoff chances change between April 22nd and the current date
+
+```{r}
+poff_chance_change <-
+  read_csv("playoff_chances.csv") |>
+  group_by(team_name, prediction_date) |>
+  summarize(median_poff_chance = median(poff_chance)) |>
+  filter(prediction_date == min(prediction_date) | prediction_date == max(prediction_date)) |>
+  mutate(prediction_date = if_else(prediction_date == min(prediction_date), "start", "current")) |>
+  pivot_wider(names_from = prediction_date, values_from = median_poff_chance) |>
+  mutate(change = current - start) |>
+  arrange(desc(change))
+
+poff_chance_change |>
+  mutate(abbrev = case_when(
+    str_detect(team_name, "Giants") ~ "SFG",
+    str_detect(team_name, "Red Sox") ~ "BOS",
+    str_detect(team_name, "Pirates") ~ "PIT",
+    str_detect(team_name, "Padres") ~ "SDP",
+    str_detect(team_name, "Orioles") ~ "BAL",
+    str_detect(team_name, "Dodgers") ~ "LAD",
+    str_detect(team_name, "Diamondbacks") ~ "ARI",
+    str_detect(team_name, "Twins") ~ "MIN",
+    str_detect(team_name, "Rays") ~ "TBR",
+    str_detect(team_name, "Angels") ~ "LAA",
+     str_detect(team_name, "Giants") ~ "SFG",
+    str_detect(team_name, "Braves") ~ "ATL",
+    str_detect(team_name, "Rangers") ~ "TEX",
+    str_detect(team_name, "Tigers") ~ "DET",
+    str_detect(team_name, "Reds") ~ "CIN",
+    str_detect(team_name, "Rockies") ~ "COL",
+    str_detect(team_name, "Nationals") ~ "WAS",
+    str_detect(team_name, "Athletics") ~ "OAK",
+    str_detect(team_name, "Royals") ~ "KCR",
+    str_detect(team_name, "Cubs") ~ "CHC",
+     str_detect(team_name, "Astros") ~ "HOU",
+    str_detect(team_name, "Phillies") ~ "PHI",
+    str_detect(team_name, "Blue Jays") ~ "TOR",
+    str_detect(team_name, "Mariners") ~ "SEA",
+    str_detect(team_name, "Marlins") ~ "MIA",
+    str_detect(team_name, "White Sox") ~ "CHW",
+    str_detect(team_name, "Brewers") ~ "MIL",
+    str_detect(team_name, "Guardians") ~ "CLE",
+    str_detect(team_name, "Yankees") ~ "NYY",
+    str_detect(team_name, "Mets") ~ "NYM",
+    str_detect(team_name, "Cardinals") ~ "STL",
+    TRUE ~ NA_character_
+  )) |>
+  ggplot(aes(change, current)) + geom_label_repel(aes(label=abbrev)) + geom_point() +
+  ggtitle("Playoff Chances & Changes",
+          subtitle = glue("From 2023-04-22 to {Sys.Date()}")) +
+  labs(x="Change Since April 22nd (percentage points)", y = "Current Playoff Chance (%)")
+```
+
 
 
 # make tweet
@@ -549,7 +603,6 @@ sched %>%
   mutate(across(where(is.numeric), ~ round(.x, 0))) %>%
   kbl(align = "c") %>%
   kable_classic()
-
 ```
 
 tweet form:
@@ -564,9 +617,11 @@ Tigers(0%) at White Sox (42%)
 ```{r}
 foo <-
   mlb_schedule(season = 2023) %>%
-    filter(date == Sys.Date()) |> 
-  mutate(game_start = as_datetime(game_date, tz = "US/Eastern"),
-         start_hour = hour(game_start)) |> 
+  filter(date == Sys.Date()) |>
+  mutate(
+    game_start = as_datetime(game_date, tz = "US/Eastern"),
+    start_hour = hour(game_start)
+  ) |>
   select(contains("team_name"), game_start, start_hour)
 
 first_hour_start <- foo |>
@@ -574,17 +629,19 @@ first_hour_start <- foo |>
   pull(start_hour)
 
 foo |>
-  mutate(hrs_from_start = start_hour - first_hour_start,
-         mod = start_hour - first_hour_start %% 2,
-         chunk = case_when(
-           hrs_from_start < 2 ~ "One",
-           hrs_from_start < 4 ~ "Two",
-           hrs_from_start < 6 ~ "Three",
-           hrs_from_start < 8 ~ "Four",
-           hrs_from_start < 10 ~ "Five",
-           hrs_from_start < 12 ~ "Six"
-         ))
-  
+  mutate(
+    hrs_from_start = start_hour - first_hour_start,
+    mod = start_hour - first_hour_start %% 2,
+    chunk = case_when(
+      hrs_from_start < 2 ~ "One",
+      hrs_from_start < 4 ~ "Two",
+      hrs_from_start < 6 ~ "Three",
+      hrs_from_start < 8 ~ "Four",
+      hrs_from_start < 10 ~ "Five",
+      hrs_from_start < 12 ~ "Six"
+    )
+  )
+
 
 # goal is to separate out chunks of games starting more than 2 hours apart
 
@@ -595,7 +652,6 @@ foo |>
 #     between(start_hour, 17, 19) ~ "Evening",
 #     start_hour > 19 ~ "Night"
 #   ))
-  
 ```
 
 ```{r}
@@ -607,7 +663,6 @@ read_html("https://ans.mlb.com/b/ss/mlbglobal08,mlbcom08/1/H.27.4/s7244009547094
 ```{r}
 # bot <- rtweet_app()
 # auth_as(bot)
-# 
+#
 # post_tweet(status="testing")
 ```
-
