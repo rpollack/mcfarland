@@ -530,7 +530,7 @@ poff_chance_change |>
     str_detect(team_name, "Twins") ~ "MIN",
     str_detect(team_name, "Rays") ~ "TBR",
     str_detect(team_name, "Angels") ~ "LAA",
-     str_detect(team_name, "Giants") ~ "SFG",
+    str_detect(team_name, "Giants") ~ "SFG",
     str_detect(team_name, "Braves") ~ "ATL",
     str_detect(team_name, "Rangers") ~ "TEX",
     str_detect(team_name, "Tigers") ~ "DET",
@@ -540,7 +540,7 @@ poff_chance_change |>
     str_detect(team_name, "Athletics") ~ "OAK",
     str_detect(team_name, "Royals") ~ "KCR",
     str_detect(team_name, "Cubs") ~ "CHC",
-     str_detect(team_name, "Astros") ~ "HOU",
+    str_detect(team_name, "Astros") ~ "HOU",
     str_detect(team_name, "Phillies") ~ "PHI",
     str_detect(team_name, "Blue Jays") ~ "TOR",
     str_detect(team_name, "Mariners") ~ "SEA",
@@ -553,10 +553,13 @@ poff_chance_change |>
     str_detect(team_name, "Cardinals") ~ "STL",
     TRUE ~ NA_character_
   )) |>
-  ggplot(aes(change, current)) + geom_label_repel(aes(label=abbrev), max.overlaps = 20) + geom_point() +
+  ggplot(aes(change, current)) +
+  geom_label_repel(aes(label = abbrev), max.overlaps = 20) +
+  geom_point() +
   ggtitle("Playoff Chances & Changes",
-          subtitle = glue("From 2023-04-22 to {Sys.Date()}")) +
-  labs(x="Change Since April 22nd (percentage points)", y = "Current Playoff Chance (%)") +
+    subtitle = glue("From 2023-04-22 to {Sys.Date()}")
+  ) +
+  labs(x = "Change Since April 22nd (percentage points)", y = "Current Playoff Chance (%)") +
   geom_hline(yintercept = 50, lty = "dashed", color = "gray") +
   geom_vline(xintercept = 0, lty = "dashed", color = "gray")
 # + xlim(-30, 30) # TODO: figure out boundaries by taking the max & min change values and making those even somehwo
