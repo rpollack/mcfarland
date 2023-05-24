@@ -558,8 +558,10 @@ poff_chance_change |>
           subtitle = glue("From 2023-04-22 to {Sys.Date()}")) +
   labs(x="Change Since April 22nd (percentage points)", y = "Current Playoff Chance (%)") +
   geom_hline(yintercept = 50, lty = "dashed", color = "gray") +
-  geom_vline(xintercept = 0, lty = "dashed", color = "gray") +
-  xlim(-30, 30)
+  geom_vline(xintercept = 0, lty = "dashed", color = "gray")
+# + xlim(-30, 30) # TODO: figure out boundaries by taking the max & min change values and making those even somehwo
+
+ggsave("playoff-change-change.png")
 ```
 
 
