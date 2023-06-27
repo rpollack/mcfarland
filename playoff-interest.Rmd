@@ -324,70 +324,17 @@ playoff_chances_davenport <-
   )
 
 
-# get odds from 538 and average them with BB-ref odds
-playoff_538 <- read_html("https://projects.fivethirtyeight.com/2023-mlb-predictions/")
-
 poff_chances <-
-  playoff_538 %>%
-  html_table() %>%
-  pluck(1) %>%
-  select(team_name = 1, poff_chance = 7) %>%
-  mutate(
-    team_name = case_when(
-      str_detect(team_name, "Dodgers") ~ "Los Angeles Dodgers",
-      str_detect(team_name, "Yankees") ~ "New York Yankees",
-      str_detect(team_name, "Orioles") ~ "Baltimore Orioles",
-      str_detect(team_name, "Red Sox") ~ "Boston Red Sox",
-      str_detect(team_name, "Blue Jays") ~ "Toronto Blue Jays",
-      str_detect(team_name, "Rays") ~ "Tampa Bay Rays",
-      str_detect(team_name, "Guardians") ~ "Cleveland Guardians",
-      str_detect(team_name, "Twins") ~ "Minnesota Twins",
-      str_detect(team_name, "White Sox") ~ "Chicago White Sox",
-      str_detect(team_name, "Tigers") ~ "Detroit Tigers",
-      str_detect(team_name, "Royals") ~ "Kansas City Royals",
-      str_detect(team_name, "Astros") ~ "Houston Astros",
-      str_detect(team_name, "Pirates") ~ "Pittsburgh Pirates",
-      str_detect(team_name, "Angels") ~ "Los Angeles Angels",
-      str_detect(team_name, "Athletics") ~ "Oakland Athletics",
-      str_detect(team_name, "Mariners") ~ "Seattle Mariners",
-      str_detect(team_name, "Nationals") ~ "Washington Nationals",
-      str_detect(team_name, "Marlins") ~ "Miami Marlins",
-      str_detect(team_name, "Mets") ~ "New York Mets",
-      str_detect(team_name, "Phillies") ~ "Philadelphia Phillies",
-      str_detect(team_name, "Cubs") ~ "Chicago Cubs",
-      str_detect(team_name, "Brewers") ~ "Milwaukee Brewers",
-      str_detect(team_name, "Reds") ~ "Cincinnati Reds",
-      str_detect(team_name, "Rangers") ~ "Texas Rangers",
-      str_detect(team_name, "Padres") ~ "San Diego Padres",
-      str_detect(team_name, "Giants") ~ "San Francisco Giants",
-      str_detect(team_name, "Cardinals") ~ "St. Louis Cardinals",
-      str_detect(team_name, "Rockies") ~ "Colorado Rockies",
-      str_detect(team_name, "Braves") ~ "Atlanta Braves",
-      str_detect(team_name, "Diamondbacks") ~ "Arizona Diamondbacks",
-      TRUE ~ NA_character_
-    ),
-
-    # handle special characters for clinches (checkmark) and elimination (dash)
-    poff_chance = case_when(
-      poff_chance == "✓" ~ 100,
-      poff_chance == "—" ~ 0,
-      TRUE ~ as.numeric(str_extract(poff_chance, "[:digit:]{1,2}"))
-    )
-  ) %>%
-  filter(!is.na(team_name)) %>%
-  inner_join(poff_chances_bbref, by = "team_name", suffix = c("_538", "_bbref")) %>%
-  inner_join(playoff_chances_davenport, by = "team_name") %>%
-  select(team_name, poff_chance_538, poff_chance_bbref, poff_chance_davenport = poff_chance) %>%
-  inner_join(poff_chances_fg, by = "team_name") %>%
-  select(team_name, poff_chance_538, poff_chance_bbref, poff_chance_davenport, poff_chance_fg = poff_chance) %>%
+  poff_chances_bbref |>
+  inner_join(playoff_chances_davenport, by = "team_name", suffix = c("_bbref", "_davenport")) %>%
+  inner_join(poff_chances_fg, by = "team_name") |>
+  select(team_name, poff_chance_bbref, poff_chance_davenport, poff_chance_fg = poff_chance) %>%
   inner_join(poff_chance_numberfire, by = "team_name") %>%
-  select(team_name, poff_chance_538, poff_chance_bbref, poff_chance_davenport, poff_chance_fg, poff_chance_numberfire = poff_chance) %>%
+  select(team_name, poff_chance_bbref, poff_chance_davenport, poff_chance_fg, poff_chance_numberfire = poff_chance) %>%
   inner_join(poff_chance_teamrankings, by = "team_name") %>%
-  select(team_name, poff_chance_538, poff_chance_bbref, poff_chance_davenport, poff_chance_fg, poff_chance_numberfire, poff_chance_teamrankings = poff_chance) %>%
+  select(team_name, poff_chance_bbref, poff_chance_davenport, poff_chance_fg, poff_chance_numberfire, poff_chance_teamrankings = poff_chance) %>%
   inner_join(poff_chance_pecota, by = "team_name") %>%
-  select(team_name, poff_chance_538, poff_chance_bbref, poff_chance_davenport, poff_chance_fg, poff_chance_numberfire, poff_chance_teamrankings, poff_chance_pecota = poff_chance) %>%
-  # inner_join(playoff_chances_espn, by="team_name") %>%
-  # select(team_name, poff_chance_538, poff_chance_bbref, poff_chance_davenport, poff_chance_fg, poff_chance_numberfire, poff_chance_teamrankings, poff_chance_pecota, poff_chance_espn = poff_chance) %>%
+  select(team_name, poff_chance_bbref, poff_chance_davenport, poff_chance_fg, poff_chance_numberfire, poff_chance_teamrankings, poff_chance_pecota = poff_chance) %>%
   pivot_longer(-team_name, names_to = "site", values_to = "poff_chance")
 
 poff_chances_today <-
@@ -462,7 +409,6 @@ poff_chances_clean <-
   poff_chances %>%
   mutate(
     site = case_when(
-      site == "poff_chance_538" ~ "FiveThirtyEight",
       site == "poff_chance_bbref" ~ "Baseball Reference",
       site == "poff_chance_davenport" ~ "Clay Davenport",
       site == "poff_chance_fg" ~ "FanGraphs",
@@ -559,10 +505,13 @@ poff_chance_change |>
   ggtitle("Playoff Chances & Changes",
     subtitle = glue("From 2023-04-22 to {Sys.Date()}")
   ) +
-  labs(x = "Change Since April 22nd (percentage points)", y = "Current Playoff Chance (%)") +
+  labs(
+    x = "Change Since April 22nd (percentage points)", y = "Current Playoff Chance (%)",
+    caption = "Playoff chances: median of FG, B-Ref, BPro, Clay Davenport, Numberfire, TeamRankings"
+  ) +
   geom_hline(yintercept = 50, lty = "dashed", color = "gray") +
   geom_vline(xintercept = 0, lty = "dashed", color = "gray")
-# + xlim(-30, 30) # TODO: figure out boundaries by taking the max & min change values and making those even somehwo
+#+ xlim(-55, 55) # TODO: figure out boundaries by taking the max & min change values and making those even somehwo
 
 ggsave("playoff-change-change.png")
 ```
@@ -600,7 +549,7 @@ tweet <- glue("Good morning! The @MLB playoffs start in {difftime(playoff_start,
 
 Most impactful game today: {away_handle} ({away_pct %>% round(0)}% chance) at {home_handle} ({home_pct %>% round(0)}%).
 
-Srcs: @fangraphs @baseball_ref @baseballpro Clay Davenport @FiveThirtyEight @ESPN @numberFire @teamRankings")
+Srcs: @fangraphs @baseball_ref @baseballpro Clay Davenport @ESPN @numberFire @teamRankings")
 
 tweet
 nchar(tweet)
