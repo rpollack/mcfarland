@@ -507,11 +507,11 @@ poff_chance_change |>
   ) +
   labs(
     x = "Change Since April 22nd (percentage points)", y = "Current Playoff Chance (%)",
-    caption = "Playoff chances: median of FG, B-Ref, BPro, Clay Davenport, Numberfire, TeamRankings"
+    caption = "Playoff chances: median of FG, B-Ref, BPro, Clay Davenport, Numberfire, TeamRankings, and 538 (until deprecation)"
   ) +
   geom_hline(yintercept = 50, lty = "dashed", color = "gray") +
-  geom_vline(xintercept = 0, lty = "dashed", color = "gray")
-#+ xlim(-55, 55) # TODO: figure out boundaries by taking the max & min change values and making those even somehwo
+  geom_vline(xintercept = 0, lty = "dashed", color = "gray") 
+# + xlim(-80, 80) # TODO: figure out boundaries by taking the max & min change values and making those even somehwo
 
 ggsave("playoff-change-change.png")
 ```
