@@ -52,7 +52,10 @@ meal_data %>%
   mutate(days_since_cooked = difftime(Sys.Date(), last_eaten, unit = "days")) %>%
   select(meal, last_eaten, days_since_cooked) %>%
   arrange(desc(days_since_cooked))
+```
 
+
+```{r}
 # 10 random meals eaten at least 3 months prior
 meal_data %>%
   group_by(meal) |>
@@ -61,7 +64,6 @@ meal_data %>%
   ungroup() |>
   slice_sample(n=10) %>%
   select(meal, last_eaten)
-
 
 ```
 
