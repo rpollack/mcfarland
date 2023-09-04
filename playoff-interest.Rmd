@@ -441,6 +441,17 @@ poff_chances_clean |>
   facet_wrap(vars(league), scales = "free_y") +
   ggtitle("MLB Team Playoff Chances", subtitle = glue("Prior to Games Played on {Sys.Date()}"))
 
+poff_chances_clean |>
+  distinct(team_name, league, median_poff_chance) |>
+  mutate(median_poff_chance = round(median_poff_chance, 1)) |>
+  mutate(label = glue("{team_name}: {median_poff_chance}%")) |>
+  ggplot(aes(x = reorder(label, median_poff_chance), y = median_poff_chance)) +
+  geom_col() +
+  coord_flip() +
+  labs(y = "Playoff Chance (%)", x = "", caption = "Playoff chances: median of FG, B-Ref, BPro, Clay Davenport, Numberfire, TeamRankings, and 538 (until deprecation)") +
+  geom_hline(yintercept = 50, lty = "dashed") +
+  facet_wrap(vars(league), scales = "free_y") +
+  ggtitle("MLB Team Playoff Chances", subtitle = glue("Prior to Games Played on {Sys.Date()}"))
 
 ggsave("playoff_chances.png")
 
@@ -449,11 +460,9 @@ poff_chances_clean |>
   mutate(prediction_date = Sys.Date()) |>
   select(prediction_date, everything(), -median_poff_chance) |>
   write_csv(file = "playoff_chances.csv", append = TRUE)
-```
 
 # compute playoff chances change between April 22nd and the current date
 
-```{r}
 poff_chance_change <-
   read_csv("playoff_chances.csv") |>
   group_by(team_name, prediction_date) |>
@@ -511,7 +520,7 @@ poff_chance_change |>
   ) +
   geom_hline(yintercept = 50, lty = "dashed", color = "gray") +
   geom_vline(xintercept = 0, lty = "dashed", color = "gray") 
-# + xlim(-80, 80) # TODO: figure out boundaries by taking the max & min change values and making those even somehwo
+# xlim(-80, 80) # TODO: figure out boundaries by taking the max & min change values and making those even somehwo
 
 ggsave("playoff-change-change.png")
 ```
@@ -614,6 +623,15 @@ foo |>
 ```{r}
 read_html("https://ans.mlb.com/b/ss/mlbglobal08,mlbcom08/1/H.27.4/s7244009547094?AQB=1&ndh=1&t=13%2F3%2F2023%2018%3A50%3A49%204%20300&mid=90337289130997972743705511536346669406&ce=UTF-8&ns=mlb&pageName=Baseballsavant.com%20Site%3A%20Statcast%20Expected%20wOBA%2C%20xBA%2C%20xSLG&g=https%3A%2F%2Fbaseballsavant.mlb.com%2Fleaderboard%2Fexpected_statistics%3Ftype%3Dpitcher&r=https%3A%2F%2Fbaseballsavant.mlb.com%2Fleaderboard%2Fstatcast%3Ftype%3Dpitcher&cc=USD&ch=Baseballsavant.com%20Site&events=event4&c1=Baseballsavant.com%20Site&c24=mlbglobal08%2Cmlbcom08&c35=4%2F13%2F2023%2019%3A50%3A49&c64=D%3Ds_vi&v64=D%3Ds_vi&s=1680x1050&c=24&j=1.6&v=N&k=Y&bw=1563&bh=554&p=PDF%20Viewer%3BChrome%20PDF%20Viewer%3BChromium%20PDF%20Viewer%3BMicrosoft%20Edge%20PDF%20Viewer%3BWebKit%20built-in%20PDF%3B&AQE=1")
 ```
+
+```{r}
+read_csv("~/Downloads/fangraphs-leaderboards-3.csv") |>
+  filter(!Season %in% c(1994, 1995, 2020)) |>
+  select(Season, PlayerId, Name, PA, G, Off) |>
+  filter(PA <= 520, Off >= 30) |>
+  arrange(desc(Off))
+```
+
 
 
 
