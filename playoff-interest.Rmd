@@ -269,7 +269,7 @@ poff_chances_bbref <-
   filter(!str_detect(team_name, "Tm|East|Central|West") & team_name != "")
 
 # get playoff odds from clay davenport's forecast site
-playoff_davenport <- read_html("http://www.claydavenport.com/stats/ps_oddspec.html") %>%
+playoff_davenport <- read_html("http://www.claydavenport.com/stats/ps_odds.html") %>%
   html_elements("pre") %>%
   html_text2() %>%
   str_split("\n")
@@ -448,7 +448,7 @@ poff_chances_clean |>
   ggplot(aes(x = reorder(label, median_poff_chance), y = median_poff_chance)) +
   geom_col() +
   coord_flip() +
-  labs(y = "Playoff Chance (%)", x = "", caption = "Playoff chances: median of FG, B-Ref, BPro, Clay Davenport, Numberfire, TeamRankings, and 538 (until deprecation)") +
+  labs(y = "Playoff Chance (%)", x = "", caption = "Playoff chances: median of FG, B-Ref, BPro, Clay Davenport, Numberfire, TeamRankings") +
   geom_hline(yintercept = 50, lty = "dashed") +
   facet_wrap(vars(league), scales = "free_y") +
   ggtitle("MLB Team Playoff Chances", subtitle = glue("Prior to Games Played on {Sys.Date()}"))
@@ -461,10 +461,11 @@ poff_chances_clean |>
   select(prediction_date, everything(), -median_poff_chance) |>
   write_csv(file = "playoff_chances.csv", append = TRUE)
 
-# compute playoff chances change between April 22nd and the current date
+# compute playoff chances change between the start of the 2024 season and the current date
 
 poff_chance_change <-
   read_csv("playoff_chances.csv") |>
+  filter(prediction_date >= "2024-03-28") |>
   group_by(team_name, prediction_date) |>
   summarize(median_poff_chance = median(poff_chance)) |>
   filter(prediction_date == min(prediction_date) | prediction_date == max(prediction_date)) |>
@@ -523,6 +524,8 @@ poff_chance_change |>
 # xlim(-80, 80) # TODO: figure out boundaries by taking the max & min change values and making those even somehwo
 
 ggsave("playoff-change-change.png")
+
+# TODO idea for next year: also save the interest_game and interest_plus scores for each day of the season. then we can look back and see what the most impactful games were. 
 ```
 
 
@@ -626,9 +629,8 @@ read_html("https://ans.mlb.com/b/ss/mlbglobal08,mlbcom08/1/H.27.4/s7244009547094
 
 ```{r}
 read_csv("~/Downloads/fangraphs-leaderboards-3.csv") |>
-  filter(!Season %in% c(1994, 1995, 2020)) |>
   select(Season, PlayerId, Name, PA, G, Off) |>
-  filter(PA <= 520, Off >= 30) |>
+  filter(PA <= 520, Off >= 40) |>
   arrange(desc(Off))
 ```
 
