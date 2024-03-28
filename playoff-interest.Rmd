@@ -251,7 +251,7 @@ poff_chances_fg <-
 
 # get today' schedule
 todays_games <-
-  mlb_schedule(season = 2023) %>%
+  mlb_schedule(season = 2024) %>%
   filter(date == Sys.Date()) %>%
   select(contains("team_name"))
 
