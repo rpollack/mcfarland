@@ -353,16 +353,6 @@ poff_chances_clean <-
   ungroup()
 
 poff_chances_clean |>
-  ggplot(aes(x = reorder(team_name, median_poff_chance), y = poff_chance)) +
-  geom_boxplot(outlier.shape = NA) +
-  geom_jitter(aes(color = site), size = 0.5) +
-  coord_flip() +
-  labs(y = "Playoff Chance (%)", x = "") +
-  geom_hline(yintercept = 50, lty = "dashed") +
-  facet_wrap(vars(league), scales = "free_y") +
-  ggtitle("MLB Team Playoff Chances", subtitle = glue("Prior to Games Played on {Sys.Date()}"))
-
-poff_chances_clean |>
   distinct(team_name, league, median_poff_chance) |>
   mutate(median_poff_chance = round(median_poff_chance, 1)) |>
   mutate(label = glue("{team_name}: {median_poff_chance}%")) |>
