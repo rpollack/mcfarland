@@ -16,6 +16,7 @@ library(probably)
 library(finetune)
 library(DALEXtra)
 library(DALEX)
+library(kableExtra)
 
 # functions
 get_all_star_rosters <- function(year) {
@@ -597,14 +598,6 @@ ggsave("hof-mdl-variable-importance.png")
 
 ```
 
-```{r}
-y = 
-
-explain_tidymodels(hof_mdl, data = hof_train, y = hof_train$hof)
-```
-
-
-
 
 make predictions!!
 
@@ -646,10 +639,22 @@ player_predictions <-
     pred_hof = if_else(prob_hof >= optimal_threshold, TRUE, FALSE)
   ) |>
   select(Name, age, pred_hof, prob_hof, cumulative_war, cumulative_h, cumulative_hr, cumulative_mvps, scandal_type, career_midpoint_year, max_cume_frnch_g, cumulative_sb) |>
-  arrange(desc(pred_hof), desc(cumulative_war)) |>
+  mutate(war_per_age = round(cumulative_war/age, 1)) |>
+  arrange(desc(pred_hof), desc(war_per_age)) |>
   ungroup()
   
 View(player_predictions)
+
+num_hof <- player_predictions |> count(pred_hof) |>filter(pred_hof) |> select(n) |> pull()
+
+player_predictions |>
+  group_by(pred_hof) |>
+  slice_head(n=num_hof) |>
+  select(Name, pred_hof, age, cumulative_war) |>
+  arrange(desc(pred_hof)) |>
+  kbl() |>
+  kable_styling()
+
 ```
 
 
@@ -694,7 +699,7 @@ predict_parts(explainer = explainer, new_observation = player_predictions |> fil
 ```
 
 
-```{r, fig.width=5, fig.height=7}
+```{r, fig.width=5, fig.height=5}
 
 # TODO: think about how to show a player's overall percentage and how each of these add up. the base plotting function does that but they don't align the scales, so it makes it hard to compare. 
 
@@ -704,7 +709,7 @@ get_player_explainer <- function(name) {
     mutate(Name = name)
 } 
 
-compare <- c("Yadier Molina", "Cody Bellinger", "Taylor Walls", "Bryson Stott")
+compare <- c("Ryan Braun", "Cody Bellinger", "Mike Trout", "Bryson Stott")
 foo <-
   compare |>
   purrr::map(get_player_explainer)
@@ -713,8 +718,9 @@ list_rbind(foo) |>
   select(Name, variable, contribution) |>
   filter(variable != "intercept" & variable != "prediction") |>
   ggplot(aes(contribution, variable)) +
-  geom_point() +
-  facet_grid(vars(Name), scales = "free_y")
+  geom_col() +
+  facet_grid(vars(Name), scales = "free_y") +
+  labs(y="")
 
 ```
 
