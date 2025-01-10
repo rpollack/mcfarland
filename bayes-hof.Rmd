@@ -9,87 +9,75 @@ library(styler)
 library(themis)
 library(vip)
 library(glue)
+library(stringi)
+library(xgboost)
 library(lubridate)
 library(probably)
 library(finetune)
+library(DALEX)
 
-fgt <- theme(
-  panel.background = element_rect(color = "lightgrey", fill = "white"),
-  axis.title = element_text(family = "Lato"),
-  axis.text = element_text(family = "Lato"),
-  legend.title = element_text(family = "Lato"),
-  legend.text = element_text(family = "Lato"),
-  legend.background = element_rect(fill = "white"),
-  legend.key = element_rect(fill = "white"),
-  plot.title = element_text(family = "Lato"),
-  panel.grid.major = element_line(size = .1, color = "lightgrey"),
-  panel.grid.minor = element_line(size = 0),
-  # strip.background = element_rect(fill = "#50ae26"),
-  strip.text = element_text(family = "Lato")
-)
 
 # functions
 get_all_star_rosters <- function(year) {
   # TODO: handle years with multiple all star games.
 
   if (!year %in% c(1945, 2020)) {
-    read_html(glue("https://www.baseball-reference.com/allstar/{year}-allstar-game.shtml")) %>%
-      html_element(xpath = "//*[@id='all_lineups']/comment()") %>%
-      html_text() %>%
-      str_extract_all(bref_id_regex) %>%
-      as_tibble(.name_repair = "minimal") %>%
-      select(brefid = 1) %>%
+    read_html(glue("https://www.baseball-reference.com/allstar/{year}-allstar-game.shtml")) |>
+      html_element(xpath = "//*[@id='all_lineups']/comment()") |>
+      html_text() |>
+      str_extract_all(bref_id_regex) |>
+      as_tibble(.name_repair = "minimal") |>
+      select(brefid = 1) |>
       mutate(Season = year)
   }
 }
 
 get_mvp_voting <- function(year) {
-  
   # wait a random a mount of seconds in between 4 and 125
-  Sys.sleep(floor(runif(n = 1, min =125, max = 320)))
-  
+  Sys.sleep(floor(runif(n = 1, min = 125, max = 320)))
+
   awards_html <-
     read_html(glue("https://www.baseball-reference.com/awards/awards_{year}.shtml"))
 
   al_points <-
-    awards_html %>%
-    html_elements(css = "#AL_MVP_voting") %>%
-    html_table() %>%
-    pluck(1) %>%
-    dplyr::select(mvp_points = 4) %>%
-    filter(row_number() != 1) %>%
+    awards_html |>
+    html_elements(css = "#AL_MVP_voting") |>
+    html_table() |>
+    pluck(1) |>
+    dplyr::select(mvp_points = 4) |>
+    filter(row_number() != 1) |>
     mutate(mvp_points = as.numeric(mvp_points))
 
-  al_player_ids <- awards_html %>%
-    html_element(css = "#AL_MVP_voting") %>%
-    html_elements("td") %>%
-    html_attr("data-append-csv") %>%
-    as_tibble() %>%
+  al_player_ids <- awards_html |>
+    html_element(css = "#AL_MVP_voting") |>
+    html_elements("td") |>
+    html_attr("data-append-csv") |>
+    as_tibble() |>
     filter(!is.na(value))
 
   al_data <-
     bind_cols(al_player_ids, al_points)
 
   nl_points <-
-    awards_html %>%
-    html_elements(css = "#NL_MVP_voting") %>%
-    html_table() %>%
-    pluck(1) %>%
-    dplyr::select(mvp_points = 4) %>%
-    filter(row_number() != 1) %>%
+    awards_html |>
+    html_elements(css = "#NL_MVP_voting") |>
+    html_table() |>
+    pluck(1) |>
+    dplyr::select(mvp_points = 4) |>
+    filter(row_number() != 1) |>
     mutate(mvp_points = as.numeric(mvp_points))
 
-  nl_player_ids <- awards_html %>%
-    html_element(css = "#NL_MVP_voting") %>%
-    html_elements("td") %>%
-    html_attr("data-append-csv") %>%
-    as_tibble() %>%
+  nl_player_ids <- awards_html |>
+    html_element(css = "#NL_MVP_voting") |>
+    html_elements("td") |>
+    html_attr("data-append-csv") |>
+    as_tibble() |>
     filter(!is.na(value))
 
   nl_data <-
     bind_cols(nl_player_ids, nl_points)
 
-  bind_rows(al_data, nl_data) %>%
+  bind_rows(al_data, nl_data) |>
     mutate(season = year)
 }
 
@@ -98,89 +86,89 @@ get_cy_young_voting_points <- function(year) {
 
   if (year < 1967) {
     ml <-
-      awards_html %>%
-      html_elements(xpath = "//*[@id='all_ML_CYA_voting']/comment()") %>%
+      awards_html |>
+      html_elements(xpath = "//*[@id='all_ML_CYA_voting']/comment()") |>
       html_text()
 
     ml_ids <-
-      ml %>%
-      str_extract_all(bref_id_regex) %>%
-      as_tibble(.name_repair = "minimal") %>%
-      dplyr::select(refid = 1) %>%
+      ml |>
+      str_extract_all(bref_id_regex) |>
+      as_tibble(.name_repair = "minimal") |>
+      dplyr::select(refid = 1) |>
       distinct()
 
     ml_points <-
-      ml %>%
-      str_extract_all('(?<=_won" >)[:digit:]{1,3}\\.0') %>%
-      as_tibble(.name_repair = "minimal") %>%
-      dplyr::select(cya_points = 1) %>%
+      ml |>
+      str_extract_all('(?<=_won" >)[:digit:]{1,3}\\.0') |>
+      as_tibble(.name_repair = "minimal") |>
+      dplyr::select(cya_points = 1) |>
       mutate(cya_points = as.numeric(cya_points))
 
-    bind_cols(ml_ids, ml_points) %>%
+    bind_cols(ml_ids, ml_points) |>
       mutate(Season = year)
   } else {
     al <-
-      awards_html %>%
-      html_elements(xpath = "//*[@id='all_AL_CYA_voting']/comment()") %>%
+      awards_html |>
+      html_elements(xpath = "//*[@id='all_AL_CYA_voting']/comment()") |>
       html_text()
 
     al_ids <-
-      al %>%
-      str_extract_all(bref_id_regex) %>%
-      as_tibble(.name_repair = "minimal") %>%
-      dplyr::select(refid = 1) %>%
+      al |>
+      str_extract_all(bref_id_regex) |>
+      as_tibble(.name_repair = "minimal") |>
+      dplyr::select(refid = 1) |>
       distinct()
 
     al_points <-
-      al %>%
-      str_extract_all('(?<=_won" >)[:digit:]{1,3}\\.0') %>%
-      as_tibble(.name_repair = "minimal") %>%
-      dplyr::select(cya_points = 1) %>%
+      al |>
+      str_extract_all('(?<=_won" >)[:digit:]{1,3}\\.0') |>
+      as_tibble(.name_repair = "minimal") |>
+      dplyr::select(cya_points = 1) |>
       mutate(cya_points = as.numeric(cya_points))
 
     al_data <- bind_cols(al_ids, al_points)
 
     nl <-
-      awards_html %>%
-      html_elements(xpath = "//*[@id='all_NL_CYA_voting']/comment()") %>%
+      awards_html |>
+      html_elements(xpath = "//*[@id='all_NL_CYA_voting']/comment()") |>
       html_text()
 
     nl_ids <-
-      nl %>%
-      str_extract_all(bref_id_regex) %>%
-      as_tibble(.name_repair = "minimal") %>%
-      dplyr::select(refid = 1) %>%
+      nl |>
+      str_extract_all(bref_id_regex) |>
+      as_tibble(.name_repair = "minimal") |>
+      dplyr::select(refid = 1) |>
       distinct()
 
     nl_points <-
-      nl %>%
-      str_extract_all('(?<=_won" >)[:digit:]{1,3}\\.0') %>%
-      as_tibble(.name_repair = "minimal") %>%
-      dplyr::select(cya_points = 1) %>%
+      nl |>
+      str_extract_all('(?<=_won" >)[:digit:]{1,3}\\.0') |>
+      as_tibble(.name_repair = "minimal") |>
+      dplyr::select(cya_points = 1) |>
       mutate(cya_points = as.numeric(cya_points))
 
     nl_data <- bind_cols(nl_ids, nl_points)
 
-    bind_rows(al_data, nl_data) %>%
+    bind_rows(al_data, nl_data) |>
       mutate(Season = year)
   }
 }
 
 get_silver_sluggers <- function(league) {
-  read_html(glue("https://www.baseball-reference.com/awards/silver_slugger_{league}.shtml")) %>%
-    html_element("table") %>%
-    html_elements("a") %>%
-    html_attr("href") %>%
-    as_tibble() %>%
+  read_html(glue("https://www.baseball-reference.com/awards/silver_slugger_{league}.shtml")) |>
+    html_element("table") |>
+    html_elements("a") |>
+    html_attr("href") |>
+    as_tibble() |>
     mutate(
       refid = str_extract(value, bref_id_regex),
       Season = str_extract(value, "[:digit:]{4}")
-    ) %>%
-    fill(Season) %>%
-    na.omit() %>%
+    ) |>
+    fill(Season) |>
+    na.omit() |>
     # remove the last 9 rows; as these are the 'multiple award winners'
-    filter(row_number() <= n() - 9) %>%
-    dplyr::select(refid, Season) %>%
+    filter(row_number() <= n() - 9) |>
+    dplyr::select(refid, Season) |>
     mutate(
       silver_slugger = 1,
       Season = as.numeric(Season)
@@ -188,20 +176,20 @@ get_silver_sluggers <- function(league) {
 }
 
 get_gold_gloves <- function(league) {
-  read_html(glue("https://www.baseball-reference.com/awards/gold_glove_{league}.shtml")) %>%
-    html_element("table") %>%
-    html_elements("a") %>%
-    html_attr("href") %>%
-    as_tibble() %>%
+  read_html(glue("https://www.baseball-reference.com/awards/gold_glove_{league}.shtml")) |>
+    html_element("table") |>
+    html_elements("a") |>
+    html_attr("href") |>
+    as_tibble() |>
     mutate(
       refid = str_extract(value, bref_id_regex),
       Season = str_extract(value, "[:digit:]{4}")
-    ) %>%
-    fill(Season) %>%
-    na.omit() %>%
+    ) |>
+    fill(Season) |>
+    na.omit() |>
     # remove the last 9 rows; as these are the 'multiple award winners'
-    filter(row_number() <= n() - 9) %>%
-    dplyr::select(refid, Season) %>%
+    filter(row_number() <= n() - 9) |>
+    dplyr::select(refid, Season) |>
     mutate(
       gold_glove = 1,
       Season = as.numeric(Season)
@@ -209,34 +197,98 @@ get_gold_gloves <- function(league) {
 }
 ```
 
+Annual update steps:
+- Download new FanGraphs player data, set to the most recent season: https://www.fangraphs.com/leaders/major-league?stats=bat&lg=all&type=c%2C4%2C6%2C11%2C12%2C13%2C21%2C-1%2C41%2C-1%2C23%2C37%2C38%2C61%2C-1%2C-1%2C203%2C199%2C58%2C7&month=0&ind=1&team=0%2Cto&rost=0&players=0&startdate=&enddate=&season1=1871&season=2024&qual=1&pos=np&v_cr=202301
+- Download new FG data that marks players as HOF: https://www.fangraphs.com/leaders/major-league?stats=bat&lg=all&type=8&month=0&ind=0&team=0%2Cto&rost=2&players=0&startdate=&enddate=&season1=1871&season=2023&qual=0&pos=np
+- Download new MVP data from https://www.mlb.com/awards/most-valuable-player. Ensure it joins properly to the main baseball dataset. 
+- Refresh Lahman DB data
+- Download new Chadwick data: https://github.com/chadwickbureau/register/tree/master/data
+- Set 'hof consideration' year to the most recent one
+- Set 'last season played' to the most recent one
+
+
 ```{r}
-# somewhat of a test -- trying to read fangraphs DB data and join it with chadwick data.
 
-# final df should have season, player name, WAR in that season, mean_year (of player's carrer), age (season - birth_year)
+```
 
-# fg data: https://www.fangraphs.com/leaders/major-league?stats=bat&lg=all&type=8&month=0&ind=1&team=0%2Cto&rost=0&players=0&startdate=&enddate=&season1=1871&season=2023&qual=1&pos=np
+
+load all data
+
+```{r}
+# get stats and data for position players.
+
+# fg data: https://www.fangraphs.com/leaders/major-league?stats=bat&lg=all&type=c%2C4%2C6%2C11%2C12%2C13%2C21%2C-1%2C41%2C-1%2C23%2C37%2C38%2C61%2C-1%2C-1%2C203%2C199%2C58%2C7&month=0&ind=1&team=0%2Cto&rost=0&players=0&startdate=&enddate=&season1=1871&season=2024&qual=1&pos=np&v_cr=202301
 batter_data <-
-  read_csv("~/Downloads/fangraphs-leaderboards-12.csv")
+  read_csv("~/Downloads/fangraphs-leaderboards-26.csv", show_col_types = FALSE)
 
-# chadwick data: https://github.com/chadwickbureau/register/tree/master
+# chadwick data: https://github.com/chadwickbureau/register/tree/master. we will use this to compute franchise mobility as well as the years in which a player was most active
 chadwick_data <-
-  read_csv("~/Downloads/people-0.csv", col_select = c(key_fangraphs, key_mlbam, key_uuid, key_fangraphs, birth_year, mlb_played_first, mlb_played_last)) |>
-  bind_rows(read_csv("~/Downloads/people-1.csv", col_select = c(key_fangraphs, key_mlbam, key_uuid, key_fangraphs, birth_year, mlb_played_first, mlb_played_last))) |>
-  bind_rows(read_csv("~/Downloads/people-2.csv", col_select = c(key_fangraphs, key_mlbam, key_uuid, key_fangraphs, birth_year, mlb_played_first, mlb_played_last))) |>
-  bind_rows(read_csv("~/Downloads/people-3.csv", col_select = c(key_fangraphs, key_mlbam, key_uuid, key_fangraphs, birth_year, mlb_played_first, mlb_played_last))) |>
-  bind_rows(read_csv("~/Downloads/people-4.csv", col_select = c(key_fangraphs, key_mlbam, key_uuid, key_fangraphs, birth_year, mlb_played_first, mlb_played_last))) |>
-  bind_rows(read_csv("~/Downloads/people-5.csv", col_select = c(key_fangraphs, key_mlbam, key_uuid, key_fangraphs, birth_year, mlb_played_first, mlb_played_last))) |>
-  bind_rows(read_csv("~/Downloads/people-6.csv", col_select = c(key_fangraphs, key_mlbam, key_uuid, key_fangraphs, birth_year, mlb_played_first, mlb_played_last))) |>
-  bind_rows(read_csv("~/Downloads/people-7.csv", col_select = c(key_fangraphs, key_mlbam, key_uuid, key_fangraphs, birth_year, mlb_played_first, mlb_played_last))) |>
-  bind_rows(read_csv("~/Downloads/people-8.csv", col_select = c(key_fangraphs, key_mlbam, key_uuid, key_fangraphs, birth_year, mlb_played_first, mlb_played_last))) |>
-  bind_rows(read_csv("~/Downloads/people-9.csv", col_select = c(key_fangraphs, key_mlbam, key_uuid, key_fangraphs, birth_year, mlb_played_first, mlb_played_last))) |>
-  bind_rows(read_csv("~/Downloads/people-a.csv", col_select = c(key_fangraphs, key_mlbam, key_uuid, key_fangraphs, birth_year, mlb_played_first, mlb_played_last))) |>
-  bind_rows(read_csv("~/Downloads/people-b.csv", col_select = c(key_fangraphs, key_mlbam, key_uuid, key_fangraphs, birth_year, mlb_played_first, mlb_played_last))) |>
-  bind_rows(read_csv("~/Downloads/people-c.csv", col_select = c(key_fangraphs, key_mlbam, key_uuid, key_fangraphs, birth_year, mlb_played_first, mlb_played_last))) |>
-  bind_rows(read_csv("~/Downloads/people-d.csv", col_select = c(key_fangraphs, key_mlbam, key_uuid, key_fangraphs, birth_year, mlb_played_first, mlb_played_last))) |>
-  bind_rows(read_csv("~/Downloads/people-e.csv", col_select = c(key_fangraphs, key_mlbam, key_uuid, key_fangraphs, birth_year, mlb_played_first, mlb_played_last))) |>
-  bind_rows(read_csv("~/Downloads/people-f.csv", col_select = c(key_fangraphs, key_mlbam, key_uuid, key_fangraphs, birth_year, mlb_played_first, mlb_played_last)))
+  read_csv("~/Downloads/people-0.csv", col_select = c(key_fangraphs, key_retro, key_bbref, key_mlbam, key_uuid, key_fangraphs, key_retro, key_bbref, birth_year, mlb_played_first, mlb_played_last), show_col_types = FALSE) |>
+  bind_rows(read_csv("~/Downloads/people-1.csv", col_select = c(key_fangraphs, key_retro, key_bbref, key_mlbam, key_uuid, key_fangraphs, key_retro, key_bbref, birth_year, mlb_played_first, mlb_played_last), show_col_types = FALSE)) |>
+  bind_rows(read_csv("~/Downloads/people-2.csv", col_select = c(key_fangraphs, key_retro, key_bbref, key_mlbam, key_uuid, key_fangraphs, key_retro, key_bbref, birth_year, mlb_played_first, mlb_played_last), show_col_types = FALSE)) |>
+  bind_rows(read_csv("~/Downloads/people-3.csv", col_select = c(key_fangraphs, key_retro, key_bbref, key_mlbam, key_uuid, key_fangraphs, key_retro, key_bbref, birth_year, mlb_played_first, mlb_played_last), show_col_types = FALSE)) |>
+  bind_rows(read_csv("~/Downloads/people-4.csv", col_select = c(key_fangraphs, key_retro, key_bbref, key_mlbam, key_uuid, key_fangraphs, key_retro, key_bbref, birth_year, mlb_played_first, mlb_played_last), show_col_types = FALSE)) |>
+  bind_rows(read_csv("~/Downloads/people-5.csv", col_select = c(key_fangraphs, key_retro, key_bbref, key_mlbam, key_uuid, key_fangraphs, key_retro, key_bbref, birth_year, mlb_played_first, mlb_played_last), show_col_types = FALSE)) |>
+  bind_rows(read_csv("~/Downloads/people-6.csv", col_select = c(key_fangraphs, key_retro, key_bbref, key_mlbam, key_uuid, key_fangraphs, key_retro, key_bbref, birth_year, mlb_played_first, mlb_played_last), show_col_types = FALSE)) |>
+  bind_rows(read_csv("~/Downloads/people-7.csv", col_select = c(key_fangraphs, key_retro, key_bbref, key_mlbam, key_uuid, key_fangraphs, key_retro, key_bbref, birth_year, mlb_played_first, mlb_played_last), show_col_types = FALSE)) |>
+  bind_rows(read_csv("~/Downloads/people-8.csv", col_select = c(key_fangraphs, key_retro, key_bbref, key_mlbam, key_uuid, key_fangraphs, key_retro, key_bbref, birth_year, mlb_played_first, mlb_played_last), show_col_types = FALSE)) |>
+  bind_rows(read_csv("~/Downloads/people-9.csv", col_select = c(key_fangraphs, key_retro, key_bbref, key_mlbam, key_uuid, key_fangraphs, key_retro, key_bbref, birth_year, mlb_played_first, mlb_played_last), show_col_types = FALSE)) |>
+  bind_rows(read_csv("~/Downloads/people-a.csv", col_select = c(key_fangraphs, key_retro, key_bbref, key_mlbam, key_uuid, key_fangraphs, key_retro, key_bbref, birth_year, mlb_played_first, mlb_played_last), show_col_types = FALSE)) |>
+  bind_rows(read_csv("~/Downloads/people-b.csv", col_select = c(key_fangraphs, key_retro, key_bbref, key_mlbam, key_uuid, key_fangraphs, key_retro, key_bbref, birth_year, mlb_played_first, mlb_played_last), show_col_types = FALSE)) |>
+  bind_rows(read_csv("~/Downloads/people-c.csv", col_select = c(key_fangraphs, key_retro, key_bbref, key_mlbam, key_uuid, key_fangraphs, key_retro, key_bbref, birth_year, mlb_played_first, mlb_played_last), show_col_types = FALSE)) |>
+  bind_rows(read_csv("~/Downloads/people-d.csv", col_select = c(key_fangraphs, key_retro, key_bbref, key_mlbam, key_uuid, key_fangraphs, key_retro, key_bbref, birth_year, mlb_played_first, mlb_played_last), show_col_types = FALSE)) |>
+  bind_rows(read_csv("~/Downloads/people-e.csv", col_select = c(key_fangraphs, key_retro, key_bbref, key_mlbam, key_uuid, key_fangraphs, key_retro, key_bbref, birth_year, mlb_played_first, mlb_played_last), show_col_types = FALSE)) |>
+  bind_rows(read_csv("~/Downloads/people-f.csv", col_select = c(key_fangraphs, key_retro, key_bbref, key_mlbam, key_uuid, key_fangraphs, key_retro, key_bbref, birth_year, mlb_played_first, mlb_played_last), show_col_types = FALSE))
 
+# get HOF induction data
+# hof players: https://www.fangraphs.com/leaders/major-league?stats=bat&lg=all&type=8&month=0&ind=0&team=0%2Cto&rost=2&players=0&startdate=&enddate=&season1=1871&season=2023&qual=0&pos=np
+
+hof <-
+  read_csv("~/Downloads/fangraphs-leaderboards-24.csv", col_select = "PlayerId", show_col_types = FALSE) |>
+  mutate(hof = 1)
+
+# get cumulative MVPs by year
+mvp_html <-
+  read_html("https://www.mlb.com/awards/most-valuable-player") |>
+  html_elements("table")
+
+al_mvp <-
+  mvp_html |>
+  pluck(1) |>
+  html_table() |>
+  mutate(Name = stri_trans_general(Player, id = "Latin-ASCII")) |>
+  select(Year, Name) |>
+  mutate(num_mvps = 1) 
+
+nl_mvp <-
+  mvp_html |>
+  pluck(2) |>
+  html_table() |>
+  mutate(Name = stri_trans_general(Player, id = "Latin-ASCII")) |>
+  select(Year, Name) |>
+  mutate(num_mvps = 1) 
+
+mvp_data <-
+  bind_rows(al_mvp, nl_mvp)
+```
+
+
+engineer some features and create the useable data frame
+
+```{r, echo=FALSE}
+# TODO: features and changes to consider: 
+# TODO: we could do a thing where like we model whether the player's year was their last in the bigs. this could help inform predicting because the model will know when a player stopped accruing WAR. 
+# TODO: try "max cumulative franchise WAR' instead of max cumulative franchise G.
+# TODO: try positional data
+# TODO: investigate wrong predictions in the training model and see if there is some pattern
+# TODO: get all star appearances from Lahman
+
+# make 'franchise WAR pct" cumulative through that point in a player's career. right now it's the whole career
+# best 5 or 7 WAR years, something like that. 
+# cumulative RBI
+# cumulative SB
+
+hof_consideration_year <- 2024 # used to determine whether someone's been considered for the HOF
 
 bat_data <-
   batter_data |>
@@ -260,94 +312,118 @@ bat_data <-
       Team %in% c("WSN", "MON") ~ "WAS",
       Team %in% c("TEX", "WSA") ~ "TEX",
       .default = Team
-    )
-  )
-
-
-
-# hof players: https://www.fangraphs.com/leaders/major-league?stats=bat&lg=all&type=8&month=0&ind=0&team=0%2Cto&rost=2&players=0&startdate=&enddate=&season1=1871&season=2023&qual=0&pos=np
-
-hof <-
-  read_csv("~/Downloads/fangraphs-leaderboards-13.csv", col_select = "PlayerId") |>
-  mutate(hof = 1)
-
-hof_consideration_year <- 2023 # used to determine whether someone's been considered for the HOF
+    ))
+  # ) |>
+  # 
+  # # all star data is current as of 2021. there is a 'many to many' relatinoship; maybe because there were multiple ASGs in some years? 
+  # left_join(all_star_seasonal, by=c("key_bbref" = "brefid",
+  #                                   "Season")) 
+  
 
 bat_data_full <-
   bat_data |>
-  group_by(PlayerId) |>
-  # figure out the highest % of the player's total WAR that was accrued with 1 franchise
-  # for single-team players, this will be 1. for journeymen, this will be much lower.
-  # #https://www.billjamesonline.com/vagabonds_and_homebodies/
-
-  mutate(total_war = sum(WAR)) |>
-  # total & pct of WAR played at each franchise
-  group_by(PlayerId, franchise) |>
-  mutate(
-    franchise_war = sum(WAR),
-    franchise_war_pct = franchise_war / total_war
-  ) |>
-  # for each player, assign them the highest franchise_war_pct
-  group_by(PlayerId) |>
-  mutate(max_franchise_war_pct = max(franchise_war_pct)) |>
-  select(-franchise_war, -franchise_war_pct, -total_war) |>
-  # computer WAR per age. needed because the dataset contains split seasons
+  mutate(Name = stri_trans_general(Name, id = "Latin-ASCII")) |>
+  # add in MVP data
+  left_join(mvp_data, by = c(
+    "Season" = "Year",
+    "Name"
+  )) |>
+  replace_na(list(num_mvps = 0)) |>
+      # find the largest number of games a player has played with any 1 franchise through that point in their career.   # #https://www.billjamesonline.com/vagabonds_and_homebodies/
+    group_by(PlayerId, franchise) |>
+    arrange(PlayerId, franchise, Season) |>
+    mutate(cumulative_franchise_g = cumsum(G)) |> # Step 1: Franchise-specific cumulative G
+    ungroup() |>
+  
+    # overall cumulative G for player through that point in career
+    arrange(PlayerId, Season) |>
+    mutate(cumulative_career_g = cumsum(G)) |>
+    group_by(PlayerId) |>
+    arrange(PlayerId, age) |>
+    mutate(
+      # compute the highest G total with 1 franchise to that point in the player's career
+      max_cume_frnch_g = cummax(cumulative_franchise_g)) |>
   group_by(PlayerId, Name, age) |>
-  mutate(WAR = sum(WAR),
-         off = sum(Off),
-         def = sum(Def)) |>
-  distinct(PlayerId, Name, age, WAR, off, def, max_franchise_war_pct, career_midpoint_year, mlb_played_last) |>
-  # now, computer we can do WAR through each age
+  mutate(
+    WAR = sum(WAR),
+    off = sum(Off),
+    def = sum(Def),
+    H = sum(H),
+    HR = sum(HR),
+    SB = sum(SB)
+  ) |>
+  replace_na(list(SB = 0)) |>
+  distinct(PlayerId, Name, age, WAR, H, HR, SB, off, def, max_cume_frnch_g, career_midpoint_year, mlb_played_last, num_mvps) |>
+  # now, compute WAR & other stats through each age
   group_by(PlayerId, Name) |>
   arrange(age) |>
   mutate(
     num_seasons = n(),
     cumulative_war = cumsum(WAR),
     cumulative_off = cumsum(off),
-    cumulative_def = cumsum(def)
+    cumulative_def = cumsum(def),
+    cumulative_mvps = cumsum(num_mvps),
+    cumulative_hr = cumsum(HR),
+    cumulative_h = cumsum(H),
+    cumulative_sb = cumsum(SB)
   ) |>
+  
+  # identify players elected to the Hall of Fame
   left_join(hof, by = "PlayerId") |>
   replace_na(list(hof = 0)) |>
   distinct() |> # getting duplicate rows for some reason. too lazy to fix it for real right now
   ungroup() |>
   mutate(
     considered_hof = if_else(hof_consideration_year - mlb_played_last < 6, FALSE, TRUE),
-    hof = factor(hof, levels = c(1, 0))
-  ) |> # positive class prediction must be first level
-  filter(!is.na(age)) # there are 80-ish NA values for 'age', all players in the late 1800s. get rid of 'em
-
-
-# TODO: add in scandal data
-
-# the next thing to do is to build the model.
-# REMEMBER to train it only on data for players who have been voted on by the HOF or who've had the opportunity
-# use a large number of trees, and utilize early stopping.
-# this way we can predict folks who haven't been considered yet.
+    hof = factor(hof, levels = c(1, 0)) # positive class prediction must be first level
+  ) |> 
+  filter(!is.na(age)) |> # there are 80-ish NA values for 'age', all players in the late 1800s. get rid of 'em
+  mutate(scandal_type = case_when(
+    Name %in% c("Barry Bonds", "Roger Clemens", "Jose Canseco", "Rafael Palmeiro", "Jason Giambi", "Gary Sheffield", "Miguel Tejada", "Nelson Cruz", "Andy Pettitte", "Ryan Braun", "Manny Ramirez", "Alex Rodriguez", "Mark McGwire", "Sammy Sosa", "Robinson Cano", "Starling Marte", "Melky Cabrera", "David Ortiz", "Dee Gordon", "Bartolo Colon", "Fernando Tatis Jr.") ~ "PEDs",
+    Name %in% c("Joe Jackson", "Eddie Cicotte", "Buck Weaver", "Chick Gandil", "Fred McMullin", "Swede Risberg", "Lefty Williams", "Joe Gedeon", "Pete Rose") ~ "gambling",
+    Name %in% c("Carlos Beltran", "Jose Altuve", "Alex Bregman", "Alex Cora", "Carlos Correa", "George Springer", "Gaylord Perry") ~ "cheating",
+    Name %in% c("Curt Schilling", "Lenny Dykstra", "Roberto Alomar") ~ "misconduct",
+    Name %in% c("Marcell Ozuna", "Roberto Osuna", "Jose Reyes", "Aroldis Chapman", "Omar Vizquel", "Addison Russell", "Wander Franco", "Domingo German") ~ "domestic violence",
+    TRUE ~ "none"
+  ),
+  
+  # round all numeric columns to 1 decimal place for simplicity and ease of presentation
+  across(where(is.numeric), round, 1))
 ```
 
-```{r}
-# THINGS TO TRY: 
+train the model and show information about it, such as a confusion matrix and AUPRC, and make predictions
 
-# scale_pos_weight. 
-# add in scandal data
+```{r}
+# THINGS TO TRY:
+
+# scale_pos_weight.
 # add in positional data
-# separate peak WAR from career WAR
+# make use of https://probably.tidymodels.org/articles/equivocal-zones.html ???
 
 hof_split <-
-  bat_data_full %>%
+  bat_data_full |>
   # train & test model only on players who have not played for 5 years
-  filter(considered_hof) %>%
-  dplyr::select(age, max_franchise_war_pct, career_midpoint_year, cumulative_off, cumulative_def, cumulative_war, hof) %>%
+  filter(considered_hof,
+         # thin out the dataset a bit. realistically you need to be somewhat of a consistent MLB regular before you're ACTUALLY considered. don't train on scrubs or short-termers. 
+         num_seasons >= 5) |>
+  dplyr::select(age, max_cume_frnch_g, career_midpoint_year, cumulative_war, scandal_type, cumulative_mvps, cumulative_hr, cumulative_h, cumulative_sb, hof) |>
   initial_split(strata = hof)
 
 hof_train <- training(hof_split)
 hof_test <- testing(hof_split)
 
-# build a specification. 
+# scale_pos_numerator <-
+#   bat_data_full |> filter(considered_hof) |> distinct(PlayerId, hof) |> count(hof) |> filter(hof == 0) |> select(n) |> pluck(1)
+# 
+# scale_pos <- scale_pos_numerator / (bat_data_full |> filter(considered_hof) |> distinct(PlayerId, hof) |> count(hof) |> filter(hof == 1) |> select(n) |> pluck(1))
+#   
+  
+
+# build a specification.
 xgb_spec <-
   boost_tree(
     mode = "classification",
-    trees = 1000,
+    trees = 300,
     tree_depth = tune(),
     min_n = tune(),
     loss_reduction = tune(),
@@ -356,28 +432,30 @@ xgb_spec <-
     # mtry = tune(),
     learn_rate = tune(),
     stop_iter = tune()
-  ) %>%
+  ) |>
   set_engine("xgboost", validation = 0.2) # validation proportion to use for early stop detection
 
-xgb_grid <- grid_latin_hypercube(
+xgb_grid <- grid_space_filling(
   tree_depth(),
   min_n(),
   loss_reduction(),
+ # scale_pos_weight = c(52,55),
   sample_size = sample_prop(),
   stop_iter(range = c(10, 50)), # tune early stopping rounds
   # mtry(range = c(6, 32)),
-  # finalize(mtry(), hof_train %>% dplyr::select(-hof)),
+  # finalize(mtry(), hof_train |> dplyr::select(-hof)),
   learn_rate(),
-  size = 50
+  size = 25
 )
 
 xgb_recipe <-
-  recipe(hof ~ ., data = hof_train) %>%
+  recipe(hof ~ ., data = hof_train) |>
+ step_dummy_multi_choice(scandal_type) |>
   step_smote(hof) # smote increases AUPRC, bal acc, and F1 by a meaningful amount.
 
 xgb_wf <-
-  workflow() %>%
-  add_model(xgb_spec) %>%
+  workflow() |>
+  add_model(xgb_spec) |>
   add_recipe(xgb_recipe)
 
 all_cores <- parallel::detectCores(logical = FALSE)
@@ -399,20 +477,20 @@ xgb_res <- tune_grid(
 )
 
 # show how each parameter affects the model performance
-xgb_res %>%
-  collect_metrics() %>%
-  filter(.metric == "pr_auc") %>%
-  dplyr::select(mean, min_n:sample_size) %>%
+xgb_res |>
+  collect_metrics() |>
+  filter(.metric == "pr_auc") |>
+  dplyr::select(mean, min_n:sample_size) |>
   pivot_longer(min_n:sample_size,
     values_to = "value",
     names_to = "parameter"
-  ) %>%
+  ) |>
   ggplot(aes(value, mean, color = parameter)) +
   geom_point(alpha = 0.8, show.legend = FALSE) +
   facet_wrap(~parameter, scales = "free_x") +
   labs(x = NULL, y = "PR_AUC")
 
-best_auprc <- select_best(xgb_res, "pr_auc")
+best_auprc <- select_best(xgb_res, metric = "pr_auc")
 
 final_xgb <- finalize_workflow(
   xgb_wf,
@@ -430,36 +508,58 @@ hof_mdl <- final_res$.workflow[[1]]
 # evaluate model using curves & area underneath it
 
 predictions <-
-  final_res %>%
+  final_res |>
   collect_predictions()
+
+# find optimal threshold for class predictions by maximizing the j index
+# players with a predicted HOF probability above this point will be classified as HOF
+optimal_threshold <-
+  predictions |>
+  threshold_perf(hof, .pred_1, thresholds = seq(0.1, 1, by = 0.0025)) |>
+  filter(.metric == "j_index") |>
+  arrange(desc(.estimate)) |>
+  filter(row_number() == 1) |>
+  dplyr::select(.threshold) |>
+  
+
+optimal_threshold <- optimal_threshold * 100
+
+# not sure this is adding any value
+# optimal_predictions <-
+#   predictions |>
+#   mutate(optimized_pred = factor(if_else(.pred_1 >= optimal_threshold, 1, 0),
+#                                  levels = c(1,0)))
+
+# TODO: predictions_optimized <-
+  # preds_new <- preds %>% 
+  # mutate(new_class_pred = factor(ifelse(.pred_bad >= max_j_index_threshold, "bad", "good"), 
+  #                                levels = c("bad", "good"))) 
 
 # compute area under ROC using class probabilities
 area_under_curve <-
-  predictions %>%
-  pr_auc(truth = hof, .pred_1) %>%
-  dplyr::select(.estimate) %>%
-  as.numeric() %>%
+  predictions |>
+  pr_auc(truth = hof, .pred_1) |>
+  dplyr::select(.estimate) |>
+  as.numeric() |>
   round(2)
 
 # draw  PR Curve using class probabilities
-predictions %>%
-  pr_curve(truth = hof, .pred_1) %>%
+predictions |>
+  pr_curve(truth = hof, .pred_1) |>
   ggplot(aes(recall, precision)) +
   geom_path() +
   coord_equal() +
   geom_hline(yintercept = 0, color = "blue", lty = "dashed") +
-ggtitle("Precision-Recall Curve, HOF Prediction Model",
-  subtitle = glue("Area Under Curve: {area_under_curve}")
-)
+  ggtitle("Precision-Recall Curve, HOF Prediction Model",
+    subtitle = glue("Area Under Curve: {area_under_curve}")
+  )
 
 ggsave("hof-mdl-pr-curve.png")
 
-
-
-predictions %>%
-  conf_mat(truth = hof, estimate = .pred_class) %>%
-  pluck(1) %>%
-  as_tibble() %>%
+predictions |>
+  conf_mat(truth = hof, estimate = .pred_class) |>
+  pluck(1) |>
+  as_tibble() |>
   ggplot(aes(Prediction, Truth)) +
   geom_tile(show.legend = FALSE) +
   geom_text(aes(label = n), colour = "white", alpha = 1) +
@@ -468,18 +568,18 @@ predictions %>%
 ggsave("hof-mdl-confusion-matrix.png")
 
 
-predictions %>%
-  f_meas(truth = hof, estimate = .pred_class)
+predictions |>
+  f_meas(truth = hof, estimate = optimized_pred)
 
-predictions %>%
+predictions |>
   bal_accuracy(truth = hof, estimate = .pred_class)
 
 # show the importance of each variable. remove 'X's from positions for readibility
-final_xgb %>%
-  fit(data = hof_train) %>%
-  extract_fit_parsnip() %>%
-  vip::vi() %>%
-  mutate(Variable = str_replace_all(Variable, "X", "")) %>%
+final_xgb |>
+  fit(data = hof_train) |>
+  extract_fit_parsnip() |>
+  vip::vi() |>
+  mutate(Variable = str_replace_all(Variable, "X", "")) |>
   ggplot(aes(reorder(Variable, Importance), Importance)) +
   geom_col() +
   coord_flip() +
@@ -487,21 +587,25 @@ final_xgb %>%
   ggtitle("Relative Predictor Importance, HOF Prediction Model")
 
 ggsave("hof-mdl-variable-importance.png")
+
+# Create an explainer using training data
+explainer <- 
+  DALEX::explain(
+  model = hof_mdl,            # Use the fitted model
+  data = hof_train |> select(-hof),  # Training features (exclude target)
+  y = hof_train$hof,           # Actual target values
+  type = "classification",
+  label = "HOF Prediction Model"
+)
+
+
+
 ```
 
-```{r}
-# find optimal threshold for class predictions by maximizing the j index
-optimal_threshold <-
-  predictions %>%
-  threshold_perf(hof, .pred_1, thresholds = seq(0.01, 1, by = 0.0025)) %>%
-  filter(.metric == "j_index") %>%
-  arrange(desc(.estimate)) %>%
-  filter(row_number() == 1) %>%
-  dplyr::select(.threshold) %>%
-  as.numeric() * 100
 
-optimal_threshold
+make predictions!!
 
+``` {r}
 # predict HOF chances for players who meet the following criteria:
 # have not been considered for the HOF
 # last played in the past 2 years (e.g. likely are still active) OR
@@ -510,9 +614,10 @@ optimal_threshold
 # who are retired but didn't play 10 years so aren't eligible and will never be
 
 year_threshold <- 2
-last_season_played <- 2023
+last_season_played <- 2024
 
-bat_data_full %>%
+prep <-
+  bat_data_full |>
   group_by(PlayerId) |>
   mutate(num_seasons_real = n_distinct(age)) |>
   ungroup() |>
@@ -522,920 +627,967 @@ bat_data_full %>%
     hof != 1,
     !considered_hof,
     (num_seasons_real >= 10 |
-       num_seasons_real < 10 & mlb_played_last >= (last_season_played - year_threshold))
-  ) %>%
-  group_by(PlayerId) %>%
-  filter(age == max(age)) %>%
-  ungroup() %>%
-  dplyr::select(-hof, -WAR) %>%
-  bind_cols(
-    predict(hof_mdl, new_data = .),
-    predict(hof_mdl, new_data = ., type = "prob")
-  ) %>%
-  mutate(prob_hof = round(100 * (.pred_1), 1)) |>
-  arrange(desc(prob_hof)) |>
-  View()
-
-
-slice_max(n = num_players, order_by = prob_hof) %>%
-  ggplot(aes(reorder(name, prob_hof), prob_hof)) +
-  geom_col() +
-  ylim(0, 100) +
-  coord_flip() +
-  facet_wrap(vars(position), scales = "free_y") +
-  labs(x = "", y = "HOF Probability (%)") +
-  geom_hline(yintercept = optimal_threshold, lty = "dashed") +
-  ggtitle(glue("Probability of HOF election"), subtitle = glue("Players not voted on yet. {optimal_threshold}% = Predicted Hall of Famer"))
-
-ggsave("hof-predictions-final.png", width = 10)
-```
-
-
-# Get Player Data
-
-```{r}
-# regex for finding bb-ref player ID's. between 3 and 7 alpha chars, followed by 0 or 1 periods, followed by exactly 2 digits. the periods are for id's like CC Sabathia and AJ Burnett
-bref_id_regex <- "[:alpha:]{3,7}\\.{0,1}[:digit:]{2}"
-
-# the most recent season played
-most_recent_year <- 2023
-
-# get seasonal pitching WAR for players. remove relievers.
-# use average of FIP-based and run-based WAR
-
-con <-
-  DBI::dbConnect(RMariaDB::MariaDB(),
-    dbname = Sys.getenv("FG_DB"),
-    host = Sys.getenv("FG_HOST"),
-    user = Sys.getenv("FG_USER"),
-    password = Sys.getenv("FG_PW"),
-    port = 5001,
-    ssl.ca = "~/Documents/skysql_fangraphs-db.pem"
-  )
-
-pitcher_stats_q <-
-  dbSendQuery(con, "select spmp.PlayerId, ValueW as FIP_WAR, \`RA9-Wins\`, spmp.Season, Age, spmp.GS, spmp.G, st.DBFranchId as franchise
-              from stats_pitching_master_pfx spmp
-join player_info pi on spmp.PlayerId = pi.PlayerId
-join season_team st on spmp.TeamId = st.TeamId and spmp.Season = st.Season
-              where spmp.Type >=0 and spmp.Type <=10
-and pi.position like '%P%'")
-
-pitcher_stats <-
-  dbFetch(pitcher_stats_q) %>%
-  as_tibble() %>%
-  mutate(WAR = round((FIP_WAR + `RA9-Wins`) / 2, 1)) %>%
-  group_by(PlayerId) %>%
-  filter(sum(GS) / sum(G) >= 0.5) %>%
-  ungroup() %>%
-  dplyr::select(-GS, -FIP_WAR, -`RA9-Wins`, franchise)
-
-dbClearResult(pitcher_stats_q)
-
-# compute "one-team percentage. See https://www.billjamesonline.com/vagabonds_and_homebodies/
-one_team_percentage_pit <-
-  pitcher_stats %>%
-  # compute running G total for each player in their time with a franchise
-  group_by(PlayerId, franchise) %>%
-  arrange(Age, .by_group = TRUE) %>%
-  mutate(franchise_g = cumsum(G)) %>%
-  # compute the maximum franchise/G total for each year of a player's season up to that point
-  group_by(PlayerId) %>%
-  arrange(Age, .by_group = TRUE) %>%
-  mutate(max_franchise_g = cummax(franchise_g)) %>%
-  # now ensure seasons where players are traded use the highest value to that point
-  group_by(PlayerId, Age) %>%
-  mutate(max_franchise_g = max(max_franchise_g)) %>%
-  # eliminate multiple-team seasons
-  distinct(PlayerId, Season, Age, max_franchise_g)
-
-# Compute total WAR per each age. this is needed because the dataset contains split seasons for players
-# who appeared for >1 team in a season.
-pitchers_full <-
-  pitcher_stats %>%
-  group_by(PlayerId, Age) %>%
-  mutate(WAR = sum(WAR)) %>%
-  ungroup() %>%
-  distinct(PlayerId, Age, WAR) %>%
-  inner_join(one_team_percentage_pit, by = c("PlayerId", "Age", "WAR"))
-
-
-batter_stats_q <-
-  dbSendQuery(con, "select sb.playerid AS PlayerId, ValueW as WAR, sb.Season, Age, sb.G, st.DBFranchId as franchise
-from stats_batting sb
-         join player_info pi on sb.playerid = pi.PlayerId
-         left join season_team st on sb.TeamId = st.TeamId and sb.Season = st.Season
-where sb.Type >= 0 and sb.Type <= 10
-and st.DBFranchId IS NOT NULL   -- prevent getting full-season records from years players changed teams
-  and pi.Position not like '%P%'")
-
-
-batter_stats <-
-  dbFetch(batter_stats_q) %>%
-  as_tibble()
-
-# now do two things:
-# 1. find a player's 'one-team percentage'. e.g. the highest % of career WAR accumulated with one franchise.
-# this will be 1 for players who stayed with one team their entire career and very low for players who bounced around.
-
-
-one_team_percentage_bat <-
-  batter_stats %>%
-  # compute running G total for each player in their time with a franchise
-  group_by(PlayerId, franchise) %>%
-  arrange(Age, .by_group = TRUE) %>%
-  mutate(franchise_g = cumsum(G)) %>%
-  # compute the maximum franchise/G total for each year of a player's season up to that point
-  group_by(PlayerId) %>%
-  arrange(Age, .by_group = TRUE) %>%
-  mutate(max_franchise_g = cummax(franchise_g)) %>%
-  # now ensure seasons where players are traded use the highest value to that point
-  group_by(PlayerId, Age) %>%
-  mutate(max_franchise_g = max(max_franchise_g)) %>%
-  # eliminate multiple-team seasons
-  distinct(PlayerId, Season, Age, max_franchise_g)
-
-
-# 2 - compute total WAR per each age. this is needed because the dataset contains split seasons for players
-# who appeared for >1 team in a season.
-batters_full <-
-  batter_stats %>%
-  group_by(PlayerId, Age) %>%
-  mutate(WAR = sum(WAR)) %>%
-  ungroup() %>%
-  distinct(PlayerId, Age, WAR) %>%
-  inner_join(one_team_percentage_bat, by = c("PlayerId", "Age"))
-
-
-dbClearResult(batter_stats_q)
-
-player_info_q <-
-  dbSendQuery(con, "select PlayerId, FirstName, LastName, BirthDate, Debut, LastGame, Position, BISPosition from player_info")
-
-player_info <-
-  dbFetch(player_info_q) %>%
-  as_tibble() %>%
-  unite(Name, FirstName, LastName, sep = " ") %>%
-  mutate(
-    last_year = year(ymd(LastGame)),
-    debut = year(ymd(Debut)),
-    Position = str_extract(Position, "^(P|C|1B|2B|3B|SS|OF|DH)"), # extract primary position from dataset
-    birth_year = year(ymd(BirthDate)),
-    mean_year = (debut + last_year) / 2
-  ) %>%
-  dplyr::select(PlayerId, Name, birth_year, debut, last_year, mean_year, Position, BISPosition)
-
-dbClearResult(player_info_q)
-
-# gather fielding data. the main goal is to identify LF, RF, and CF separately
-# so they can be compared correctly.
-# we have 3 sources of data here:
-# 1. detailed FG fielding info from innings compiled in the field
-# 2. the Lahman DB
-# 3. BIS Positional info
-# get all the data from each source, then for each outfielder, examine them
-# in descending order of priority for whether the "OF" truly is a LF, RF, or CF
-
-# get ID looukps, used to join FG player info with LahmanDB info
-
-id_q <-
-  dbSendQuery(con, "select playerid, refid from playerid_lookup")
-
-ids <-
-  dbFetch(id_q) %>%
-  as_tibble()
-
-dbClearResult(id_q)
-
-# found some more player ID's at https://www.smartfantasybaseball.com/tools/
-more_player_ids <-
-  read_csv("~/Downloads/SFBB Player ID Map - PLAYERIDMAP.csv") %>%
-  mutate(playerid = as.numeric(IDFANGRAPHS)) %>%
-  dplyr::select(playerid, refid = BREFID) %>%
-  bind_rows(ids) %>% # this is obtained above in the first data-gathering section
-  filter(!is.na(refid)) %>%
-  distinct()
-
-
-# get career fielding data from detailed FG table. A type of -1 is the full career info at that position. Omit "OF" entries;
-# those just total up LF/CF/RF which isn't as usesful as the more detailed positional info.
-fielding_q <- dbSendQuery(con, "select PlayerId, Position, Season, G, Inn from stats_fielding where Type = -1 and Position != 'OF'")
-
-fielding_data_raw <-
-  dbFetch(fielding_q) %>%
-  as_tibble()
-
-dbClearResult(fielding_q)
-dbDisconnect(con)
-
-fld <-
-  fielding_data_raw %>%
-  # omit stat lines that total up all outfield numbers. because we want more detailed positional info
-  group_by(PlayerId) %>%
-  filter(Inn == max(Inn)) %>%
-  dplyr::select(PlayerId, Position)
-
-# take player ID's, add in Lahman fielding data, and more detailed FG dielding data.
-# see what we're left with
-
-lahman_fielding_grouped <-
-  FieldingOFsplit %>%
-  as_tibble() %>%
-  group_by(playerID, POS) %>%
-  summarize(innings = sum(InnOuts)) %>%
-  group_by(playerID) %>%
-  filter(innings == max(innings)) %>%
-  dplyr::select(refid = playerID, Position = POS)
-
-# merge all 3 sources of positional data in the hopes that one will have a more specific
-# designation than "OF"
-
-# order of operations for delineating outfielders: prefer fg detail over lahman over BISposition
-positional_info <-
-  more_player_ids %>%
-  left_join(lahman_fielding_grouped, by = "refid") %>%
-  left_join(fld, by = c("playerid" = "PlayerId"), suffix = c("_lahman", "_fgdetail")) %>%
-  left_join(player_info, by = c("playerid" = "PlayerId")) %>%
-  mutate(real_position = case_when(
-    Position == "OF" ~ case_when(
-      Position_fgdetail %in% c("LF", "RF", "CF") ~ Position_fgdetail,
-      Position_lahman %in% c("LF", "RF", "CF") ~ Position_lahman,
-      BISPosition %in% c("LF", "RF", "CF") ~ BISPosition,
-      TRUE ~ Position
-    ),
-    TRUE ~ Position
-  )) %>%
-  dplyr::select(PlayerId = playerid, refid, position = real_position) %>%
-  distinct()
-
-# Get list of players in the HOF (who were voted in as players)
-
-hof_url <- "https://www.baseball-reference.com/awards/hof.shtml"
-
-hof_html <- read_html(hof_url) %>%
-  html_nodes("table") %>%
-  .[[1]] %>%
-  html_table(header = TRUE)
-
-names(hof_html)[3] <- "Years"
-
-hof_players <-
-  hof_html %>%
-  filter(`Inducted As` == "Player") %>%
-  mutate(birth_year = as.numeric(str_extract(Years, "^[0-9]{4}"))) %>%
-  dplyr::select(Name, birth_year) %>%
-  mutate(
-    hof = "elected",
-    Name = str_replace_all(Name, c(
-      "\\s" = " ", # fix non-breaking spacess
-      # align some B-R names to the FG names
-      "Cal Ripken Jr." = "Cal Ripken",
-      "Henry Aaron" = "Hank Aaron",
-      "Old Hoss Radbourn" = "Charley Radbourn",
-      "Home Run Baker" = "Frank Baker",
-      "Charles Bender" = "Chief Bender",
-      "High Pockets Kelly" = "George Kelly"
-    )),
-    birth_year = case_when(
-      Name == "Frankie Frisch" ~ 1898,
-      Name == "Phil Rizzuto" ~ 1916,
-      TRUE ~ birth_year
-    )
-  )
-
-player_seasons <-
-  pitchers_full %>%
-  inner_join(player_info, by = "PlayerId") %>%
-  bind_rows(batters_full %>% inner_join(player_info, by = "PlayerId"))
-
-# get positional data for HOF'ers inducted as players.
-hof_site <- "https://baseballhall.org/discover-more/stories/hall-of-famer-facts/hall-of-famers-by-position"
-
-hof_page <- read_html(hof_site)
-
-hof_positions <-
-  hof_page %>%
-  html_elements(".hof-ref-item") %>%
-  html_text2() %>%
-  as_tibble_col() %>%
-  filter(!str_detect(value, "Manager|Executive|Umpire")) %>%
-  mutate(
-    name = str_trim(str_extract(value, ".*(?=Inducted)")),
-    position = case_when(
-      str_detect(value, "Pitcher") ~ "P",
-      str_detect(value, "Catcher") ~ "C",
-      str_detect(value, "1st") ~ "1B",
-      str_detect(value, "2nd") ~ "2B",
-      str_detect(value, "3rd") ~ "3B",
-      str_detect(value, "Shortstop") ~ "SS",
-      str_detect(value, "Left Fielder") ~ "LF",
-      str_detect(value, "Right Fielder") ~ "RF",
-      str_detect(value, "Center Fielder") ~ "CF",
-      str_detect(value, "Outfielder") ~ "OF",
-      str_detect(value, "Designated Hitter") ~ "DH",
-      TRUE ~ NA_character_
-    ),
-    name = str_replace_all(name, c(
-      "\\s" = " ", # fix non-breaking spaces
-      # align some names to the FG names
-      "Cal Ripken Jr." = "Cal Ripken",
-      "Henry Aaron" = "Hank Aaron",
-      "Old Hoss Radbourn" = "Charley Radbourn",
-      "Home Run Baker" = "Frank Baker",
-      "Charles Bender" = "Chief Bender",
-      "High Pockets Kelly" = "George Kelly",
-      "Tim Raines Sr." = "Tim Raines",
-      "é" = "e", # tony perez
-      "ñ" = "n",
-      "á" = "a",
-      "í" = "i" # pedro martinez, ivan rodriguez
-    ))
-  ) %>%
-  dplyr::select(name, position)
-
-hof_inductees <-
-  hof_players %>%
-  inner_join(hof_positions, by = c("Name" = "name"))
-
-all_star_data_first <-
-  seq(1933, 1958) %>%
-  map_df(get_all_star_rosters)
-
-# TODO: handle the two games in 1959, 1960, 1961, and 1962
-
-all_star_data_third <-
-  seq(1963, most_recent_year) %>%
-  map_df(get_all_star_rosters)
-
-all_star_seasonal <-
-  bind_rows(all_star_data_first, all_star_data_third) %>%
-  mutate(asg = 1)
-
-# get voting for major seasonal awards, by year
-
-mvp_voting_seasonal <-
-  seq(1931, most_recent_year) %>%
-  map_df(get_mvp_voting)
-
-cy_young_points <-
-  seq(1956, most_recent_year) %>%
-  map_df(get_cy_young_voting_points)
-
-leagues <- c("al", "nl")
-
-silver_sluggers <-
-  leagues %>%
-  map_df(get_silver_sluggers)
-
-gold_gloves <-
-  leagues %>%
-  map_df(get_gold_gloves)
-```
-
-```{r}
-# build master dataset, adding posittional info where we can and computing
-# cumulative awards/totals for each player's season.
-war_through_age <-
-  player_seasons %>%
-  dplyr::select(-Position, -BISPosition) %>%
-  left_join(hof_inductees, by = c("Name", "birth_year")) %>% # joining by birth year prevents mis-identifying players w/same name
-  inner_join(positional_info, by = "PlayerId", suffix = c("_inducted", "_played")) %>%
-  left_join(mvp_voting_seasonal, by = c(
-    "refid" = "value",
-    "Season" = "season"
-  )) %>%
-  left_join(all_star_seasonal, by = c(
-    "refid" = "brefid",
-    "Season"
-  )) %>%
-  left_join(cy_young_points, by = c(
-    "refid",
-    "Season"
-  )) %>%
-  left_join(silver_sluggers, by = c(
-    "refid",
-    "Season"
-  )) %>%
-  left_join(gold_gloves, by = c(
-    "refid",
-    "Season"
-  )) %>%
-  replace_na(list(
-    hof = "not_elected",
-    mvp_points = 0,
-    asg = 0,
-    cya_points = 0,
-    silver_slugger = 0,
-    gold_glove = 0
-  )) %>%
-  group_by(PlayerId) %>%
-  arrange(Age) %>%
-  mutate(
-    position = if_else(hof == "elected", position_inducted, position_played), # reconcile position for inductees
-    num_seasons = n(),
-    cumulative_war = round(cumsum(WAR), 1),
-    cumulative_mvp_points = cumsum(mvp_points),
-    cumulative_asg = cumsum(asg),
-    cumulative_cy_points = cumsum(cya_points),
-    cumulative_silver_sluggers = cumsum(silver_slugger),
-    cumulative_gold_gloves = cumsum(gold_glove),
-
-    # TODO: change 2022 back to 'most_recent_year', set that variable to 2022 above
-    considered_hof = if_else(last_year < 2022 - 5, TRUE, FALSE),
-  ) %>%
-  ungroup() %>%
-  distinct() %>%
-  mutate(scandal_type = case_when(
-    Name %in% c("Barry Bonds", "Roger Clemens", "Jose Canseco", "Rafael Palmeiro", "Jason Giambi", "Gary Sheffield", "Miguel Tejada", "Nelson Cruz", "Andy Pettitte", "Ryan Braun", "Manny Ramirez", "Alex Rodriguez", "Mark McGwire", "Sammy Sosa", "Robinson Cano", "Starling Marte", "Melky Cabrera", "David Ortiz", "Dee Gordon", "Bartolo Colon") ~ "PED's",
-    Name %in% c("Joe Jackson", "Eddie Cicotte", "Buck Weaver", "Chick Gandil", "Fred McMullin", "Swede Risberg", "Lefty Williams", "Joe Gedeon", "Pete Rose") ~ "Gambling",
-    Name %in% c("Carlos Beltran", "Jose Altuve", "Alex Bregman", "Alex Cora", "Carlos Correa", "George Springer", "Gaylord Perry") ~ "Cheating",
-    Name %in% c("Curt Schilling", "Lenny Dykstra", "Roberto Alomar") ~ "Misc.",
-    Name %in% c("Marcell Ozuna", "Roberto Osuna", "Jose Reyes", "Aroldis Chapman", "Omar Vizquel", "Addison Russell") ~ "Domestic Violence",
-    TRUE ~ "None"
-  )) %>%
-  dplyr::select(playerid = PlayerId, name = Name, position, last_year, mean_year, scandal_type, age = Age, cumulative_war, max_franchise_g, cumulative_mvp_points, cumulative_asg, cumulative_cy_points, cumulative_silver_sluggers, cumulative_gold_gloves, considered_hof, hof) %>%
-  # force some positions for some inductees. fielding positional data from bb-ref and BB HOF website. need to be more specific for averill as there are 2 guys with his name. really this should be done with player ID's.
-  mutate(
-    position = case_when(
-      name %in% c(
-        "Ty Cobb", "Earle Combs", "Edd Roush", "Hack Wilson", "Joe DiMaggio", "Lloyd Waner",
-        "Max Carey", "Tris Speaker", "Joe Jackson", "Hugh Duffy", "Cody Bellinger"
-      ) | (name == "Earl Averill" & position == "OF") | (name == "Billy Hamilton" & position == "OF") ~ "CF",
-      name %in% c(
-        "Al Simmons", "Chick Hafey", "Ed Delahanty", "Fred Clarke", "Goose Goslin",
-        "Jesse Burkett", "Joe Medwick", "Zack Wheat", "Jim O'Rourke", "Joe Kelley", "Heinie Manush", "Jim Rice"
-      ) ~ "LF",
-      name %in% c(
-        "Babe Ruth", "Chuck Klein", "Elmer Flick", "Harry Heilmann", "Harry Hooper",
-        "Mel Ott", "Paul Waner", "Ross Youngs", "Sam Crawford", "Sam Rice", "Willie Keeler",
-        "Kiki Cuyler", "Sam Thompson", "Tommy McCarthy"
-      ) | (playerid == 1005166) ~ "RF", # this playerId is Tony Gwynn Sr.
-      TRUE ~ position
-    )
-  ) %>%
-  filter(position != "OF") %>%
-  mutate(hof = factor(hof, levels = c("elected", "not_elected"))) %>%
-  distinct() %>%
-  filter(!name %in% c("Satchel Paige", "Monte Irvin")) %>% # filter out some Negro Leagues players
-  na.omit()
-
-pitchers <- war_through_age %>%
-  filter(position == "P") %>%
-  dplyr::select(-position)
-
-position_players <-
-  war_through_age %>%
-  filter(position == "3B") %>%
-  dplyr::select(-cumulative_cy_points)
-```
-
-exploratory data analysis
-
-```{r, fig.height = 3}
-position_players %>%
-  filter(considered_hof) %>%
-  # group_by(age, position, hof) %>%
-  # summarize(typical_cume_war = median(cumulative_war, na.rm = TRUE)) %>%
-  ggplot(aes(age, cumulative_war, group = hof, color = hof)) +
-  geom_point(size = 0.5, alpha = 0.75) +
-  facet_wrap(vars(position, scandal_type)) +
-  ggtitle("Age vs. Typical WAR Trajectories, by HOF Inclusion Type") +
-  labs(y = "Cumulative fWAR")
-
-# number of elected vs. not-elected at each position, by mean year over time.
-war_through_age %>%
-  filter(considered_hof) %>% # only those who've been voted on
-  mutate(decade = mean_year - mean_year %% 10) %>%
-  filter(decade >= 1950) %>%
-  distinct(playerid, decade, position, hof) %>%
-  count(decade, position, hof) %>%
-  ungroup() %>%
-  complete(decade, position, hof, fill = list(n = 0)) %>%
-  group_by(decade, position) %>%
-  mutate(prop = n / sum(n) * 100) %>%
-  filter(hof == "elected") %>%
-  ggplot(aes(decade, prop)) +
-  facet_wrap(vars(position), scales = "free_y") +
-  geom_point() +
-  geom_path() +
-  labs(x = "career_decade")
-
-# position doesn't seem to matter too much except for DH (and probably relief pitcher, if I split those out). maybe can remove
-```
-
-build and evaluate a classification model using xgboost
-
-```{r}
-hof_split <-
-  position_players %>%
-  # train model only on players who have been considered for the HOF
-  filter(considered_hof) %>%
-  dplyr::select(-playerid, -name, -considered_hof, -last_year, -position) %>%
-  initial_split(strata = hof)
-
-hof_train <- training(hof_split)
-hof_test <- testing(hof_split)
-
-pos_weight <-
-  hof_train %>%
-  count(hof) %>%
-  mutate(weight = round(n / dplyr::lag(n), 2)) %>%
-  dplyr::select(weight) %>%
-  na.omit() %>%
-  as.numeric()
-```
-
-```{r}
-# build a specification. set scale_pos_weight to 6-ish, this is num(not_elected) / num(elected)
-xgb_spec <-
-  boost_tree(
-    trees = 2500,
-    tree_depth = tune(), min_n = tune(),
-    loss_reduction = tune(),
-    sample_size = tune(), mtry = tune(),
-    learn_rate = tune(),
-    stop_iter = 25,
-  ) %>%
-  set_engine("xgboost", scale_pos_weight = 21.15) %>%
-  set_mode("classification")
-
-xgb_grid <- grid_latin_hypercube(
-  tree_depth(range = c(12, 32)),
-  min_n(range = c(35, 50)),
-  loss_reduction(),
-  sample_size = sample_prop(),
-  mtry(range = c(6, 32)),
-  # finalize(mtry(), hof_train %>% dplyr::select(-hof)),
-  learn_rate(),
-  size = 50
-)
-
-xgb_recipe <-
-  recipe(hof ~ ., data = hof_train) %>%
-  step_dummy(scandal_type) %>%
-  step_smote(hof) %>% # smote increases AUPRC, bal acc, and F1 by a meaningful amount.
-  step_log(max_franchise_g) # log-transform skewed predictors
-
-xgb_wf <-
-  workflow() %>%
-  add_model(xgb_spec) %>%
-  add_recipe(xgb_recipe)
-
-# find the optimal values of tuning parameters using 10-fold cross validation
-hof_folds <- vfold_cv(hof_train, strata = hof, repeats = 5)
-
-
-cores <- detectCores(logical = FALSE)
-cl <- makePSOCKcluster(cores)
-registerDoParallel(cl)
-
-
-xgb_res <- tune_race_anova(
-  xgb_wf,
-  resamples = hof_folds,
-  grid = xgb_grid,
-  control = control_race(
-    save_pred = TRUE,
-    verbose_elim = TRUE
-  ),
-  metrics = metric_set(pr_auc),
-)
-
-# xgb_res <- tune_grid(
-#   xgb_wf,
-#   resamples = hof_folds,
-#   grid = xgb_grid,
-#   control = control_grid(save_pred = TRUE),
-#   metrics = metric_set(pr_auc),
-# )
-
-# show how each parameter affects the model performance
-xgb_res %>%
-  collect_metrics() %>%
-  filter(.metric == "pr_auc") %>%
-  dplyr::select(mean, mtry:sample_size) %>%
-  pivot_longer(mtry:sample_size,
-    values_to = "value",
-    names_to = "parameter"
-  ) %>%
-  ggplot(aes(value, mean, color = parameter)) +
-  geom_point(alpha = 0.8, show.legend = FALSE) +
-  facet_wrap(~parameter, scales = "free_x") +
-  labs(x = NULL, y = "PR_AUC")
-
-best_auc <- select_best(xgb_res, "pr_auc")
-
-final_xgb <- finalize_workflow(
-  xgb_wf,
-  best_auc
-)
-
-# fit model to training set and evaluate on test set.
-final_res <-
-  last_fit(final_xgb, hof_split)
-
-# extract final model and use it to predict MVP's
-hof_mdl <- final_res$.workflow[[1]]
-
-# evaluate model using curves & area underneath it
-
-predictions <-
-  final_res %>%
-  collect_predictions()
-
-# compute area under ROC using class probabilities
-area_under_curve <-
-  predictions %>%
-  pr_auc(truth = hof, .pred_elected) %>%
-  dplyr::select(.estimate) %>%
-  as.numeric() %>%
-  round(2)
-
-# draw  PR Curve using class probabilities
-predictions %>%
-  pr_curve(truth = hof, .pred_elected) %>%
-  ggplot(aes(recall, precision)) +
-  geom_path() +
-  geom_hline(yintercept = 0.121, color = "blue", lty = "dashed") +
-  ggtitle("Precision-Recall Curve, HOF Prediction Model",
-    subtitle = glue("Area Under Curve: {area_under_curve}")
-  )
-
-ggsave("hof-mdl-pr-curve.png")
-
-
-
-predictions %>%
-  conf_mat(truth = hof, estimate = .pred_class) %>%
-  pluck(1) %>%
-  as_tibble() %>%
-  ggplot(aes(Prediction, Truth)) +
-  geom_tile(show.legend = FALSE) +
-  geom_text(aes(label = n), colour = "white", alpha = 1) +
-  ggtitle("Confusion Matrix, HOF Prediction Model")
-
-ggsave("hof-mdl-confusion-matrix.png")
-
-
-predictions %>%
-  f_meas(truth = hof, estimate = .pred_class)
-
-predictions %>%
-  bal_accuracy(truth = hof, estimate = .pred_class)
-
-# show the importance of each variable. remove 'X's from positions for readibility
-final_xgb %>%
-  fit(data = hof_train) %>%
-  extract_fit_parsnip() %>%
-  vip::vi() %>%
-  mutate(Variable = str_replace_all(Variable, "X", "")) %>%
-  ggplot(aes(reorder(Variable, Importance), Importance)) +
-  geom_col() +
-  coord_flip() +
-  labs(x = "") +
-  ggtitle("Relative Predictor Importance, HOF Prediction Model")
-
-ggsave("hof-mdl-variable-importance.png")
-```
-
-predict hall of famers
-
-```{r fig.height=3, fig.width=5}
-# find optimal threshold for class predictions by maximizing the j index
-optimal_threshold <-
-  predictions %>%
-  threshold_perf(hof, .pred_elected, thresholds = seq(0.01, 1, by = 0.0025)) %>%
-  filter(.metric == "j_index") %>%
-  arrange(desc(.estimate)) %>%
-  filter(row_number() == 1) %>%
-  dplyr::select(.threshold) %>%
-  as.numeric() * 100
-
-# predict HOF chances for players who meet the following criteria:
-# have not been considered for the HOF
-# last played in the past 2 years (e.g. likely are still active) OR
-# have at least 10 seasons in the majors (they are eligible at some point soon)
-# this avoids predicting players like Brandon Webb and Josh Hamilton
-# who are retired but didn't play 10 years so aren't eligible and will never be
-
-
-year_threshold <- 2
-num_players <- 10
-
-position_players %>%
-  dplyr::select(-hof) %>%
-  add_count(playerid, name = "num_seasons") %>%
-  filter(
-    position != "OF",
-    !considered_hof,
-    between(last_year, most_recent_year - year_threshold, most_recent_year) | num_seasons >= 10
-  ) %>%
-  group_by(playerid) %>%
-  filter(age == max(age)) %>%
-  ungroup() %>%
-  bind_cols(
-    predict(hof_mdl, new_data = .),
-    predict(hof_mdl, new_data = ., type = "prob")
-  ) %>%
-  mutate(prob_hof = 100 * (.pred_elected)) %>%
-  group_by(position) %>%
-  slice_max(n = num_players, order_by = prob_hof) %>%
-  ggplot(aes(reorder(name, prob_hof), prob_hof)) +
-  geom_col() +
-  ylim(0, 100) +
-  coord_flip() +
-  facet_wrap(vars(position), scales = "free_y") +
-  labs(x = "", y = "HOF Probability (%)") +
-  geom_hline(yintercept = optimal_threshold, lty = "dashed") +
-  ggtitle(glue("Probability of HOF election"), subtitle = glue("Players not voted on yet. {optimal_threshold}% = Predicted Hall of Famer"))
-
-ggsave("hof-predictions-final.png", width = 10)
-```
-
-
-```{r}
-war_age_data %>%
-  inner_join(war_age_data %>%
-    filter(!active) %>%
-    group_by(playerid) %>%
-    arrange(age, .by_group = TRUE) %>%
-    filter(row_number() == n()) %>%
-    dplyr::select(name, final_war = cumulative_war), by = "name") %>%
-  View()
-```
-
-
-other fun: predicting career WAR
-
-```{r}
-war_through_age %>%
-  group_by(playerid) %>%
-  filter(age == max(age)) %>%
-  ggplot(aes(cumulative_war)) +
-  geom_histogram()
-
-war_age_data <-
-  war_through_age %>%
-  mutate(active = if_else(last_year < 2020, FALSE, TRUE)) %>%
+      num_seasons_real < 10 & mlb_played_last >= (last_season_played - year_threshold))
+  ) |>
+  # get most recent stats for all players
+  group_by(PlayerId) |>
+  filter(age == max(age)) |>
   ungroup()
+  
+final_predictions <- predict(hof_mdl, prep, type = "prob")
 
-# add data point "final_war" to every player. this is what we're going to predict
-war_split <-
-  war_age_data %>%
-  filter(!active) %>%
-  inner_join(war_age_data %>%
-    filter(!active) %>%
-    group_by(playerid) %>%
-    arrange(age, .by_group = TRUE) %>%
-    filter(row_number() == n()) %>%
-    ungroup() %>%
-    dplyr::select(name, final_war = cumulative_war), by = "name") %>%
-  ungroup() %>%
-  dplyr::select(position, age, cumulative_war, final_war) %>%
-  initial_split(strata = final_war)
-
-war_train <- training(war_split)
-war_test <- testing(war_split)
-
-war_spec <-
-  boost_tree(
-    trees = 50,
-    tree_depth = tune(), min_n = tune(),
-    loss_reduction = tune(),
-    sample_size = tune(), mtry = tune(),
-    learn_rate = tune()
-  ) %>%
-  set_engine("xgboost") %>%
-  set_mode("regression")
-
-
-war_grid <- grid_max_entropy(
-  tree_depth(),
-  min_n(),
-  loss_reduction(),
-  sample_size = sample_prop(),
-  finalize(mtry(), war_train),
-  learn_rate(),
-  size = 50
-)
-
-war_recipe <-
-  recipe(final_war ~ ., data = war_train) %>%
-  step_dummy(position)
-
-war_wf <-
-  workflow() %>%
-  add_model(war_spec) %>%
-  add_recipe(war_recipe)
-
-# find the optimal values of tuning parameters using 10-fold cross validation
-war_folds <- vfold_cv(war_train, strata = final_war)
-
-doParallel::registerDoParallel()
-
-war_res <- tune_grid(
-  war_wf,
-  resamples = war_folds,
-  grid = war_grid,
-  metrics = metric_set(rmse)
-)
-
-# show how each parameter affects the model performance
-war_res %>%
-  collect_metrics() %>%
-  filter(.metric == "rmse") %>%
-  dplyr::select(mean, mtry:sample_size) %>%
-  pivot_longer(mtry:sample_size,
-    values_to = "value",
-    names_to = "parameter"
-  ) %>%
-  ggplot(aes(value, mean, color = parameter)) +
-  geom_point(alpha = 0.8, show.legend = FALSE) +
-  facet_wrap(~parameter, scales = "free_x") +
-  labs(x = NULL, y = "RMSE")
-
-best_war <- select_best(war_res, "rmse")
-
-final_war <- finalize_workflow(
-  war_wf,
-  best_war
-)
-
-# show the important of each variable
-final_war %>%
-  fit(data = war_train) %>%
-  extract_fit_parsnip() %>%
-  vip(num_features = 20)
-
-# fit model to training set and evaluate on test set.
-war_res <-
-  last_fit(final_war, war_split)
-
-# extract final model and use it to predict cumulative WAR
-war_mdl <- war_res$.workflow[[1]]
-
-# evaluate model using curves & area underneath it
-
-war_res %>%
-  collect_metrics()
-
-war_predictions <-
-  war_res %>%
-  collect_predictions() %>%
-  mutate(residual = .pred - final_war)
-
-war_predictions %>%
-  ggplot(aes(final_war, .pred)) +
-  geom_point() +
-  geom_smooth(method = "lm")
-
-war_predictions %>%
-  ggplot(aes(final_war, residual)) +
-  geom_point() +
-  geom_hline(yintercept = 0, color = "blue")
-
-
-war_age_data %>%
-  filter(last_year == 2021) %>%
-  group_by(playerid) %>%
-  filter(age == max(age)) %>%
-  bind_cols(
-    predict(war_mdl, new_data = .)
-  ) %>%
-  arrange(desc(.pred)) %>%
-  dplyr::select(name, position, age, cumulative_war, predicted_final_war = .pred)
+player_predictions <- 
+  bind_cols(prep, final_predictions) |>
+  mutate(
+   prob_hof = round(100 * .pred_1, 1),
+    pred_hof = if_else(prob_hof >= optimal_threshold, TRUE, FALSE)
+  ) |>
+  select(Name, age, pred_hof, prob_hof, cumulative_war, cumulative_h, cumulative_hr, cumulative_mvps, scandal_type, career_midpoint_year, max_cume_frnch_g, cumulative_sb) |>
+  arrange(desc(pred_hof), desc(cumulative_war)) |>
+  ungroup()
+  
+View(player_predictions)
 ```
 
-overlooked players.
-
-considers MVP voting.
-
-things to add:
-
-- nonstandard all star selections (years where there were 2 ASG's)
-- gold gloves
-- silver sluggers
 
 ```{r}
+# Function to turn explanations into human-readable text
+generate_english_explanation <- function(row_index, explainer, data_row) {
+  # Ensure the row is in the correct format (single-row tibble)
+  # data_row <- data_row |>
+  #   mutate(across(everything(), ~ if (is.list(.)) unlist(.) else .))
+
+  print(data_row)
+  str(data_row)
+  # Generate explanations for the row
+  explanation <- predict_parts(explainer = explainer, new_observation = data_row)
+
+  # Extract contributions and format as English text
+  details <- explanation %>%
+    mutate(
+      sentence = case_when(
+        variable == "(Intercept)" ~ glue("The base prediction starts at {round(contribution, 2)}."),
+        TRUE ~ glue("The feature '{variable}' contributes {round(contribution, 2)} to the prediction.")
+      )
+    )
+
+  # Combine into a single human-readable explanation
+  glue(
+    "For observation {row_index}, the prediction process can be described as:\n",
+    paste(details$sentence, collapse = " "),
+    "\nThe final predicted value is {round(sum(details$contribution), 2)}."
+  )
+}
+
+#prepare the dataset used to generate the explainers
+explainer_prep <- as_tibble(player_predictions |> select(all_of(colnames(explainer$data))))
+                              
+
+# Generate explanations for each row using purrr::map2_chr
+english_explanations <- map2_chr(
+  1:nrow(explainer_prep), 
+  split(explainer_prep, 1:nrow(explainer_prep)),  # Split into single-row tibbles
+  ~ generate_english_explanation(.x, explainer, .y)
+)
+
+# Print the explanations
+cat(paste(english_explanations, collapse = "\n\n"))
+
+
 ```
 
-```{r}
-# best players with no mvp votes, all star games, or cy young votes
 
 
-war_through_age %>%
-  group_by(playerid) %>%
-  filter(age == max(age), position != "P") %>%
-  filter(
-    mean_year >= 1931,
-    cumulative_mvp_points == 0,
-    cumulative_asg == 0,
-    cumulative_cy_points == 0
-  ) %>%
-  ungroup() %>%
-  arrange(desc(cumulative_war)) %>%
-  dplyr::select(name, position, cumulative_war, mean_year) %>%
-  filter(row_number() <= 10)
 
-# worst player with multiple all star games
-```
+
+
+
+
+<!-- # Get Player Data -->
+
+<!-- ```{r} -->
+<!-- # regex for finding bb-ref player ID's. between 3 and 7 alpha chars, followed by 0 or 1 periods, followed by exactly 2 digits. the periods are for id's like CC Sabathia and AJ Burnett -->
+<!-- bref_id_regex <- "[:alpha:]{3,7}\\.{0,1}[:digit:]{2}" -->
+
+<!-- # the most recent season played -->
+<!-- most_recent_year <- 2023 -->
+
+<!-- # get seasonal pitching WAR for players. remove relievers. -->
+<!-- # use average of FIP-based and run-based WAR -->
+
+<!-- con <- -->
+<!--   DBI::dbConnect(RMariaDB::MariaDB(), -->
+<!--     dbname = Sys.getenv("FG_DB"), -->
+<!--     host = Sys.getenv("FG_HOST"), -->
+<!--     user = Sys.getenv("FG_USER"), -->
+<!--     password = Sys.getenv("FG_PW"), -->
+<!--     port = 5001, -->
+<!--     ssl.ca = "~/Documents/skysql_fangraphs-db.pem" -->
+<!--   ) -->
+
+<!-- pitcher_stats_q <- -->
+<!--   dbSendQuery(con, "select spmp.PlayerId, ValueW as FIP_WAR, \`RA9-Wins\`, spmp.Season, Age, spmp.GS, spmp.G, st.DBFranchId as franchise -->
+<!--               from stats_pitching_master_pfx spmp -->
+<!-- join player_info pi on spmp.PlayerId = pi.PlayerId -->
+<!-- join season_team st on spmp.TeamId = st.TeamId and spmp.Season = st.Season -->
+<!--               where spmp.Type >=0 and spmp.Type <=10 -->
+<!-- and pi.position like '%P%'") -->
+
+<!-- pitcher_stats <- -->
+<!--   dbFetch(pitcher_stats_q) |> -->
+<!--   as_tibble() |> -->
+<!--   mutate(WAR = round((FIP_WAR + `RA9-Wins`) / 2, 1)) |> -->
+<!--   group_by(PlayerId) |> -->
+<!--   filter(sum(GS) / sum(G) >= 0.5) |> -->
+<!--   ungroup() |> -->
+<!--   dplyr::select(-GS, -FIP_WAR, -`RA9-Wins`, franchise) -->
+
+<!-- dbClearResult(pitcher_stats_q) -->
+
+<!-- # compute "one-team percentage. See https://www.billjamesonline.com/vagabonds_and_homebodies/ -->
+<!-- one_team_percentage_pit <- -->
+<!--   pitcher_stats |> -->
+<!--   # compute running G total for each player in their time with a franchise -->
+<!--   group_by(PlayerId, franchise) |> -->
+<!--   arrange(Age, .by_group = TRUE) |> -->
+<!--   mutate(franchise_g = cumsum(G)) |> -->
+<!--   # compute the maximum franchise/G total for each year of a player's season up to that point -->
+<!--   group_by(PlayerId) |> -->
+<!--   arrange(Age, .by_group = TRUE) |> -->
+<!--   mutate(max_franchise_g = cummax(franchise_g)) |> -->
+<!--   # now ensure seasons where players are traded use the highest value to that point -->
+<!--   group_by(PlayerId, Age) |> -->
+<!--   mutate(max_franchise_g = max(max_franchise_g)) |> -->
+<!--   # eliminate multiple-team seasons -->
+<!--   distinct(PlayerId, Season, Age, max_franchise_g) -->
+
+<!-- # Compute total WAR per each age. this is needed because the dataset contains split seasons for players -->
+<!-- # who appeared for >1 team in a season. -->
+<!-- pitchers_full <- -->
+<!--   pitcher_stats |> -->
+<!--   group_by(PlayerId, Age) |> -->
+<!--   mutate(WAR = sum(WAR)) |> -->
+<!--   ungroup() |> -->
+<!--   distinct(PlayerId, Age, WAR) |> -->
+<!--   inner_join(one_team_percentage_pit, by = c("PlayerId", "Age", "WAR")) -->
+
+
+<!-- batter_stats_q <- -->
+<!--   dbSendQuery(con, "select sb.playerid AS PlayerId, ValueW as WAR, sb.Season, Age, sb.G, st.DBFranchId as franchise -->
+<!-- from stats_batting sb -->
+<!--          join player_info pi on sb.playerid = pi.PlayerId -->
+<!--          left join season_team st on sb.TeamId = st.TeamId and sb.Season = st.Season -->
+<!-- where sb.Type >= 0 and sb.Type <= 10 -->
+<!-- and st.DBFranchId IS NOT NULL   -- prevent getting full-season records from years players changed teams -->
+<!--   and pi.Position not like '%P%'") -->
+
+
+<!-- batter_stats <- -->
+<!--   dbFetch(batter_stats_q) |> -->
+<!--   as_tibble() -->
+
+<!-- # now do two things: -->
+<!-- # 1. find a player's 'one-team percentage'. e.g. the highest % of career WAR accumulated with one franchise. -->
+<!-- # this will be 1 for players who stayed with one team their entire career and very low for players who bounced around. -->
+
+
+<!-- one_team_percentage_bat <- -->
+<!--   batter_stats |> -->
+<!--   # compute running G total for each player in their time with a franchise -->
+<!--   group_by(PlayerId, franchise) |> -->
+<!--   arrange(Age, .by_group = TRUE) |> -->
+<!--   mutate(franchise_g = cumsum(G)) |> -->
+<!--   # compute the maximum franchise/G total for each year of a player's season up to that point -->
+<!--   group_by(PlayerId) |> -->
+<!--   arrange(Age, .by_group = TRUE) |> -->
+<!--   mutate(max_franchise_g = cummax(franchise_g)) |> -->
+<!--   # now ensure seasons where players are traded use the highest value to that point -->
+<!--   group_by(PlayerId, Age) |> -->
+<!--   mutate(max_franchise_g = max(max_franchise_g)) |> -->
+<!--   # eliminate multiple-team seasons -->
+<!--   distinct(PlayerId, Season, Age, max_franchise_g) -->
+
+
+<!-- # 2 - compute total WAR per each age. this is needed because the dataset contains split seasons for players -->
+<!-- # who appeared for >1 team in a season. -->
+<!-- batters_full <- -->
+<!--   batter_stats |> -->
+<!--   group_by(PlayerId, Age) |> -->
+<!--   mutate(WAR = sum(WAR)) |> -->
+<!--   ungroup() |> -->
+<!--   distinct(PlayerId, Age, WAR) |> -->
+<!--   inner_join(one_team_percentage_bat, by = c("PlayerId", "Age")) -->
+
+
+<!-- dbClearResult(batter_stats_q) -->
+
+<!-- player_info_q <- -->
+<!--   dbSendQuery(con, "select PlayerId, FirstName, LastName, BirthDate, Debut, LastGame, Position, BISPosition from player_info") -->
+
+<!-- player_info <- -->
+<!--   dbFetch(player_info_q) |> -->
+<!--   as_tibble() |> -->
+<!--   unite(Name, FirstName, LastName, sep = " ") |> -->
+<!--   mutate( -->
+<!--     last_year = year(ymd(LastGame)), -->
+<!--     debut = year(ymd(Debut)), -->
+<!--     Position = str_extract(Position, "^(P|C|1B|2B|3B|SS|OF|DH)"), # extract primary position from dataset -->
+<!--     birth_year = year(ymd(BirthDate)), -->
+<!--     mean_year = (debut + last_year) / 2 -->
+<!--   ) |> -->
+<!--   dplyr::select(PlayerId, Name, birth_year, debut, last_year, mean_year, Position, BISPosition) -->
+
+<!-- dbClearResult(player_info_q) -->
+
+<!-- # gather fielding data. the main goal is to identify LF, RF, and CF separately -->
+<!-- # so they can be compared correctly. -->
+<!-- # we have 3 sources of data here: -->
+<!-- # 1. detailed FG fielding info from innings compiled in the field -->
+<!-- # 2. the Lahman DB -->
+<!-- # 3. BIS Positional info -->
+<!-- # get all the data from each source, then for each outfielder, examine them -->
+<!-- # in descending order of priority for whether the "OF" truly is a LF, RF, or CF -->
+
+<!-- # get ID looukps, used to join FG player info with LahmanDB info -->
+
+<!-- id_q <- -->
+<!--   dbSendQuery(con, "select playerid, refid from playerid_lookup") -->
+
+<!-- ids <- -->
+<!--   dbFetch(id_q) |> -->
+<!--   as_tibble() -->
+
+<!-- dbClearResult(id_q) -->
+
+<!-- # found some more player ID's at https://www.smartfantasybaseball.com/tools/ -->
+<!-- more_player_ids <- -->
+<!--   read_csv("~/Downloads/SFBB Player ID Map - PLAYERIDMAP.csv") |> -->
+<!--   mutate(playerid = as.numeric(IDFANGRAPHS)) |> -->
+<!--   dplyr::select(playerid, refid = BREFID) |> -->
+<!--   bind_rows(ids) |> # this is obtained above in the first data-gathering section -->
+<!--   filter(!is.na(refid)) |> -->
+<!--   distinct() -->
+
+
+<!-- # get career fielding data from detailed FG table. A type of -1 is the full career info at that position. Omit "OF" entries; -->
+<!-- # those just total up LF/CF/RF which isn't as usesful as the more detailed positional info. -->
+<!-- fielding_q <- dbSendQuery(con, "select PlayerId, Position, Season, G, Inn from stats_fielding where Type = -1 and Position != 'OF'") -->
+
+<!-- fielding_data_raw <- -->
+<!--   dbFetch(fielding_q) |> -->
+<!--   as_tibble() -->
+
+<!-- dbClearResult(fielding_q) -->
+<!-- dbDisconnect(con) -->
+
+<!-- fld <- -->
+<!--   fielding_data_raw |> -->
+<!--   # omit stat lines that total up all outfield numbers. because we want more detailed positional info -->
+<!--   group_by(PlayerId) |> -->
+<!--   filter(Inn == max(Inn)) |> -->
+<!--   dplyr::select(PlayerId, Position) -->
+
+<!-- # take player ID's, add in Lahman fielding data, and more detailed FG dielding data. -->
+<!-- # see what we're left with -->
+
+<!-- lahman_fielding_grouped <- -->
+<!--   FieldingOFsplit |> -->
+<!--   as_tibble() |> -->
+<!--   group_by(playerID, POS) |> -->
+<!--   summarize(innings = sum(InnOuts)) |> -->
+<!--   group_by(playerID) |> -->
+<!--   filter(innings == max(innings)) |> -->
+<!--   dplyr::select(refid = playerID, Position = POS) -->
+
+<!-- # merge all 3 sources of positional data in the hopes that one will have a more specific -->
+<!-- # designation than "OF" -->
+
+<!-- # order of operations for delineating outfielders: prefer fg detail over lahman over BISposition -->
+<!-- positional_info <- -->
+<!--   more_player_ids |> -->
+<!--   left_join(lahman_fielding_grouped, by = "refid") |> -->
+<!--   left_join(fld, by = c("playerid" = "PlayerId"), suffix = c("_lahman", "_fgdetail")) |> -->
+<!--   left_join(player_info, by = c("playerid" = "PlayerId")) |> -->
+<!--   mutate(real_position = case_when( -->
+<!--     Position == "OF" ~ case_when( -->
+<!--       Position_fgdetail %in% c("LF", "RF", "CF") ~ Position_fgdetail, -->
+<!--       Position_lahman %in% c("LF", "RF", "CF") ~ Position_lahman, -->
+<!--       BISPosition %in% c("LF", "RF", "CF") ~ BISPosition, -->
+<!--       TRUE ~ Position -->
+<!--     ), -->
+<!--     TRUE ~ Position -->
+<!--   )) |> -->
+<!--   dplyr::select(PlayerId = playerid, refid, position = real_position) |> -->
+<!--   distinct() -->
+
+<!-- # Get list of players in the HOF (who were voted in as players) -->
+
+<!-- hof_url <- "https://www.baseball-reference.com/awards/hof.shtml" -->
+
+<!-- hof_html <- read_html(hof_url) |> -->
+<!--   html_nodes("table") |> -->
+<!--   .[[1]] |> -->
+<!--   html_table(header = TRUE) -->
+
+<!-- names(hof_html)[3] <- "Years" -->
+
+<!-- hof_players <- -->
+<!--   hof_html |> -->
+<!--   filter(`Inducted As` == "Player") |> -->
+<!--   mutate(birth_year = as.numeric(str_extract(Years, "^[0-9]{4}"))) |> -->
+<!--   dplyr::select(Name, birth_year) |> -->
+<!--   mutate( -->
+<!--     hof = "elected", -->
+<!--     Name = str_replace_all(Name, c( -->
+<!--       "\\s" = " ", # fix non-breaking spacess -->
+<!--       # align some B-R names to the FG names -->
+<!--       "Cal Ripken Jr." = "Cal Ripken", -->
+<!--       "Henry Aaron" = "Hank Aaron", -->
+<!--       "Old Hoss Radbourn" = "Charley Radbourn", -->
+<!--       "Home Run Baker" = "Frank Baker", -->
+<!--       "Charles Bender" = "Chief Bender", -->
+<!--       "High Pockets Kelly" = "George Kelly" -->
+<!--     )), -->
+<!--     birth_year = case_when( -->
+<!--       Name == "Frankie Frisch" ~ 1898, -->
+<!--       Name == "Phil Rizzuto" ~ 1916, -->
+<!--       TRUE ~ birth_year -->
+<!--     ) -->
+<!--   ) -->
+
+<!-- player_seasons <- -->
+<!--   pitchers_full |> -->
+<!--   inner_join(player_info, by = "PlayerId") |> -->
+<!--   bind_rows(batters_full |> inner_join(player_info, by = "PlayerId")) -->
+
+<!-- # get positional data for HOF'ers inducted as players. -->
+<!-- hof_site <- "https://baseballhall.org/discover-more/stories/hall-of-famer-facts/hall-of-famers-by-position" -->
+
+<!-- hof_page <- read_html(hof_site) -->
+
+<!-- hof_positions <- -->
+<!--   hof_page |> -->
+<!--   html_elements(".hof-ref-item") |> -->
+<!--   html_text2() |> -->
+<!--   as_tibble_col() |> -->
+<!--   filter(!str_detect(value, "Manager|Executive|Umpire")) |> -->
+<!--   mutate( -->
+<!--     name = str_trim(str_extract(value, ".*(?=Inducted)")), -->
+<!--     position = case_when( -->
+<!--       str_detect(value, "Pitcher") ~ "P", -->
+<!--       str_detect(value, "Catcher") ~ "C", -->
+<!--       str_detect(value, "1st") ~ "1B", -->
+<!--       str_detect(value, "2nd") ~ "2B", -->
+<!--       str_detect(value, "3rd") ~ "3B", -->
+<!--       str_detect(value, "Shortstop") ~ "SS", -->
+<!--       str_detect(value, "Left Fielder") ~ "LF", -->
+<!--       str_detect(value, "Right Fielder") ~ "RF", -->
+<!--       str_detect(value, "Center Fielder") ~ "CF", -->
+<!--       str_detect(value, "Outfielder") ~ "OF", -->
+<!--       str_detect(value, "Designated Hitter") ~ "DH", -->
+<!--       TRUE ~ NA_character_ -->
+<!--     ), -->
+<!--     name = str_replace_all(name, c( -->
+<!--       "\\s" = " ", # fix non-breaking spaces -->
+<!--       # align some names to the FG names -->
+<!--       "Cal Ripken Jr." = "Cal Ripken", -->
+<!--       "Henry Aaron" = "Hank Aaron", -->
+<!--       "Old Hoss Radbourn" = "Charley Radbourn", -->
+<!--       "Home Run Baker" = "Frank Baker", -->
+<!--       "Charles Bender" = "Chief Bender", -->
+<!--       "High Pockets Kelly" = "George Kelly", -->
+<!--       "Tim Raines Sr." = "Tim Raines", -->
+<!--       "é" = "e", # tony perez -->
+<!--       "ñ" = "n", -->
+<!--       "á" = "a", -->
+<!--       "í" = "i" # pedro martinez, ivan rodriguez -->
+<!--     )) -->
+<!--   ) |> -->
+<!--   dplyr::select(name, position) -->
+
+<!-- hof_inductees <- -->
+<!--   hof_players |> -->
+<!--   inner_join(hof_positions, by = c("Name" = "name")) -->
+
+<!-- all_star_data_first <- -->
+<!--   seq(1933, 1958) |> -->
+<!--   map_df(get_all_star_rosters) -->
+
+<!-- # TODO: handle the two games in 1959, 1960, 1961, and 1962 -->
+
+<!-- all_star_data_third <- -->
+<!--   seq(1963, most_recent_year) |> -->
+<!--   map_df(get_all_star_rosters) -->
+
+<!-- all_star_seasonal <- -->
+<!--   bind_rows(all_star_data_first, all_star_data_third) |> -->
+<!--   mutate(asg = 1) -->
+
+<!-- # get voting for major seasonal awards, by year -->
+
+<!-- mvp_voting_seasonal <- -->
+<!--   seq(1931, most_recent_year) |> -->
+<!--   map_df(get_mvp_voting) -->
+
+<!-- cy_young_points <- -->
+<!--   seq(1956, most_recent_year) |> -->
+<!--   map_df(get_cy_young_voting_points) -->
+
+<!-- leagues <- c("al", "nl") -->
+
+<!-- silver_sluggers <- -->
+<!--   leagues |> -->
+<!--   map_df(get_silver_sluggers) -->
+
+<!-- gold_gloves <- -->
+<!--   leagues |> -->
+<!--   map_df(get_gold_gloves) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- # build master dataset, adding posittional info where we can and computing -->
+<!-- # cumulative awards/totals for each player's season. -->
+<!-- war_through_age <- -->
+<!--   player_seasons |> -->
+<!--   dplyr::select(-Position, -BISPosition) |> -->
+<!--   left_join(hof_inductees, by = c("Name", "birth_year")) |> # joining by birth year prevents mis-identifying players w/same name -->
+<!--   inner_join(positional_info, by = "PlayerId", suffix = c("_inducted", "_played")) |> -->
+<!--   left_join(mvp_voting_seasonal, by = c( -->
+<!--     "refid" = "value", -->
+<!--     "Season" = "season" -->
+<!--   )) |> -->
+<!--   left_join(all_star_seasonal, by = c( -->
+<!--     "refid" = "brefid", -->
+<!--     "Season" -->
+<!--   )) |> -->
+<!--   left_join(cy_young_points, by = c( -->
+<!--     "refid", -->
+<!--     "Season" -->
+<!--   )) |> -->
+<!--   left_join(silver_sluggers, by = c( -->
+<!--     "refid", -->
+<!--     "Season" -->
+<!--   )) |> -->
+<!--   left_join(gold_gloves, by = c( -->
+<!--     "refid", -->
+<!--     "Season" -->
+<!--   )) |> -->
+<!--   replace_na(list( -->
+<!--     hof = "not_elected", -->
+<!--     mvp_points = 0, -->
+<!--     asg = 0, -->
+<!--     cya_points = 0, -->
+<!--     silver_slugger = 0, -->
+<!--     gold_glove = 0 -->
+<!--   )) |> -->
+<!--   group_by(PlayerId) |> -->
+<!--   arrange(Age) |> -->
+<!--   mutate( -->
+<!--     position = if_else(hof == "elected", position_inducted, position_played), # reconcile position for inductees -->
+<!--     num_seasons = n(), -->
+<!--     cumulative_war = round(cumsum(WAR), 1), -->
+<!--     cumulative_mvp_points = cumsum(mvp_points), -->
+<!--     cumulative_asg = cumsum(asg), -->
+<!--     cumulative_cy_points = cumsum(cya_points), -->
+<!--     cumulative_silver_sluggers = cumsum(silver_slugger), -->
+<!--     cumulative_gold_gloves = cumsum(gold_glove), -->
+
+<!--     # TODO: change 2022 back to 'most_recent_year', set that variable to 2022 above -->
+<!--     considered_hof = if_else(last_year < 2022 - 5, TRUE, FALSE), -->
+<!--   ) |> -->
+<!--   ungroup() |> -->
+<!--   distinct() |> -->
+<!--   mutate(scandal_type = case_when( -->
+<!--     Name %in% c("Barry Bonds", "Roger Clemens", "Jose Canseco", "Rafael Palmeiro", "Jason Giambi", "Gary Sheffield", "Miguel Tejada", "Nelson Cruz", "Andy Pettitte", "Ryan Braun", "Manny Ramirez", "Alex Rodriguez", "Mark McGwire", "Sammy Sosa", "Robinson Cano", "Starling Marte", "Melky Cabrera", "David Ortiz", "Dee Gordon", "Bartolo Colon", "Fernando Tatis Jr.") ~ "PED's", -->
+<!--     Name %in% c("Joe Jackson", "Eddie Cicotte", "Buck Weaver", "Chick Gandil", "Fred McMullin", "Swede Risberg", "Lefty Williams", "Joe Gedeon", "Pete Rose") ~ "Gambling", -->
+<!--     Name %in% c("Carlos Beltran", "Jose Altuve", "Alex Bregman", "Alex Cora", "Carlos Correa", "George Springer", "Gaylord Perry") ~ "Cheating", -->
+<!--     Name %in% c("Curt Schilling", "Lenny Dykstra", "Roberto Alomar") ~ "Misc.", -->
+<!--     Name %in% c("Marcell Ozuna", "Roberto Osuna", "Jose Reyes", "Aroldis Chapman", "Omar Vizquel", "Addison Russell") ~ "Domestic Violence", -->
+<!--     TRUE ~ "None" -->
+<!--   )) |> -->
+<!--   dplyr::select(playerid = PlayerId, name = Name, position, last_year, mean_year, scandal_type, age = Age, cumulative_war, max_franchise_g, cumulative_mvp_points, cumulative_asg, cumulative_cy_points, cumulative_silver_sluggers, cumulative_gold_gloves, considered_hof, hof) |> -->
+<!--   # force some positions for some inductees. fielding positional data from bb-ref and BB HOF website. need to be more specific for averill as there are 2 guys with his name. really this should be done with player ID's. -->
+<!--   mutate( -->
+<!--     position = case_when( -->
+<!--       name %in% c( -->
+<!--         "Ty Cobb", "Earle Combs", "Edd Roush", "Hack Wilson", "Joe DiMaggio", "Lloyd Waner", -->
+<!--         "Max Carey", "Tris Speaker", "Joe Jackson", "Hugh Duffy", "Cody Bellinger" -->
+<!--       ) | (name == "Earl Averill" & position == "OF") | (name == "Billy Hamilton" & position == "OF") ~ "CF", -->
+<!--       name %in% c( -->
+<!--         "Al Simmons", "Chick Hafey", "Ed Delahanty", "Fred Clarke", "Goose Goslin", -->
+<!--         "Jesse Burkett", "Joe Medwick", "Zack Wheat", "Jim O'Rourke", "Joe Kelley", "Heinie Manush", "Jim Rice" -->
+<!--       ) ~ "LF", -->
+<!--       name %in% c( -->
+<!--         "Babe Ruth", "Chuck Klein", "Elmer Flick", "Harry Heilmann", "Harry Hooper", -->
+<!--         "Mel Ott", "Paul Waner", "Ross Youngs", "Sam Crawford", "Sam Rice", "Willie Keeler", -->
+<!--         "Kiki Cuyler", "Sam Thompson", "Tommy McCarthy" -->
+<!--       ) | (playerid == 1005166) ~ "RF", # this playerId is Tony Gwynn Sr. -->
+<!--       TRUE ~ position -->
+<!--     ) -->
+<!--   ) |> -->
+<!--   filter(position != "OF") |> -->
+<!--   mutate(hof = factor(hof, levels = c("elected", "not_elected"))) |> -->
+<!--   distinct() |> -->
+<!--   filter(!name %in% c("Satchel Paige", "Monte Irvin")) |> # filter out some Negro Leagues players -->
+<!--   na.omit() -->
+
+<!-- pitchers <- war_through_age |> -->
+<!--   filter(position == "P") |> -->
+<!--   dplyr::select(-position) -->
+
+<!-- position_players <- -->
+<!--   war_through_age |> -->
+<!--   filter(position == "3B") |> -->
+<!--   dplyr::select(-cumulative_cy_points) -->
+<!-- ``` -->
+
+<!-- exploratory data analysis -->
+
+<!-- ```{r, fig.height = 3} -->
+<!-- position_players |> -->
+<!--   filter(considered_hof) |> -->
+<!--   # group_by(age, position, hof) |> -->
+<!--   # summarize(typical_cume_war = median(cumulative_war, na.rm = TRUE)) |> -->
+<!--   ggplot(aes(age, cumulative_war, group = hof, color = hof)) + -->
+<!--   geom_point(size = 0.5, alpha = 0.75) + -->
+<!--   facet_wrap(vars(position, scandal_type)) + -->
+<!--   ggtitle("Age vs. Typical WAR Trajectories, by HOF Inclusion Type") + -->
+<!--   labs(y = "Cumulative fWAR") -->
+
+<!-- # number of elected vs. not-elected at each position, by mean year over time. -->
+<!-- war_through_age |> -->
+<!--   filter(considered_hof) |> # only those who've been voted on -->
+<!--   mutate(decade = mean_year - mean_year %% 10) |> -->
+<!--   filter(decade >= 1950) |> -->
+<!--   distinct(playerid, decade, position, hof) |> -->
+<!--   count(decade, position, hof) |> -->
+<!--   ungroup() |> -->
+<!--   complete(decade, position, hof, fill = list(n = 0)) |> -->
+<!--   group_by(decade, position) |> -->
+<!--   mutate(prop = n / sum(n) * 100) |> -->
+<!--   filter(hof == "elected") |> -->
+<!--   ggplot(aes(decade, prop)) + -->
+<!--   facet_wrap(vars(position), scales = "free_y") + -->
+<!--   geom_point() + -->
+<!--   geom_path() + -->
+<!--   labs(x = "career_decade") -->
+
+<!-- # position doesn't seem to matter too much except for DH (and probably relief pitcher, if I split those out). maybe can remove -->
+<!-- ``` -->
+
+<!-- build and evaluate a classification model using xgboost -->
+
+<!-- ```{r} -->
+<!-- hof_split <- -->
+<!--   position_players |> -->
+<!--   # train model only on players who have been considered for the HOF -->
+<!--   filter(considered_hof) |> -->
+<!--   dplyr::select(-playerid, -name, -considered_hof, -last_year, -position) |> -->
+<!--   initial_split(strata = hof) -->
+
+<!-- hof_train <- training(hof_split) -->
+<!-- hof_test <- testing(hof_split) -->
+
+<!-- pos_weight <- -->
+<!--   hof_train |> -->
+<!--   count(hof) |> -->
+<!--   mutate(weight = round(n / dplyr::lag(n), 2)) |> -->
+<!--   dplyr::select(weight) |> -->
+<!--   na.omit() |> -->
+<!--   as.numeric() -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- # build a specification. set scale_pos_weight to 6-ish, this is num(not_elected) / num(elected) -->
+<!-- xgb_spec <- -->
+<!--   boost_tree( -->
+<!--     trees = 2500, -->
+<!--     tree_depth = tune(), min_n = tune(), -->
+<!--     loss_reduction = tune(), -->
+<!--     sample_size = tune(), mtry = tune(), -->
+<!--     learn_rate = tune(), -->
+<!--     stop_iter = 25, -->
+<!--   ) |> -->
+<!--   set_engine("xgboost", scale_pos_weight = 21.15) |> -->
+<!--   set_mode("classification") -->
+
+<!-- xgb_grid <- grid_latin_hypercube( -->
+<!--   tree_depth(range = c(12, 32)), -->
+<!--   min_n(range = c(35, 50)), -->
+<!--   loss_reduction(), -->
+<!--   sample_size = sample_prop(), -->
+<!--   mtry(range = c(6, 32)), -->
+<!--   # finalize(mtry(), hof_train |> dplyr::select(-hof)), -->
+<!--   learn_rate(), -->
+<!--   size = 50 -->
+<!-- ) -->
+
+<!-- xgb_recipe <- -->
+<!--   recipe(hof ~ ., data = hof_train) |> -->
+<!--   step_dummy(scandal_type) |> -->
+<!--   step_smote(hof) |> # smote increases AUPRC, bal acc, and F1 by a meaningful amount. -->
+<!--   step_log(max_franchise_g) # log-transform skewed predictors -->
+
+<!-- xgb_wf <- -->
+<!--   workflow() |> -->
+<!--   add_model(xgb_spec) |> -->
+<!--   add_recipe(xgb_recipe) -->
+
+<!-- # find the optimal values of tuning parameters using 10-fold cross validation -->
+<!-- hof_folds <- vfold_cv(hof_train, strata = hof, repeats = 5) -->
+
+
+<!-- cores <- detectCores(logical = FALSE) -->
+<!-- cl <- makePSOCKcluster(cores) -->
+<!-- registerDoParallel(cl) -->
+
+
+<!-- xgb_res <- tune_race_anova( -->
+<!--   xgb_wf, -->
+<!--   resamples = hof_folds, -->
+<!--   grid = xgb_grid, -->
+<!--   control = control_race( -->
+<!--     save_pred = TRUE, -->
+<!--     verbose_elim = TRUE -->
+<!--   ), -->
+<!--   metrics = metric_set(pr_auc), -->
+<!-- ) -->
+
+<!-- # xgb_res <- tune_grid( -->
+<!-- #   xgb_wf, -->
+<!-- #   resamples = hof_folds, -->
+<!-- #   grid = xgb_grid, -->
+<!-- #   control = control_grid(save_pred = TRUE), -->
+<!-- #   metrics = metric_set(pr_auc), -->
+<!-- # ) -->
+
+<!-- # show how each parameter affects the model performance -->
+<!-- xgb_res |> -->
+<!--   collect_metrics() |> -->
+<!--   filter(.metric == "pr_auc") |> -->
+<!--   dplyr::select(mean, mtry:sample_size) |> -->
+<!--   pivot_longer(mtry:sample_size, -->
+<!--     values_to = "value", -->
+<!--     names_to = "parameter" -->
+<!--   ) |> -->
+<!--   ggplot(aes(value, mean, color = parameter)) + -->
+<!--   geom_point(alpha = 0.8, show.legend = FALSE) + -->
+<!--   facet_wrap(~parameter, scales = "free_x") + -->
+<!--   labs(x = NULL, y = "PR_AUC") -->
+
+<!-- best_auc <- select_best(xgb_res, "pr_auc") -->
+
+<!-- final_xgb <- finalize_workflow( -->
+<!--   xgb_wf, -->
+<!--   best_auc -->
+<!-- ) -->
+
+<!-- # fit model to training set and evaluate on test set. -->
+<!-- final_res <- -->
+<!--   last_fit(final_xgb, hof_split) -->
+
+<!-- # extract final model and use it to predict MVP's -->
+<!-- hof_mdl <- final_res$.workflow[[1]] -->
+
+<!-- # evaluate model using curves & area underneath it -->
+
+<!-- predictions <- -->
+<!--   final_res |> -->
+<!--   collect_predictions() -->
+
+<!-- # compute area under ROC using class probabilities -->
+<!-- area_under_curve <- -->
+<!--   predictions |> -->
+<!--   pr_auc(truth = hof, .pred_elected) |> -->
+<!--   dplyr::select(.estimate) |> -->
+<!--   as.numeric() |> -->
+<!--   round(2) -->
+
+<!-- # draw  PR Curve using class probabilities -->
+<!-- predictions |> -->
+<!--   pr_curve(truth = hof, .pred_elected) |> -->
+<!--   ggplot(aes(recall, precision)) + -->
+<!--   geom_path() + -->
+<!--   geom_hline(yintercept = 0.121, color = "blue", lty = "dashed") + -->
+<!--   ggtitle("Precision-Recall Curve, HOF Prediction Model", -->
+<!--     subtitle = glue("Area Under Curve: {area_under_curve}") -->
+<!--   ) -->
+
+<!-- ggsave("hof-mdl-pr-curve.png") -->
+
+
+
+<!-- predictions |> -->
+<!--   conf_mat(truth = hof, estimate = .pred_class) |> -->
+<!--   pluck(1) |> -->
+<!--   as_tibble() |> -->
+<!--   ggplot(aes(Prediction, Truth)) + -->
+<!--   geom_tile(show.legend = FALSE) + -->
+<!--   geom_text(aes(label = n), colour = "white", alpha = 1) + -->
+<!--   ggtitle("Confusion Matrix, HOF Prediction Model") -->
+
+<!-- ggsave("hof-mdl-confusion-matrix.png") -->
+
+
+<!-- predictions |> -->
+<!--   f_meas(truth = hof, estimate = .pred_class) -->
+
+<!-- predictions |> -->
+<!--   bal_accuracy(truth = hof, estimate = .pred_class) -->
+
+<!-- # show the importance of each variable. remove 'X's from positions for readibility -->
+<!-- final_xgb |> -->
+<!--   fit(data = hof_train) |> -->
+<!--   extract_fit_parsnip() |> -->
+<!--   vip::vi() |> -->
+<!--   mutate(Variable = str_replace_all(Variable, "X", "")) |> -->
+<!--   ggplot(aes(reorder(Variable, Importance), Importance)) + -->
+<!--   geom_col() + -->
+<!--   coord_flip() + -->
+<!--   labs(x = "") + -->
+<!--   ggtitle("Relative Predictor Importance, HOF Prediction Model") -->
+
+<!-- ggsave("hof-mdl-variable-importance.png") -->
+<!-- ``` -->
+
+<!-- predict hall of famers -->
+
+<!-- ```{r fig.height=3, fig.width=5} -->
+<!-- # find optimal threshold for class predictions by maximizing the j index -->
+<!-- optimal_threshold <- -->
+<!--   predictions |> -->
+<!--   threshold_perf(hof, .pred_elected, thresholds = seq(0.01, 1, by = 0.0025)) |> -->
+<!--   filter(.metric == "j_index") |> -->
+<!--   arrange(desc(.estimate)) |> -->
+<!--   filter(row_number() == 1) |> -->
+<!--   dplyr::select(.threshold) |> -->
+<!--   as.numeric() * 100 -->
+
+<!-- # predict HOF chances for players who meet the following criteria: -->
+<!-- # have not been considered for the HOF -->
+<!-- # last played in the past 2 years (e.g. likely are still active) OR -->
+<!-- # have at least 10 seasons in the majors (they are eligible at some point soon) -->
+<!-- # this avoids predicting players like Brandon Webb and Josh Hamilton -->
+<!-- # who are retired but didn't play 10 years so aren't eligible and will never be -->
+
+
+<!-- year_threshold <- 2 -->
+<!-- #num_players <- 10 -->
+
+<!-- position_players |> -->
+<!--   dplyr::select(-hof) |> -->
+<!--   add_count(playerid, name = "num_seasons") |> -->
+<!--   filter( -->
+<!--     position != "OF", -->
+<!--     !considered_hof, -->
+<!--     between(last_year, most_recent_year - year_threshold, most_recent_year) | num_seasons >= 10 -->
+<!--   ) |> -->
+<!--   group_by(playerid) |> -->
+<!--   filter(age == max(age)) |> -->
+<!--   ungroup() |> -->
+<!--   bind_cols( -->
+<!--     predict(hof_mdl, new_data = .), -->
+<!--     predict(hof_mdl, new_data = ., type = "prob") -->
+<!--   ) |> -->
+<!--   mutate(prob_hof = 100 * (.pred_elected)) |> -->
+<!--   group_by(position) |> -->
+<!--  # slice_max(n = num_players, order_by = prob_hof) |> -->
+<!--   ggplot(aes(reorder(Name, prob_hof), prob_hof)) + -->
+<!--   geom_col() + -->
+<!--   ylim(0, 100) + -->
+<!--   coord_flip() + -->
+<!--   facet_wrap(vars(position), scales = "free_y") + -->
+<!--   labs(x = "", y = "HOF Probability (%)") + -->
+<!--   geom_hline(yintercept = optimal_threshold, lty = "dashed") + -->
+<!--   ggtitle(glue("Probability of HOF election"), subtitle = glue("Players not voted on yet. {optimal_threshold}% = Predicted Hall of Famer")) -->
+
+<!-- ggsave("hof-predictions-final.png", width = 10) -->
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+<!-- war_age_data |> -->
+<!--   inner_join(war_age_data |> -->
+<!--     filter(!active) |> -->
+<!--     group_by(playerid) |> -->
+<!--     arrange(age, .by_group = TRUE) |> -->
+<!--     filter(row_number() == n()) |> -->
+<!--     dplyr::select(name, final_war = cumulative_war), by = "name") |> -->
+<!--   View() -->
+<!-- ``` -->
+
+
+<!-- other fun: predicting career WAR -->
+
+<!-- ```{r} -->
+<!-- war_through_age |> -->
+<!--   group_by(playerid) |> -->
+<!--   filter(age == max(age)) |> -->
+<!--   ggplot(aes(cumulative_war)) + -->
+<!--   geom_histogram() -->
+
+<!-- war_age_data <- -->
+<!--   war_through_age |> -->
+<!--   mutate(active = if_else(last_year < 2020, FALSE, TRUE)) |> -->
+<!--   ungroup() -->
+
+<!-- # add data point "final_war" to every player. this is what we're going to predict -->
+<!-- war_split <- -->
+<!--   war_age_data |> -->
+<!--   filter(!active) |> -->
+<!--   inner_join(war_age_data |> -->
+<!--     filter(!active) |> -->
+<!--     group_by(playerid) |> -->
+<!--     arrange(age, .by_group = TRUE) |> -->
+<!--     filter(row_number() == n()) |> -->
+<!--     ungroup() |> -->
+<!--     dplyr::select(name, final_war = cumulative_war), by = "name") |> -->
+<!--   ungroup() |> -->
+<!--   dplyr::select(position, age, cumulative_war, final_war) |> -->
+<!--   initial_split(strata = final_war) -->
+
+<!-- war_train <- training(war_split) -->
+<!-- war_test <- testing(war_split) -->
+
+<!-- war_spec <- -->
+<!--   boost_tree( -->
+<!--     trees = 50, -->
+<!--     tree_depth = tune(), min_n = tune(), -->
+<!--     loss_reduction = tune(), -->
+<!--     sample_size = tune(), mtry = tune(), -->
+<!--     learn_rate = tune() -->
+<!--   ) |> -->
+<!--   set_engine("xgboost") |> -->
+<!--   set_mode("regression") -->
+
+
+<!-- war_grid <- grid_max_entropy( -->
+<!--   tree_depth(), -->
+<!--   min_n(), -->
+<!--   loss_reduction(), -->
+<!--   sample_size = sample_prop(), -->
+<!--   finalize(mtry(), war_train), -->
+<!--   learn_rate(), -->
+<!--   size = 50 -->
+<!-- ) -->
+
+<!-- war_recipe <- -->
+<!--   recipe(final_war ~ ., data = war_train) |> -->
+<!--   step_dummy(position) -->
+
+<!-- war_wf <- -->
+<!--   workflow() |> -->
+<!--   add_model(war_spec) |> -->
+<!--   add_recipe(war_recipe) -->
+
+<!-- # find the optimal values of tuning parameters using 10-fold cross validation -->
+<!-- war_folds <- vfold_cv(war_train, strata = final_war) -->
+
+<!-- doParallel::registerDoParallel() -->
+
+<!-- war_res <- tune_grid( -->
+<!--   war_wf, -->
+<!--   resamples = war_folds, -->
+<!--   grid = war_grid, -->
+<!--   metrics = metric_set(rmse) -->
+<!-- ) -->
+
+<!-- # show how each parameter affects the model performance -->
+<!-- war_res |> -->
+<!--   collect_metrics() |> -->
+<!--   filter(.metric == "rmse") |> -->
+<!--   dplyr::select(mean, mtry:sample_size) |> -->
+<!--   pivot_longer(mtry:sample_size, -->
+<!--     values_to = "value", -->
+<!--     names_to = "parameter" -->
+<!--   ) |> -->
+<!--   ggplot(aes(value, mean, color = parameter)) + -->
+<!--   geom_point(alpha = 0.8, show.legend = FALSE) + -->
+<!--   facet_wrap(~parameter, scales = "free_x") + -->
+<!--   labs(x = NULL, y = "RMSE") -->
+
+<!-- best_war <- select_best(war_res, "rmse") -->
+
+<!-- final_war <- finalize_workflow( -->
+<!--   war_wf, -->
+<!--   best_war -->
+<!-- ) -->
+
+<!-- # show the important of each variable -->
+<!-- final_war |> -->
+<!--   fit(data = war_train) |> -->
+<!--   extract_fit_parsnip() |> -->
+<!--   vip(num_features = 20) -->
+
+<!-- # fit model to training set and evaluate on test set. -->
+<!-- war_res <- -->
+<!--   last_fit(final_war, war_split) -->
+
+<!-- # extract final model and use it to predict cumulative WAR -->
+<!-- war_mdl <- war_res$.workflow[[1]] -->
+
+<!-- # evaluate model using curves & area underneath it -->
+
+<!-- war_res |> -->
+<!--   collect_metrics() -->
+
+<!-- war_predictions <- -->
+<!--   war_res |> -->
+<!--   collect_predictions() |> -->
+<!--   mutate(residual = .pred - final_war) -->
+
+<!-- war_predictions |> -->
+<!--   ggplot(aes(final_war, .pred)) + -->
+<!--   geom_point() + -->
+<!--   geom_smooth(method = "lm") -->
+
+<!-- war_predictions |> -->
+<!--   ggplot(aes(final_war, residual)) + -->
+<!--   geom_point() + -->
+<!--   geom_hline(yintercept = 0, color = "blue") -->
+
+
+<!-- war_age_data |> -->
+<!--   filter(last_year == 2021) |> -->
+<!--   group_by(playerid) |> -->
+<!--   filter(age == max(age)) |> -->
+<!--   bind_cols( -->
+<!--     predict(war_mdl, new_data = .) -->
+<!--   ) |> -->
+<!--   arrange(desc(.pred)) |> -->
+<!--   dplyr::select(name, position, age, cumulative_war, predicted_final_war = .pred) -->
+<!-- ``` -->
+
+<!-- overlooked players. -->
+
+<!-- considers MVP voting. -->
+
+<!-- things to add: -->
+
+<!-- - nonstandard all star selections (years where there were 2 ASG's) -->
+<!-- - gold gloves -->
+<!-- - silver sluggers -->
+
+<!-- ```{r} -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- # best players with no mvp votes, all star games, or cy young votes -->
+
+
+<!-- war_through_age |> -->
+<!--   group_by(playerid) |> -->
+<!--   filter(age == max(age), position != "P") |> -->
+<!--   filter( -->
+<!--     mean_year >= 1931, -->
+<!--     cumulative_mvp_points == 0, -->
+<!--     cumulative_asg == 0, -->
+<!--     cumulative_cy_points == 0 -->
+<!--   ) |> -->
+<!--   ungroup() |> -->
+<!--   arrange(desc(cumulative_war)) |> -->
+<!--   dplyr::select(name, position, cumulative_war, mean_year) |> -->
+<!--   filter(row_number() <= 10) -->
+
+<!-- # worst player with multiple all star games -->
+<!-- ``` -->
