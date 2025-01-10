@@ -14,8 +14,8 @@ library(xgboost)
 library(lubridate)
 library(probably)
 library(finetune)
+library(DALEXtra)
 library(DALEX)
-
 
 # functions
 get_all_star_rosters <- function(year) {
@@ -206,6 +206,12 @@ Annual update steps:
 - Set 'hof consideration' year to the most recent one
 - Set 'last season played' to the most recent one
 
+Features to try:
+1. Positional data
+2. Awards votes/points (Lahman)
+3. All Star appearances (Lahman)
+4. Max Cumulative WAR with a franchise instead of max cumulative G
+5. 
 
 ```{r}
 
@@ -445,7 +451,7 @@ xgb_grid <- grid_space_filling(
   # mtry(range = c(6, 32)),
   # finalize(mtry(), hof_train |> dplyr::select(-hof)),
   learn_rate(),
-  size = 25
+  size = 50
 )
 
 xgb_recipe <-
@@ -588,19 +594,16 @@ final_xgb |>
 
 ggsave("hof-mdl-variable-importance.png")
 
-# Create an explainer using training data
-explainer <- 
-  DALEX::explain(
-  model = hof_mdl,            # Use the fitted model
-  data = hof_train |> select(-hof),  # Training features (exclude target)
-  y = hof_train$hof,           # Actual target values
-  type = "classification",
-  label = "HOF Prediction Model"
-)
-
-
 
 ```
+
+```{r}
+y = 
+
+explain_tidymodels(hof_mdl, data = hof_train, y = hof_train$hof)
+```
+
+
 
 
 make predictions!!
@@ -650,6 +653,47 @@ View(player_predictions)
 ```
 
 
+'intercept' is the mean value of predictions in the dataset (?) so the starting point.
+
+
+```{r}
+# Create an explainer using training data
+explainer <- explain_tidymodels(hof_mdl, 
+                                data = hof_train, 
+                                y = as.numeric(hof_train$hof),
+                                
+                                #tell the explainer that a value of hof = 1 is a positive prediction
+                                predict_function_target_column = 1)
+
+#Compare 2 players of the same age, 1 predicted OF and the other not
+
+
+# age 24
+obvs <- "Bobby Witt Jr."
+predict_parts(explainer = explainer, new_observation = player_predictions |> filter(Name == obvs)) |>
+  arrange(contribution) |>
+  plot()
+
+obvs <- "Gabriel Moreno"
+predict_parts(explainer = explainer, new_observation = player_predictions |> filter(Name == obvs)) |>
+  arrange(contribution) |>
+  plot()
+
+# age 27
+
+obvs <- "Yordan Alvarez"
+predict_parts(explainer = explainer, new_observation = player_predictions |> filter(Name == obvs)) |>
+  arrange(contribution) |>
+  plot()
+
+obvs <- "Jeremy Pena"
+predict_parts(explainer = explainer, new_observation = player_predictions |> filter(Name == obvs)) |>
+  arrange(contribution) |>
+  plot()
+
+```
+
+
 ```{r}
 # Function to turn explanations into human-readable text
 generate_english_explanation <- function(row_index, explainer, data_row) {
@@ -680,8 +724,6 @@ generate_english_explanation <- function(row_index, explainer, data_row) {
 }
 
 #prepare the dataset used to generate the explainers
-explainer_prep <- as_tibble(player_predictions |> select(all_of(colnames(explainer$data))))
-                              
 
 # Generate explanations for each row using purrr::map2_chr
 english_explanations <- map2_chr(
