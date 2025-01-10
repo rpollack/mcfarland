@@ -694,6 +694,31 @@ predict_parts(explainer = explainer, new_observation = player_predictions |> fil
 ```
 
 
+```{r, fig.width=5, fig.height=7}
+
+# TODO: think about how to show a player's overall percentage and how each of these add up. the base plotting function does that but they don't align the scales, so it makes it hard to compare. 
+
+get_player_explainer <- function(name) {
+  predict_parts(explainer = explainer, new_observation = player_predictions |> filter(Name == name)) |>
+    as_tibble() |>
+    mutate(Name = name)
+} 
+
+compare <- c("Yadier Molina", "Cody Bellinger", "Taylor Walls", "Bryson Stott")
+foo <-
+  compare |>
+  purrr::map(get_player_explainer)
+
+list_rbind(foo) |>
+  select(Name, variable, contribution) |>
+  filter(variable != "intercept" & variable != "prediction") |>
+  ggplot(aes(contribution, variable)) +
+  geom_point() +
+  facet_grid(vars(Name), scales = "free_y")
+
+```
+
+
 ```{r}
 # Function to turn explanations into human-readable text
 generate_english_explanation <- function(row_index, explainer, data_row) {
