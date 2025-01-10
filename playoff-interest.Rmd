@@ -21,6 +21,10 @@ library(kableExtra)
 
 ```{r echo=FALSE, fig.width=9, message=FALSE, warning=FALSE}
 
+# TODO: will need to update a lot of this for the fact the A's aren't 'Oakland' anymore and their abbreviation is, i think, ATH -- not OAK. 
+
+
+
 # get playoff chances from baseball prospectus/PECOTA
 pecota_poff <-
   read_html("https://www.baseballprospectus.com/standings/") %>%
@@ -376,8 +380,7 @@ poff_chances_clean |>
 
 poff_chance_change <-
   read_csv("playoff_chances.csv") |>
-  
-  #2024 season only
+  # 2024 season only
   filter(prediction_date >= "2024-03-28") |>
   group_by(team_name, prediction_date) |>
   summarize(median_poff_chance = median(poff_chance)) |>
@@ -433,13 +436,340 @@ poff_chance_change |>
     caption = "Playoff chances: median of FG, BPro, Clay Davenport, Numberfire, and TeamRankings"
   ) +
   geom_hline(yintercept = 50, lty = "dashed", color = "gray") +
-  geom_vline(xintercept = 0, lty = "dashed", color = "gray") 
+  geom_vline(xintercept = 0, lty = "dashed", color = "gray")
 # xlim(-80, 80) # TODO: figure out boundaries by taking the max & min change values and making those even somehwo
 
 ggsave("playoff-change-change.png")
 
-# TODO idea for next year: also save the interest_game and interest_plus scores for each day of the season. then we can look back and see what the most impactful games were. 
+# TODO idea for next year: also save the interest_game and interest_plus scores for each day of the season. then we can look back and see what the most impactful games were.
 ```
+
+
+```{r, fig.width = 10}
+abbrev <- "BAL"
+season <- "2024"
+
+data <-
+  read_html(glue("https://www.baseball-reference.com/teams/{abbrev}/{season}-schedule-scores.shtml")) |>
+  html_table() |>
+  pluck(1) |>
+  select(Date, R, RA) |>
+  mutate(runs_scored = as.integer(R), runs_allowed = as.integer(RA)) |>
+  filter(!is.na(runs_scored)) |>
+  mutate(
+    rdif = runs_scored - runs_allowed,
+    date = as.Date(strptime(Date, "%A, %B %d"))
+  ) |>
+  select(date, runs_scored, runs_allowed, rdif) |>
+  mutate(
+    runs_7 = (runs_scored + lag(runs_scored) + lag(runs_scored, 2) + lag(runs_scored, 3) + lag(runs_scored, 4) + lag(runs_scored, 5) + lag(runs_scored, 6)) / 7,
+    runs_allowed_7 = (runs_allowed + lag(runs_allowed) + lag(runs_allowed, 2) + lag(runs_allowed, 3) + lag(runs_allowed, 4) + lag(runs_allowed, 5) + lag(runs_allowed, 6)) / 7,
+    rdif_7 = (rdif + lag(rdif) + lag(rdif, 2) + lag(rdif, 3) + lag(rdif, 4) + lag(rdif, 5) + lag(rdif, 6)) / 7
+  )
+
+# compute season summary metrics
+num_games <- nrow(data)
+rpg <- round(sum(data$runs_scored) / num_games, 1)
+rag <- round(sum(data$runs_allowed) / num_games, 1)
+
+data |>
+  pivot_longer(runs_7:rdif_7, names_to = "metric") |>
+  select(date, metric, value) |>
+  mutate(metric_set = if_else(metric %in% c("runs_7", "runs_allowed_7"), "Runs Scored vs. Allowed", "Run Differential")) |>
+  ggplot(aes(date, value, group = metric, color = metric)) +
+  geom_path() +
+  ggtitle(glue("{abbrev} {season} Season ({num_games} Games)"),
+    subtitle = glue("7 game moving average of runs scored/game, runs allowed/game, and run differential
+              Overall: {rpg} runs scored per game, {rag} runs allowed per game")
+  ) +
+  expand_limits(y = 0) +
+  labs(y = "", x = "", caption = "Source: Baseball Reference") +
+  facet_grid(vars(metric_set), scales = "free_y") +
+  geom_hline(yintercept = 0, lty = "dashed")
+
+ggsave(glue("{abbrev}-{season}-rs-ra-7dma.png"), width = 7)
+```
+
+
+```{r}
+
+
+
+end_date <- Sys.Date()
+
+#duran_duran <- statcast_search_pitchers("2022-03-28", end_date, 661395, "pitcher")
+
+# adley
+player <- 668939
+
+player_data <-
+  statcast_search_batters("2024-03-28", end_date, player, "batter")
+
+
+# player_data |>
+#   filter(
+#     !is.na(events),
+#     events != "",
+#     events != "caught_stealing_2b"
+#   ) |>
+#   mutate(outcome = if_else(description == "hit_into_play", bb_type, events),
+#     outcome = if_else(str_detect(events, "strikeout"), "strikeout", outcome)) |>
+#   count(outcome) |>
+#   mutate(pct = n / sum(n) * 100)
+
+player_data |>
+  mutate(half = if_else(game_date <= "2024-07-16", "Pre-ASB", "Post-ASB")) |>
+  group_by(half) |>
+  summarize(
+    mean_la = mean(launch_angle, na.rm = TRUE),
+    mean_ls = mean(launch_speed, na.rm = TRUE),
+    p95ev = quantile(launch_speed, .95, na.rm = TRUE),
+    mean_batspeed = mean(bat_speed, na.rm = TRUE),
+    mean_swinglength = mean(swing_length, na.rm = TRUE),
+    mean_hitdistance = mean(hit_distance_sc, na.rm = TRUE),
+    #     woba = round(mean(woba_value, na.rm = TRUE) / mean(woba_denom, na.rm = TRUE), 3),
+    xwoba = round(mean(estimated_woba_using_speedangle, na.rm = TRUE), 3),
+    mean_platez = mean(plate_z, na.rm = TRUE)
+  )
+
+
+player_data |>
+  filter(
+    !is.na(events),
+    events != "",
+    events != "caught_stealing_2b"
+  ) |>
+  select(game_date, description, events, bb_type) |>
+  mutate(
+    game_date = as.Date(game_date),
+    month = month(game_date, label = TRUE),
+    outcome = if_else(description == "hit_into_play", bb_type, events),
+    outcome = if_else(str_detect(events, "strikeout"), "strikeout", outcome)
+  ) |> # collapse 2 strikeout outcomes
+  count(month, outcome) |>
+  complete(month, outcome, fill = list(n = 0)) |>
+  filter(month %in% c("Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep")) |>
+  group_by(month) |>
+  mutate(pct = n / sum(n) * 100) |>
+  ggplot(aes(month, pct, group = outcome, fill = outcome, color = outcome)) +
+  geom_path() +
+  geom_point() +
+  labs(x = "", y = "Percentage of PA Outcomes", caption = "Source: Statcast") +
+  ggtitle("Adley Rutschman PA Outcomes, by Month", subtitle = glue("2024 Season through {end_date - 1}"))
+```
+
+note the increase in pop-ups. average LA increased from 19.7 degrees to 24.2 degrees. it doesn't matter how hard you hit it, if it's straight up in the air it'll be an easy out. 
+
+```{r}
+# iffb first half, min 200 PA
+read_csv("~/Downloads/fangraphs-leaderboards-15.csv") |>
+  mutate(pct = percent_rank(`IFFB%`)) |>
+  filter(Name == "Adley Rutschman")
+
+# iffb second half, min 150 PA
+read_csv("~/Downloads/fangraphs-leaderboards-16.csv") |>
+  mutate(pct = percent_rank(`IFFB%`)) |>
+  filter(Name == "Adley Rutschman")
+```
+
+
+he seems to have compensated a bit on his swing. bat speed is down a hair from 67.7 MPH to 67.3 MPH. and the swing length is dowm from 6.9 MPH to 6.8. 
+
+
+
+but he's also getting a bit unlucky.
+
+
+woba, xwoba
+pre-asb: .337, .336 (gap of .001). https://baseballsavant.mlb.com/statcast_search?hfPT=&hfAB=&hfGT=R%7C&hfPR=&hfZ=&hfStadium=&hfBBL=&hfNewZones=&hfPull=&hfC=&hfSea=2024%7C&hfSit=&player_type=batter&hfOuts=&hfOpponent=&pitcher_throws=&batter_stands=&hfSA=&game_date_gt=&game_date_lt=2024-07-16&hfMo=&hfTeam=&home_road=&hfRO=&position=&hfInfield=&hfOutfield=&hfInn=&hfBBT=&hfFlag=&metric_1=&group_by=name&min_pitches=0&min_results=0&min_pas=100&sort_col=wobadiff&player_event_sort=api_p_release_speed&sort_order=desc&chk_stats_woba=on&chk_stats_xwoba=on&chk_stats_wobadiff=on#results
+
+this gap is in the 64th percentile of hitters with 100 PA before the break. 
+
+```{r}
+read_csv("~/Downloads/savant_data-29.csv") |>
+  mutate(
+    woba_minus_x = woba - xwoba,
+    ptile = percent_rank(woba_minus_x)
+  ) |>
+  View()
+```
+
+
+post-asb: .257, .291 (gap of -.034)
+
+the latter gap is 8th percentile of hitters with 100 PA since the break. https://baseballsavant.mlb.com/statcast_search?hfPT=&hfAB=&hfGT=R%7C&hfPR=&hfZ=&hfStadium=&hfBBL=&hfNewZones=&hfPull=&hfC=&hfSea=2024%7C&hfSit=&player_type=batter&hfOuts=&hfOpponent=&pitcher_throws=&batter_stands=&hfSA=&game_date_gt=2024-07-16&game_date_lt=&hfMo=&hfTeam=&home_road=&hfRO=&position=&hfInfield=&hfOutfield=&hfInn=&hfBBT=&hfFlag=&metric_1=&group_by=name&min_pitches=0&min_results=0&min_pas=100&sort_col=wobadiff&player_event_sort=api_p_release_speed&sort_order=desc&chk_stats_woba=on&chk_stats_xwoba=on&chk_stats_wobadiff=on#results
+
+
+```{r}
+read_csv("~/Downloads/savant_data-30.csv") |>
+  mutate(
+    woba_minus_x = woba - xwoba,
+    ptile = percent_rank(woba_minus_x)
+  ) |>
+  View()
+```
+
+
+
+
+```{r}
+# arson judge
+read_csv("~/Downloads/savant_data-26.csv", show_col_types = FALSE) |>
+  mutate(
+    game_date = as.Date(game_date),
+    month = month(game_date, label = TRUE),
+    outcome = if_else(description == "hit_into_play", bb_type, events)
+  ) |>
+  count(month, outcome) |>
+  complete(month = c("Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep"), outcome, fill = list(n = 0)) |>
+  group_by(month) |>
+  mutate(pct = n / sum(n) * 100) |>
+  ggplot(aes(month, pct, group = outcome, color = outcome)) +
+  geom_path() +
+  geom_point() +
+  labs(x = "", y = "Percentage of PA Outcomes", caption = "Source: Baseball Savant") +
+  ggtitle("Aaron Judge PA Outcomes, by Month", subtitle = "2024 Season through Sept 6th")
+```
+ 
+```{r} 
+# all orioles
+read_csv("~/Downloads/savant_data-27.csv", show_col_types = FALSE) |>
+  mutate(
+    game_date = as.Date(game_date),
+    month = month(game_date, label = TRUE),
+    outcome = if_else(description == "hit_into_play", bb_type, events),
+    outcome = if_else(str_detect(events, "strikeout"), "strikeout", outcome), # combine 'strikeout' and 'SO DP'
+    half = if_else(game_date <= "2024-07-16", "Pre-ASB", "Post-ASB"),
+    half = factor(half, labels = c("Pre-ASB", "Post-ASB"))
+  ) |>
+  count(month, outcome) |>
+  group_by(month) |>
+  mutate(pct = n / sum(n) * 100) |>
+  ggplot(aes(month, pct, group = outcome, fill = outcome)) +
+  geom_area() +
+  labs(x = "", y = "Percentage of PA Outcomes", caption = "Source: Baseball Savant") +
+  ggtitle("Orioles PA Outcomes, by Month", subtitle = "2024 Season through Sept 6th")
+```
+
+
+```{r}
+player <- "craig-kimbrel/6655"
+
+read_html(glue("https://www.fangraphs.com/players/{player}/game-log?position=P&gds=&gde=&season=2024&type=5")) |>
+  html_table() |>
+  pluck(10) |>
+  select(Date, gmli = `gmLIgmLI - Average Leverage Index when entering the game`) |>
+  mutate(
+    gmli = as.numeric(gmli),
+    Date = as.Date(strptime(Date, "%Y-%m-%d"))
+  ) |>
+  filter(!is.na(Date)) |>
+  ggplot(aes(Date, gmli)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  ggtitle("Craig Kimbrel, 2024 Season, Leverage Index when Entering Game") +
+  labs(y = "Leverage Index when Entering Game", caption = "Source: FanGraphs")
+```
+
+
+
+
+```{r}
+riggs_stats <-
+  read_html("https://www.baseball-reference.com/players/gl.fcgi?id=stephri01&t=b&year=1921") |>
+  html_table() |>
+  pluck(5) |>
+  bind_rows(read_html("https://www.baseball-reference.com/players/gl.fcgi?id=stephri01&t=b&year=1922") |>
+    html_table() |>
+    pluck(5)) |>
+  bind_rows(read_html("https://www.baseball-reference.com/players/gl.fcgi?id=stephri01&t=b&year=1923") |>
+    html_table() |>
+    pluck(5)) |>
+  bind_rows(read_html("https://www.baseball-reference.com/players/gl.fcgi?id=stephri01&t=b&year=1924") |>
+    html_table() |>
+    pluck(5)) |>
+  bind_rows(read_html("https://www.baseball-reference.com/players/gl.fcgi?id=stephri01&t=b&year=1925") |>
+    html_table() |>
+    pluck(5)) |>
+  bind_rows(read_html("https://www.baseball-reference.com/players/gl.fcgi?id=stephri01&t=b&year=1926") |>
+    html_table() |>
+    pluck(5)) |>
+  bind_rows(read_html("https://www.baseball-reference.com/players/gl.fcgi?id=stephri01&t=b&year=1927") |>
+    html_table() |>
+    pluck(5)) |>
+  bind_rows(read_html("https://www.baseball-reference.com/players/gl.fcgi?id=stephri01&t=b&year=1928") |>
+    html_table() |>
+    pluck(5)) |>
+  bind_rows(read_html("https://www.baseball-reference.com/players/gl.fcgi?id=stephri01&t=b&year=1929") |>
+    html_table() |>
+    pluck(5)) |>
+  bind_rows(read_html("https://www.baseball-reference.com/players/gl.fcgi?id=stephri01&t=b&year=1930") |>
+    html_table() |>
+    pluck(5)) |>
+  bind_rows(read_html("https://www.baseball-reference.com/players/gl.fcgi?id=stephri01&t=b&year=1931") |>
+    html_table() |>
+    pluck(5)) |>
+  bind_rows(read_html("https://www.baseball-reference.com/players/gl.fcgi?id=stephri01&t=b&year=1932") |>
+    html_table() |>
+    pluck(5)) |>
+  bind_rows(read_html("https://www.baseball-reference.com/players/gl.fcgi?id=stephri01&t=b&year=1933") |>
+    html_table() |>
+    pluck(5)) |>
+  bind_rows(read_html("https://www.baseball-reference.com/players/gl.fcgi?id=stephri01&t=b&year=1934") |>
+    html_table() |>
+    pluck(5))
+
+
+riggs_stats |>
+  select(H, AB) |>
+  filter(
+    H != "H",
+    AB != "AB",
+    AB != 0
+  ) |> # remove annual total rows from data
+  mutate(
+    H = as.numeric(H),
+    AB = as.numeric(AB)
+  ) |>
+  filter(AB < 15) |>
+  mutate(
+    game = row_number(),
+    AVG = H / AB,
+    AVG_career = cumsum(H) / cumsum(AB)
+  ) |>
+  ggplot(aes(game, AVG_career)) +
+  geom_point() +
+  geom_path() +
+  geom_hline(yintercept = 0.3, lty = "dashed", color = "gray") +
+  ylim(0, 0.7)
+
+read_html("https://www.baseball-reference.com/players/gl.fcgi?id=stephri01&t=b&year=1926") |>
+  html_table() |>
+  pluck(5) |>
+  select(H, AB) |>
+  filter(
+    H != "H",
+    AB != "AB",
+    AB != 0
+  ) |> # remove annual total rows from data
+  mutate(
+    H = as.numeric(H),
+    AB = as.numeric(AB)
+  ) |>
+  filter(AB < 15) |>
+  mutate(
+    game = row_number(),
+    AVG = H / AB,
+    AVG_career = cumsum(H) / cumsum(AB)
+  ) |>
+  ggplot(aes(game, AVG_career)) +
+  geom_point() +
+  geom_path() +
+  geom_hline(yintercept = 0.3, lty = "dashed", color = "gray") +
+  ylim(0, 0.7)
+```
+
+
 
 
 
@@ -549,11 +879,25 @@ read_csv("~/Downloads/fangraphs-leaderboards-3.csv") |>
 
 ```{r}
 read_csv("~/Downloads/Export_4D34B5232574DEED7FE868804D7A726391A35894.csv") |>
-  filter(`Is_Member?` == "Yes",
-         Primary_Group == "Chapter: TX-Rogers Hornsby (Austin/San Antonio)") |>
+  filter(
+    `Is_Member?` == "Yes",
+    Primary_Group == "Chapter: TX-Rogers Hornsby (Austin/San Antonio)"
+  ) |>
   summarize(foo = str_flatten(Email_Address, collapse = ", "))
 ```
 
+```{r}
+read_csv("~/Downloads/fangraphs-leaderboards-14.csv") |>
+  select(Name, `WPA/LI`, `K-BB%`) |>
+  mutate(mean_wpa = mean(`WPA/LI`), mean_kbb = mean(`K-BB%`)) |>
+  mutate(wpa_li_plus = 100 * (`WPA/LI` / mean_wpa), k_bb_pct_plus = 100 * (`K-BB%` / mean_kbb), single_metric = k_bb_pct_plus / wpa_li_plus) |>
+  View()
+
+#
+# ggplot(aes(wpa_li_plus, k_bb_pct_plus)) +
+# geom_point() +
+# geom_label_repel(aes(label = Name), max.overlaps = 30)
+```
 
 
 ```{r}
