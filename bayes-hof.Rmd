@@ -19,6 +19,13 @@ library(DALEX)
 library(kableExtra)
 
 # functions
+
+get_player_explainer <- function(name) {
+  predict_parts(explainer = explainer, new_observation = player_predictions |> filter(Name == name)) |>
+    as_tibble() |>
+    mutate(Name = name)
+} 
+
 get_all_star_rosters <- function(year) {
   # TODO: handle years with multiple all star games.
 
@@ -595,6 +602,14 @@ final_xgb |>
 
 ggsave("hof-mdl-variable-importance.png")
 
+# Create an explainer using training data
+explainer <- explain_tidymodels(hof_mdl, 
+                                data = hof_train, 
+                                y = as.numeric(hof_train$hof),
+                                
+                                #tell the explainer that a value of hof = 1 is a positive prediction
+                                predict_function_target_column = 1,
+                                verbose = FALSE)
 
 ```
 
@@ -655,6 +670,8 @@ player_predictions |>
   kbl() |>
   kable_styling()
 
+
+
 ```
 
 
@@ -662,13 +679,7 @@ player_predictions |>
 
 
 ```{r}
-# Create an explainer using training data
-explainer <- explain_tidymodels(hof_mdl, 
-                                data = hof_train, 
-                                y = as.numeric(hof_train$hof),
-                                
-                                #tell the explainer that a value of hof = 1 is a positive prediction
-                                predict_function_target_column = 1)
+
 
 #Compare 2 players of the same age, 1 predicted OF and the other not
 
@@ -699,17 +710,13 @@ predict_parts(explainer = explainer, new_observation = player_predictions |> fil
 ```
 
 
-```{r, fig.width=5, fig.height=5}
+```{r, fig.width=5, fig.height=7}
 
 # TODO: think about how to show a player's overall percentage and how each of these add up. the base plotting function does that but they don't align the scales, so it makes it hard to compare. 
 
-get_player_explainer <- function(name) {
-  predict_parts(explainer = explainer, new_observation = player_predictions |> filter(Name == name)) |>
-    as_tibble() |>
-    mutate(Name = name)
-} 
 
-compare <- c("Ryan Braun", "Cody Bellinger", "Mike Trout", "Bryson Stott")
+
+compare <- c("Albert Pujols", "Yordan Alvarez", "Bryson Stott", "Jackson Merrill", "Jasson Dominguez")
 foo <-
   compare |>
   purrr::map(get_player_explainer)
@@ -721,6 +728,8 @@ list_rbind(foo) |>
   geom_col() +
   facet_grid(vars(Name), scales = "free_y") +
   labs(y="")
+
+
 
 ```
 
