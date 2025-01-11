@@ -24,7 +24,7 @@ get_player_explainer <- function(name) {
   predict_parts(explainer = explainer, new_observation = player_predictions |> filter(Name == name)) |>
     as_tibble() |>
     mutate(Name = name)
-} 
+}
 
 get_all_star_rosters <- function(year) {
   # TODO: handle years with multiple all star games.
@@ -215,12 +215,14 @@ Annual update steps:
 - Set 'last season played' to the most recent one
 
 Features to try:
+1. Add franchise continuity for the Senators and the Twins
 1. Positional data
 2. Awards votes/points (Lahman)
 3. All Star appearances (Lahman)
 4. Max Cumulative WAR with a franchise instead of max cumulative G
 5. Gold Gloves (Lahman)
 6. Do this for Starting Pitchers!!! Features: IP, K, ER, ERA, WAR, age (obvs), awards voting. 
+7. Use player's actual birthday for age
 
 (I have the Lahman package loaded but it only has some data through like 2021. See if the files at https://sabr.org/lahman-database/ are more up-to-date)
 
@@ -270,7 +272,7 @@ al_mvp <-
   html_table() |>
   mutate(Name = stri_trans_general(Player, id = "Latin-ASCII")) |>
   select(Year, Name) |>
-  mutate(num_mvps = 1) 
+  mutate(num_mvps = 1)
 
 nl_mvp <-
   mvp_html |>
@@ -278,7 +280,7 @@ nl_mvp <-
   html_table() |>
   mutate(Name = stri_trans_general(Player, id = "Latin-ASCII")) |>
   select(Year, Name) |>
-  mutate(num_mvps = 1) 
+  mutate(num_mvps = 1)
 
 mvp_data <-
   bind_rows(al_mvp, nl_mvp)
@@ -288,15 +290,15 @@ mvp_data <-
 engineer some features and create the useable data frame
 
 ```{r, echo=FALSE}
-# TODO: features and changes to consider: 
-# TODO: we could do a thing where like we model whether the player's year was their last in the bigs. this could help inform predicting because the model will know when a player stopped accruing WAR. 
+# TODO: features and changes to consider:
+# TODO: we could do a thing where like we model whether the player's year was their last in the bigs. this could help inform predicting because the model will know when a player stopped accruing WAR.
 # TODO: try "max cumulative franchise WAR' instead of max cumulative franchise G.
 # TODO: try positional data
 # TODO: investigate wrong predictions in the training model and see if there is some pattern
 # TODO: get all star appearances from Lahman
 
 # make 'franchise WAR pct" cumulative through that point in a player's career. right now it's the whole career
-# best 5 or 7 WAR years, something like that. 
+# best 5 or 7 WAR years, something like that.
 # cumulative RBI
 # cumulative SB
 
@@ -324,13 +326,14 @@ bat_data <-
       Team %in% c("WSN", "MON") ~ "WAS",
       Team %in% c("TEX", "WSA") ~ "TEX",
       .default = Team
-    ))
-  # ) |>
-  # 
-  # # all star data is current as of 2021. there is a 'many to many' relatinoship; maybe because there were multiple ASGs in some years? 
-  # left_join(all_star_seasonal, by=c("key_bbref" = "brefid",
-  #                                   "Season")) 
-  
+    )
+  )
+# ) |>
+#
+# # all star data is current as of 2021. there is a 'many to many' relatinoship; maybe because there were multiple ASGs in some years?
+# left_join(all_star_seasonal, by=c("key_bbref" = "brefid",
+#                                   "Season"))
+
 
 bat_data_full <-
   bat_data |>
@@ -341,20 +344,20 @@ bat_data_full <-
     "Name"
   )) |>
   replace_na(list(num_mvps = 0)) |>
-      # find the largest number of games a player has played with any 1 franchise through that point in their career.   # #https://www.billjamesonline.com/vagabonds_and_homebodies/
-    group_by(PlayerId, franchise) |>
-    arrange(PlayerId, franchise, Season) |>
-    mutate(cumulative_franchise_g = cumsum(G)) |> # Step 1: Franchise-specific cumulative G
-    ungroup() |>
-  
-    # overall cumulative G for player through that point in career
-    arrange(PlayerId, Season) |>
-    mutate(cumulative_career_g = cumsum(G)) |>
-    group_by(PlayerId) |>
-    arrange(PlayerId, age) |>
-    mutate(
-      # compute the highest G total with 1 franchise to that point in the player's career
-      max_cume_frnch_g = cummax(cumulative_franchise_g)) |>
+  # find the largest number of games a player has played with any 1 franchise through that point in their career.   # #https://www.billjamesonline.com/vagabonds_and_homebodies/
+  group_by(PlayerId, franchise) |>
+  arrange(PlayerId, franchise, Season) |>
+  mutate(cumulative_franchise_g = cumsum(G)) |> # Step 1: Franchise-specific cumulative G
+  ungroup() |>
+  # overall cumulative G for player through that point in career
+  arrange(PlayerId, Season) |>
+  mutate(cumulative_career_g = cumsum(G)) |>
+  group_by(PlayerId) |>
+  arrange(PlayerId, age) |>
+  mutate(
+    # compute the highest G total with 1 franchise to that point in the player's career
+    max_cume_frnch_g = cummax(cumulative_franchise_g)
+  ) |>
   group_by(PlayerId, Name, age) |>
   mutate(
     WAR = sum(WAR),
@@ -379,7 +382,6 @@ bat_data_full <-
     cumulative_h = cumsum(H),
     cumulative_sb = cumsum(SB)
   ) |>
-  
   # identify players elected to the Hall of Fame
   left_join(hof, by = "PlayerId") |>
   replace_na(list(hof = 0)) |>
@@ -388,19 +390,21 @@ bat_data_full <-
   mutate(
     considered_hof = if_else(hof_consideration_year - mlb_played_last < 6, FALSE, TRUE),
     hof = factor(hof, levels = c(1, 0)) # positive class prediction must be first level
-  ) |> 
+  ) |>
   filter(!is.na(age)) |> # there are 80-ish NA values for 'age', all players in the late 1800s. get rid of 'em
-  mutate(scandal_type = case_when(
-    Name %in% c("Barry Bonds", "Roger Clemens", "Jose Canseco", "Rafael Palmeiro", "Jason Giambi", "Gary Sheffield", "Miguel Tejada", "Nelson Cruz", "Andy Pettitte", "Ryan Braun", "Manny Ramirez", "Alex Rodriguez", "Mark McGwire", "Sammy Sosa", "Robinson Cano", "Starling Marte", "Melky Cabrera", "David Ortiz", "Dee Gordon", "Bartolo Colon", "Fernando Tatis Jr.") ~ "PEDs",
-    Name %in% c("Joe Jackson", "Eddie Cicotte", "Buck Weaver", "Chick Gandil", "Fred McMullin", "Swede Risberg", "Lefty Williams", "Joe Gedeon", "Pete Rose") ~ "gambling",
-    Name %in% c("Carlos Beltran", "Jose Altuve", "Alex Bregman", "Alex Cora", "Carlos Correa", "George Springer", "Gaylord Perry") ~ "cheating",
-    Name %in% c("Curt Schilling", "Lenny Dykstra", "Roberto Alomar") ~ "misconduct",
-    Name %in% c("Marcell Ozuna", "Roberto Osuna", "Jose Reyes", "Aroldis Chapman", "Omar Vizquel", "Addison Russell", "Wander Franco", "Domingo German") ~ "domestic violence",
-    TRUE ~ "none"
-  ),
-  
-  # round all numeric columns to 1 decimal place for simplicity and ease of presentation
-  across(where(is.numeric), round, 1))
+  mutate(
+    scandal_type = case_when(
+      Name %in% c("Barry Bonds", "Roger Clemens", "Jose Canseco", "Rafael Palmeiro", "Jason Giambi", "Gary Sheffield", "Miguel Tejada", "Nelson Cruz", "Andy Pettitte", "Ryan Braun", "Manny Ramirez", "Alex Rodriguez", "Mark McGwire", "Sammy Sosa", "Robinson Cano", "Starling Marte", "Melky Cabrera", "David Ortiz", "Dee Gordon", "Bartolo Colon", "Fernando Tatis Jr.") ~ "PEDs",
+      Name %in% c("Joe Jackson", "Eddie Cicotte", "Buck Weaver", "Chick Gandil", "Fred McMullin", "Swede Risberg", "Lefty Williams", "Joe Gedeon", "Pete Rose") ~ "gambling",
+      Name %in% c("Carlos Beltran", "Jose Altuve", "Alex Bregman", "Alex Cora", "Carlos Correa", "George Springer", "Gaylord Perry") ~ "cheating",
+      Name %in% c("Curt Schilling", "Lenny Dykstra", "Roberto Alomar") ~ "misconduct",
+      Name %in% c("Marcell Ozuna", "Roberto Osuna", "Jose Reyes", "Aroldis Chapman", "Omar Vizquel", "Addison Russell", "Wander Franco", "Domingo German") ~ "domestic violence",
+      TRUE ~ "none"
+    ),
+
+    # round all numeric columns to 1 decimal place for simplicity and ease of presentation
+    across(where(is.numeric), round, 1)
+  )
 ```
 
 train the model and show information about it, such as a confusion matrix and AUPRC, and make predictions
@@ -415,9 +419,11 @@ train the model and show information about it, such as a confusion matrix and AU
 hof_split <-
   bat_data_full |>
   # train & test model only on players who have not played for 5 years
-  filter(considered_hof,
-         # thin out the dataset a bit. realistically you need to be somewhat of a consistent MLB regular before you're ACTUALLY considered. don't train on scrubs or short-termers. 
-         num_seasons >= 5) |>
+  filter(
+    considered_hof,
+    # thin out the dataset a bit. realistically you need to be somewhat of a consistent MLB regular before you're ACTUALLY considered. don't train on scrubs or short-termers.
+    num_seasons >= 5
+  ) |>
   dplyr::select(age, max_cume_frnch_g, career_midpoint_year, cumulative_war, scandal_type, cumulative_mvps, cumulative_hr, cumulative_h, cumulative_sb, hof) |>
   initial_split(strata = hof)
 
@@ -426,10 +432,10 @@ hof_test <- testing(hof_split)
 
 # scale_pos_numerator <-
 #   bat_data_full |> filter(considered_hof) |> distinct(PlayerId, hof) |> count(hof) |> filter(hof == 0) |> select(n) |> pluck(1)
-# 
+#
 # scale_pos <- scale_pos_numerator / (bat_data_full |> filter(considered_hof) |> distinct(PlayerId, hof) |> count(hof) |> filter(hof == 1) |> select(n) |> pluck(1))
-#   
-  
+#
+
 
 # build a specification.
 xgb_spec <-
@@ -440,7 +446,7 @@ xgb_spec <-
     min_n = tune(),
     loss_reduction = tune(),
     sample_size = tune(),
-   # scale_pos_weight = tune(),
+    # scale_pos_weight = tune(),
     # mtry = tune(),
     learn_rate = tune(),
     stop_iter = tune()
@@ -452,7 +458,7 @@ xgb_grid <- grid_space_filling(
   tree_depth(),
   min_n(),
   loss_reduction(),
- # scale_pos_weight = c(52,55),
+  # scale_pos_weight = c(52,55),
   sample_size = sample_prop(),
   stop_iter(range = c(10, 50)), # tune early stopping rounds
   # mtry(range = c(6, 32)),
@@ -463,7 +469,7 @@ xgb_grid <- grid_space_filling(
 
 xgb_recipe <-
   recipe(hof ~ ., data = hof_train) |>
- step_dummy_multi_choice(scandal_type) |>
+  step_dummy_multi_choice(scandal_type) |>
   step_smote(hof) # smote increases AUPRC, bal acc, and F1 by a meaningful amount.
 
 xgb_wf <-
@@ -534,7 +540,7 @@ optimal_threshold <-
   filter(row_number() == 1) |>
   dplyr::select(.threshold) |>
   as.numeric()
-  
+
 
 optimal_threshold <- optimal_threshold * 100
 
@@ -545,9 +551,9 @@ optimal_threshold <- optimal_threshold * 100
 #                                  levels = c(1,0)))
 
 # TODO: predictions_optimized <-
-  # preds_new <- preds %>% 
-  # mutate(new_class_pred = factor(ifelse(.pred_bad >= max_j_index_threshold, "bad", "good"), 
-  #                                levels = c("bad", "good"))) 
+# preds_new <- preds %>%
+# mutate(new_class_pred = factor(ifelse(.pred_bad >= max_j_index_threshold, "bad", "good"),
+#                                levels = c("bad", "good")))
 
 # compute area under ROC using class probabilities
 area_under_curve <-
@@ -603,14 +609,14 @@ final_xgb |>
 ggsave("hof-mdl-variable-importance.png")
 
 # Create an explainer using training data
-explainer <- explain_tidymodels(hof_mdl, 
-                                data = hof_train, 
-                                y = as.numeric(hof_train$hof),
-                                
-                                #tell the explainer that a value of hof = 1 is a positive prediction
-                                predict_function_target_column = 1,
-                                verbose = FALSE)
+explainer <- explain_tidymodels(hof_mdl,
+  data = hof_train,
+  y = as.numeric(hof_train$hof),
 
+  # tell the explainer that a value of hof = 1 is a positive prediction
+  predict_function_target_column = 1,
+  verbose = FALSE
+)
 ```
 
 
@@ -644,34 +650,35 @@ prep <-
   group_by(PlayerId) |>
   filter(age == max(age)) |>
   ungroup()
-  
+
 final_predictions <- predict(hof_mdl, prep, type = "prob")
 
-player_predictions <- 
+player_predictions <-
   bind_cols(prep, final_predictions) |>
   mutate(
-   prob_hof = round(100 * .pred_1, 1),
-    pred_hof = if_else(prob_hof >= optimal_threshold, TRUE, FALSE)
+    prob_hof = round(100 * .pred_1, 1),
+    pred_hof = if_else(prob_hof >= optimal_threshold, TRUE, FALSE),
+    war_per_year = round(cumulative_war / num_seasons_real, 1)
   ) |>
-  select(Name, age, pred_hof, prob_hof, cumulative_war, cumulative_h, cumulative_hr, cumulative_mvps, scandal_type, career_midpoint_year, max_cume_frnch_g, cumulative_sb) |>
-  mutate(war_per_age = round(cumulative_war/age, 1)) |>
-  arrange(desc(pred_hof), desc(war_per_age)) |>
+  select(Name, age, pred_hof, prob_hof, cumulative_war, war_per_year, cumulative_h, cumulative_hr, cumulative_mvps, scandal_type, career_midpoint_year, max_cume_frnch_g, cumulative_sb) |>
+  arrange(desc(pred_hof), desc(war_per_year)) |>
   ungroup()
-  
-#View(player_predictions)
 
-num_hof <- player_predictions |> count(pred_hof) |>filter(pred_hof) |> select(n) |> pull()
+# View(player_predictions)
+
+num_hof <- player_predictions |>
+  count(pred_hof) |>
+  filter(pred_hof) |>
+  select(n) |>
+  pull()
 
 player_predictions |>
   group_by(pred_hof) |>
-  slice_head(n=num_hof) |>
-  select(Name, pred_hof, age, cumulative_war) |>
-  arrange(desc(pred_hof)) |>
+  slice_head(n = num_hof) |>
+  select(Name, pred_hof, age, cumulative_war, war_per_year) |>
+  arrange(desc(pred_hof), desc(war_per_year)) |>
   kbl() |>
   kable_styling()
-
-
-
 ```
 
 
@@ -679,9 +686,7 @@ player_predictions |>
 
 
 ```{r}
-
-
-#Compare 2 players of the same age, 1 predicted OF and the other not
+# Compare 2 players of the same age, 1 predicted OF and the other not
 
 
 # age 24
@@ -706,13 +711,11 @@ obvs <- "Jeremy Pena"
 predict_parts(explainer = explainer, new_observation = player_predictions |> filter(Name == obvs)) |>
   arrange(contribution) |>
   plot()
-
 ```
 
 
 ```{r, fig.width=5, fig.height=7}
-
-# TODO: think about how to show a player's overall percentage and how each of these add up. the base plotting function does that but they don't align the scales, so it makes it hard to compare. 
+# TODO: think about how to show a player's overall percentage and how each of these add up. the base plotting function does that but they don't align the scales, so it makes it hard to compare.
 
 
 
@@ -727,10 +730,7 @@ list_rbind(foo) |>
   ggplot(aes(contribution, variable)) +
   geom_col() +
   facet_grid(vars(Name), scales = "free_y") +
-  labs(y="")
-
-
-
+  labs(y = "")
 ```
 
 
@@ -763,20 +763,15 @@ generate_english_explanation <- function(row_index, explainer, data_row) {
   )
 }
 
-#prepare the dataset used to generate the explainers
+# prepare the dataset used to generate the explainers
 
 # Generate explanations for each row using purrr::map2_chr
 english_explanations <- map2_chr(
-  1:nrow(explainer_prep), 
-  split(explainer_prep, 1:nrow(explainer_prep)),  # Split into single-row tibbles
+  1:nrow(explainer_prep),
+  split(explainer_prep, 1:nrow(explainer_prep)), # Split into single-row tibbles
   ~ generate_english_explanation(.x, explainer, .y)
 )
 
 # Print the explanations
 cat(paste(english_explanations, collapse = "\n\n"))
-
-
 ```
-
-
-
