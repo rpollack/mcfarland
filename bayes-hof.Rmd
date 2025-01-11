@@ -212,12 +212,10 @@ Features to try:
 2. Awards votes/points (Lahman)
 3. All Star appearances (Lahman)
 4. Max Cumulative WAR with a franchise instead of max cumulative G
-5. 
+5. Gold Gloves (Lahman)
+6. Do this for Starting Pitchers!!! Features: IP, K, ER, ERA, WAR, age (obvs), awards voting. 
 
-```{r}
-
-```
-
+(I have the Lahman package loaded but it only has some data through like 2021. See if the files at https://sabr.org/lahman-database/ are more up-to-date)
 
 load all data
 
@@ -430,7 +428,7 @@ hof_test <- testing(hof_split)
 xgb_spec <-
   boost_tree(
     mode = "classification",
-    trees = 300,
+    trees = tune(),
     tree_depth = tune(),
     min_n = tune(),
     loss_reduction = tune(),
@@ -443,6 +441,7 @@ xgb_spec <-
   set_engine("xgboost", validation = 0.2) # validation proportion to use for early stop detection
 
 xgb_grid <- grid_space_filling(
+  trees(),
   tree_depth(),
   min_n(),
   loss_reduction(),
@@ -527,6 +526,7 @@ optimal_threshold <-
   arrange(desc(.estimate)) |>
   filter(row_number() == 1) |>
   dplyr::select(.threshold) |>
+  as.numeric()
   
 
 optimal_threshold <- optimal_threshold * 100
@@ -576,7 +576,7 @@ ggsave("hof-mdl-confusion-matrix.png")
 
 
 predictions |>
-  f_meas(truth = hof, estimate = optimized_pred)
+  f_meas(truth = hof, estimate = .pred_class)
 
 predictions |>
   bal_accuracy(truth = hof, estimate = .pred_class)
@@ -643,7 +643,7 @@ player_predictions <-
   arrange(desc(pred_hof), desc(war_per_age)) |>
   ungroup()
   
-View(player_predictions)
+#View(player_predictions)
 
 num_hof <- player_predictions |> count(pred_hof) |>filter(pred_hof) |> select(n) |> pull()
 
