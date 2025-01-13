@@ -215,6 +215,7 @@ Annual update steps:
 - Set 'last season played' to the most recent one
 
 Features to try:
+1. 'Career midpoint' year should be THROUGH THAT AGE as well.
 1. Add franchise continuity for the Senators and the Twins
 1. Positional data
 2. Awards votes/points (Lahman)
@@ -227,6 +228,19 @@ Features to try:
 (I have the Lahman package loaded but it only has some data through like 2021. See if the files at https://sabr.org/lahman-database/ are more up-to-date)
 
 load all data
+
+
+```{r}
+# TODO: check what happens when player appears in two ASG's per year. Rocky Colavito, Yogi Berra, Frank Malzone all appeared in both 1959 games.  https://baseballhall.org/discover/Play-It-Again-The-Two-All-Star-Game-Era. Luis Aparicio had 2 in 1962
+# TODO: spot-check data.
+
+# join ASG data while accounting for the 2 ASG's per year from 1959-1962
+bat_data |>
+   |>
+  View()
+
+```
+
 
 ```{r}
 # get stats and data for position players.
@@ -284,6 +298,12 @@ nl_mvp <-
 
 mvp_data <-
   bind_rows(al_mvp, nl_mvp)
+
+# asg data is through 2023 at this point. group to player and year bc there were multiple ASG's for a few years
+asg_data <-
+  read_csv("~/Downloads/lahman_1871-2023_csv/lahman_1871-2023_csv/AllstarFull.csv", show_col_types = FALSE) |>
+    distinct(playerID, yearID, gameID) |>
+    count(playerID, yearID, name = "asg")
 ```
 
 
@@ -338,6 +358,11 @@ bat_data <-
 bat_data_full <-
   bat_data |>
   mutate(Name = stri_trans_general(Name, id = "Latin-ASCII")) |>
+  
+  # join ASG data 
+  left_join(asg_data, by = c("key_bbref" = "playerID", "Season" = "yearID")) |>
+  replace_na(list(asg = 0)) |>
+  
   # add in MVP data
   left_join(mvp_data, by = c(
     "Season" = "Year",
@@ -365,10 +390,11 @@ bat_data_full <-
     def = sum(Def),
     H = sum(H),
     HR = sum(HR),
-    SB = sum(SB)
+    SB = sum(SB),
+    num_asg = sum(asg)
   ) |>
   replace_na(list(SB = 0)) |>
-  distinct(PlayerId, Name, age, WAR, H, HR, SB, off, def, max_cume_frnch_g, career_midpoint_year, mlb_played_last, num_mvps) |>
+  distinct(PlayerId, Name, age, WAR, H, HR, SB, off, def, max_cume_frnch_g, career_midpoint_year, mlb_played_last, num_mvps, num_asg) |>
   # now, compute WAR & other stats through each age
   group_by(PlayerId, Name) |>
   arrange(age) |>
@@ -380,7 +406,8 @@ bat_data_full <-
     cumulative_mvps = cumsum(num_mvps),
     cumulative_hr = cumsum(HR),
     cumulative_h = cumsum(H),
-    cumulative_sb = cumsum(SB)
+    cumulative_sb = cumsum(SB),
+    cumulative_asg = cumsum(num_asg)
   ) |>
   # identify players elected to the Hall of Fame
   left_join(hof, by = "PlayerId") |>
@@ -424,7 +451,7 @@ hof_split <-
     # thin out the dataset a bit. realistically you need to be somewhat of a consistent MLB regular before you're ACTUALLY considered. don't train on scrubs or short-termers.
     num_seasons >= 5
   ) |>
-  dplyr::select(age, max_cume_frnch_g, career_midpoint_year, cumulative_war, scandal_type, cumulative_mvps, cumulative_hr, cumulative_h, cumulative_sb, hof) |>
+  dplyr::select(age, max_cume_frnch_g, career_midpoint_year, cumulative_war, scandal_type, cumulative_mvps, cumulative_hr, cumulative_h, cumulative_sb, cumulative_asg, hof) |>
   initial_split(strata = hof)
 
 hof_train <- training(hof_split)
@@ -660,7 +687,7 @@ player_predictions <-
     pred_hof = if_else(prob_hof >= optimal_threshold, TRUE, FALSE),
     war_per_year = round(cumulative_war / num_seasons_real, 1)
   ) |>
-  select(Name, age, pred_hof, prob_hof, cumulative_war, war_per_year, cumulative_h, cumulative_hr, cumulative_mvps, scandal_type, career_midpoint_year, max_cume_frnch_g, cumulative_sb) |>
+  select(Name, age, pred_hof, cumulative_war, war_per_year, cumulative_h, cumulative_hr, cumulative_mvps, scandal_type, career_midpoint_year, max_cume_frnch_g, cumulative_sb, cumulative_asg) |>
   arrange(desc(pred_hof), desc(war_per_year)) |>
   ungroup()
 
@@ -675,10 +702,17 @@ num_hof <- player_predictions |>
 player_predictions |>
   group_by(pred_hof) |>
   slice_head(n = num_hof) |>
-  select(Name, pred_hof, age, cumulative_war, war_per_year) |>
+  select(Name, pred_hof, age, cumulative_war, cumulative_hr, cumulative_h, cumulative_sb, cumulative_mvps, cumulative_asg, scandal_type, war_per_year) |>
   arrange(desc(pred_hof), desc(war_per_year)) |>
   kbl() |>
   kable_styling()
+
+player_predictions |>
+  group_by(pred_hof) |>
+#  slice_head(n = num_hof) |>
+  # select(Name, pred_hof, age, cumulative_war, cumulative_hr, cumulative_h, cumulative_sb, cumulative_mvps, scandal_type, war_per_year) |>
+  arrange(desc(pred_hof), desc(war_per_year)) |>
+  write_sheet("https://docs.google.com/spreadsheets/d/12uWa6dZaKnglJiXpE_fDZ5mCPrQ0rlQLrho6vlN6Jm8/edit?gid=0#gid=0", sheet = "Predictions")
 ```
 
 
