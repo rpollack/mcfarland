@@ -209,37 +209,24 @@ Annual update steps:
 - Download new FanGraphs player data, set to the most recent season: https://www.fangraphs.com/leaders/major-league?stats=bat&lg=all&type=c%2C4%2C6%2C11%2C12%2C13%2C21%2C-1%2C41%2C-1%2C23%2C37%2C38%2C61%2C-1%2C-1%2C203%2C199%2C58%2C7&month=0&ind=1&team=0%2Cto&rost=0&players=0&startdate=&enddate=&season1=1871&season=2024&qual=1&pos=np&v_cr=202301
 - Download new FG data that marks players as HOF: https://www.fangraphs.com/leaders/major-league?stats=bat&lg=all&type=8&month=0&ind=0&team=0%2Cto&rost=2&players=0&startdate=&enddate=&season1=1871&season=2023&qual=0&pos=np
 - Download new MVP data from https://www.mlb.com/awards/most-valuable-player. Ensure it joins properly to the main baseball dataset. 
-- Refresh Lahman DB data
+- Refresh Lahman DB data.
 - Download new Chadwick data: https://github.com/chadwickbureau/register/tree/master/data
 - Set 'hof consideration' year to the most recent one
 - Set 'last season played' to the most recent one
 
 Features to try:
+1. Supplement Lahman ASG and MVP point data with 2024 data from BBREF. 
 1. 'Career midpoint' year should be THROUGH THAT AGE as well.
 1. Add franchise continuity for the Senators and the Twins
 1. Positional data
 2. Awards votes/points (Lahman)
-3. All Star appearances (Lahman)
 4. Max Cumulative WAR with a franchise instead of max cumulative G
 5. Gold Gloves (Lahman)
 6. Do this for Starting Pitchers!!! Features: IP, K, ER, ERA, WAR, age (obvs), awards voting. 
 7. Use player's actual birthday for age
 
-(I have the Lahman package loaded but it only has some data through like 2021. See if the files at https://sabr.org/lahman-database/ are more up-to-date)
 
 load all data
-
-
-```{r}
-# TODO: check what happens when player appears in two ASG's per year. Rocky Colavito, Yogi Berra, Frank Malzone all appeared in both 1959 games.  https://baseballhall.org/discover/Play-It-Again-The-Two-All-Star-Game-Era. Luis Aparicio had 2 in 1962
-# TODO: spot-check data.
-
-# join ASG data while accounting for the 2 ASG's per year from 1959-1962
-bat_data |>
-   |>
-  View()
-
-```
 
 
 ```{r}
@@ -304,6 +291,52 @@ asg_data <-
   read_csv("~/Downloads/lahman_1871-2023_csv/lahman_1871-2023_csv/AllstarFull.csv", show_col_types = FALSE) |>
     distinct(playerID, yearID, gameID) |>
     count(playerID, yearID, name = "asg")
+
+# as of this writing, Lahman MVP data goes through 2023. get it
+mvp_lahman <-
+  read_csv("~/Downloads/lahman_1871-2023_csv/lahman_1871-2023_csv/AwardsSharePlayers.csv", show_col_types = FALSE) |>
+  filter(awardID == "Most Valuable Player") |>
+  group_by(playerID, yearID) |>
+  summarize(num_mvp_points = sum(pointsWon)) 
+
+# supplement Lahman data with data from the most recent season
+mvp_supplement_data <-
+  read_html("https://www.baseball-reference.com/awards/awards_2024.shtml")
+
+
+#get AL MVP supplement data and bind with NL data
+mvp_supplement <- 
+  mvp_supplement_data |>
+  html_nodes("table") |>
+  pluck(1) |>
+  html_table(header = TRUE) |>
+  select(Name = 2, num_mvp_points = 4) |>
+  mutate(foo = as.numeric(num_mvp_points)) |>
+  bind_rows(
+    mvp_supplement_data |>
+  # bind to NL MVP voting data
+      html_nodes("table") |>
+      pluck(2) |>
+      html_table(header = TRUE) |>
+      select(Name = 2, num_mvp_points = 4) |>
+      mutate(foo = as.numeric(num_mvp_points)) 
+  ) |>
+filter(Name != "Name") |>
+  mutate(Season = 2024) |>
+  mutate(Name = stri_trans_general(Name, id = "Latin-ASCII")) |>
+  select(Name, Season, foo)
+  
+
+# TODO: 2024 MVP data is not joining properly for some reason. totals are coming out to 0
+
+# 
+#   tibble(Season = 2024,
+#          Player = c("Aaron Judge", "Bobby Witt Jr", "Juan Soto", "Gunnar Henderson", "Jose Ramirez", "Vladimir Guerrero Jr.," "Tarik Skubal", "Jarren Duran", "Yordan Alvarez", "Brent Rooker", "Emmanual Clase", "Cal Raleigh", "Rafael Devers", "Anthony Santander", "Jose Altuve", "Tyler Holton", "Seth Lugo", "Corey Seager", "Framber Valdez")) |>
+#   mutate()
+  
+  # do the same for all star rosters
+asg_supplement <-
+    read_html("https://www.baseball-reference.com/allstar/2024-allstar-game.shtml")
 ```
 
 
@@ -315,7 +348,6 @@ engineer some features and create the useable data frame
 # TODO: try "max cumulative franchise WAR' instead of max cumulative franchise G.
 # TODO: try positional data
 # TODO: investigate wrong predictions in the training model and see if there is some pattern
-# TODO: get all star appearances from Lahman
 
 # make 'franchise WAR pct" cumulative through that point in a player's career. right now it's the whole career
 # best 5 or 7 WAR years, something like that.
@@ -359,16 +391,27 @@ bat_data_full <-
   bat_data |>
   mutate(Name = stri_trans_general(Name, id = "Latin-ASCII")) |>
   
-  # join ASG data 
+  # join ASG data.
   left_join(asg_data, by = c("key_bbref" = "playerID", "Season" = "yearID")) |>
   replace_na(list(asg = 0)) |>
   
-  # add in MVP data
-  left_join(mvp_data, by = c(
-    "Season" = "Year",
-    "Name"
-  )) |>
-  replace_na(list(num_mvps = 0)) |>
+  # mvp data from Lahman. 
+  left_join(mvp_lahman, by = c("key_bbref" = "playerID", "Season" = "yearID")) |>
+  replace_na(list(num_mvp_points = 0)) |>
+
+  #supplemental data Lahman didn't have
+  left_join(mvp_supplement, by=c("Name", "Season")) |>
+  replace_na(list(foo = 0)) |>
+  mutate(num_mvp_points = num_mvp_points + foo) |>
+  select(-foo) |>
+
+  # now that we have MVP point data from all time, no need to get actual awards
+    # add in MVP data. this is to get to actual awards won & includes 2024 season. 
+  # left_join(mvp_data, by = c(
+  #   "Season" = "Year",
+  #   "Name"
+  # )) |>
+  # replace_na(list(num_mvps = 0)) |>
   # find the largest number of games a player has played with any 1 franchise through that point in their career.   # #https://www.billjamesonline.com/vagabonds_and_homebodies/
   group_by(PlayerId, franchise) |>
   arrange(PlayerId, franchise, Season) |>
@@ -383,6 +426,8 @@ bat_data_full <-
     # compute the highest G total with 1 franchise to that point in the player's career
     max_cume_frnch_g = cummax(cumulative_franchise_g)
   ) |>
+  
+  # compute seasonal totals by age. players traded midseason have multiple rows
   group_by(PlayerId, Name, age) |>
   mutate(
     WAR = sum(WAR),
@@ -391,11 +436,12 @@ bat_data_full <-
     H = sum(H),
     HR = sum(HR),
     SB = sum(SB),
-    num_asg = sum(asg)
+    num_asg = sum(asg),
+    num_mvp_points = sum(num_mvp_points)
   ) |>
   replace_na(list(SB = 0)) |>
-  distinct(PlayerId, Name, age, WAR, H, HR, SB, off, def, max_cume_frnch_g, career_midpoint_year, mlb_played_last, num_mvps, num_asg) |>
-  # now, compute WAR & other stats through each age
+  distinct(PlayerId, Name, age, WAR, H, HR, SB, off, def, max_cume_frnch_g, career_midpoint_year, mlb_played_last, num_asg, num_mvp_points) |>
+  # now, compute cumulative WAR & other stats through each age
   group_by(PlayerId, Name) |>
   arrange(age) |>
   mutate(
@@ -403,7 +449,7 @@ bat_data_full <-
     cumulative_war = cumsum(WAR),
     cumulative_off = cumsum(off),
     cumulative_def = cumsum(def),
-    cumulative_mvps = cumsum(num_mvps),
+    cumulative_mvp_pts = cumsum(num_mvp_points),
     cumulative_hr = cumsum(HR),
     cumulative_h = cumsum(H),
     cumulative_sb = cumsum(SB),
@@ -451,7 +497,9 @@ hof_split <-
     # thin out the dataset a bit. realistically you need to be somewhat of a consistent MLB regular before you're ACTUALLY considered. don't train on scrubs or short-termers.
     num_seasons >= 5
   ) |>
-  dplyr::select(age, max_cume_frnch_g, career_midpoint_year, cumulative_war, scandal_type, cumulative_mvps, cumulative_hr, cumulative_h, cumulative_sb, cumulative_asg, hof) |>
+  
+  # remove columns not needed for training
+  select(-PlayerId, -Name, -H, -HR, -SB, -off, -def, -mlb_played_last, -num_mvps, -num_asg, -num_seasons, -considered_hof, -WAR, -num_mvp_points, -cumulative_off, -cumulative_def) |>
   initial_split(strata = hof)
 
 hof_train <- training(hof_split)
