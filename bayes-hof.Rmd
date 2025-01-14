@@ -698,8 +698,8 @@ player_predictions <-
     prob_hof = round(100 * .pred_1, 1),
     pred_hof = if_else(prob_hof >= optimal_threshold, TRUE, FALSE),
     war_per_year = round(cumulative_war / num_seasons_real, 1)
-  ) |>
-  select(Name, age, pred_hof, cumulative_war, war_per_year, cumulative_h, cumulative_hr, cumulative_mvps, scandal_type, career_midpoint_year, max_cume_frnch_g, cumulative_sb, cumulative_asg) |>
+  ) |> 
+  select(Name, age, pred_hof, cumulative_war, war_per_year, cumulative_h, cumulative_hr, cumulative_mvp_pts, scandal_type, career_midpoint_year, max_cume_frnch_g, cumulative_sb, cumulative_asg) |>
   arrange(desc(pred_hof), desc(war_per_year)) |>
   ungroup()
 
@@ -714,7 +714,7 @@ num_hof <- player_predictions |>
 player_predictions |>
   group_by(pred_hof) |>
   slice_head(n = num_hof) |>
-  select(Name, pred_hof, age, cumulative_war, cumulative_hr, cumulative_h, cumulative_sb, cumulative_mvps, cumulative_asg, scandal_type, war_per_year) |>
+  select(Name, pred_hof, age, cumulative_war, cumulative_hr, cumulative_h, cumulative_sb, cumulative_mvp_pts, cumulative_asg, scandal_type, war_per_year) |>
   arrange(desc(pred_hof), desc(war_per_year)) |>
   kbl() |>
   kable_styling()
@@ -763,14 +763,9 @@ predict_parts(explainer = explainer, new_observation = player_predictions |> fil
 ```{r, fig.width=5, fig.height=7}
 # TODO: think about how to show a player's overall percentage and how each of these add up. the base plotting function does that but they don't align the scales, so it makes it hard to compare.
 
-
-
-compare <- c("Albert Pujols", "Yordan Alvarez", "Bryson Stott", "Jackson Merrill", "Jasson Dominguez")
-foo <-
-  compare |>
-  purrr::map(get_player_explainer)
-
-list_rbind(foo) |>
+c("Nolan Schanuel", "Fernando Tatis Jr.", "Josh Donaldson") |> 
+  purrr::map(get_player_explainer) |>
+  list_rbind() |>
   select(Name, variable, contribution) |>
   filter(variable != "intercept" & variable != "prediction") |>
   ggplot(aes(contribution, variable)) +
