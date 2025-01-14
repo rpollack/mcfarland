@@ -764,7 +764,7 @@ predict_parts(explainer = explainer, new_observation = player_predictions |> fil
 # TODO: think about how to show a player's overall percentage and how each of these add up. the base plotting function does that but they don't align the scales, so it makes it hard to compare.
 
 c("Nolan Schanuel", "Fernando Tatis Jr.", "Josh Donaldson") |> 
-  purrr::map(get_player_explainer) |>
+  map(get_player_explainer) |>
   list_rbind() |>
   select(Name, variable, contribution) |>
   filter(variable != "intercept" & variable != "prediction") |>
