@@ -215,11 +215,13 @@ Annual update steps:
 - Set 'last season played' to the most recent one
 
 Features to try:
-1. Supplement Lahman ASG and MVP point data with 2024 data from BBREF. 
+
+investigate wrong predictions in training model (or predictions) & find a pattern. 
+
+1. scale_pos_weight
 1. 'Career midpoint' year should be THROUGH THAT AGE as well.
 1. Add franchise continuity for the Senators and the Twins
 1. Positional data
-2. Awards votes/points (Lahman)
 4. Max Cumulative WAR with a franchise instead of max cumulative G
 5. Gold Gloves (Lahman)
 6. Do this for Starting Pitchers!!! Features: IP, K, ER, ERA, WAR, age (obvs), awards voting. 
@@ -289,70 +291,49 @@ mvp_data <-
 # asg data is through 2023 at this point. group to player and year bc there were multiple ASG's for a few years
 asg_data <-
   read_csv("~/Downloads/lahman_1871-2023_csv/lahman_1871-2023_csv/AllstarFull.csv", show_col_types = FALSE) |>
-    distinct(playerID, yearID, gameID) |>
-    count(playerID, yearID, name = "asg")
+  distinct(playerID, yearID, gameID) |>
+  count(playerID, yearID, name = "asg")
 
 # as of this writing, Lahman MVP data goes through 2023. get it
 mvp_lahman <-
   read_csv("~/Downloads/lahman_1871-2023_csv/lahman_1871-2023_csv/AwardsSharePlayers.csv", show_col_types = FALSE) |>
   filter(awardID == "Most Valuable Player") |>
   group_by(playerID, yearID) |>
-  summarize(num_mvp_points = sum(pointsWon)) 
+  summarize(num_mvp_points = sum(pointsWon))
 
 # supplement Lahman data with data from the most recent season
 mvp_supplement_data <-
   read_html("https://www.baseball-reference.com/awards/awards_2024.shtml")
 
 
-#get AL MVP supplement data and bind with NL data
-mvp_supplement <- 
+# get AL MVP supplement data and bind with NL data
+mvp_supplement <-
   mvp_supplement_data |>
-  html_nodes("table") |>
+  html_elements("table") |>
   pluck(1) |>
   html_table(header = TRUE) |>
   select(Name = 2, num_mvp_points = 4) |>
   mutate(foo = as.numeric(num_mvp_points)) |>
   bind_rows(
     mvp_supplement_data |>
-  # bind to NL MVP voting data
-      html_nodes("table") |>
+      # bind to NL MVP voting data
+      html_elements("table") |>
       pluck(2) |>
       html_table(header = TRUE) |>
       select(Name = 2, num_mvp_points = 4) |>
-      mutate(foo = as.numeric(num_mvp_points)) 
+      mutate(foo = as.numeric(num_mvp_points))
   ) |>
-filter(Name != "Name") |>
+  filter(Name != "Name") |>
   mutate(Season = 2024) |>
   mutate(Name = stri_trans_general(Name, id = "Latin-ASCII")) |>
   select(Name, Season, foo)
-  
-
-# TODO: 2024 MVP data is not joining properly for some reason. totals are coming out to 0
-
-# 
-#   tibble(Season = 2024,
-#          Player = c("Aaron Judge", "Bobby Witt Jr", "Juan Soto", "Gunnar Henderson", "Jose Ramirez", "Vladimir Guerrero Jr.," "Tarik Skubal", "Jarren Duran", "Yordan Alvarez", "Brent Rooker", "Emmanual Clase", "Cal Raleigh", "Rafael Devers", "Anthony Santander", "Jose Altuve", "Tyler Holton", "Seth Lugo", "Corey Seager", "Framber Valdez")) |>
-#   mutate()
-  
-  # do the same for all star rosters
-asg_supplement <-
-    read_html("https://www.baseball-reference.com/allstar/2024-allstar-game.shtml")
 ```
-
 
 engineer some features and create the useable data frame
 
 ```{r, echo=FALSE}
-# TODO: features and changes to consider:
 # TODO: we could do a thing where like we model whether the player's year was their last in the bigs. this could help inform predicting because the model will know when a player stopped accruing WAR.
-# TODO: try "max cumulative franchise WAR' instead of max cumulative franchise G.
-# TODO: try positional data
-# TODO: investigate wrong predictions in the training model and see if there is some pattern
 
-# make 'franchise WAR pct" cumulative through that point in a player's career. right now it's the whole career
-# best 5 or 7 WAR years, something like that.
-# cumulative RBI
-# cumulative SB
 
 hof_consideration_year <- 2024 # used to determine whether someone's been considered for the HOF
 
@@ -380,38 +361,27 @@ bat_data <-
       .default = Team
     )
   )
-# ) |>
-#
-# # all star data is current as of 2021. there is a 'many to many' relatinoship; maybe because there were multiple ASGs in some years?
-# left_join(all_star_seasonal, by=c("key_bbref" = "brefid",
-#                                   "Season"))
-
 
 bat_data_full <-
   bat_data |>
   mutate(Name = stri_trans_general(Name, id = "Latin-ASCII")) |>
-  
-  # join ASG data.
+  # join ASG data from Lahman
   left_join(asg_data, by = c("key_bbref" = "playerID", "Season" = "yearID")) |>
   replace_na(list(asg = 0)) |>
-  
-  # mvp data from Lahman. 
+  # supplement with 2024 ASG data which isn't in Lahman as of this time
+  mutate(asg = case_when(
+    Season == 2024 & Name %in% c("Ketel Marte", "Shohei Ohtani", "Trea Turner", "Bryce Harper", "William Contreras", "Christian Yelich", "Alec Bohm", "Teoscar Hernandez", "Jurickson Profar", "Paul Skenes", "Will Smith", "Pete Alonso", "Luis Arraez", "Freddie Freeman", "Ryan McMahon", "CJ Abrams", "Mookie Betts", "Elly de la Cruz", "Bryan Reynolds", "Jackson Merrill", "Heliot Ramos", "Fernando Tatis Jr.", "Marcell Ozuna", "Kyle Finnegan", "Max Fried", "Tyler Glasnow", "Hunter Greene", "Ryan Helsley", "Jeff Hoffman", "Shota Imanaga", "Reynaldo Lopez", "Chris Sale", "Cristopher Sanchez", "Tanner Scott", "Matt Strahm", "Ranger Suarez", "Robert Suarez", "Logan Webb", "Zack Wheeler", "Steven Kwan", "Gunnar Henderson", "Juan Soto", "Aaron Judge", "Yordan Alvarez", "Jose Ramirez", "Vladimir Guerrero Jr.", "Adley Rutschman", "Marcus Semien", "Corbin Burnes", "David Fry", "Salvador Perez", "Josh Naylor", "Jose Altuve", "Willi Castro", "Rafael Devers", "Isaac Paredes", "Jordan Westburg", "Carlos Correa", "Corey Seager", "Bobby Witt Jr.", "Riley Greene", "Jarren Duran", "Anthony Santander", "Kyle Tucker", "Tyler Anderson", "Emmanuel Clase", "Garrett Crochet", "Logan Gilbert", "Clay Holmes", "Tanner Houck", "Seth Lugo", "Mason Miller", "Andres Munoz", "Cole Ragans", "Tarik Skubal", "Kirby Yates") ~ asg + 1,
+    .default = asg
+  )) |>
+  # mvp data from Lahman.
   left_join(mvp_lahman, by = c("key_bbref" = "playerID", "Season" = "yearID")) |>
   replace_na(list(num_mvp_points = 0)) |>
-
-  #supplemental data Lahman didn't have
-  left_join(mvp_supplement, by=c("Name", "Season")) |>
+  # supplemental data Lahman didn't have
+  left_join(mvp_supplement, by = c("Name", "Season")) |>
   replace_na(list(foo = 0)) |>
   mutate(num_mvp_points = num_mvp_points + foo) |>
   select(-foo) |>
-
-  # now that we have MVP point data from all time, no need to get actual awards
-    # add in MVP data. this is to get to actual awards won & includes 2024 season. 
-  # left_join(mvp_data, by = c(
-  #   "Season" = "Year",
-  #   "Name"
-  # )) |>
-  # replace_na(list(num_mvps = 0)) |>
+ 
   # find the largest number of games a player has played with any 1 franchise through that point in their career.   # #https://www.billjamesonline.com/vagabonds_and_homebodies/
   group_by(PlayerId, franchise) |>
   arrange(PlayerId, franchise, Season) |>
@@ -426,7 +396,6 @@ bat_data_full <-
     # compute the highest G total with 1 franchise to that point in the player's career
     max_cume_frnch_g = cummax(cumulative_franchise_g)
   ) |>
-  
   # compute seasonal totals by age. players traded midseason have multiple rows
   group_by(PlayerId, Name, age) |>
   mutate(
@@ -483,10 +452,6 @@ bat_data_full <-
 train the model and show information about it, such as a confusion matrix and AUPRC, and make predictions
 
 ```{r}
-# THINGS TO TRY:
-
-# scale_pos_weight.
-# add in positional data
 # make use of https://probably.tidymodels.org/articles/equivocal-zones.html ???
 
 hof_split <-
@@ -497,9 +462,8 @@ hof_split <-
     # thin out the dataset a bit. realistically you need to be somewhat of a consistent MLB regular before you're ACTUALLY considered. don't train on scrubs or short-termers.
     num_seasons >= 5
   ) |>
-  
   # remove columns not needed for training
-  select(-PlayerId, -Name, -H, -HR, -SB, -off, -def, -mlb_played_last, -num_mvps, -num_asg, -num_seasons, -considered_hof, -WAR, -num_mvp_points, -cumulative_off, -cumulative_def) |>
+  select(-PlayerId, -Name, -H, -HR, -SB, -off, -def, -mlb_played_last, -num_asg, -num_seasons, -considered_hof, -WAR, -num_mvp_points, -cumulative_off, -cumulative_def) |>
   initial_split(strata = hof)
 
 hof_train <- training(hof_split)
@@ -757,7 +721,7 @@ player_predictions |>
 
 player_predictions |>
   group_by(pred_hof) |>
-#  slice_head(n = num_hof) |>
+  #  slice_head(n = num_hof) |>
   # select(Name, pred_hof, age, cumulative_war, cumulative_hr, cumulative_h, cumulative_sb, cumulative_mvps, scandal_type, war_per_year) |>
   arrange(desc(pred_hof), desc(war_per_year)) |>
   write_sheet("https://docs.google.com/spreadsheets/d/12uWa6dZaKnglJiXpE_fDZ5mCPrQ0rlQLrho6vlN6Jm8/edit?gid=0#gid=0", sheet = "Predictions")
