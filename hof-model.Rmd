@@ -210,6 +210,7 @@ Annual update steps:
 - Download new FG data that marks players as HOF: https://www.fangraphs.com/leaders/major-league?stats=bat&lg=all&type=8&month=0&ind=0&team=0%2Cto&rost=2&players=0&startdate=&enddate=&season1=1871&season=2023&qual=0&pos=np
 - Download new MVP data from https://www.mlb.com/awards/most-valuable-player. Ensure it joins properly to the main baseball dataset. 
 - Refresh Lahman DB data.
+- Refresh BB-ref data to supplement whatever Lahman is missing. 
 - Download new Chadwick data: https://github.com/chadwickbureau/register/tree/master/data
 - Set 'hof consideration' year to the most recent one
 - Set 'last season played' to the most recent one
@@ -217,15 +218,16 @@ Annual update steps:
 Features to try:
 
 investigate wrong predictions in training model (or predictions) & find a pattern. 
-
+1. Cano, Manny, A-Rod etc were all busted for PEDs TWICE. Encode this fact. 
 1. scale_pos_weight
-1. 'Career midpoint' year should be THROUGH THAT AGE as well.
 1. Add franchise continuity for the Senators and the Twins
 1. Positional data
 4. Max Cumulative WAR with a franchise instead of max cumulative G
-5. Gold Gloves (Lahman)
+5. Gold Gloves (Lahman + BBREf to supplement)
 6. Do this for Starting Pitchers!!! Features: IP, K, ER, ERA, WAR, age (obvs), awards voting. 
 7. Use player's actual birthday for age
+1. 'Career midpoint' year should be THROUGH THAT AGE as well.
+
 
 
 load all data
@@ -763,7 +765,7 @@ predict_parts(explainer = explainer, new_observation = player_predictions |> fil
 ```{r, fig.width=5, fig.height=7}
 # TODO: think about how to show a player's overall percentage and how each of these add up. the base plotting function does that but they don't align the scales, so it makes it hard to compare.
 
-c("Nolan Schanuel", "Fernando Tatis Jr.", "Josh Donaldson") |> 
+c("Robinson Cano", "Josh Donaldson", "Shohei Ohtani") |> 
   map(get_player_explainer) |>
   list_rbind() |>
   select(Name, variable, contribution) |>
