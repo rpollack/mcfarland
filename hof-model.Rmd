@@ -438,7 +438,7 @@ bat_data_full <-
   filter(!is.na(age)) |> # there are 80-ish NA values for 'age', all players in the late 1800s. get rid of 'em
   mutate(
     scandal_type = case_when(
-      Name %in% c("Barry Bonds", "Roger Clemens", "Jose Canseco", "Rafael Palmeiro", "Jason Giambi", "Gary Sheffield", "Miguel Tejada", "Nelson Cruz", "Andy Pettitte", "Ryan Braun", "Manny Ramirez", "Alex Rodriguez", "Mark McGwire", "Sammy Sosa", "Robinson Cano", "Starling Marte", "Melky Cabrera", "David Ortiz", "Dee Gordon", "Bartolo Colon", "Fernando Tatis Jr.") ~ "PEDs",
+      Name %in% c("Barry Bonds", "Roger Clemens", "Jose Canseco", "Rafael Palmeiro", "Jason Giambi", "Gary Sheffield", "Miguel Tejada", "Nelson Cruz", "Andy Pettitte", "Ryan Braun", "Manny Ramirez", "Alex Rodriguez", "Mark McGwire", "Sammy Sosa", "Robinson Cano", "Starling Marte", "Melky Cabrera", "David Ortiz", "Dee Strange-Gordon", "Bartolo Colon", "Fernando Tatis Jr.") ~ "PEDs",
       Name %in% c("Joe Jackson", "Eddie Cicotte", "Buck Weaver", "Chick Gandil", "Fred McMullin", "Swede Risberg", "Lefty Williams", "Joe Gedeon", "Pete Rose") ~ "gambling",
       Name %in% c("Carlos Beltran", "Jose Altuve", "Alex Bregman", "Alex Cora", "Carlos Correa", "George Springer", "Gaylord Perry") ~ "cheating",
       Name %in% c("Curt Schilling", "Lenny Dykstra", "Roberto Alomar") ~ "misconduct",
