@@ -44,7 +44,6 @@ investigate wrong predictions in training model (or predictions) & find a patter
 
 1. Cano, Manny, A-Rod etc were all busted for PEDs TWICE. Encode this fact. 
 1. scale_pos_weight
-1. Add franchise continuity for the Senators and the Twins
 1. Positional data
 4. Max Cumulative WAR with a franchise instead of max cumulative G
 5. Gold Gloves (Lahman + BBREf to supplement)
@@ -54,7 +53,7 @@ investigate wrong predictions in training model (or predictions) & find a patter
 
 
 
-load all data
+load all data and build the initial data frame. 
 
 
 ```{r}
@@ -184,7 +183,14 @@ bat_data <-
       Team %in% c("ATL", "BSN", "MLN") ~ "ATL",
       Team %in% c("OAK", "KCA", "PHA") ~ "OAK",
       Team %in% c("SLB", "BAL") ~ "BAL",
-      Team %in% c("WSN", "MON") ~ "WAS",
+      
+      # handle Senators/Twins
+      Team %in% c("WAS", "MIN") ~ "MIN",
+      
+      # Expos/Nationals
+      Team %in% c("WSN", "MON") ~ "WSN",
+      
+      # Other Senators / Rangers
       Team %in% c("TEX", "WSA") ~ "TEX",
       .default = Team
     )
@@ -327,18 +333,11 @@ hof_split <-
     num_seasons >= 5
   ) |>
   # remove columns not needed for training
-  select(-PlayerId, -Name, -num_seasons, -mlb_played_last) |>
+  select(-PlayerId, -Name, -num_seasons, -mlb_played_last, -considered_hof) |>
   initial_split(strata = hof)
 
 hof_train <- training(hof_split)
 hof_test <- testing(hof_split)
-
-# scale_pos_numerator <-
-#   bat_data_full |> filter(considered_hof) |> distinct(PlayerId, hof) |> count(hof) |> filter(hof == 0) |> select(n) |> pluck(1)
-#
-# scale_pos <- scale_pos_numerator / (bat_data_full |> filter(considered_hof) |> distinct(PlayerId, hof) |> count(hof) |> filter(hof == 1) |> select(n) |> pluck(1))
-#
-
 
 # build a specification.
 xgb_spec <-
@@ -585,8 +584,6 @@ player_predictions |>
 
 player_predictions |>
   group_by(pred_hof) |>
-  #  slice_head(n = num_hof) |>
-  # select(Name, pred_hof, age, cumulative_war, cumulative_hr, cumulative_h, cumulative_sb, cumulative_mvps, scandal_type, war_per_year) |>
   arrange(desc(pred_hof), desc(war_per_year)) |>
   write_sheet("https://docs.google.com/spreadsheets/d/12uWa6dZaKnglJiXpE_fDZ5mCPrQ0rlQLrho6vlN6Jm8/edit?gid=0#gid=0", sheet = "Predictions")
 ```
