@@ -27,7 +27,8 @@ protein = str_replace_all(protein, c("chicken breast" = "chicken",
                              "ribs" = "pork", 
                              "tilapia" = "fish",
                              "flounder" = "fish",
-                             "haddock" = "fish")),
+                             "haddock" = "fish",
+                             "sole" = "fish")),
 method = str_extract(meal, "ip|instant pot|slow cooker|crock pot|roast|sautee|sous vide")) %>%
   replace_na(list(protein = "none",
                   method = "none specified"))
@@ -45,24 +46,13 @@ meal_data %>%
 meal_data %>% 
   count(meal, sort = TRUE)
 
-# how long has it been since i last made each meal?
-meal_data %>%
-  group_by(meal) %>%
-  filter(last_eaten == max(last_eaten)) %>%
-  mutate(days_since_cooked = difftime(Sys.Date(), last_eaten, unit = "days")) %>%
-  select(meal, last_eaten, days_since_cooked) %>%
-  arrange(desc(days_since_cooked))
-```
-
-
-```{r}
-# 10 random meals eaten at least 3 months prior
+# 25 random meals eaten at least 3 months prior
 meal_data %>%
   group_by(meal) |>
   filter(last_eaten == max(last_eaten),
          last_eaten <= Sys.Date() - days(90)) %>%
   ungroup() |>
-  slice_sample(n=10) %>%
+  slice_sample(n=25) %>%
   select(meal, last_eaten)
 
 ```
@@ -103,98 +93,6 @@ games_played_2021 %>%
   geom_col() + coord_flip() +
   ggtitle("PS4/5 Games Played, 2021", subtitle = glue("{hours_played} total hours")) +
   labs(x="", caption = "Source: PS5 Profile")
-
-```
-
-
-```{r}
-balances <-
-  read_csv(("~/Documents/transactions2/Sheet 2-Table 1.csv"),
-         col_types = list(col_character(), col_character(), col_character(), col_number())) %>%
-  select(date = 1, balance = 4) %>%
-  filter(balance != "BALANCE") %>%
-  mutate(date = mdy(date),
-         month = floor_date(date, "month")) %>%
-filter(month >= "2022-01-01",
-       month < "2022-08-01") 
-
-min_balances <- 
-  balances %>%
-  group_by(month) %>%
-  filter(balance == min(balance)) %>%
-  ungroup() 
-
-
-f <- 
-  balances %>%
-  group_by(month) %>%
-  summarize(foo = quantile(balance, .03)) %>%
-  ungroup() %>%
-  summarize(q = quantile(foo, .03)) %>%
-  pull()
-
-balances %>%
-  ggplot(aes(date, balance)) +
-  geom_path() +
-  geom_hline(yintercept = f)
-
-min_balances %>%
-  ggplot(aes(date, balance)) +
-  geom_path() +
-  ggtitle("minimum balance")
-
-```
-
-
-For example, you had a $620 total return on a $2,000 investment over three years. So, your total return is 31 percent. Your annualized return is 9.42 percent. This is derived by doing the following calculation: (1+.31)^(1/3) - 1 = 9.42 percent. The standard formula for computing annualized return is AR=(1+return)1/years- 1.
-
-
-
-```{r}
-
-
-investments <-
-  read_sheet("https://docs.google.com/spreadsheets/d/1SUvyFzTDKHP_AOXjkQeplC9ovJjwPBjxbTauNOSq4Ks/edit#gid=249938722",
-    sheet = "Retirement - Balances"
-  ) %>%
-  slice_head(n = 10) %>%
-  pivot_longer(-Account, names_to = "month") %>%
-  mutate(
-    month = my(month),
-    year = year(month)
-  )
-  
-investments %>%  
-  ggplot(aes(month, value, color = Account)) +
-  facet_wrap(vars(Account)) +
-  geom_path() +
-  theme(legend.position = "none") +
-  scale_y_continuous(labels=scales::dollar_format()) 
-
-investments %>%
-  group_by(month) %>%
-  summarize(total = sum(value, na.rm = TRUE)) %>%
-  ggplot(aes(month, total)) + geom_path() +
-  scale_y_continuous(labels=scales::dollar_format()) +
-  ggtitle("Total Investments")
-
-# get the beginning and current amounts for all accounts; calculate gains
-investments %>%
-  group_by(Account) %>%
-  filter(month == min(month) | month == max(month)) %>%
-  select(Account, month, value) %>%
-  pivot_wider(names_from = month, values_from = value) %>%
-  select(Account, start = `2018-06-01`, current = `2022-05-01`) %>%
-  mutate(
-    # fees = case_when(
-    #   str_detect(Account, "Park Ave") ~ .014,
-    #   Account == "Betterment (IRA)" ~ 0.0025,
-    #   TRUE ~ NA_character_
-    # ),
-    gain = current - start,
-    pct_gain = gain / start * 100,
-    simple_annual_pct = pct_gain / 4
-  )
 
 ```
 
