@@ -218,6 +218,7 @@ Annual update steps:
 Features to try:
 
 investigate wrong predictions in training model (or predictions) & find a pattern. 
+
 1. Cano, Manny, A-Rod etc were all busted for PEDs TWICE. Encode this fact. 
 1. scale_pos_weight
 1. Add franchise continuity for the Senators and the Twins
@@ -331,11 +332,13 @@ mvp_supplement <-
   select(Name, Season, foo)
 ```
 
+
+
+
 engineer some features and create the useable data frame
 
 ```{r, echo=FALSE}
 # TODO: we could do a thing where like we model whether the player's year was their last in the bigs. this could help inform predicting because the model will know when a player stopped accruing WAR.
-
 
 hof_consideration_year <- 2024 # used to determine whether someone's been considered for the HOF
 
@@ -343,9 +346,9 @@ bat_data <-
   batter_data |>
   inner_join(chadwick_data, by = c("PlayerId" = "key_fangraphs")) |>
   mutate(
+    
     age = Season - birth_year,
     career_midpoint_year = floor((mlb_played_first + mlb_played_last) / 2),
-
     # all the teams who've moved or changed names: dodgers, giants, marlins, orioles (browns, old brewers), expos (nationals), Tampa Bay (rays / devil rays), Braves, Brewers (Pilots?)
 
     # align historical franchise abbreviations to current day teams so we can compute how mobile a player is
@@ -362,11 +365,18 @@ bat_data <-
       Team %in% c("TEX", "WSA") ~ "TEX",
       .default = Team
     )
-  )
+  ) |>
+  select(-key_uuid, -key_mlbam, -birth_year, -mlb_played_first) |>
+  
+  # make joining datasets easier by removing accent marks from names.
+  mutate(Name = stri_trans_general(Name, id = "Latin-ASCII")) 
 
-bat_data_full <-
+```
+
+
+```{r}
+bat_data_seasonal <-
   bat_data |>
-  mutate(Name = stri_trans_general(Name, id = "Latin-ASCII")) |>
   # join ASG data from Lahman
   left_join(asg_data, by = c("key_bbref" = "playerID", "Season" = "yearID")) |>
   replace_na(list(asg = 0)) |>
@@ -383,56 +393,10 @@ bat_data_full <-
   replace_na(list(foo = 0)) |>
   mutate(num_mvp_points = num_mvp_points + foo) |>
   select(-foo) |>
- 
-  # find the largest number of games a player has played with any 1 franchise through that point in their career.   # #https://www.billjamesonline.com/vagabonds_and_homebodies/
-  group_by(PlayerId, franchise) |>
-  arrange(PlayerId, franchise, Season) |>
-  mutate(cumulative_franchise_g = cumsum(G)) |> # Step 1: Franchise-specific cumulative G
-  ungroup() |>
-  # overall cumulative G for player through that point in career
-  arrange(PlayerId, Season) |>
-  mutate(cumulative_career_g = cumsum(G)) |>
-  group_by(PlayerId) |>
-  arrange(PlayerId, age) |>
-  mutate(
-    # compute the highest G total with 1 franchise to that point in the player's career
-    max_cume_frnch_g = cummax(cumulative_franchise_g)
-  ) |>
-  # compute seasonal totals by age. players traded midseason have multiple rows
-  group_by(PlayerId, Name, age) |>
-  mutate(
-    WAR = sum(WAR),
-    off = sum(Off),
-    def = sum(Def),
-    H = sum(H),
-    HR = sum(HR),
-    SB = sum(SB),
-    num_asg = sum(asg),
-    num_mvp_points = sum(num_mvp_points)
-  ) |>
-  replace_na(list(SB = 0)) |>
-  distinct(PlayerId, Name, age, WAR, H, HR, SB, off, def, max_cume_frnch_g, career_midpoint_year, mlb_played_last, num_asg, num_mvp_points) |>
-  # now, compute cumulative WAR & other stats through each age
-  group_by(PlayerId, Name) |>
-  arrange(age) |>
-  mutate(
-    num_seasons = n(),
-    cumulative_war = cumsum(WAR),
-    cumulative_off = cumsum(off),
-    cumulative_def = cumsum(def),
-    cumulative_mvp_pts = cumsum(num_mvp_points),
-    cumulative_hr = cumsum(HR),
-    cumulative_h = cumsum(H),
-    cumulative_sb = cumsum(SB),
-    cumulative_asg = cumsum(num_asg)
-  ) |>
-  # identify players elected to the Hall of Fame
-  left_join(hof, by = "PlayerId") |>
+  
+   left_join(hof, by = "PlayerId") |>
   replace_na(list(hof = 0)) |>
-  distinct() |> # getting duplicate rows for some reason. too lazy to fix it for real right now
-  ungroup() |>
   mutate(
-    considered_hof = if_else(hof_consideration_year - mlb_played_last < 6, FALSE, TRUE),
     hof = factor(hof, levels = c(1, 0)) # positive class prediction must be first level
   ) |>
   filter(!is.na(age)) |> # there are 80-ish NA values for 'age', all players in the late 1800s. get rid of 'em
@@ -449,7 +413,82 @@ bat_data_full <-
     # round all numeric columns to 1 decimal place for simplicity and ease of presentation
     across(where(is.numeric), round, 1)
   )
+
+
 ```
+
+
+make separate df for max franchise games per age for each player.
+compute seasonal and cumulative stats for players.
+then join the two datasets together.
+
+```{r}
+  
+# compute max games a player has played with a franchise through that age.
+
+max_franchise_games <-
+  bat_data |>
+  group_by(PlayerId, franchise) |>
+  arrange(PlayerId, franchise, age) |>
+  mutate(cumulative_franchise_g = cumsum(G)) |> # Step 1: Franchise-specific cumulative G
+  ungroup() |>
+  #    overall cumulative G for player through that point in career
+  arrange(PlayerId, age) |>
+  mutate(cumulative_career_g = cumsum(G)) |>
+  group_by(PlayerId, Name) |>
+  arrange(age) |>
+  mutate(
+    #   # compute the highest G total with 1 franchise to that point in the player's career
+    max_cume_frnch_g = cummax(cumulative_franchise_g)
+  ) |>
+  
+  # players traded midseason will have 2 rows still. to get to one row per age: for each age, find the maximum. 
+  group_by(PlayerId, Name, age) |>
+  summarize(max_cume_frnch_g = max(max_cume_frnch_g)) |>
+  ungroup()
+
+# verify 1 row per player per age. the following should return 0
+max_franchise_games |> count(PlayerId, age) |> filter(n>1)
+
+
+bat_data_full <-
+  bat_data_seasonal |>
+  
+   # compute seasonal totals. players traded midseason have multiple rows
+  group_by(PlayerId, Name, Season, age, mlb_played_last, career_midpoint_year, scandal_type, hof) |>
+  summarize(
+    season_WAR = sum(WAR),
+    season_H = sum(H),
+    season_HR = sum(HR),
+    season_SB = sum(SB),
+    season_num_asg = sum(asg),
+    season_num_mvp_points = sum(num_mvp_points)
+  ) |>
+  replace_na(list(season_SB = 0)) |>
+ 
+  # now that each season/age is 1 row, compute cumulative WAR & other stats through each age
+  group_by(PlayerId, Name, career_midpoint_year, mlb_played_last, scandal_type, hof) |>
+  arrange(age, .by_group = TRUE) |>
+  reframe(
+    age = age,
+    num_seasons = n(),
+    cumulative_war = cumsum(season_WAR),
+    cumulative_mvp_pts = cumsum(season_num_mvp_points),
+    cumulative_hr = cumsum(season_HR),
+    cumulative_h = cumsum(season_H),
+    cumulative_sb = cumsum(season_SB),
+    cumulative_asg = cumsum(season_num_asg)) |>
+ 
+  ungroup() |>
+  left_join(max_franchise_games, by=c("PlayerId", "Name", "age")) |>
+  mutate(considered_hof = if_else(hof_consideration_year - mlb_played_last < 6, FALSE, TRUE)) |>
+  select(PlayerId, Name, age, contains("cumulative"), max_cume_frnch_g, mlb_played_last, career_midpoint_year, num_seasons, scandal_type, considered_hof, hof)
+  
+
+# test there is 1 row per player per age. the following should return 0 rows
+bat_data_full |> count(PlayerId, age) |> filter(n > 1)
+```
+
 
 train the model and show information about it, such as a confusion matrix and AUPRC, and make predictions
 
@@ -465,7 +504,7 @@ hof_split <-
     num_seasons >= 5
   ) |>
   # remove columns not needed for training
-  select(-PlayerId, -Name, -H, -HR, -SB, -off, -def, -mlb_played_last, -num_asg, -num_seasons, -considered_hof, -WAR, -num_mvp_points, -cumulative_off, -cumulative_def) |>
+  select(-PlayerId, -Name, -num_seasons, -mlb_played_last) |>
   initial_split(strata = hof)
 
 hof_train <- training(hof_split)
