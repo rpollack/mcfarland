@@ -42,7 +42,7 @@ Features to try:
 
 investigate wrong predictions in training model (or predictions) & find a pattern. 
 
-1. Cano, Manny, A-Rod etc were all busted for PEDs TWICE. Encode this fact. 
+1. I’m noodling on more of a sliding scale for PEDs, like “named in leaked anonymous report”, “mentioned in Mitchell report only”, “served suspension”, “served multiple suspensions”, etc. 
 1. scale_pos_weight
 1. Positional data
 4. Max Cumulative WAR with a franchise instead of max cumulative G
@@ -50,6 +50,7 @@ investigate wrong predictions in training model (or predictions) & find a patter
 6. Do this for Starting Pitchers!!! Features: IP, K, ER, ERA, WAR, age (obvs), awards voting. 
 7. Use player's actual birthday for age
 1. 'Career midpoint' year should be THROUGH THAT AGE as well.
+1. Postseason play. 
 
 
 
@@ -152,6 +153,14 @@ mvp_supplement <-
   mutate(Season = 2024) |>
   mutate(Name = stri_trans_general(Name, id = "Latin-ASCII")) |>
   select(Name, Season, foo)
+
+glove_data <-
+  read_csv("~/Downloads/lahman_1871-2023_csv/lahman_1871-2023_csv/AwardsPlayers.csv", show_col_types = FALSE) |>
+    filter(awardID %in% c("Gold Glove", "Platinum Glove")) |>
+    select(playerID, yearID, awardID) |>
+    mutate(num = 1) |>
+  pivot_wider(names_from = awardID, values_from = num) |>
+  select(playerID, Season = yearID, num_plat_glove = `Platinum Glove`, num_gold_glove = `Gold Glove`)
 ```
 
 
@@ -203,6 +212,8 @@ bat_data <-
 ```
 
 
+merge in award and scandal data
+
 ```{r}
 bat_data_seasonal <-
   bat_data |>
@@ -217,12 +228,17 @@ bat_data_seasonal <-
   # mvp data from Lahman.
   left_join(mvp_lahman, by = c("key_bbref" = "playerID", "Season" = "yearID")) |>
   replace_na(list(num_mvp_points = 0)) |>
-  # supplemental data Lahman didn't have
+  # supplemental MVP data Lahman didn't have
   left_join(mvp_supplement, by = c("Name", "Season")) |>
   replace_na(list(foo = 0)) |>
   mutate(num_mvp_points = num_mvp_points + foo) |>
   select(-foo) |>
+  left_join(glove_data, by = c("key_bbref" = "playerID", "Season")) |>
+  replace_na(list(num_plat_glove = 0, num_gold_glove = 0)) |>
   
+  # TODO: input 2024 gold & platinum glove data
+  
+  # encode whether a player has been inducted into the HOF
    left_join(hof, by = "PlayerId") |>
   replace_na(list(hof = 0)) |>
   mutate(
@@ -291,7 +307,9 @@ bat_data_full <-
     season_HR = sum(HR),
     season_SB = sum(SB),
     season_num_asg = sum(asg),
-    season_num_mvp_points = sum(num_mvp_points)
+    season_num_mvp_points = sum(num_mvp_points),
+    season_gold_glove = sum(num_gold_glove),
+    season_plat_glove = sum(num_plat_glove) 
   ) |>
   replace_na(list(season_SB = 0)) |>
  
@@ -306,7 +324,11 @@ bat_data_full <-
     cumulative_hr = cumsum(season_HR),
     cumulative_h = cumsum(season_H),
     cumulative_sb = cumsum(season_SB),
-    cumulative_asg = cumsum(season_num_asg)) |>
+    cumulative_asg = cumsum(season_num_asg),
+    cumulative_gold_gloves = cumsum(season_gold_glove),
+    cumulative_plat_gloves = cumsum(season_plat_glove)
+    
+    ) |>
  
   ungroup() |>
   left_join(max_franchise_games, by=c("PlayerId", "Name", "age")) |>
