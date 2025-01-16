@@ -17,6 +17,7 @@ library(finetune)
 library(DALEXtra)
 library(DALEX)
 library(kableExtra)
+library(googlesheets4)
 
 # functions
 
@@ -25,7 +26,6 @@ get_player_explainer <- function(name) {
     as_tibble() |>
     mutate(Name = name)
 }
-
 ```
 
 Annual update steps:
@@ -156,9 +156,9 @@ mvp_supplement <-
 
 glove_data <-
   read_csv("~/Downloads/lahman_1871-2023_csv/lahman_1871-2023_csv/AwardsPlayers.csv", show_col_types = FALSE) |>
-    filter(awardID %in% c("Gold Glove", "Platinum Glove")) |>
-    select(playerID, yearID, awardID) |>
-    mutate(num = 1) |>
+  filter(awardID %in% c("Gold Glove", "Platinum Glove")) |>
+  select(playerID, yearID, awardID) |>
+  mutate(num = 1) |>
   pivot_wider(names_from = awardID, values_from = num) |>
   select(playerID, Season = yearID, num_plat_glove = `Platinum Glove`, num_gold_glove = `Gold Glove`)
 ```
@@ -177,7 +177,6 @@ bat_data <-
   batter_data |>
   inner_join(chadwick_data, by = c("PlayerId" = "key_fangraphs")) |>
   mutate(
-    
     age = Season - birth_year,
     career_midpoint_year = floor((mlb_played_first + mlb_played_last) / 2),
     # all the teams who've moved or changed names: dodgers, giants, marlins, orioles (browns, old brewers), expos (nationals), Tampa Bay (rays / devil rays), Braves, Brewers (Pilots?)
@@ -192,23 +191,21 @@ bat_data <-
       Team %in% c("ATL", "BSN", "MLN") ~ "ATL",
       Team %in% c("OAK", "KCA", "PHA") ~ "OAK",
       Team %in% c("SLB", "BAL") ~ "BAL",
-      
+
       # handle Senators/Twins
       Team %in% c("WAS", "MIN") ~ "MIN",
-      
+
       # Expos/Nationals
       Team %in% c("WSN", "MON") ~ "WSN",
-      
+
       # Other Senators / Rangers
       Team %in% c("TEX", "WSA") ~ "TEX",
       .default = Team
     )
   ) |>
   select(-key_uuid, -key_mlbam, -birth_year, -mlb_played_first) |>
-  
   # make joining datasets easier by removing accent marks from names.
-  mutate(Name = stri_trans_general(Name, id = "Latin-ASCII")) 
-
+  mutate(Name = stri_trans_general(Name, id = "Latin-ASCII"))
 ```
 
 
@@ -235,11 +232,19 @@ bat_data_seasonal <-
   select(-foo) |>
   left_join(glove_data, by = c("key_bbref" = "playerID", "Season")) |>
   replace_na(list(num_plat_glove = 0, num_gold_glove = 0)) |>
-  
-  # TODO: input 2024 gold & platinum glove data
-  
+  # supplement plat & GG glove data with 2024 data, not in Lahman
+  mutate(
+    num_plat_glove = case_when(
+      Season == 2024 & Name %in% c("Cal Raleigh", "Brice Turang") ~ num_plat_glove + 1,
+      .default = num_plat_glove
+    ),
+    num_gold_glove = case_when(
+      Season == 2024 & Name %in% c("Chris Sale", "Patrick Bailey", "Christian Walker", "Brice Turang", "Matt Chapman", "Ezequiel Tovar", "Brenton Doyle", "Ian Happ", "Sal Frelick", "Jared Triolo", "Seth Lugo", "Cal Raleigh", "Carlos Santana", "Andres Gimenez", "Alex Bregman", "Bobby Witt Jr.", "Daulton Varsho", "Wilyer Abreu", "Steven Kwan", "Dylan Moore") ~ num_gold_glove + 1,
+      .default = num_gold_glove
+    )
+  ) |>
   # encode whether a player has been inducted into the HOF
-   left_join(hof, by = "PlayerId") |>
+  left_join(hof, by = "PlayerId") |>
   replace_na(list(hof = 0)) |>
   mutate(
     hof = factor(hof, levels = c(1, 0)) # positive class prediction must be first level
@@ -258,8 +263,6 @@ bat_data_seasonal <-
     # round all numeric columns to 1 decimal place for simplicity and ease of presentation
     across(where(is.numeric), round, 1)
   )
-
-
 ```
 
 
@@ -268,7 +271,6 @@ compute seasonal and cumulative stats for players.
 then join the two datasets together.
 
 ```{r}
-  
 # compute max games a player has played with a franchise through that age.
 
 max_franchise_games <-
@@ -286,20 +288,20 @@ max_franchise_games <-
     #   # compute the highest G total with 1 franchise to that point in the player's career
     max_cume_frnch_g = cummax(cumulative_franchise_g)
   ) |>
-  
-  # players traded midseason will have 2 rows still. to get to one row per age: for each age, find the maximum. 
+  # players traded midseason will have 2 rows still. to get to one row per age: for each age, find the maximum.
   group_by(PlayerId, Name, age) |>
   summarize(max_cume_frnch_g = max(max_cume_frnch_g)) |>
   ungroup()
 
 # verify 1 row per player per age. the following should return 0
-max_franchise_games |> count(PlayerId, age) |> filter(n>1)
+max_franchise_games |>
+  count(PlayerId, age) |>
+  filter(n > 1)
 
 
 bat_data_full <-
   bat_data_seasonal |>
-  
-   # compute seasonal totals. players traded midseason have multiple rows
+  # compute seasonal totals. players traded midseason have multiple rows
   group_by(PlayerId, Name, Season, age, mlb_played_last, career_midpoint_year, scandal_type, hof) |>
   summarize(
     season_WAR = sum(WAR),
@@ -309,10 +311,9 @@ bat_data_full <-
     season_num_asg = sum(asg),
     season_num_mvp_points = sum(num_mvp_points),
     season_gold_glove = sum(num_gold_glove),
-    season_plat_glove = sum(num_plat_glove) 
+    season_plat_glove = sum(num_plat_glove)
   ) |>
   replace_na(list(season_SB = 0)) |>
- 
   # now that each season/age is 1 row, compute cumulative WAR & other stats through each age
   group_by(PlayerId, Name, career_midpoint_year, mlb_played_last, scandal_type, hof) |>
   arrange(age, .by_group = TRUE) |>
@@ -327,17 +328,17 @@ bat_data_full <-
     cumulative_asg = cumsum(season_num_asg),
     cumulative_gold_gloves = cumsum(season_gold_glove),
     cumulative_plat_gloves = cumsum(season_plat_glove)
-    
-    ) |>
- 
+  ) |>
   ungroup() |>
-  left_join(max_franchise_games, by=c("PlayerId", "Name", "age")) |>
+  left_join(max_franchise_games, by = c("PlayerId", "Name", "age")) |>
   mutate(considered_hof = if_else(hof_consideration_year - mlb_played_last < 6, FALSE, TRUE)) |>
   select(PlayerId, Name, age, contains("cumulative"), max_cume_frnch_g, mlb_played_last, career_midpoint_year, num_seasons, scandal_type, considered_hof, hof)
-  
+
 
 # test there is 1 row per player per age. the following should return 0 rows
-bat_data_full |> count(PlayerId, age) |> filter(n > 1)
+bat_data_full |>
+  count(PlayerId, age) |>
+  filter(n > 1)
 ```
 
 
@@ -583,7 +584,7 @@ player_predictions <-
     prob_hof = round(100 * .pred_1, 1),
     pred_hof = if_else(prob_hof >= optimal_threshold, TRUE, FALSE),
     war_per_year = round(cumulative_war / num_seasons_real, 1)
-  ) |> 
+  ) |>
   select(Name, age, pred_hof, cumulative_war, war_per_year, cumulative_h, cumulative_hr, cumulative_mvp_pts, scandal_type, career_midpoint_year, max_cume_frnch_g, cumulative_sb, cumulative_asg) |>
   arrange(desc(pred_hof), desc(war_per_year)) |>
   ungroup()
@@ -646,7 +647,7 @@ predict_parts(explainer = explainer, new_observation = player_predictions |> fil
 ```{r, fig.width=5, fig.height=7}
 # TODO: think about how to show a player's overall percentage and how each of these add up. the base plotting function does that but they don't align the scales, so it makes it hard to compare.
 
-c("Robinson Cano", "Josh Donaldson", "Shohei Ohtani") |> 
+c("Robinson Cano", "Josh Donaldson", "Shohei Ohtani") |>
   map(get_player_explainer) |>
   list_rbind() |>
   select(Name, variable, contribution) |>
