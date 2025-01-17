@@ -308,10 +308,13 @@ bat_data_full <-
     season_H = sum(H),
     season_HR = sum(HR),
     season_SB = sum(SB),
-    season_num_asg = sum(asg),
-    season_num_mvp_points = sum(num_mvp_points),
-    season_gold_glove = sum(num_gold_glove),
-    season_plat_glove = sum(num_plat_glove)
+    
+    # handle cases where there's a single thing (asg appearance, MVP vote total, etc) but multiple rows for the player-season (because they got traded midseason).
+    # e.g. manny machado should have 1 ASG appearance for the 2018 season. Tony Taylor is a 2x all star. 
+    season_num_asg = max(asg),  
+    season_num_mvp_points = max(num_mvp_points),
+    season_gold_glove = max(num_gold_glove),
+    season_plat_glove = max(num_plat_glove)
   ) |>
   replace_na(list(season_SB = 0)) |>
   # now that each season/age is 1 row, compute cumulative WAR & other stats through each age
@@ -634,7 +637,7 @@ predict_parts(explainer = explainer, new_observation = player_predictions |> fil
 ```{r, fig.width=5, fig.height=7}
 # TODO: think about how to show a player's overall percentage and how each of these add up. the base plotting function does that but they don't align the scales, so it makes it hard to compare.
 
-c("Robinson Cano", "Josh Donaldson", "Shohei Ohtani") |>
+c("Robinson Cano", "Josh Donaldson", "Shohei Ohtani", "Gunnar Henderson") |>
   map(get_player_explainer) |>
   list_rbind() |>
   select(Name, variable, contribution) |>
