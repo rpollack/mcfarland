@@ -353,7 +353,7 @@ hof_split <-
   filter(
     considered_hof,
     # thin out the dataset a bit. realistically you need to be somewhat of a consistent MLB regular before you're ACTUALLY considered. don't train on scrubs or short-termers.
-    num_seasons >= 5
+    num_seasons >= 2
   ) |>
   # remove columns not needed for training
   select(-PlayerId, -Name, -num_seasons, -mlb_played_last, -considered_hof) |>
@@ -582,32 +582,19 @@ player_predictions <-
   bind_cols(prep, final_predictions) |>
   mutate(
     prob_hof = round(100 * .pred_1, 1),
-    pred_hof = if_else(prob_hof >= optimal_threshold, TRUE, FALSE),
-    war_per_year = round(cumulative_war / num_seasons_real, 1)
+    pred_hof = if_else(prob_hof >= optimal_threshold, TRUE, FALSE)
   ) |>
-  select(Name, age, pred_hof, cumulative_war, war_per_year, cumulative_h, cumulative_hr, cumulative_mvp_pts, scandal_type, career_midpoint_year, max_cume_frnch_g, cumulative_sb, cumulative_asg) |>
-  arrange(desc(pred_hof), desc(war_per_year)) |>
+  arrange(desc(pred_hof), desc(prob_hof)) |>
+  select(Name, age, pred_hof, cumulative_war, cumulative_h, cumulative_hr, cumulative_mvp_pts, scandal_type, career_midpoint_year, max_cume_frnch_g, cumulative_sb, cumulative_gold_gloves, cumulative_plat_gloves, cumulative_asg) |>
   ungroup()
-
-# View(player_predictions)
-
-num_hof <- player_predictions |>
-  count(pred_hof) |>
-  filter(pred_hof) |>
-  select(n) |>
-  pull()
 
 player_predictions |>
   group_by(pred_hof) |>
   slice_head(n = num_hof) |>
-  select(Name, pred_hof, age, cumulative_war, cumulative_hr, cumulative_h, cumulative_sb, cumulative_mvp_pts, cumulative_asg, scandal_type, war_per_year) |>
-  arrange(desc(pred_hof), desc(war_per_year)) |>
   kbl() |>
   kable_styling()
 
 player_predictions |>
-  group_by(pred_hof) |>
-  arrange(desc(pred_hof), desc(war_per_year)) |>
   write_sheet("https://docs.google.com/spreadsheets/d/12uWa6dZaKnglJiXpE_fDZ5mCPrQ0rlQLrho6vlN6Jm8/edit?gid=0#gid=0", sheet = "Predictions")
 ```
 
