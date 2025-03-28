@@ -16,6 +16,7 @@ library(styler)
 library(ggrepel)
 library(glue)
 library(kableExtra)
+select <- dplyr::select
 ```
 
 
@@ -52,7 +53,7 @@ poff_chance_pecota <-
       str_detect(team_name, "Kansas") ~ "Kansas City Royals",
       str_detect(team_name, "Houston") ~ "Houston Astros",
       str_detect(team_name, "LAA") ~ "Los Angeles Angels",
-      str_detect(team_name, "Oakland") ~ "Oakland Athletics",
+      str_detect(team_name, "Sacramento") ~ "Athletics",
       str_detect(team_name, "Seattle") ~ "Seattle Mariners",
       str_detect(team_name, "Washington") ~ "Washington Nationals",
       str_detect(team_name, "Miami") ~ "Miami Marlins",
@@ -109,7 +110,7 @@ poff_chance_teamrankings <-
       "Cincinnati" = "Cincinnati Reds",
       "Detroit" = "Detroit Tigers",
       "Kansas City" = "Kansas City Royals",
-      "Oakland" = "Oakland Athletics",
+      "Sacramento" = "Athletics",
       "Colorado" = "Colorado Rockies",
       "Washington" = "Washington Nationals",
       "Pittsburgh" = "Pittsburgh Pirates"
@@ -119,24 +120,24 @@ poff_chance_teamrankings <-
   ) %>%
   select(team_name, poff_chance)
 
-# get odds from numberFire
-numberfire <-
-  read_html("https://www.numberfire.com/mlb/teams/power-rankings") %>%
-  html_elements("table") %>%
-  html_table()
-
-poff_chance_numberfire <-
-  numberfire %>%
-  pluck(1) %>%
-  bind_cols(
-    numberfire %>%
-      pluck(2)
-  ) %>%
-  mutate(
-    team_name = str_extract(Team, ".*[a-z]"),
-    poff_chance = as.numeric(str_extract(Playoffs, "[:digit:]{1,3}\\.[:digit:]{1}"))
-  ) %>%
-  select(team_name, poff_chance)
+# # get odds from numberFire
+# numberfire <-
+#   read_html("https://www.numberfire.com/mlb/teams/power-rankings") %>%
+#   html_elements("table") %>%
+#   html_table()
+# 
+# poff_chance_numberfire <-
+#   numberfire %>%
+#   pluck(1) %>%
+#   bind_cols(
+#     numberfire %>%
+#       pluck(2)
+#   ) %>%
+#   mutate(
+#     team_name = str_extract(Team, ".*[a-z]"),
+#     poff_chance = as.numeric(str_extract(Playoffs, "[:digit:]{1,3}\\.[:digit:]{1}"))
+#   ) %>%
+#   select(team_name, poff_chance)
 
 # get FG playoff odds
 headers <- c(
@@ -165,7 +166,7 @@ poff_chances_fg <-
     abbName == "KCR" ~ "Kansas City Royals",
     abbName == "MIN" ~ "Minnesota Twins",
     abbName == "NYY" ~ "New York Yankees",
-    abbName == "OAK" ~ "Oakland Athletics",
+    abbName == "ATH" ~ "Athletics",
     abbName == "SEA" ~ "Seattle Mariners",
     abbName == "TBR" ~ "Tampa Bay Rays",
     abbName == "TEX" ~ "Texas Rangers",
@@ -191,7 +192,7 @@ poff_chances_fg <-
 
 # get today' schedule
 todays_games <-
-  mlb_schedule(season = 2024) %>%
+  mlb_schedule(season = 2025) %>%
   filter(date == Sys.Date()) %>%
   select(contains("team_name"))
 
@@ -205,10 +206,10 @@ playoff_davenport <- read_html("http://www.claydavenport.com/stats/ps_oddspec.ht
 playoff_chances_davenport <-
   playoff_davenport %>%
   map_df(function(x) {
-    pluck(x) %>%
+    pluck(x) %>% 
       as_tibble() %>%
       filter(row_number() > 3) %>%
-      separate(value, c("one", "two", "three", "four", "five", "six", "seven", "eight", "nine"), sep = "\\s{2,}") %>%
+      separate_wider_delim(cols = value, names = c("one", "two", "three", "four", "five", "six", "seven", "eight", "nine"), delim = regex("\\s{2,}"), too_few = "align_end") %>%
       filter(one != "") %>%
       select(team_name = one, poff_chance = nine) %>%
       mutate(poff_chance = as.numeric(poff_chance)) %>%
@@ -229,7 +230,7 @@ playoff_chances_davenport <-
       str_detect(team_name, "Royals") ~ "Kansas City Royals",
       str_detect(team_name, "Astros") ~ "Houston Astros",
       str_detect(team_name, "Angels") ~ "Los Angeles Angels",
-      str_detect(team_name, "Athletics") ~ "Oakland Athletics",
+      str_detect(team_name, "Athletics") ~ "Athletics",
       str_detect(team_name, "Mariners") ~ "Seattle Mariners",
       str_detect(team_name, "Nationals") ~ "Washington Nationals",
       str_detect(team_name, "Marlins") ~ "Miami Marlins",
@@ -255,12 +256,12 @@ poff_chances <-
   playoff_chances_davenport |>
   inner_join(poff_chances_fg, by = "team_name", suffix = c("_davenport", "_fg")) |>
   select(team_name, poff_chance_davenport, poff_chance_fg) %>%
-  inner_join(poff_chance_numberfire, by = "team_name") %>%
-  select(team_name, poff_chance_davenport, poff_chance_fg, poff_chance_numberfire = poff_chance) %>%
+#  inner_join(poff_chance_numberfire, by = "team_name") %>%
+ # select(team_name, poff_chance_davenport, poff_chance_fg, poff_chance_numberfire = poff_chance) %>%
   inner_join(poff_chance_teamrankings, by = "team_name") %>%
-  select(team_name, poff_chance_davenport, poff_chance_fg, poff_chance_numberfire, poff_chance_teamrankings = poff_chance) %>%
+  select(team_name, poff_chance_davenport, poff_chance_fg, poff_chance_teamrankings = poff_chance) %>%
   inner_join(poff_chance_pecota, by = "team_name") %>%
-  select(team_name, poff_chance_davenport, poff_chance_fg, poff_chance_numberfire, poff_chance_teamrankings, poff_chance_pecota = poff_chance) %>%
+  select(team_name, poff_chance_davenport, poff_chance_fg, poff_chance_teamrankings, poff_chance_pecota = poff_chance) %>%
   pivot_longer(-team_name, names_to = "site", values_to = "poff_chance")
 
 poff_chances_today <-
@@ -271,42 +272,6 @@ poff_chances_today <-
     # compute 'interest' based off playoff chances. teams closer to 50% should be more interesting, and higher scores should be more interessting
     interest = 50 - abs(50 - median_poff_chance)
   )
-
-twitter_handles <-
-  poff_chances %>%
-  distinct(team_name) %>%
-  mutate(handle = case_when(
-    team_name == "Baltimore Orioles" ~ "@Orioles",
-    team_name == "Boston Red Sox" ~ "@RedSox",
-    team_name == "Chicago White Sox" ~ "@WhiteSox",
-    team_name == "Cleveland Guardians" ~ "@CleGuardians",
-    team_name == "Detroit Tigers" ~ "@Tigers",
-    team_name == "Houston Astros" ~ "@Astros",
-    team_name == "Kansas City Royals" ~ "@Royals",
-    team_name == "Los Angeles Angels" ~ "@Angels",
-    team_name == "Minnesota Twins" ~ "@Twins",
-    team_name == "New York Yankees" ~ "@Yankees",
-    team_name == "Oakland Athletics" ~ "@Athletics",
-    team_name == "Seattle Mariners" ~ "@Mariners",
-    team_name == "Tampa Bay Rays" ~ "@RaysBaseball",
-    team_name == "Texas Rangers" ~ "@Rangers",
-    team_name == "Toronto Blue Jays" ~ "@BlueJays",
-    team_name == "Arizona Diamondbacks" ~ "@Dbacks",
-    team_name == "Atlanta Braves" ~ "@Braves",
-    team_name == "Chicago Cubs" ~ "@Cubs",
-    team_name == "Cincinnati Reds" ~ "@Reds",
-    team_name == "Colorado Rockies" ~ "@Rockies",
-    team_name == "Los Angeles Dodgers" ~ "@Dodgers",
-    team_name == "Miami Marlins" ~ "@Marlins",
-    team_name == "Milwaukee Brewers" ~ "@Brewers",
-    team_name == "New York Mets" ~ "@Mets",
-    team_name == "Philadelphia Phillies" ~ "@Phillies",
-    team_name == "Pittsburgh Pirates" ~ "@Pirates",
-    team_name == "San Diego Padres" ~ "@Padres",
-    team_name == "San Francisco Giants" ~ "@SFGiants",
-    team_name == "St. Louis Cardinals" ~ "@Cardinals",
-    team_name == "Washington Nationals" ~ "@Nationals",
-  ))
 
 
 sched <-
@@ -337,10 +302,8 @@ poff_chances_clean <-
     site = case_when(
       site == "poff_chance_davenport" ~ "Clay Davenport",
       site == "poff_chance_fg" ~ "FanGraphs",
-      site == "poff_chance_numberfire" ~ "numberFire",
       site == "poff_chance_teamrankings" ~ "TeamRankings.com",
       site == "poff_chance_pecota" ~ "Baseball Prospectus (PECOTA)",
-      site == "poff_chance_espn" ~ "ESPN",
     ),
     division = case_when(
       str_detect(team_name, "Orioles|Red Sox|Yankees|Blue Jays|Rays") ~ "AL East",
@@ -363,7 +326,7 @@ poff_chances_clean |>
   ggplot(aes(x = reorder(label, median_poff_chance), y = median_poff_chance)) +
   geom_col() +
   coord_flip() +
-  labs(y = "Playoff Chance (%)", x = "", caption = "Playoff chances: median of FG, BPro, Clay Davenport, Numberfire, and TeamRankings") +
+  labs(y = "Playoff Chance (%)", x = "", caption = "Playoff chances: median of FG, BPro, Clay Davenport, and TeamRankings") +
   geom_hline(yintercept = 50, lty = "dashed") +
   facet_wrap(vars(league), scales = "free_y") +
   ggtitle("MLB Team Playoff Chances", subtitle = glue("Prior to Games Played on {Sys.Date()}"))
@@ -374,14 +337,14 @@ ggsave("playoff_chances.png")
 poff_chances_clean |>
   mutate(prediction_date = Sys.Date()) |>
   select(prediction_date, everything(), -median_poff_chance) |>
-  write_csv(file = "playoff_chances.csv", append = TRUE)
+  write_csv(file = "playoff_chances_2025.csv", append = FALSE)
 
-# compute playoff chances change between the start of the 2024 season and the current date
+# compute playoff chances change between the start of the season and the current date
 
 poff_chance_change <-
-  read_csv("playoff_chances.csv") |>
-  # 2024 season only
-  filter(prediction_date >= "2024-03-28") |>
+  read_csv("playoff_chances_2025.csv") |>
+  # 2025 season only
+  filter(prediction_date >= "2025-03-27") |>
   group_by(team_name, prediction_date) |>
   summarize(median_poff_chance = median(poff_chance)) |>
   filter(prediction_date == min(prediction_date) | prediction_date == max(prediction_date)) |>
@@ -409,7 +372,7 @@ poff_chance_change |>
     str_detect(team_name, "Reds") ~ "CIN",
     str_detect(team_name, "Rockies") ~ "COL",
     str_detect(team_name, "Nationals") ~ "WAS",
-    str_detect(team_name, "Athletics") ~ "OAK",
+    str_detect(team_name, "Athletics") ~ "ATH",
     str_detect(team_name, "Royals") ~ "KCR",
     str_detect(team_name, "Cubs") ~ "CHC",
     str_detect(team_name, "Astros") ~ "HOU",
@@ -429,7 +392,7 @@ poff_chance_change |>
   geom_label_repel(aes(label = abbrev), max.overlaps = 20) +
   geom_point() +
   ggtitle("Playoff Chances & Changes",
-    subtitle = glue("From 2024-03-28 to {Sys.Date()}")
+    subtitle = glue("From 2025-03-28 to {Sys.Date()}")
   ) +
   labs(
     x = "Change Since March 28th, 2024 (percentage points)", y = "Current Playoff Chance (%)",
