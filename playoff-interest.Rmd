@@ -381,12 +381,16 @@ poff_chance_change |>
 
 ggsave("playoff-change-change.png")
 
+# top 10 interesting/relevant games so far in the season
+# read_csv("interest_schedule.csv") |>
+#   slice_max(n=10, order_by = interest_game)
+
 ```
 
 
 ```{r, fig.width = 10}
 abbrev <- "BAL"
-season <- "2024"
+season <- "2025"
 
 data <-
   read_html(glue("https://www.baseball-reference.com/teams/{abbrev}/{season}-schedule-scores.shtml")) |>
@@ -415,6 +419,7 @@ data |>
   pivot_longer(runs_7:rdif_7, names_to = "metric") |>
   select(date, metric, value) |>
   mutate(metric_set = if_else(metric %in% c("runs_7", "runs_allowed_7"), "Runs Scored vs. Allowed", "Run Differential")) |>
+  drop_na(value) |>
   ggplot(aes(date, value, group = metric, color = metric)) +
   geom_path() +
   ggtitle(glue("{abbrev} {season} Season ({num_games} Games)"),
