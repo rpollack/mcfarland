@@ -21,7 +21,6 @@ select <- dplyr::select
 
 
 ```{r echo=FALSE, fig.width=9, message=FALSE, warning=FALSE}
-
 # get playoff chances from baseball prospectus/PECOTA
 pecota_poff <-
   read_html("https://www.baseballprospectus.com/standings/") |>
@@ -330,7 +329,8 @@ poff_chance_change <-
   mutate(change = current - start) |>
   arrange(desc(change))
 
-poff_chance_change |>
+change_graph <-
+  poff_chance_change |>
   mutate(abbrev = case_when(
     str_detect(team_name, "Giants") ~ "SFG",
     str_detect(team_name, "Red Sox") ~ "BOS",
@@ -365,6 +365,26 @@ poff_chance_change |>
     str_detect(team_name, "Cardinals") ~ "STL",
     TRUE ~ NA_character_
   )) |>
+  ungroup()
+
+
+max_change <-
+  change_graph |>
+  slice_max(order_by = change, n = 1, with_ties = FALSE) |>
+  select(change) |>
+  as.numeric() |>
+  pluck()
+
+min_change <-
+  change_graph |>
+  slice_min(order_by = change, n = 1, with_ties = FALSE) |>
+  select(change) |>
+  as.numeric() |>
+  pluck()
+
+limit <- max(abs(max_change), abs(min_change))
+
+change_graph |>
   ggplot(aes(change, current)) +
   geom_label_repel(aes(label = abbrev), max.overlaps = 20) +
   geom_point() +
@@ -376,15 +396,14 @@ poff_chance_change |>
     caption = "Playoff chances: median of FG, BPro, Clay Davenport, and TeamRankings"
   ) +
   geom_hline(yintercept = 50, lty = "dashed", color = "gray") +
-  geom_vline(xintercept = 0, lty = "dashed", color = "gray")
-# xlim(-80, 80) # TODO: figure out boundaries by taking the max & min change values and making those even somehwo
+  geom_vline(xintercept = 0, lty = "dashed", color = "gray") +
+  xlim(-limit, limit)
 
 ggsave("playoff-change-change.png")
 
 # top 10 interesting/relevant games so far in the season
 # read_csv("interest_schedule.csv") |>
 #   slice_max(n=10, order_by = interest_game)
-
 ```
 
 
