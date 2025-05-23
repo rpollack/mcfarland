@@ -1,0 +1,159 @@
+---
+title: "player-analysis"
+output: html_document
+date: "2025-05-23"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+Sys.setenv(OPENAI_API_KEY = "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")
+
+# Load necessary libraries
+library(dplyr)
+library(readr)
+library(glue)
+library(httr)
+library(jsonlite)
+library(cli)
+```
+```{r}
+
+read_csv("~/Downloads/fangraphs-leaderboards-29.csv", show_col_types = FALSE) |>
+
+career_avg <- player_data %>%
+  summarise(
+    AVG = sum(H, na.rm = TRUE) / sum(AB, na.rm = TRUE),
+    OBP = (sum(H, na.rm = TRUE) + sum(BB, na.rm = TRUE) + sum(HBP, na.rm = TRUE)) /
+          (sum(AB, na.rm = TRUE) + sum(BB, na.rm = TRUE) + sum(HBP, na.rm = TRUE) + sum(SF, na.rm = TRUE)),
+    SLG = sum(TB, na.rm = TRUE) / sum(AB, na.rm = TRUE),
+    K_pct = 100 * sum(SO, na.rm = TRUE) / sum(PA, na.rm = TRUE),
+    BB_pct = 100 * sum(BB, na.rm = TRUE) / sum(PA, na.rm = TRUE),
+    BABIP = (sum(H, na.rm = TRUE) - sum(HR, na.rm = TRUE)) /
+            (sum(AB, na.rm = TRUE) - sum(K, na.rm = TRUE) - sum(HR, na.rm = TRUE) + sum(SF, na.rm = TRUE)),
+    xwOBA = weighted.mean(xwOBA, w = PA, na.rm = TRUE)
+  )
+
+
+```
+
+
+
+
+```{r cars}
+
+current_year = 2025
+
+# Load your dataset
+stats <- 
+  read_csv("~/Downloads/fangraphs-leaderboards-32.csv", show_col_types = FALSE) |>
+ select(Name, Age, PA, AVG, OBP, SLG, K_pct = `K%`, BB_pct = `BB%`, BABIP, wOBA, xwOBA) |>
+  mutate(year = 2025)
+
+# Adjust path
+
+# Function to send structured prompt to GPT
+generate_gpt_analysis <- function(player_name, prompt_text) {
+  api_key <- Sys.getenv("OPENAI_API_KEY")
+
+  response <- POST(
+    url = "https://api.openai.com/v1/chat/completions",
+    add_headers(Authorization = paste("Bearer", api_key)),
+    content_type_json(),
+    body = toJSON(list(
+      model = "gpt-4.1",  # or "gpt-3.5-turbo" for cheaper usage
+      messages = list(
+        list(role = "system", content = "You are a sabermetric baseball analyst tasked with understanding both current in-season performance and getting a sense of future performance for the rest of the season."),
+        list(role = "user", content = glue("
+Here is current-year performance data for {player_name}:
+
+{prompt_text}
+
+Please write a clear, concise analysis explaining how the player is performing this year, what trends stand out, and whether any aspects of the performance appear to be skill- or luck-driven. Start your response with the conclusion/summary takeaways, then underneath, list your evidence for that summary and those conclusions. Incorporate a prediction: will the player improve, decline, or stay the same for the rest of the season? Explain your reasoning.
+        "))
+      ),
+      temperature = 0.7
+    ), auto_unbox = TRUE)
+  )
+
+  parsed <- content(response, as = "parsed", type = "application/json")
+  
+  output_clean <-
+    parsed$choices[[1]]$message$content |>
+  str_replace_all("\\*\\*(.*?)\\*\\*", "\\1") %>%  # remove **bold**
+  str_replace_all("_([^_]+)_", "\\1") %>%          # remove _italics_
+  str_replace_all("`([^`]+)`", "\\1")              # remove inline code
+  
+  cat(output_clean)
+  
+}
+
+# Function to analyze a player
+analyze_player <- function(player_name) {
+  player_data <- stats %>%
+    filter(trimws(tolower(Name)) == trimws(tolower(player_name))) |>
+    arrange(year)
+ 
+
+  if (nrow(player_data) < 1) {
+    return(glue("Not enough data for {player_name}."))
+  }
+
+  current <- tail(player_data, 1)
+  
+  # career_avg <- player_data |>
+  #  # filter(year != current_year) |> # exclude current year from career avg calc
+  #   summarize(across(c(AVG, OBP, SLG, K_pct, BB_pct, BABIP, xwOBA), mean, na.rm = TRUE)) |>
+  #   select(AVG, OBP, SLG, K_pct, BB_pct, BABIP, xwOBA)
+
+#   print(current)
+#   
+# print(career_avg)
+  
+  # Differences
+  # diff <- current %>%
+  #   select(AVG, OBP, SLG, K_pct, BB_pct, BABIP, xwOBA) -
+  #   career_avg
+
+  # Structured output
+  output <- glue("
+Player: {player_name}
+Year: {current$year}
+
+Plate Appearances: {current$PA}
+
+--- Key Metrics ---
+Age: {current$Age}
+AVG: {current$AVG} 
+OBP: {current$OBP} 
+SLG: {current$SLG} 
+K%: {current$K_pct}
+BB%: {current$BB_pct}
+BABIP: {current$BABIP} 
+wOBA: {current$wOBA}
+xwOBA: {current$xwOBA} 
+
+--- Notes for analysis ---
+- BABIP far above or below recent MLB norms could indicate good luck or poor luck, respectively. 
+- Significant gaps between wOBA and xWOBA could indicate the same, directionally.
+- Drop in BB% or increase in K% could point to approach or contact issues.
+- Strong BB% and K% (comopared to recent MLB averages) indicate good control of the strike zone, irrespective of quality of contact or results. Conversely, poor rates indicate a decline in skill.
+- Older players are probably less likely to improve going forward, whereas younger players typically get more grace in this regard.
+- Incorporate contextual factors about the player. You know a lot about the guys I'm asking analysis for. You don't need to restrict yourself to this data. For example if you know about recent injury history for a guy, you're allowed to incorporate that in your reasoning and analysis.
+  ")
+  
+ # print(output)
+
+  generate_gpt_analysis(player_name, output)
+}
+```
+
+```{r}
+# Example usage
+analyze_player("Gunnar Henderson")
+
+analyze_player("Adley Rutschman")
+
+analyze_player("Max Muncy")
+```
+
