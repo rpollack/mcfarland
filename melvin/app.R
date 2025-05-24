@@ -17,19 +17,24 @@ library(shinycssloaders)
 library(stringi)
 library(glue)
 library(rmarkdown)
+library(commonmark)
+
+#rsconnect::setAccountInfo(name='mcfarlandapp', token='FECF4B558B5B92C6AB65C6EC68C8DC88', secret='32qEkTMlzIWHq7ajWYSInKa2F/5znSCjTbVvPbdv')
+
+
 
 #load data, clean, and transform
 current_year <- 2025
 
 # read in separate reports because fangraphs doesn't report xWOBA in season-spanning reports
 stats <-
-  read_csv("~/Downloads/fangraphs-leaderboards-2022.csv", show_col_types = FALSE) |>
+  read_csv("fangraphs-leaderboards-2022.csv", show_col_types = FALSE) |>
   mutate(year = 2022) |>
-  bind_rows(read_csv("~/Downloads/fangraphs-leaderboards-2023.csv", show_col_types = FALSE) |>
+  bind_rows(read_csv("fangraphs-leaderboards-2023.csv", show_col_types = FALSE) |>
               mutate(year = 2023)) |>
-  bind_rows(read_csv("~/Downloads/fangraphs-leaderboards-2024.csv", show_col_types = FALSE) |>
+  bind_rows(read_csv("fangraphs-leaderboards-2024.csv", show_col_types = FALSE) |>
               mutate(year = 2024)) |>
-  bind_rows(read_csv("~/Downloads/fangraphs-leaderboards-2025.csv", show_col_types = FALSE) |>
+  bind_rows(read_csv("fangraphs-leaderboards-2025.csv", show_col_types = FALSE) |>
               mutate(year = 2025)) |>
   mutate(TB = `1B` + (2 * `2B`) + (3 * `3B`) + (4 * HR))
 
@@ -149,7 +154,7 @@ Now that I've said that: here is your persona that should inform your writing st
   parsed <- content(response, as = "parsed", type = "application/json")
   
   output_raw <- parsed$choices[[1]]$message$content
-  output_clean <- markdown::renderMarkdown(text = output_raw)
+  output_clean <- commonmark::markdown_html(output_raw)
   return(HTML(output_clean))
 }
 
