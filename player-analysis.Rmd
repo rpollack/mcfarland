@@ -37,6 +37,101 @@ career_avg <- player_data %>%
 
 ```
 
+```{r}
+
+current_year <- 2025
+
+# read in separate reports because fangraphs doesn't report xWOBA in season-spanning reports
+stats <-
+  read_csv("~/Downloads/fangraphs-leaderboards-2022.csv", show_col_types = FALSE) |>
+  mutate(year = 2022) |>
+  bind_rows(read_csv("~/Downloads/fangraphs-leaderboards-2023.csv", show_col_types = FALSE) |>
+               mutate(year = 2023)) |>
+  bind_rows(read_csv("~/Downloads/fangraphs-leaderboards-2024.csv", show_col_types = FALSE) |>
+               mutate(year = 2024)) |>
+  bind_rows(read_csv("~/Downloads/fangraphs-leaderboards-2025.csv", show_col_types = FALSE) |>
+               mutate(year = 2025)) |>
+  mutate(TB = `1B` + (2 * `2B`) + (3 * `3B`) + (4 * HR))
+
+# average of last 3 seasons, per player name/ID
+last_3 <- 
+  stats |>
+  filter(year != current_year) |>
+   group_by(Name, PlayerId) |>
+  summarize(
+     AVG = sum(H) / sum(AB),
+        OBP = (sum(H) + sum(BB) + sum(HBP)) /
+              (sum(AB) + sum(BB) + sum(HBP) + sum(SF)),
+        SLG = sum(TB) / sum(AB),
+        K_pct = 100 * sum(SO) / sum(PA),
+        BB_pct = 100 * sum(BB) / sum(PA),
+        BABIP = (sum(H) - sum(HR)) /
+                (sum(AB) - sum(SO) - sum(HR) + sum(SF)),
+     wOBA = weighted.mean(wOBA, w = PA, na.rm = TRUE),
+     xwOBA = weighted.mean(xwOBA, w = PA, na.rm = TRUE),
+     PA = sum(PA)
+  ) |>
+  ungroup()
+  
+# current year
+this_year <- 
+  stats |>
+  filter(year == current_year) |>
+   group_by(Name, PlayerId) |>
+  summarize(
+     AVG = sum(H) / sum(AB),
+        OBP = (sum(H) + sum(BB) + sum(HBP)) /
+              (sum(AB) + sum(BB) + sum(HBP) + sum(SF)),
+        SLG = sum(TB) / sum(AB),
+        K_pct = 100 * sum(SO) / sum(PA),
+        BB_pct = 100 * sum(BB) / sum(PA),
+        BABIP = (sum(H) - sum(HR)) /
+                (sum(AB) - sum(SO) - sum(HR) + sum(SF)),
+          wOBA = weighted.mean(wOBA, w = PA, na.rm = TRUE),
+
+     xwOBA = weighted.mean(xwOBA, w = PA, na.rm = TRUE),
+     PA = sum(PA),
+     Age = Age
+  ) |>
+  ungroup()
+
+
+full_stats <-
+  this_year |>
+  left_join(last_3, by = c("Name", "PlayerId"), suffix = c("_cur", "_l3")) |>
+  mutate(AVG_diff = AVG_cur - AVG_l3,
+         OBP_diff = OBP_cur - OBP_l3,
+         SLG_diff = SLG_cur - SLG_l3,
+         K_pct_diff = K_pct_cur - K_pct_l3,
+         BB_pct_diff = BB_pct_cur - BB_pct_l3,
+         BABIP_diff = BABIP_cur - BABIP_l3,
+         wOBA_diff = wOBA_cur - wOBA_l3,
+         xwOBA_diff = xwOBA_cur - xwOBA_l3,
+         across(where(is.numeric), ~ round(.x, 3))
+         )
+
+#after filtering down to the player
+
+current <-
+  full_stats |>
+  filter(Name == "Gunnar Henderson")
+
+glue(
+"
+Age: {current$Age}
+Year: {current_year}
+AVG: {current$AVG_cur}  Last 3 Years: {current$AVG_l3}  Diff: {current$AVG_diff}
+OBP: {current$OBP_cur}   Last 3 Years: {current$OBP_l3}  Diff: {current$OBP_diff}
+SLG: {current$SLG_cur}   Last 3 Years: {current$SLG_l3}  Diff: {current$SLG_diff}
+K%: {current$K_pct_cur}  Last 3 Years: {current$K_pct_l3}  Diff: {current$K_pct_diff}
+BB%: {current$BB_pct_cur}  Last 3 Years: {current$BB_pct_l3}  Diff: {current$BB_pct_diff}
+BABIP: {current$BABIP_cur}   Last 3 Years: {current$BABIP_l3}  Diff: {current$BABIP_diff}
+wOBA: {current$wOBA_cur}  Last 3 Years: {current$wOBA_l3}  Diff: {current$wOBA_diff}
+xwOBA: {current$xwOBA_cur}   Last 3 Years: {current$xwOBA_l3}  Diff: {current$xwOBA_diff}
+")
+
+  
+```
 
 
 
@@ -45,10 +140,10 @@ career_avg <- player_data %>%
 current_year = 2025
 
 # Load your dataset
-stats <- 
-  read_csv("~/Downloads/fangraphs-leaderboards-32.csv", show_col_types = FALSE) |>
- select(Name, Age, PA, AVG, OBP, SLG, K_pct = `K%`, BB_pct = `BB%`, BABIP, wOBA, xwOBA) |>
-  mutate(year = 2025)
+# stats <- 
+#   read_csv("~/Downloads/fangraphs-leaderboards-32.csv", show_col_types = FALSE) |>
+#  select(Name, Age, PA, AVG, OBP, SLG, K_pct = `K%`, BB_pct = `BB%`, BABIP, wOBA, xwOBA) |>
+#   mutate(year = 2025)
 
 # Adjust path
 
@@ -70,6 +165,8 @@ Here is current-year performance data for {player_name}:
 {prompt_text}
 
 Please write a clear, concise analysis explaining how the player is performing this year, what trends stand out, and whether any aspects of the performance appear to be skill- or luck-driven. Start your response with the conclusion/summary takeaways, then underneath, list your evidence for that summary and those conclusions. Incorporate a prediction: will the player improve, decline, or stay the same for the rest of the season? Explain your reasoning.
+
+Don't repeat yourself. For example, if you say a stat or performance or trend is 'lucky', you don't need to say it's 'not unlucky'.
         "))
       ),
       temperature = 0.7
@@ -90,16 +187,16 @@ Please write a clear, concise analysis explaining how the player is performing t
 
 # Function to analyze a player
 analyze_player <- function(player_name) {
-  player_data <- stats %>%
-    filter(trimws(tolower(Name)) == trimws(tolower(player_name))) |>
-    arrange(year)
+  player_data <- 
+    full_stats %>%
+    filter(trimws(tolower(Name)) == trimws(tolower(player_name)))
  
 
   if (nrow(player_data) < 1) {
-    return(glue("Not enough data for {player_name}."))
+    return(glue("{player_name} not found."))
   }
 
-  current <- tail(player_data, 1)
+  # current <- tail(player_data, 1)
   
   # career_avg <- player_data |>
   #  # filter(year != current_year) |> # exclude current year from career avg calc
@@ -118,28 +215,31 @@ analyze_player <- function(player_name) {
   # Structured output
   output <- glue("
 Player: {player_name}
-Year: {current$year}
 
-Plate Appearances: {current$PA}
-
---- Key Metrics ---
-Age: {current$Age}
-AVG: {current$AVG} 
-OBP: {current$OBP} 
-SLG: {current$SLG} 
-K%: {current$K_pct}
-BB%: {current$BB_pct}
-BABIP: {current$BABIP} 
-wOBA: {current$wOBA}
-xwOBA: {current$xwOBA} 
+--- Key metrics to analyze---
+Age: {player_data$Age}
+Year: {current_year}
+Plate Appearances: {player_data$PA_cur}
+AVG: {player_data$AVG_cur}  Last 3 Years: {player_data$AVG_l3}  Diff: {player_data$AVG_diff}
+OBP: {player_data$OBP_cur}   Last 3 Years: {player_data$OBP_l3}  Diff: {player_data$OBP_diff}
+SLG: {player_data$SLG_cur}   Last 3 Years: {player_data$SLG_l3}  Diff: {player_data$SLG_diff}
+K%: {player_data$K_pct_cur}  Last 3 Years: {player_data$K_pct_l3}  Diff: {player_data$K_pct_diff}
+BB%: {player_data$BB_pct_cur}  Last 3 Years: {player_data$BB_pct_l3}  Diff: {player_data$BB_pct_diff}
+BABIP: {player_data$BABIP_cur}   Last 3 Years: {player_data$BABIP_l3}  Diff: {player_data$BABIP_diff}
+wOBA: {player_data$wOBA_cur}  Last 3 Years: {player_data$wOBA_l3}  Diff: {player_data$wOBA_diff}
+xwOBA: {player_data$xwOBA_cur}   Last 3 Years: {player_data$xwOBA_l3}  Diff: {player_data$xwOBA_diff}
 
 --- Notes for analysis ---
+- Focus on current-year performance as compared to the player's last three years, and any differences and what those might mean. 
+For in-season, current/year analysis:
 - BABIP far above or below recent MLB norms could indicate good luck or poor luck, respectively. 
 - Significant gaps between wOBA and xWOBA could indicate the same, directionally.
-- Drop in BB% or increase in K% could point to approach or contact issues.
-- Strong BB% and K% (comopared to recent MLB averages) indicate good control of the strike zone, irrespective of quality of contact or results. Conversely, poor rates indicate a decline in skill.
+- Remember that xWOBA is more than just quality of contact -- it includes K and BB rates also.
+- Drop in BB% or increase in K% could point to approach or contact issues. These are more core skills as opposed to batted ball luck.
+- Strong BB% and K% (compared to recent MLB averages) indicate good control of the strike zone, irrespective of quality of contact or results. Conversely, poor rates indicate a decline in skill.
 - Older players are probably less likely to improve going forward, whereas younger players typically get more grace in this regard.
-- Incorporate contextual factors about the player. You know a lot about the guys I'm asking analysis for. You don't need to restrict yourself to this data. For example if you know about recent injury history for a guy, you're allowed to incorporate that in your reasoning and analysis.
+- Incorporate contextual factors about the player. You know a lot about the guys I'm asking analysis for. You don't need to restrict yourself to this data. For example if you know about recent injury history for a guy as reported in the news, you're allowed to incorporate that in your reasoning and analysis.
+- Be more skeptical of smaller samples sizes (plate appearances) while more confident in larger ones. A typical MLB season is around 650 PA.
   ")
   
  # print(output)
@@ -154,6 +254,9 @@ analyze_player("Gunnar Henderson")
 
 analyze_player("Adley Rutschman")
 
-analyze_player("Max Muncy")
+analyze_player("Kyle Schwarber")
+
+analyze_player("Nolan Arenado")
+
 ```
 
