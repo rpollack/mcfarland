@@ -8,12 +8,13 @@
 #
 
 library(shiny)
-library(shiny)
 library(tidyverse)
 library(readr)
 library(httr)
+library(shinyjs)
 library(jsonlite)
 library(shinycssloaders)
+library(stringi)
 library(glue)
 library(rmarkdown)
 
@@ -86,14 +87,14 @@ full_stats <-
          BABIP_diff = BABIP_cur - BABIP_l3,
          wOBA_diff = wOBA_cur - wOBA_l3,
          xwOBA_diff = xwOBA_cur - xwOBA_l3,
-         across(where(is.numeric), ~ round(.x, 3))
+         across(where(is.numeric), ~ round(.x, 3)),
+         Name = stri_trans_general(Name, id = "Latin-ASCII")
   )
 
 
 player_names <-
   unique(this_year$Name)
 
-# Function to send structured prompt to GPT
 # Function to send structured prompt to GPT
 generate_gpt_analysis <- function(player_name, prompt_text) {
   api_key <- Sys.getenv("OPENAI_API_KEY")
@@ -176,9 +177,18 @@ i <- fluidPage(
   tags$p("Data updated every morning."),
   sidebarLayout(
     sidebarPanel(
+      shinyjs::useShinyjs(),
       textInput("player_name", "Enter a player name:", value = ""),
       uiOutput("player_suggestions"),
-      actionButton("analyze", "Analyze Player")
+      actionButton("analyze", "Analyze Player", class = "btn btn-success btn-lg", disabled = TRUE),
+      tags$div(
+        style = "margin-top: 1em; padding: 1em; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; font-size: 0.9em;",
+        HTML("<p></p>
+        <strong>Version notes:</strong> 
+             
+             <p>v0.1: Launch.</p>")
+      ),
+      
     ),
     mainPanel(
   #    h3(textOutput("selected_player")),
@@ -199,9 +209,16 @@ s <- function(input, output, session) {
   output$player_suggestions <- renderUI({
     req(input$player_name)
     matches <- full_stats$Name[grepl(input$player_name, full_stats$Name, ignore.case = TRUE)]
-    if (length(matches) == 0) return(NULL)
-    selectInput("player_suggest", "Did you mean:", choices = matches, selected = matches[1])
+    
+    if (nchar(input$player_name) == 0 || length(matches) == 0) {
+      shinyjs::disable("analyze")
+      return(NULL)
+    } else {
+      shinyjs::enable("analyze")
+      return(selectInput("player_suggest", "Did you mean:", choices = matches, selected = matches[1]))
+    }
   })
+  
   
   observeEvent(input$analyze, {
     req(input$player_suggest)
@@ -213,13 +230,12 @@ s <- function(input, output, session) {
   })
   
   output$result_wrapper <- renderUI({
-    if (input$analyze == 0) {
-      return(NULL)
-    } else {
-      withSpinner(uiOutput("gpt_result"), type = 4, color = "#2C3E50")
-    }
+    req(input$analyze)
+    withSpinner(uiOutput("gpt_result"), type = 4, color = "#2C3E50")
   })
 }
 
 # Run the app
-shinyApp(ui = i, server = s)
+shinyApp(ui = i, server = s, onStart = function() {
+  shinyjs::useShinyjs()
+})
