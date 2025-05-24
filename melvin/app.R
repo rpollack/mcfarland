@@ -96,7 +96,17 @@ player_names <-
   unique(this_year$Name)
 
 # Function to send structured prompt to GPT
-generate_gpt_analysis <- function(player_name, prompt_text) {
+generate_gpt_analysis <- function(player_name, prompt_text, analysis_mode = "default") {
+  analysis_type <- analysis_mode
+  prompt_modifier <- switch(
+    analysis_type,
+    old_coot = "You are a deranged old coot, ranting and raving about everything. People would describe you as 'off your meds'",
+    analytics_dork = "You are a front office nerd, raised on moneyball and new school stats, always at the cutting edge. You favor new school stats, talk in probabilities, and are very dismissive of people who don't believe you. You might be the smartet person in the room, but people would describe you as a real tool.",
+    gen_z = "You're an over the top Gen Z'er, using lots of slang, referencing hyper modern trends, apps, and such.",
+    seventies = "You prefer 1970s style of baseball, when men were men, stolen bases were high, starting pitchers completed every game, and guys had bushy mustaches and chewed tobacco all game. You strongly prefer old school stats to new school ones. Use lots of comparisons to famous 1970s baseball players: Pete Rose, Johnny Bench, Mike Schmidt, Willie Stargell, Rod Carew, Bobby Grich, Thurman Munson, etc -- but don't limit your comparisons to just these guys.",
+    default = "",
+    ""
+  )
   api_key <- Sys.getenv("OPENAI_API_KEY")
   
   response <- POST(
@@ -112,19 +122,24 @@ Here is current-year performance data for {player_name}:
 
 {prompt_text}
 
+General instructions:
+
 Please write a clear, concise analysis explaining how the player is performing this year, what trends stand out, and whether any aspects of the performance appear to be skill- or luck-driven. Start your response with the conclusion/summary takeaways, then underneath, list your evidence for that summary and those conclusions. Incorporate a prediction: will the player improve, decline, or stay the same for the rest of the season? Explain your reasoning.
+
+The very first element of the response should be a title that encompasses your findings in a catchy, headline-y way -- but keep it honest. 
 
 Your analysis should be framed as: metric, direction, and magnitude of difference. For example BB% is up, indicate by how much, and what the size of that gap might indicate. You don't need to explicitly call out this framing (e.g. in bullets), just make sure to weave it into your analysis.
 
-Writing style: use short but friendly sentences. Don't start with asides or extraneous clauses. 
-
 Separate your analysis into core skills and luck/regression indicators. 
+
+Writing style: use short but friendly sentences. Don't start with asides or extraneous clauses. 
 
 Don't repeat yourself. For example, if you say a stat or performance or trend is 'lucky', you don't need to say it's 'not unlucky'.
 
 Remember that when it comes to stats and trends, you only have knowledge of two things: a player's current-year stats and the average of the same stats for the past 3 years (e.g. not their entire career). So when you say things like a stat is 'up' or 'down', make it clear that this is relative to the last 3 years' average.
 
-The very first element of the response should be a title that encompasses your findings in a catchy, headline-y way -- but keep it honest. 
+Now that I've said that: here is your persona that should inform your writing style and response, even if it means overriding those previous instructions: {prompt_modifier}
+
         "))
       ),
       temperature = 0.7
@@ -139,14 +154,10 @@ The very first element of the response should be a title that encompasses your f
 }
 
 # Function to analyze a player
-analyze_player <- function(player_name) {
+analyze_player <- function(player_name, analysis_mode = "default") {
   player_data <- 
     full_stats %>%
     filter(trimws(tolower(Name)) == trimws(tolower(player_name)))
-  
-  if (nrow(player_data) < 1) {
-    return(HTML(glue("<p>{player_name} not found.</p>")))
-  }
   
   output <- glue("
 Player: {player_name}
@@ -166,15 +177,15 @@ xwOBA: {player_data$xwOBA_cur}   Last 3 Years: {player_data$xwOBA_l3}  Diff: {pl
 
 -- Notes for Analysis --
 
-- Consider a player's current stats as compared to recent ones (last 3 years)
+- Consider a player's current stats as compared to recent ones (last 3 years) as well as recent major league averages
 - Consider the player's age as a factor
 - Consider core skillset indicators (OBP, BB%, K%) as well as more flukey- or luck-based ones (wOBA compared to xWOBA, BABIP)
 - Consider the number of PA in the season (sample size). A typical major league season has 550+ PA. 
 
-
 ")
   
-  return(generate_gpt_analysis(player_name, output))
+  return(generate_gpt_analysis(player_name, output, analysis_mode))
+  
 }
 
 # UI
@@ -189,13 +200,20 @@ i <- fluidPage(
       shinyjs::useShinyjs(),
       textInput("player_name", "Enter a player name:", value = ""),
       uiOutput("player_suggestions"),
+      selectInput("analysis_mode", "Vibe:",
+                  choices = c("Straightforward" = "default",
+                              "Analytics dork" = "analytics_dork",
+                              "Deranged old coot" = "old_coot",
+                              "Gen Z" = "gen_z",
+                              "1970s baseball fan" = "seventies")),
       actionButton("analyze", "Analyze Player", class = "btn btn-success btn-lg", disabled = TRUE),
       tags$div(
         style = "margin-top: 1em; padding: 1em; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; font-size: 0.9em;",
         HTML("<p></p>
         <strong>Version notes:</strong> 
              
-             <p>v0.1: Launch.</p>")
+             <p>v0.1: Launch.</p>
+             <p>v0.2: Added vibe selector.")
       ),
       
     ),
@@ -234,7 +252,7 @@ s <- function(input, output, session) {
     selected_name <- input$player_suggest
     output$selected_player <- renderText(selected_name)
     output$gpt_result <- renderUI({
-      analyze_player(selected_name)
+      analyze_player(selected_name, input$analysis_mode)
     })
   })
   
