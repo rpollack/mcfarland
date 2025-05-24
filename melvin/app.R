@@ -163,6 +163,15 @@ BB%: {player_data$BB_pct_cur}  Last 3 Years: {player_data$BB_pct_l3}  Diff: {pla
 BABIP: {player_data$BABIP_cur}   Last 3 Years: {player_data$BABIP_l3}  Diff: {player_data$BABIP_diff}
 wOBA: {player_data$wOBA_cur}  Last 3 Years: {player_data$wOBA_l3}  Diff: {player_data$wOBA_diff}
 xwOBA: {player_data$xwOBA_cur}   Last 3 Years: {player_data$xwOBA_l3}  Diff: {player_data$xwOBA_diff}
+
+-- Notes for Analysis --
+
+- Consider a player's current stats as compared to recent ones (last 3 years)
+- Consider the player's age as a factor
+- Consider core skillset indicators (OBP, BB%, K%) as well as more flukey- or luck-based ones (wOBA compared to xWOBA, BABIP)
+- Consider the number of PA in the season (sample size). A typical major league season has 550+ PA. 
+
+
 ")
   
   return(generate_gpt_analysis(player_name, output))
