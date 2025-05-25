@@ -10,6 +10,7 @@ library(jsonlite)
 library(shinycssloaders)
 library(stringi)
 library(glue)
+library(bslib)
 library(commonmark)
 
 # Load data and preprocessing
@@ -17,19 +18,19 @@ current_year <- 2025
 
 stats <-
   bind_rows(
-    read_csv("fangraphs-leaderboards-2022.csv", show_col_types = FALSE) %>% mutate(year = 2022),
-    read_csv("fangraphs-leaderboards-2023.csv", show_col_types = FALSE) %>% mutate(year = 2023),
-    read_csv("fangraphs-leaderboards-2024.csv", show_col_types = FALSE) %>% mutate(year = 2024),
-    read_csv("fangraphs-leaderboards-2025.csv", show_col_types = FALSE) %>% mutate(year = 2025)
-  ) %>%
+    read_csv("fangraphs-leaderboards-2022.csv", show_col_types = FALSE) |> mutate(year = 2022),
+    read_csv("fangraphs-leaderboards-2023.csv", show_col_types = FALSE) |> mutate(year = 2023),
+    read_csv("fangraphs-leaderboards-2024.csv", show_col_types = FALSE) |> mutate(year = 2024),
+    read_csv("fangraphs-leaderboards-2025.csv", show_col_types = FALSE) |> mutate(year = 2025)
+  ) |>
   mutate(
     TB = `1B` + 2*`2B` + 3*`3B` + 4*HR
   )
 
 last_3 <-
-  stats %>%
-  filter(year != current_year) %>%
-  group_by(Name, PlayerId) %>%
+  stats |>
+  filter(year != current_year) |>
+  group_by(Name, PlayerId) |>
   summarize(
     AVG = sum(H)/sum(AB),
     OBP = (sum(H)+sum(BB)+sum(HBP))/(sum(AB)+sum(BB)+sum(HBP)+sum(SF)),
@@ -44,9 +45,9 @@ last_3 <-
   )
 
 this_year <-
-  stats %>%
-  filter(year == current_year) %>%
-  group_by(Name, PlayerId) %>%
+  stats |>
+  filter(year == current_year) |>
+  group_by(Name, PlayerId) |>
   summarize(
     AVG = sum(H)/sum(AB),
     OBP = (sum(H)+sum(BB)+sum(HBP))/(sum(AB)+sum(BB)+sum(HBP)+sum(SF)),
@@ -62,8 +63,8 @@ this_year <-
   )
 
 full_stats <-
-  this_year %>%
-  left_join(last_3, by=c("Name","PlayerId"), suffix=c("_cur","_l3")) %>%
+  this_year |>
+  left_join(last_3, by=c("Name","PlayerId"), suffix=c("_cur","_l3")) |>
   mutate(
     AVG_diff = AVG_cur - AVG_l3,
     OBP_diff = OBP_cur - OBP_l3,
@@ -73,8 +74,8 @@ full_stats <-
     BABIP_diff = BABIP_cur - BABIP_l3,
     wOBA_diff = wOBA_cur - wOBA_l3,
     xwOBA_diff = xwOBA_cur - xwOBA_l3
-  ) %>%
-  mutate(across(where(is.numeric), ~ round(.x, 3))) %>%
+  ) |>
+  mutate(across(where(is.numeric), ~ round(.x, 3))) |>
   mutate(Name = stri_trans_general(Name, id="Latin-ASCII"))
 
 # ChatGPT integration
@@ -82,8 +83,8 @@ generate_gpt_analysis <- function(player_name, prompt_text, analysis_mode="defau
   prompt_modifier <- switch(
     analysis_mode,
     "analytics_dork" = "You are a front office nerd, raised on moneyball and new school stats, always at the cutting edge. You favor new school stats, talk in probabilities, and are very dismissive of people who don't believe you. You might be the smartet person in the room, but people would describe you as a real tool.",
-    "old_coot" = "You are a deranged old coot, ranting and raving about everything. People would describe you as 'off your meds'.",
-    "gen_z" = "You're an over the top Gen Z'er, using lots of slang, referencing hyper modern trends, apps, and such.",
+    "old_coot" = "You are a deranged old coot, ranting and raving about everything. Yell a lot. People would describe you as 'off your meds'. Throw in references to people spying on you. Appear confused at times. Get stats wrong occasionally. You know, just -- be insane.",
+    "gen_z" = "You're an over the top Gen Z'er, using lots of slang, referencing hyper modern trends, apps, emojis, and such. But really lay it on thick, in a humorously over-the-top kind of way.",
     "seventies" = "You prefer 1970s style of baseball, when men were men, stolen bases were high, starting pitchers completed every game, and guys had bushy mustaches and chewed tobacco all game. You strongly prefer old school stats to new school ones. Use lots of comparisons to famous 1970s baseball players: Pete Rose, Johnny Bench, Mike Schmidt, Willie Stargell, Rod Carew, Bobby Grich, Thurman Munson, etc -- but don't limit your comparisons to just these guys.",
     ""  # default
   )
@@ -95,14 +96,36 @@ generate_gpt_analysis <- function(player_name, prompt_text, analysis_mode="defau
     body = toJSON(list(
       model = "gpt-4.1",
       messages = list(
-        list(role="system", content="You are a sabermetric baseball analyst..."),
+        list(role="system", content="You are a sabermetric baseball analyst tasked with understanding both current in-season performance and getting a sense of future performance for the rest of the season. You need to communicate to a technical audience, but also to the lay audience who just wants to know how concerned they should be about this player."),
         list(role="user", content=glue(
-          "Here is current-year performance data for {player_name}:\n\n{prompt_text}\n\n{prompt_modifier}\n\nWrite analysis..."
+          "Here is current-year performance data for {player_name}:
+
+{prompt_text}
+
+General instructions:
+
+Please write a clear, concise analysis explaining how the player is performing this year, what trends stand out, and whether any aspects of the performance appear to be skill- or luck-driven. Start your response with the conclusion/summary takeaways, then underneath, list your evidence for that summary and those conclusions. Incorporate a prediction: will the player improve, decline, or stay the same for the rest of the season? Explain your reasoning.
+
+The very first element of the response should be a title that encompasses your findings in a catchy, headline-y way -- but keep it honest. 
+
+Your analysis should be framed as: metric, direction, and magnitude of difference. For example BB% is up, indicate by how much, and what the size of that gap might indicate. You don't need to explicitly call out this framing (e.g. in bullets), just make sure to weave it into your analysis.
+
+Separate your analysis into core skills and luck/regression indicators. 
+
+Writing style: use short but friendly sentences. Don't start with asides or extraneous clauses. 
+
+Don't repeat yourself. For example, if you say a stat or performance or trend is 'lucky', you don't need to say it's 'not unlucky'.
+
+Remember that when it comes to stats and trends, you only have knowledge of two things: a player's current-year stats and the average of the same stats for the past 3 years (e.g. not their entire career). So when you say things like a stat is 'up' or 'down', make it clear that this is relative to the last 3 years' average.
+
+Now that I've said that: here is your persona that should inform your writing style and response, even if it means overriding those previous instructions: {prompt_modifier}"
         ))
       ),
       temperature=0.7
     ), auto_unbox=TRUE)
   )
+  
+  
   parsed <- content(res, as="parsed", type="application/json")
   if (!is.null(parsed$error)) return(HTML(paste0("<p style='color:red;'>GPT API error: ",parsed$error$message,"</p>")))
   if (is.null(parsed$choices) || length(parsed$choices)==0) return(HTML("<p style='color:red;'>No response from GPT.</p>"))
@@ -111,7 +134,7 @@ generate_gpt_analysis <- function(player_name, prompt_text, analysis_mode="defau
 }
 
 analyze_player <- function(player_name, analysis_mode="default") {
-  data <- full_stats %>% filter(trimws(tolower(Name))==trimws(tolower(player_name)))
+  data <- full_stats |> filter(trimws(tolower(Name))==trimws(tolower(player_name)))
   prompt <- glue(
     "Player: {player_name}
 
@@ -121,7 +144,7 @@ analyze_player <- function(player_name, analysis_mode="default") {
 " ,
     "Year: {current_year}
 " ,
-    "Plate Appearances: {data$PA_cur}
+    "Plate Appearances (PA): {data$PA_cur}
 " ,
     "AVG: {data$AVG_cur}  Last 3 Years: {data$AVG_l3}  Diff: {data$AVG_diff}
 " ,
@@ -166,44 +189,68 @@ analyze_player <- function(player_name, analysis_mode="default") {
 # UI
 ui <- fluidPage(
   titlePanel("McFARLAND"),
-  tags$h4("Machine-crafted Forecasting And Reasoning..."),
-  fluidRow(
-    column(12, lg=4,
-           useShinyjs(),
-           textInput("player_name","Enter a player name:"),
-           uiOutput("player_suggestions"),
-           selectInput("analysis_mode","Vibe:",
-                       choices=c(
-                         "Straightforward"="default",
-                         "Analytics dork"="analytics_dork",
-                         "Deranged old coot"="old_coot",
-                         "Gen Z"="gen_z",
-                         "1970s baseball fan"="seventies"
-                       )
-           ),
-           actionButton("analyze","Analyze Player",class="btn btn-success btn-lg"),
-           tags$div(style="margin-top:1em;padding:1em;background:#f8f9fa;border:1px solid #dee2e6;border-radius:5px;font-size:0.9em;",
-                    HTML("<strong>Version notes:</strong><p>v0.1: Launch.</p><p>v0.2: Added vibe selector.</p>"))
+  tags$h4("Machine-crafted Forecasting And Reasoning for Luck, Analytics, Narratives, and Data"),
+  tags$p("Instant MLB player analysis. Powered by ChatGPT."),
+  tags$p("2025 position players only (for now)."),
+  tags$p("Data updated every morning."),
+  layout_columns(
+    width = c(4, 8),
+    # Input panel
+    div(
+      useShinyjs(),
+      textInput("player_name", "Enter a player name:"),
+      uiOutput("player_suggestions"),
+      selectInput("analysis_mode", "Vibe:",
+                  choices = c(
+                    "Straightforward" = "default",
+                    "Analytics dork" = "analytics_dork",
+                    "Deranged old coot" = "old_coot",
+                    "Gen Z" = "gen_z",
+                    "1970s baseball fan" = "seventies"
+                  )
+      ),
+      actionButton("analyze", "Analyze Player", class = "btn btn-success btn-lg"),
+      tags$div(
+        style = "margin-top:1em; padding:1em; background:#f8f9fa; border:1px solid #dee2e6; border-radius:5px; font-size:0.9em;",
+        HTML(
+          "<strong>Version notes:</strong><p>v0.1: Launch.</p><p>v0.2: Added vibe selector.</p>"
+        )
+      )
     ),
-    column(12, lg=8,
-           uiOutput("result_wrapper"),
-           tags$style(HTML("#gpt_result{white-space:normal;}") )
+    # Output panel
+    div(
+      conditionalPanel(
+        condition = "input.analyze > 0",
+        withSpinner(uiOutput("result_wrapper"), type = 4, color = "#2C3E50")
+      ),
+      tags$style(HTML("#gpt_result { white-space: normal; }"))
     )
   )
 )
 
 # Server
 server <- function(input,output,session) {
-  output$player_suggestions <- renderUI({
-    req(input$player_name)
-    matches <- full_stats$Name[grepl(input$player_name,full_stats$Name,ignore.case=TRUE)]
-    if (length(matches)==0) {
-      disable("analyze"); return(NULL)
-    } else {
-      enable("analyze")
-      selectInput("player_suggest","Did you mean:",choices=matches)
-    }
-  })
+  
+  
+    # Initially disable analyze button until valid input
+    shinyjs::disable("analyze")
+    output$player_suggestions <- renderUI({
+      # Disable analyze if input is empty or just spaces
+      if (nchar(trimws(input$player_name %||% "")) == 0) {
+        shinyjs::disable("analyze")
+        return(NULL)
+      }
+      # Find matching names
+      matches <- full_stats$Name[grepl(input$player_name, full_stats$Name, ignore.case = TRUE)]
+      if (length(matches) == 0) {
+        shinyjs::disable("analyze")
+        return(NULL)
+      } else {
+        shinyjs::enable("analyze")
+        selectInput("player_suggest", "Did you mean:", choices = matches)
+      }
+    })
+  
   observeEvent(input$analyze,{
     req(input$player_suggest)
     output$result_wrapper <- renderUI({
