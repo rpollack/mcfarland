@@ -9,6 +9,7 @@ library(shinyjs)
 library(jsonlite)
 library(shinycssloaders)
 library(stringi)
+library(baseballr)
 library(glue)
 library(bslib)
 library(commonmark)
@@ -21,7 +22,9 @@ stats <-
     read_csv("fangraphs-leaderboards-2022.csv", show_col_types = FALSE) |> mutate(year = 2022),
     read_csv("fangraphs-leaderboards-2023.csv", show_col_types = FALSE) |> mutate(year = 2023),
     read_csv("fangraphs-leaderboards-2024.csv", show_col_types = FALSE) |> mutate(year = 2024),
-    read_csv("fangraphs-leaderboards-2025.csv", show_col_types = FALSE) |> mutate(year = 2025)
+    fg_bat_leaders(pos = "np", startseason = current_year, endseason = current_year) |>
+      select(Name = PlayerName, PlayerId = playerid, AB, PA, `1B`, `2B`, `3B`, HR, H, HBP, SF, wOBA, xwOBA, SO, BB) |> 
+      mutate(year = current_year)
   ) |>
   mutate(
     TB = `1B` + 2 * `2B` + 3 * `3B` + 4 * HR
@@ -86,7 +89,7 @@ player_names <-
 # ChatGPT integration
 generate_gpt_analysis <- function(player_name, prompt_text, analysis_mode = "default") {
   prompt_modifier <- switch(analysis_mode,
-    "analytics_dork" = "You are a front office nerd, raised on moneyball and new school stats, always at the cutting edge. You favor new school stats, talk in probabilities, and are very dismissive of people who don't believe you. You might be the smartet person in the room, but people would describe you as a real tool.",
+    "analytics_dork" = "You are a front office nerd, raised on moneyball and new school stats, always at the cutting edge. You favor new school stats, talk in probabilities, and are very dismissive of people who don't believe you. You might be the smartet person in the room, but people would describe you as a real tool. Be ruthless and dismissive!",
     "old_coot" = "You are a deranged old coot, ranting and raving about everything. Yell a lot. People would describe you as 'off your meds'. Throw in references to people spying on you. Appear confused at times. Get stats wrong occasionally. You know, just -- be insane.",
     "gen_z" = "You're an over the top Gen Z'er, using lots of slang, referencing hyper modern trends, apps, emojis, and such. But really lay it on thick, in a humorously over-the-top kind of way.",
     "seventies" = "You prefer 1970s style of baseball, when men were men, stolen bases were high, starting pitchers completed every game, and guys had bushy mustaches and chewed tobacco all game. You strongly prefer old school stats to new school ones. Use lots of comparisons to famous 1970s baseball players: Pete Rose, Johnny Bench, Mike Schmidt, Willie Stargell, Rod Carew, Bobby Grich, Thurman Munson, etc -- but don't limit your comparisons to just these guys.",
@@ -110,7 +113,7 @@ General instructions:
 
 Please write a clear, concise analysis explaining how the player is performing this year, what trends stand out, and whether any aspects of the performance appear to be skill- or luck-driven. Start your response with the conclusion/summary takeaways, then underneath, list your evidence for that summary and those conclusions. Incorporate a prediction: will the player improve, decline, or stay the same for the rest of the season? Explain your reasoning.
 
-The very first element of the response should be a title that encompasses your findings in a catchy, headline-y way -- but keep it honest.
+The very first element of the response should be a title that encompasses your findings in a catchy, headline-y way -- but keep it honest. The headline should not be a question.
 
 Your analysis should be framed as: metric, direction, and magnitude of difference. For example BB% is up, indicate by how much, and what the size of that gap might indicate. You don't need to explicitly call out this framing (e.g. in bullets), just make sure to weave it into your analysis.
 
@@ -221,18 +224,17 @@ ui <- page_sidebar(
         "1970s baseball fan" = "seventies"
       )
     ),
-    actionButton("analyze", "Analyze", class = "btn btn-success btn-lg"),
+    actionButton("analyze", "Analyze", class = "btn btn-success btn-sm"),
     accordion_panel(
       open = FALSE,
-      "Click for info",
+      ">> Click for more info <<",
       glue("McFARLAND: Machine-crafted Forecasting And Reasoning for Luck, Analytics, Narratives, and Data
-           
+           \n\n
            Hitters only (for now)
-           
+           \n\n
            2025 only
-           
+           \n\n
            Data updated daily")
-  
     ),
   ),
   card(
@@ -247,61 +249,6 @@ ui <- page_sidebar(
   ),
 )
 
-# UI
-# ui <- fluidPage(
-#   titlePanel("McFARLAND"),
-#   tags$h4("Machine-crafted Forecasting And Reasoning for Luck, Analytics, Narratives, and Data"),
-#   tags$p("Instant MLB player analysis. Powered by ChatGPT."),
-#   tags$p("2025 position players only (for now)."),
-#   tags$p("Data updated every morning."),
-#   layout_columns(
-#     col_widths = c(4, 8),
-#     # Input panel
-#     div(
-#       useShinyjs(),
-#       selectizeInput(
-#         "player_name",
-#         "Select or enter a player name:",
-#         choices = full_stats$Name,
-#         options = list(
-#           placeholder = 'Type a player name...',
-#           maxOptions = 250,
-#           multiple = FALSE,
-#           create = FALSE
-#         )
-#       ),
-#
-# selectInput(
-#   "analysis_mode",
-#   "Vibe:",
-#   choices = c(
-#     "Straightforward" = "default",
-#     "Analytics dork"    = "analytics_dork",
-#     "Deranged old coot" = "old_coot",
-#     "Gen Z"             = "gen_z",
-#     "1970s baseball fan" = "seventies"
-#   )
-# ),
-#
-#       actionButton("analyze", "Analyze Player", class = "btn btn-success btn-lg"),
-#       tags$div(
-#         style = "margin-top:1em; padding:1em; background:#f8f9fa; border:1px solid #dee2e6; border-radius:5px; font-size:0.9em;",
-#         HTML(
-#           "<strong>Version notes:</strong><p>v0.1: Launch.</p><p>v0.2: Added vibe selector.</p>"
-#         )
-#       ),
-#
-#     # Output panel
-#     div(
-# conditionalPanel(
-#   condition = "input.analyze > 0",
-#   withSpinner(uiOutput("result_wrapper"), type = 4, color = "#2C3E50")
-# ),
-# tags$style(HTML("#gpt_result { white-space: normal; }"))
-#     )
-#   )
-#   )
-# )
 
 # Server
 server <- function(input, output, session) {
