@@ -182,13 +182,13 @@ analyze_player <- function(player_name, analysis_mode = "default") {
 ",
     "- Gaps between wOBA and xwOBA signal luck vs skill.
 ",
-    "- XwOBA includes contact quality and plate discipline.
+    "- Remember that xwOBA includes contact quality and plate discipline.
 ",
     "- BB%/K% changes reflect approach/contact skill.
 ",
     "- Strong BB/K balance shows good zone control.
 ",
-    "- Older players less likely to improve; younger trend upward.
+    "- Take age into account. Older players less likely to improve; younger trend upward. Players generally peak in their early to mid 20's now.
 ",
     "- Incorporate injuries or known context.
 ",
@@ -227,14 +227,14 @@ ui <- page_sidebar(
     actionButton("analyze", "Analyze", class = "btn btn-success btn-sm"),
     accordion_panel(
       open = FALSE,
-      ">> Click for more info <<",
-      glue("McFARLAND: Machine-crafted Forecasting And Reasoning for Luck, Analytics, Narratives, and Data
-           \n\n
-           Hitters only (for now)
-           \n\n
-           2025 only
-           \n\n
-           Data updated daily")
+      "About...",
+      hr(),
+      p("McFARLAND: Machine-crafted Forecasting And Reasoning for Luck, Analytics, Narratives, and Data"),
+      img(src="tjmcfarland.png",
+          width = "100%"),
+      p("Powered by ChatGPT."),
+      p("2025 position players  only (for now). Data refreshed daily. Comparisons are made to 2022-2024 data (cumulative)."),
+      p("Thanks to baseballr by Bill Petti!")
     ),
   ),
   card(
