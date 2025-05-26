@@ -11,6 +11,7 @@ library(shinycssloaders)
 library(stringi)
 library(baseballr)
 library(glue)
+library(shinyWidgets)
 library(bslib)
 library(commonmark)
 
@@ -232,6 +233,23 @@ ui <- page_fillable(
         touch-action:       pan-y !important;
         overscroll-behavior-x: none !important;
       }
+      
+      /* hide the text‐entry field inside a single‐selectize input 
+      
+      disabled for now. 
+.selectize-control.single .selectize-input > input {
+  display: none !important;
+  pointer-events: none !important;
+  cursor: default !important;
+}
+
+/* optionally remove the blinking caret */
+.selectize-control.single .selectize-input.is-focused {
+  caret-color: transparent !important;
+  
+  */
+}
+
     "))),
   
   #title = "McFARLAND: Instant MLB Player Analysis",
@@ -249,15 +267,19 @@ ui <- page_fillable(
     selectizeInput(
       "player_name",
       "Player:",
-      choices = this_year$Name,
+      
+      # start off input with blank/placeholder text
+      choices = c("", this_year$Name),
       options = list(
         placeholder = "Type a player name...",
         maxOptions = this_year |> distinct(Name) |> nrow(),
         multiple = FALSE,
-        create = FALSE
-      )
+        create = FALSE,
+        dropdownParent = "body"
+      ),
+      
     ),
-    selectInput(
+    selectizeInput(
       "analysis_mode",
       "Vibe:",
       choices = c(
@@ -266,16 +288,24 @@ ui <- page_fillable(
         "Deranged old coot" = "old_coot",
         "Gen Z" = "gen_z",
         "1970s baseball fan" = "seventies"
-      )
+      ),
+      options = list(
+        create = FALSE,
+        dropdownParent = "body"
+      ),
+      # options = list(
+      #   dropdownParent = "body"
+      # )
     ),
-    actionButton("analyze", "Analyze", class = "btn btn-success btn-sm"),
+  #  actionButton("analyze", "Analyze", class = "btn btn-success btn-sm"),
   ),
   card(
     width = "100%",
     # display progress spinner only if analysis is running
     # conditionalPanel(
     #   condition = "input.analyze > 0",
-      as_fill_carrier(uiOutput("result_wrapper"))
+      withSpinner(as_fill_carrier(uiOutput("result_wrapper")),
+                  caption = "Analyzing...")
     # ),
     # card_footer(
     #   hr(),
@@ -294,35 +324,17 @@ ui <- page_fillable(
 
 # Server
 server <- function(input, output, session) {
-  # disable Analyze button if input is invalid
-  # observe({
-  #   if (is.null(input$player_name) || input$player_name == "") {
-  #     shinyjs::disable("analyze")
-  #   } else {
-  #     shinyjs::enable("analyze")
-  #   }
-  # })
-  
-  output$result_wrapper <- renderUI({
-    req(input$analyze)
-    req(input$player_name)
-    req(input$analysis_mode)
 
-    # only try and analyze valid player names
-    if_else(input$player_name %in% this_year$Name, 
-            analyze_player(input$player_name, input$analysis_mode), 
-            HTML(commonmark::markdown_html("Invalid player. Try again.")))
-  
+  output$result_wrapper <- renderUI({
+    
+    # ensure we're about to analyze a valid player name.
+    shiny::validate(
+      need(input$player_name %in% this_year$Name, "Enter a valid player name.")
+    )
+    
+    analyze_player(input$player_name, input$analysis_mode)
   })
 
-  # observe Analyze button. if clicked, ensure inputs are there, then call
-  # analyze_player()
-  # observeEvent(input$analyze, {
-  #   
-  #   output$result_wrapper <- renderUI({
-  #     
-  #   })
-  # })
 }
 
 # Run App
