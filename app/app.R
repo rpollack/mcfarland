@@ -197,15 +197,25 @@ analyze_player <- function(player_name, analysis_mode = "default") {
   generate_gpt_analysis(player_name, prompt, analysis_mode)
 }
 
-ui <- page_sidebar(
-  title = "McFARLAND: Instant MLB Player Analysis",
-  sidebar = sidebar(
-    useShinyjs(),
-    open = list(desktop = "open",
-                mobile = "always-above"),
+ui <- page_fillable(
+  #'hard-code' theme to prevent future breakage
+  theme = bs_theme(version = 5),
+  useShinyjs(),
+  #title = "McFARLAND: Instant MLB Player Analysis",
+  
+  # def 12 column layout per screen size
+  layout_columns(
+    col_widths = breakpoints(
+      sm = c(12),
+      md = c(6, 6),
+      lg = c(4, 8)
+    ),
+  #fillable_mobile = TRUE,
+  card(
+    card_header("McFARLAND"),
     selectizeInput(
       "player_name",
-      "Select a player, or erase text to enable typeahead.",
+      "Player:",
       choices = this_year$Name,
       options = list(
         placeholder = "Type a player name...",
@@ -226,17 +236,6 @@ ui <- page_sidebar(
       )
     ),
     actionButton("analyze", "Analyze", class = "btn btn-success btn-sm"),
-    accordion_panel(
-      open = FALSE,
-      "About...",
-      hr(),
-      p("McFARLAND: Machine-crafted Forecasting And Reasoning for Luck, Analytics, Narratives, and Data"),
-      img(src="tjmcfarland.png",
-          width = "100%"),
-      p("Powered by ChatGPT."),
-      p("2025 position players  only (for now). Data refreshed daily. Comparisons are made to 2022-2024 data (cumulative)."),
-      p("Thanks to baseballr by Bill Petti!")
-    ),
   ),
   card(
 
@@ -247,30 +246,51 @@ ui <- page_sidebar(
         caption = "Analyzing ..."
       )
     ),
+    # card_footer(
+    #   hr(),
+    #   p("About"),
+    #   p("McFARLAND: Machine-crafted Forecasting And Reasoning for Luck, Analytics, Narratives, and Data"),
+    #   img(src="tjmcfarland.png",
+    #       width = "100%"),
+    #   p("Powered by ChatGPT."),
+    #   p("2025 position players  only (for now). Data refreshed daily. Comparisons are made to 2022-2024 data (cumulative)."),
+    #   p("Thanks to baseballr by Bill Petti!")
+    # )
   ),
+),
 )
 
 
 # Server
 server <- function(input, output, session) {
   # disable Analyze button if input is invalid
-  observe({
-    if (is.null(input$player_name) || input$player_name == "") {
-      shinyjs::disable("analyze")
-    } else {
-      shinyjs::enable("analyze")
-    }
+  # observe({
+  #   if (is.null(input$player_name) || input$player_name == "") {
+  #     shinyjs::disable("analyze")
+  #   } else {
+  #     shinyjs::enable("analyze")
+  #   }
+  # })
+  
+  output$result_wrapper <- renderUI({
+    req(input$player_name)
+    req(input$analysis_mode)
+
+    # only try and analyze valid player names
+    if_else(input$player_name %in% this_year$Name, 
+            analyze_player(input$player_name, input$analysis_mode), 
+            HTML(commonmark::markdown_html("Invalid player. Try again.")))
+  
   })
 
   # observe Analyze button. if clicked, ensure inputs are there, then call
   # analyze_player()
-  observeEvent(input$analyze, {
-    req(input$player_name)
-    req(input$analysis_mode)
-    output$result_wrapper <- renderUI({
-      analyze_player(input$player_name, input$analysis_mode)
-    })
-  })
+  # observeEvent(input$analyze, {
+  #   
+  #   output$result_wrapper <- renderUI({
+  #     
+  #   })
+  # })
 }
 
 # Run App
