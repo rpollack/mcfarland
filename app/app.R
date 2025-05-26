@@ -27,7 +27,8 @@ stats <-
       mutate(year = current_year)
   ) |>
   mutate(
-    TB = `1B` + 2 * `2B` + 3 * `3B` + 4 * HR
+    TB = `1B` + 2 * `2B` + 3 * `3B` + 4 * HR,
+    Name = stri_trans_general(Name, id = "Latin-ASCII")
   )
 
 last_3 <-
@@ -78,8 +79,7 @@ full_stats <-
     wOBA_diff = wOBA_cur - wOBA_l3,
     xwOBA_diff = xwOBA_cur - xwOBA_l3
   ) |>
-  mutate(across(where(is.numeric), ~ round(.x, 3))) |>
-  mutate(Name = stri_trans_general(Name, id = "Latin-ASCII"))
+  mutate(across(where(is.numeric), ~ round(.x, 3))) 
 
 player_names <-
   this_year |>
@@ -201,7 +201,8 @@ ui <- page_sidebar(
   title = "McFARLAND: Instant MLB Player Analysis",
   sidebar = sidebar(
     useShinyjs(),
-    open = TRUE,
+    open = list(desktop = "open",
+                mobile = "always-above"),
     selectizeInput(
       "player_name",
       "Select a player, or erase text to enable typeahead.",
