@@ -23,13 +23,13 @@ stats <-
     read_csv("fangraphs-leaderboards-2023.csv", show_col_types = FALSE) |> mutate(year = 2023),
     read_csv("fangraphs-leaderboards-2024.csv", show_col_types = FALSE) |> mutate(year = 2024),
     fg_bat_leaders(pos = "np", startseason = current_year, endseason = current_year) |>
-      select(Name = PlayerName, PlayerId = playerid, AB, PA, `1B`, `2B`, `3B`, HR, H, HBP, SF, wOBA, xwOBA, SO, BB) |> 
+      select(Name = PlayerName, Age, PlayerId = playerid, AB, PA, `1B`, `2B`, `3B`, HR, H, HBP, SF, wOBA, xwOBA, SO, BB) |> 
       mutate(year = current_year)
   ) |>
   mutate(
     TB = `1B` + 2 * `2B` + 3 * `3B` + 4 * HR,
     Name = stri_trans_general(Name, id = "Latin-ASCII")
-  )
+  ) 
 
 last_3 <-
   stats |>
@@ -201,6 +201,39 @@ ui <- page_fillable(
   #'hard-code' theme to prevent future breakage
   theme = bs_theme(version = 5),
   useShinyjs(),
+  
+  # attempt to prevent horiz scrolling om mobile.
+  tags$head(
+    # 1) lock viewport & disable shrink-to-fit
+    tags$meta(
+      name    = "viewport",
+      content = paste(
+        "width=device-width",
+        "initial-scale=1",
+        "minimum-scale=1",
+        "maximum-scale=1",
+        "user-scalable=no",
+        "viewport-fit=cover",
+        "shrink-to-fit=no",
+        sep = ", "
+      )
+    ),
+    
+    # 2) force no horizontal overflow on load
+    tags$style(HTML("
+      html, body, .shiny-fill-page {
+        width:          100% !important;
+        max-width:      100% !important;
+        overflow-x:     hidden !important;
+      }
+      .card, .bslib-card {
+        max-width:          100% !important;
+        overflow-x:         hidden !important;
+        touch-action:       pan-y !important;
+        overscroll-behavior-x: none !important;
+      }
+    "))),
+  
   #title = "McFARLAND: Instant MLB Player Analysis",
   
   # def 12 column layout per screen size
@@ -238,14 +271,12 @@ ui <- page_fillable(
     actionButton("analyze", "Analyze", class = "btn btn-success btn-sm"),
   ),
   card(
-
+    width = "100%",
     # display progress spinner only if analysis is running
-    conditionalPanel(
-      condition = "input.analyze > 0",
-      withSpinner(uiOutput("result_wrapper"),
-        caption = "Analyzing ..."
-      )
-    ),
+    # conditionalPanel(
+    #   condition = "input.analyze > 0",
+      as_fill_carrier(uiOutput("result_wrapper"))
+    # ),
     # card_footer(
     #   hr(),
     #   p("About"),
@@ -273,6 +304,7 @@ server <- function(input, output, session) {
   # })
   
   output$result_wrapper <- renderUI({
+    req(input$analyze)
     req(input$player_name)
     req(input$analysis_mode)
 
