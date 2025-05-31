@@ -202,114 +202,157 @@ analyze_player <- function(player_name, analysis_mode = "default") {
   generate_gpt_analysis(player_name, prompt, analysis_mode)
 }
 
-ui <- page_fillable(
-  #' hard-code' theme to prevent future breakage
-  theme = bs_theme(version = 5),
- add_busy_spinner(spin = "fading-circle", position = "full-page"),
+library(shiny)
+library(bslib)
+library(shinyWidgets)
+library(shinybusy)
 
-  # attempt to prevent horiz scrolling om mobile.
-  tags$head(
-    # 1) lock viewport & disable shrink-to-fit
-    tags$meta(
-      name = "viewport",
-      content = paste(
-        "width=device-width",
-        "initial-scale=1",
-        "minimum-scale=1",
-        "maximum-scale=1",
-        "user-scalable=no",
-        "viewport-fit=cover",
-        "shrink-to-fit=no",
-        sep = ", "
-      )
-    ),
-
-    # 2) force no horizontal overflow on load
-    tags$style(HTML("
-      html, body, .shiny-fill-page {
-        width:          100% !important;
-        max-width:      100% !important;
-        overflow-x:     hidden !important;
-      }
-      .card, .bslib-card {
-        max-width:          100% !important;
-        overflow-x:         hidden !important;
-        touch-action:       pan-y !important;
-        overscroll-behavior-x: none !important;
-      }
-      
-        $(document).ready(function() {
-    // whenever the <select> with id='player_name' changes, force it to hide:
-    $(document).on('changed.bs.select', 'player_name', function(e) {
-      $(this).selectpicker('hide');
-    });
-  });
-"))
-  ),
-
-
-  # def 12 column layout per screen size
-  layout_columns(
-    col_widths = breakpoints(
-      sm = c(12),
-      md = c(4, 8),
-      lg = c(3, 9)
-    ),
-    card(
-      card_header("McFARLAND"),
-      pickerInput(
-        inputId = "player_name",
-        label = "Player:",
-        choices = c("", this_year$Name),
-        multiple = FALSE,
-        width = "100%",
-        options = pickerOptions(
-          container = "body",
-          dropupAuto = FALSE,
-          liveSearch = TRUE,
-          liveSearchStyle = "contains",
-          liveSearchPlaceholder = "Seach for a player..."
+ui <- page_navbar(
+title = "McFARLAND",
+  header = tagList(
+    # (a) “Full‐page” busy spinner
+    add_busy_bar(
+      #spin     = "fading-circle", 
+                #     position = "full-page",
+                     # optionally add text below the spinner (see docs for add_busy_spinner)
+                #     color    = "#333333",
+                     height = "25px"),
+    
+    # (b) Custom <meta> + CSS + JS to prevent horizontal scrolling & auto‐close picker
+    tags$head(
+      # 1a) Lock viewport & disable Safari’s shrink‐to‐fit
+      tags$meta(
+        name    = "viewport",
+        content = paste(
+          "width=device-width",
+          "initial-scale=1",
+          "minimum-scale=1",
+          "maximum-scale=1",
+          "user-scalable=no",
+          "viewport-fit=cover",
+          "shrink-to-fit=no",
+          sep = ", "
         )
       ),
-
-      pickerInput(
-        inputId = "analysis_mode",
-        label = "Vibe:",
-        width = "100%",
-        choices = c(
-          "Straightforward" = "default",
-          "Analytics dork" = "analytics_dork",
-          "Deranged old coot" = "old_coot",
-          "Gen Z" = "gen_z",
-          "1970s baseball fan" = "seventies",
-          "Sensationalist" = "sensationalist"
-        ),
-        multiple = FALSE,
-        options = pickerOptions(
-          create = FALSE,
-          container = "body",
-          dropupAuto = FALSE
-        ),
-
-      ),
-    ),
-    card(
-      width = "100%",
-      as_fill_carrier(uiOutput("result_wrapper"))
-      # ),
-      # card_footer(
-      #   hr(),
-      #   p("About"),
-      #   p("McFARLAND: Machine-crafted Forecasting And Reasoning for Luck, Analytics, Narratives, and Data"),
-      #   img(src="tjmcfarland.png",
-      #       width = "100%"),
-      #   p("Powered by ChatGPT."),
-      #   p("2025 position players  only (for now). Data refreshed daily. Comparisons are made to 2022-2024 data (cumulative)."),
-      #   p("Thanks to baseballr by Bill Petti!")
-      # )
-    ),
+      
+      # 1b) Force no horizontal overflow on page + cards
+      tags$style(HTML("
+        html, body, .shiny-fill-page {
+          width:          100% !important;
+          max-width:      100% !important;
+          overflow-x:     hidden !important;
+        }
+        .card, .bslib-card {
+          max-width:             100% !important;
+          overflow-x:            hidden !important;
+          touch-action:          pan-y !important;
+          overscroll-behavior-x: none !important;
+        }
+      ")),
+      
+      # 1c) JS to auto‐close Bootstrap‐Select dropdown when an option is picked
+      #     Note the selector '#player_name' (must include '#')
+      # tags$script(HTML("
+      #   $(document).ready(function() {
+      #     // whenever the <select> with id='player_name' changes, force it to hide:
+      #     $(document).on('changed.bs.select', '#player_name', function(e) {
+      #       $(this).selectpicker('hide');
+      #     });
+      #   });
+      # "))
+    )
   ),
+  
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 2) Now your nav_panel()s can come next—no other UI at top level
+  # ─────────────────────────────────────────────────────────────────────────────
+  
+  # ─────────── Home Panel ───────────
+  nav_panel(
+    title     = "Home",
+    icon      = icon("home"),
+    
+    
+    
+    layout_columns(
+      # On ≥768px: col1 = 4/12, col2 = 8/12. On <768px: they stack 12/12.
+      col_widths = breakpoints(
+        sm = c(12),
+        md = c(4, 8),
+        lg = c(3, 9)
+      ),
+      
+      # Column 1: “picker” card
+      card(
+     #   card_header("McFARLAND"),
+        card_body(
+          pickerInput(
+            inputId  = "player_name",
+            label    = "Player:",
+            choices  = c("", player_names),  
+            multiple = FALSE,
+            width    = "100%",
+            options  = pickerOptions(
+              container            = "body",
+              dropupAuto           = FALSE,
+              liveSearch           = TRUE,
+              liveSearchStyle      = "contains",
+              liveSearchPlaceholder = "Search for a player..."
+            )
+          ),
+          
+          pickerInput(
+            inputId  = "analysis_mode",
+            label    = "Vibe:",
+            choices  = c(
+              "Straightforward"   = "default",
+              "Analytics dork"    = "analytics_dork",
+              "Deranged old coot" = "old_coot",
+              "Gen Z"             = "gen_z",
+              "1970s baseball fan"= "seventies",
+              "Sensationalist"    = "sensationalist"
+            ),
+            multiple = FALSE,
+            width    = "100%",
+            options  = pickerOptions(
+              create      = FALSE,
+              container   = "body",
+              dropupAuto  = FALSE
+            )
+          )
+        )
+      ),
+      
+      # Column 2: result card placeholder
+      card(
+        width = "100%",
+        # as_fill_carrier() will ensure this UI expands vertically as needed
+        as_fill_carrier(
+          uiOutput("result_wrapper")
+        )
+      )
+    )
+  ),
+  
+  # ─────────── About Panel ───────────
+  nav_panel(
+    title = "About",
+    icon  = icon("info-circle"),
+    card(
+      card_header("About"),
+      card_body(
+        p("McFARLAND: Machine-crafted Forecasting And Reasoning for Luck, Analytics, Narratives, and Data"),
+        img(src="tjmcfarland.png",
+            width = "100%"),
+        p("Hitters only (for now)."),
+        p("Data refreshed daily; comparing 2025 stats to 2022–2024 cumulatives."),
+        p("Built with R, {shiny}, {baseballr}, {bslib}, {shinyWidgets}, and {shinybusy}."),
+        p("Powered by gpt-4.1.")
+      )
+    )
+  )
 )
+
 
 
 # Server
