@@ -109,7 +109,7 @@ generate_gpt_analysis <- function(player_name, prompt_text, analysis_mode = "def
     body = toJSON(list(
       model = "gpt-4.1",
       messages = list(
-        list(role = "system", content = "You are a sabermetric baseball analyst tasked with understanding both current in-season performance and getting a sense of future performance for the rest of the season. You need to communicate to a technical audience, but also to the lay audience who just wants to know how concerned they should be about this player."),
+        list(role = "system", content = "You are a sabermetric baseball analyst tasked with understanding both current in-season performance and getting a sense of future performance for the rest of the season. You need to communicate to a technical audience, but also to the lay audience who just wants to know how excited or concerned they should be about this player."),
         list(role = "user", content = glue(
           "Here is current-year performance data for {player_name}:
 
