@@ -5,7 +5,6 @@ library(shiny)
 library(tidyverse)
 library(readr)
 library(httr)
-library(shinyjs)
 library(jsonlite)
 library(shinycssloaders)
 library(stringi)
@@ -16,9 +15,9 @@ library(bslib)
 library(commonmark)
 library(shinybusy)
 
-# Load data and preprocessing
 current_year <- 2025
 
+# fetch data for the past 3 years (static CSV) as well as current year (live)
 stats <-
   bind_rows(
     read_csv("fangraphs-leaderboards-2022.csv", show_col_types = FALSE) |> mutate(year = 2022),
@@ -33,6 +32,7 @@ stats <-
     Name = stri_trans_general(Name, id = "Latin-ASCII")
   )
 
+# compute stats/totals for the past 3 years, (excluding the current one), cumulative
 last_3 <-
   stats |>
   filter(year != current_year) |>
@@ -50,6 +50,7 @@ last_3 <-
     .groups = "drop"
   )
 
+# compute stats for current year
 this_year <-
   stats |>
   filter(year == current_year) |>
@@ -68,6 +69,8 @@ this_year <-
     .groups = "drop"
   )
 
+# combine current stats and last-3-year-cumulative-stats into tibble
+# compute differences between current stats & last-3-years-cumulative
 full_stats <-
   this_year |>
   left_join(last_3, by = c("Name", "PlayerId"), suffix = c("_cur", "_l3")) |>
@@ -146,6 +149,7 @@ Now that I've said that: here is your persona that should inform your writing st
   HTML(commonmark::markdown_html(text))
 }
 
+# function to analyze a given player
 analyze_player <- function(player_name, analysis_mode = "default") {
   data <- full_stats |> filter(trimws(tolower(Name)) == trimws(tolower(player_name)))
   prompt <- glue(
@@ -202,8 +206,7 @@ analyze_player <- function(player_name, analysis_mode = "default") {
 ui <- page_fillable(
   #' hard-code' theme to prevent future breakage
   theme = bs_theme(version = 5),
-#  add_busy_spinner(spin = "fading-circle", position = "top-right"),
-  useShinyjs(),
+ add_busy_spinner(spin = "fading-circle", position = "full-page"),
 
   # attempt to prevent horiz scrolling om mobile.
   tags$head(
@@ -235,19 +238,24 @@ ui <- page_fillable(
         touch-action:       pan-y !important;
         overscroll-behavior-x: none !important;
       }
+      
+        $(document).ready(function() {
+    // whenever the <select> with id='player_name' changes, force it to hide:
+    $(document).on('changed.bs.select', 'player_name', function(e) {
+      $(this).selectpicker('hide');
+    });
+  });
 "))
   ),
 
-  # title = "McFARLAND: Instant MLB Player Analysis",
 
   # def 12 column layout per screen size
   layout_columns(
     col_widths = breakpoints(
       sm = c(12),
-      md = c(6, 6),
-      lg = c(4, 8)
+      md = c(4, 8),
+      lg = c(3, 9)
     ),
-    # fillable_mobile = TRUE,
     card(
       card_header("McFARLAND"),
       pickerInput(
@@ -260,29 +268,10 @@ ui <- page_fillable(
           dropupAuto = FALSE,
           liveSearch = TRUE,
           liveSearchStyle = "contains",
-          liveSearchPlaceholder = "Type a player name..."
-          # placeholder = "Type a player name...",
-          # maxOptions = this_year |> distinct(Name) |> nrow(),
-          # multiple = FALSE,
-          # create = FALSE,
-          # dropdownParent = "body"
+          liveSearchPlaceholder = "Seach for a player..."
         )
       ),
-      
-      # selectizeInput(
-      #   "player_name",
-      #   "Player:",
-      # 
-      #   # start off input with blank/placeholder text
-      #   ,
-      #   options = list(
-      #     placeholder = "Type a player name...",
-      #     maxOptions = this_year |> distinct(Name) |> nrow(),
-      #     multiple = FALSE,
-      #     create = FALSE,
-      #     dropdownParent = "body"
-      #   ),
-      # ),
+
       pickerInput(
         inputId = "analysis_mode",
         label = "Vibe:",
@@ -299,20 +288,12 @@ ui <- page_fillable(
           container = "body",
           dropupAuto = FALSE
         ),
-        # options = list(
-        #   dropdownParent = "body"
-        # )
+
       ),
-      #  actionButton("analyze", "Analyze", class = "btn btn-success btn-sm"),
     ),
     card(
       width = "100%",
-      # display progress spinner only if analysis is running
-      # conditionalPanel(
-      #   condition = "input.analyze > 0",
-      withSpinner(as_fill_carrier(uiOutput("result_wrapper")),
-        caption = "Analyzing..."
-      )
+      as_fill_carrier(uiOutput("result_wrapper"))
       # ),
       # card_footer(
       #   hr(),
