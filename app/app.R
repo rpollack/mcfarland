@@ -14,6 +14,7 @@ library(glue)
 library(shinyWidgets)
 library(bslib)
 library(commonmark)
+library(shinybusy)
 
 # Load data and preprocessing
 current_year <- 2025
@@ -201,6 +202,7 @@ analyze_player <- function(player_name, analysis_mode = "default") {
 ui <- page_fillable(
   #' hard-code' theme to prevent future breakage
   theme = bs_theme(version = 5),
+#  add_busy_spinner(spin = "fading-circle", position = "top-right"),
   useShinyjs(),
 
   # attempt to prevent horiz scrolling om mobile.
@@ -233,24 +235,7 @@ ui <- page_fillable(
         touch-action:       pan-y !important;
         overscroll-behavior-x: none !important;
       }
-
-      /* hide the text‐entry field inside a single‐selectize input
-
-      disabled for now.
-.selectize-control.single .selectize-input > input {
-  display: none !important;
-  pointer-events: none !important;
-  cursor: default !important;
-}
-
-/* optionally remove the blinking caret */
-.selectize-control.single .selectize-input.is-focused {
-  caret-color: transparent !important;
-
-  */
-}
-
-    "))
+"))
   ),
 
   # title = "McFARLAND: Instant MLB Player Analysis",
@@ -265,23 +250,42 @@ ui <- page_fillable(
     # fillable_mobile = TRUE,
     card(
       card_header("McFARLAND"),
-      selectizeInput(
-        "player_name",
-        "Player:",
-
-        # start off input with blank/placeholder text
+      pickerInput(
+        inputId = "player_name",
+        label = "Player:",
         choices = c("", this_year$Name),
-        options = list(
-          placeholder = "Type a player name...",
-          maxOptions = this_year |> distinct(Name) |> nrow(),
-          multiple = FALSE,
-          create = FALSE,
-          dropdownParent = "body"
-        ),
+        multiple = FALSE,
+        options = pickerOptions(
+          container = "body",
+          dropupAuto = FALSE,
+          liveSearch = TRUE,
+          liveSearchStyle = "contains",
+          liveSearchPlaceholder = "Type a player name..."
+          # placeholder = "Type a player name...",
+          # maxOptions = this_year |> distinct(Name) |> nrow(),
+          # multiple = FALSE,
+          # create = FALSE,
+          # dropdownParent = "body"
+        )
       ),
-      selectizeInput(
-        "analysis_mode",
-        "Vibe:",
+      
+      # selectizeInput(
+      #   "player_name",
+      #   "Player:",
+      # 
+      #   # start off input with blank/placeholder text
+      #   ,
+      #   options = list(
+      #     placeholder = "Type a player name...",
+      #     maxOptions = this_year |> distinct(Name) |> nrow(),
+      #     multiple = FALSE,
+      #     create = FALSE,
+      #     dropdownParent = "body"
+      #   ),
+      # ),
+      pickerInput(
+        inputId = "analysis_mode",
+        label = "Vibe:",
         choices = c(
           "Straightforward" = "default",
           "Analytics dork" = "analytics_dork",
@@ -289,9 +293,11 @@ ui <- page_fillable(
           "Gen Z" = "gen_z",
           "1970s baseball fan" = "seventies"
         ),
-        options = list(
+        multiple = FALSE,
+        options = pickerOptions(
           create = FALSE,
-          dropdownParent = "body"
+          container = "body",
+          dropupAuto = FALSE
         ),
         # options = list(
         #   dropdownParent = "body"
