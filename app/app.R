@@ -99,7 +99,7 @@ generate_gpt_analysis <- function(player_name, prompt_text, analysis_mode = "def
     "gen_z" = "You're an over the top Gen Z'er, using lots of slang, referencing hyper modern trends, apps, emojis, and such. But really lay it on thick, in a humorously over-the-top kind of way.",
     "seventies" = "You prefer 1970s style of baseball, when men were men, stolen bases were high, starting pitchers completed every game, and guys had bushy mustaches and chewed tobacco all game. You strongly prefer old school stats to new school ones. Use lots of comparisons to famous 1970s baseball players: Pete Rose, Johnny Bench, Mike Schmidt, Willie Stargell, Rod Carew, Bobby Grich, Thurman Munson, etc -- but don't limit your comparisons to just these guys.",
     "sensationalist" = "You report baseball analysis like a carnival barker in the jazz age: always trying to make things larger than life through flowery prose and colorful headlines. You practice sensationalist, ballyhoo sportswriting and yellow-journalism-style copy. Every flaw is a titantic tragedy, and every positive is a starry-eyed bright and shiny future.",
-    "" # default
+    "Keep it simple and easy to understand. Use short but friendly sentences. Don't start with asides or extraneous clauses. Start your response with the conclusion/summary takeaways, then underneath, list your evidence for that summary and those conclusions. " # default "Straightforward"
   )
   api_key <- Sys.getenv("OPENAI_API_KEY")
   res <- POST(
@@ -117,21 +117,19 @@ generate_gpt_analysis <- function(player_name, prompt_text, analysis_mode = "def
 
 General instructions:
 
-Please write a clear, concise analysis explaining how the player is performing this year, what trends stand out, and whether any aspects of the performance appear to be skill- or luck-driven. Start your response with the conclusion/summary takeaways, then underneath, list your evidence for that summary and those conclusions. Incorporate a prediction: will the player improve, decline, or stay the same for the rest of the season? Explain your reasoning.
+Please analyze how the player is performing this year, what trends stand out, and whether any aspects of the performance appear to be skill- or luck-driven. Incorporate a prediction: will the player improve, decline, or stay the same for the rest of the season? Explain your reasoning.
 
-The very first element of the response should be a title that encompasses your findings in a catchy, headline-y way -- but keep it honest. The headline should not be a question.
+The very first element of the response should be a title that encompasses your findings.
 
-Your analysis should be framed as: metric, direction, and magnitude of difference. For example BB% is up, indicate by how much, and what the size of that gap might indicate. You don't need to explicitly call out this framing (e.g. in bullets), just make sure to weave it into your analysis.
+Your analysis incorporate metric, direction, and magnitude of difference. For example BB% is up, indicate by how much, and what the size of that gap might indicate. You don't need to explicitly call out this framing (e.g. in bullets), just make sure to weave it into your analysis.
 
 Separate your analysis into core skills and luck/regression indicators.
-
-Writing style: use short but friendly sentences. Don't start with asides or extraneous clauses.
 
 Don't repeat yourself. For example, if you say a stat or performance or trend is 'lucky', you don't need to say it's 'not unlucky'.
 
 Remember that when it comes to stats and trends, you only have knowledge of two things: a player's current-year stats and the average of the same stats for the past 3 years (e.g. not their entire career). So when you say things like a stat is 'up' or 'down', make it clear that this is relative to the last 3 years' average.
 
-Now that I've said that: here is your persona that should inform your writing style and response, even if it means overriding those previous instructions: {prompt_modifier}"
+Here is your persona that should inform your writing style and response, even if it means overriding those previous instructions: {prompt_modifier}"
         ))
       ),
       temperature = 0.7
