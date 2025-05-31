@@ -24,13 +24,13 @@ stats <-
     read_csv("fangraphs-leaderboards-2023.csv", show_col_types = FALSE) |> mutate(year = 2023),
     read_csv("fangraphs-leaderboards-2024.csv", show_col_types = FALSE) |> mutate(year = 2024),
     fg_bat_leaders(pos = "np", startseason = current_year, endseason = current_year) |>
-      select(Name = PlayerName, Age, PlayerId = playerid, AB, PA, `1B`, `2B`, `3B`, HR, H, HBP, SF, wOBA, xwOBA, SO, BB) |> 
+      select(Name = PlayerName, Age, PlayerId = playerid, AB, PA, `1B`, `2B`, `3B`, HR, H, HBP, SF, wOBA, xwOBA, SO, BB) |>
       mutate(year = current_year)
   ) |>
   mutate(
     TB = `1B` + 2 * `2B` + 3 * `3B` + 4 * HR,
     Name = stri_trans_general(Name, id = "Latin-ASCII")
-  ) 
+  )
 
 last_3 <-
   stats |>
@@ -80,7 +80,7 @@ full_stats <-
     wOBA_diff = wOBA_cur - wOBA_l3,
     xwOBA_diff = xwOBA_cur - xwOBA_l3
   ) |>
-  mutate(across(where(is.numeric), ~ round(.x, 3))) 
+  mutate(across(where(is.numeric), ~ round(.x, 3)))
 
 player_names <-
   this_year |>
@@ -199,15 +199,15 @@ analyze_player <- function(player_name, analysis_mode = "default") {
 }
 
 ui <- page_fillable(
-  #'hard-code' theme to prevent future breakage
+  #' hard-code' theme to prevent future breakage
   theme = bs_theme(version = 5),
   useShinyjs(),
-  
+
   # attempt to prevent horiz scrolling om mobile.
   tags$head(
     # 1) lock viewport & disable shrink-to-fit
     tags$meta(
-      name    = "viewport",
+      name = "viewport",
       content = paste(
         "width=device-width",
         "initial-scale=1",
@@ -219,7 +219,7 @@ ui <- page_fillable(
         sep = ", "
       )
     ),
-    
+
     # 2) force no horizontal overflow on load
     tags$style(HTML("
       html, body, .shiny-fill-page {
@@ -233,10 +233,10 @@ ui <- page_fillable(
         touch-action:       pan-y !important;
         overscroll-behavior-x: none !important;
       }
-      
-      /* hide the text‐entry field inside a single‐selectize input 
-      
-      disabled for now. 
+
+      /* hide the text‐entry field inside a single‐selectize input
+
+      disabled for now.
 .selectize-control.single .selectize-input > input {
   display: none !important;
   pointer-events: none !important;
@@ -246,14 +246,15 @@ ui <- page_fillable(
 /* optionally remove the blinking caret */
 .selectize-control.single .selectize-input.is-focused {
   caret-color: transparent !important;
-  
+
   */
 }
 
-    "))),
-  
-  #title = "McFARLAND: Instant MLB Player Analysis",
-  
+    "))
+  ),
+
+  # title = "McFARLAND: Instant MLB Player Analysis",
+
   # def 12 column layout per screen size
   layout_columns(
     col_widths = breakpoints(
@@ -261,80 +262,77 @@ ui <- page_fillable(
       md = c(6, 6),
       lg = c(4, 8)
     ),
-  #fillable_mobile = TRUE,
-  card(
-    card_header("McFARLAND"),
-    selectizeInput(
-      "player_name",
-      "Player:",
-      
-      # start off input with blank/placeholder text
-      choices = c("", this_year$Name),
-      options = list(
-        placeholder = "Type a player name...",
-        maxOptions = this_year |> distinct(Name) |> nrow(),
-        multiple = FALSE,
-        create = FALSE,
-        dropdownParent = "body"
+    # fillable_mobile = TRUE,
+    card(
+      card_header("McFARLAND"),
+      selectizeInput(
+        "player_name",
+        "Player:",
+
+        # start off input with blank/placeholder text
+        choices = c("", this_year$Name),
+        options = list(
+          placeholder = "Type a player name...",
+          maxOptions = this_year |> distinct(Name) |> nrow(),
+          multiple = FALSE,
+          create = FALSE,
+          dropdownParent = "body"
+        ),
       ),
-      
+      selectizeInput(
+        "analysis_mode",
+        "Vibe:",
+        choices = c(
+          "Straightforward" = "default",
+          "Analytics dork" = "analytics_dork",
+          "Deranged old coot" = "old_coot",
+          "Gen Z" = "gen_z",
+          "1970s baseball fan" = "seventies"
+        ),
+        options = list(
+          create = FALSE,
+          dropdownParent = "body"
+        ),
+        # options = list(
+        #   dropdownParent = "body"
+        # )
+      ),
+      #  actionButton("analyze", "Analyze", class = "btn btn-success btn-sm"),
     ),
-    selectizeInput(
-      "analysis_mode",
-      "Vibe:",
-      choices = c(
-        "Straightforward" = "default",
-        "Analytics dork" = "analytics_dork",
-        "Deranged old coot" = "old_coot",
-        "Gen Z" = "gen_z",
-        "1970s baseball fan" = "seventies"
-      ),
-      options = list(
-        create = FALSE,
-        dropdownParent = "body"
-      ),
-      # options = list(
-      #   dropdownParent = "body"
+    card(
+      width = "100%",
+      # display progress spinner only if analysis is running
+      # conditionalPanel(
+      #   condition = "input.analyze > 0",
+      withSpinner(as_fill_carrier(uiOutput("result_wrapper")),
+        caption = "Analyzing..."
+      )
+      # ),
+      # card_footer(
+      #   hr(),
+      #   p("About"),
+      #   p("McFARLAND: Machine-crafted Forecasting And Reasoning for Luck, Analytics, Narratives, and Data"),
+      #   img(src="tjmcfarland.png",
+      #       width = "100%"),
+      #   p("Powered by ChatGPT."),
+      #   p("2025 position players  only (for now). Data refreshed daily. Comparisons are made to 2022-2024 data (cumulative)."),
+      #   p("Thanks to baseballr by Bill Petti!")
       # )
     ),
-  #  actionButton("analyze", "Analyze", class = "btn btn-success btn-sm"),
   ),
-  card(
-    width = "100%",
-    # display progress spinner only if analysis is running
-    # conditionalPanel(
-    #   condition = "input.analyze > 0",
-      withSpinner(as_fill_carrier(uiOutput("result_wrapper")),
-                  caption = "Analyzing...")
-    # ),
-    # card_footer(
-    #   hr(),
-    #   p("About"),
-    #   p("McFARLAND: Machine-crafted Forecasting And Reasoning for Luck, Analytics, Narratives, and Data"),
-    #   img(src="tjmcfarland.png",
-    #       width = "100%"),
-    #   p("Powered by ChatGPT."),
-    #   p("2025 position players  only (for now). Data refreshed daily. Comparisons are made to 2022-2024 data (cumulative)."),
-    #   p("Thanks to baseballr by Bill Petti!")
-    # )
-  ),
-),
 )
 
 
 # Server
 server <- function(input, output, session) {
-
   output$result_wrapper <- renderUI({
-    
     # ensure we're about to analyze a valid player name.
     shiny::validate(
       need(input$player_name %in% this_year$Name, "Enter a valid player name.")
     )
-    
+
     analyze_player(input$player_name, input$analysis_mode)
   })
-
 }
 
 # Run App
