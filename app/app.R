@@ -262,6 +262,7 @@ ui <- page_fillable(
         label = "Player:",
         choices = c("", this_year$Name),
         multiple = FALSE,
+        width = "100%",
         options = pickerOptions(
           container = "body",
           dropupAuto = FALSE,
@@ -274,6 +275,7 @@ ui <- page_fillable(
       pickerInput(
         inputId = "analysis_mode",
         label = "Vibe:",
+        width = "100%",
         choices = c(
           "Straightforward" = "default",
           "Analytics dork" = "analytics_dork",
