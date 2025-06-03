@@ -343,7 +343,7 @@ title = "McFARLAND",
       card_body(
         p("McFARLAND: Machine-crafted Forecasting And Reasoning for Luck, Analytics, Narratives, and Data"),
         img(src="tjmcfarland.png",
-            width = "100%"),
+            style = "width: 100%; max-width: 400px; height: auto;"),
         p("Hitters only (for now)."),
         p("Data refreshed daily; comparing 2025 stats to 2022–2024 cumulatives."),
         p("Built with R, {shiny}, {baseballr}, {bslib}, {shinyWidgets}, and {shinybusy}."),
