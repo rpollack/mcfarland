@@ -1,0 +1,29 @@
+name: Daily Baseball Data Refresh
+on:
+  schedule:
+    - cron: '0 11 * * *'  # 6 AM EST (11 AM UTC)
+  workflow_dispatch:  # Allows manual trigger
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.3'
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            tidyverse
+            baseballr
+            stringi
+      - name: Refresh baseball data
+        run: Rscript refresh_data.R
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add full_stats.csv player_names.csv
+          git diff --staged --quiet || git commit -m "Daily data refresh $(date)"
+          git push
