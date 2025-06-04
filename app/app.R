@@ -15,81 +15,49 @@ library(bslib)
 library(commonmark)
 library(shinybusy)
 
-current_year <- 2025
 
-# fetch data for the past 3 years (static CSV) as well as current year (live)
-stats <-
-  bind_rows(
-    read_csv("fangraphs-leaderboards-2022.csv", show_col_types = FALSE) |> mutate(year = 2022),
-    read_csv("fangraphs-leaderboards-2023.csv", show_col_types = FALSE) |> mutate(year = 2023),
-    read_csv("fangraphs-leaderboards-2024.csv", show_col_types = FALSE) |> mutate(year = 2024),
-    fg_bat_leaders(pos = "np", startseason = current_year, endseason = current_year) |>
-      select(Name = PlayerName, Age, PlayerId = playerid, AB, PA, `1B`, `2B`, `3B`, HR, H, HBP, SF, wOBA, xwOBA, SO, BB) |>
-      mutate(year = current_year)
-  ) |>
-  mutate(
-    TB = `1B` + 2 * `2B` + 3 * `3B` + 4 * HR,
-    Name = stri_trans_general(Name, id = "Latin-ASCII")
-  )
+# load data from github. these CSV's are generated at 6 AM daily via a Github Action.
+load_baseball_data <- function() {
+  tryCatch({
+    base_url <- "https://raw.githubusercontent.com/rpollack/leadRboard/master/"
+    
+    cat("Attempting to load data from:", base_url, "\n")
+    
+    full_stats <- read_csv(paste0(base_url, "full_stats.csv"), show_col_types = FALSE)
+    cat("Loaded full_stats with", nrow(full_stats), "rows\n")
+    
+    player_names <- read_csv(paste0(base_url, "player_names.csv"), show_col_types = FALSE)
+    cat("Loaded player_names with", nrow(player_names), "rows\n")
+    
+    list(
+      full_stats = full_stats,
+      player_names = player_names
+    )
+  }, error = function(e) {
+    cat("Error loading data:", e$message, "\n")
+    # Return empty data instead of NULL
+    list(
+      full_stats = data.frame(),
+      player_names = data.frame(Name = character(0))
+    )
+  })
+}
 
-# compute stats/totals for the past 3 years, (excluding the current one), cumulative
-last_3 <-
-  stats |>
-  filter(year != current_year) |>
-  group_by(Name, PlayerId) |>
-  summarize(
-    AVG = sum(H) / sum(AB),
-    OBP = (sum(H) + sum(BB) + sum(HBP)) / (sum(AB) + sum(BB) + sum(HBP) + sum(SF)),
-    SLG = sum(TB) / sum(AB),
-    K_pct = 100 * sum(SO) / sum(PA),
-    BB_pct = 100 * sum(BB) / sum(PA),
-    BABIP = (sum(H) - sum(HR)) / (sum(AB) - sum(SO) - sum(HR) + sum(SF)),
-    wOBA = weighted.mean(wOBA, w = PA, na.rm = TRUE),
-    xwOBA = weighted.mean(xwOBA, w = PA, na.rm = TRUE),
-    PA = sum(PA),
-    .groups = "drop"
-  )
-
-# compute stats for current year
-this_year <-
-  stats |>
-  filter(year == current_year) |>
-  group_by(Name, PlayerId) |>
-  summarize(
-    AVG = sum(H) / sum(AB),
-    OBP = (sum(H) + sum(BB) + sum(HBP)) / (sum(AB) + sum(BB) + sum(HBP) + sum(SF)),
-    SLG = sum(TB) / sum(AB),
-    K_pct = 100 * sum(SO) / sum(PA),
-    BB_pct = 100 * sum(BB) / sum(PA),
-    BABIP = (sum(H) - sum(HR)) / (sum(AB) - sum(SO) - sum(HR) + sum(SF)),
-    wOBA = weighted.mean(wOBA, w = PA, na.rm = TRUE),
-    xwOBA = weighted.mean(xwOBA, w = PA, na.rm = TRUE),
-    PA = sum(PA),
-    Age = first(Age),
-    .groups = "drop"
-  )
-
-# combine current stats and last-3-year-cumulative-stats into tibble
-# compute differences between current stats & last-3-years-cumulative
-full_stats <-
-  this_year |>
-  left_join(last_3, by = c("Name", "PlayerId"), suffix = c("_cur", "_l3")) |>
-  mutate(
-    AVG_diff = AVG_cur - AVG_l3,
-    OBP_diff = OBP_cur - OBP_l3,
-    SLG_diff = SLG_cur - SLG_l3,
-    K_pct_diff = K_pct_cur - K_pct_l3,
-    BB_pct_diff = BB_pct_cur - BB_pct_l3,
-    BABIP_diff = BABIP_cur - BABIP_l3,
-    wOBA_diff = wOBA_cur - wOBA_l3,
-    xwOBA_diff = xwOBA_cur - xwOBA_l3
-  ) |>
-  mutate(across(where(is.numeric), ~ round(.x, 3)))
-
-player_names <-
-  this_year |>
-  select(Name) |>
-  distinct()
+# In your server function, add safety checks:
+server <- function(input, output, session) {
+  baseball_data <- load_baseball_data()
+  
+  # Safety check
+  if (is.null(baseball_data) || nrow(baseball_data$player_names) == 0) {
+    showNotification("Failed to load data. Please try refreshing.", type = "error")
+    return()
+  }
+  
+  full_stats <- baseball_data$full_stats
+  player_names <- baseball_data$player_names
+  
+  # Rest of your app...
+}
 
 # ChatGPT integration
 generate_gpt_analysis <- function(player_name, prompt_text, analysis_mode = "default") {
@@ -149,7 +117,7 @@ Here is your persona that should inform your writing style and response, even if
 }
 
 # function to analyze a given player
-analyze_player <- function(player_name, analysis_mode = "default") {
+analyze_player <- function(player_name, analysis_mode = "default", full_stats, current_year) {
   data <- full_stats |> filter(trimws(tolower(Name)) == trimws(tolower(player_name)))
   prompt <- glue(
     "Player: {player_name}
@@ -289,7 +257,7 @@ title = "McFARLAND",
           pickerInput(
             inputId  = "player_name",
             label    = "Player:",
-            choices  = c("", player_names),  
+            choices  = NULL,  
             multiple = FALSE,
             width    = "100%",
             options  = pickerOptions(
@@ -357,13 +325,30 @@ title = "McFARLAND",
 
 # Server
 server <- function(input, output, session) {
+  
+  current_year <- 2025
+  
+  # Load data once when app starts
+  baseball_data <- load_baseball_data()
+  full_stats <- baseball_data$full_stats
+  player_names <- baseball_data$player_names
+  
+  if (!is.null(baseball_data) && nrow(baseball_data$player_names) > 0) {
+    # Update the picker with actual player names
+    updatePickerInput(
+      session = session,
+      inputId = "player_name", 
+      choices = c("", baseball_data$player_names$Name)
+    )
+  }
+  
   output$result_wrapper <- renderUI({
     # ensure we're about to analyze a valid player name.
     shiny::validate(
-      need(input$player_name %in% this_year$Name, "Enter a valid player name.")
+      need(input$player_name %in% player_names$Name, "Enter a valid player name.")
     )
 
-    analyze_player(input$player_name, input$analysis_mode)
+    analyze_player(input$player_name, input$analysis_mode, full_stats, current_year)
   })
 }
 
