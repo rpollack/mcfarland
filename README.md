@@ -1,3 +1,2 @@
 # leadRboard
-A FanGraphs data scraper for R.
-adding a line
+A collection of my baseball stats analysis/models/apps/things. 
