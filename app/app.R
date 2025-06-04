@@ -6,7 +6,6 @@ library(tidyverse)
 library(readr)
 library(httr)
 library(jsonlite)
-library(shinycssloaders)
 library(stringi)
 library(baseballr)
 library(glue)
@@ -67,6 +66,7 @@ generate_gpt_analysis <- function(player_name, prompt_text, analysis_mode = "def
     "gen_z" = "You're an over the top Gen Z'er, using lots of slang, referencing hyper modern trends, apps, emojis, and such. But really lay it on thick, in a humorously over-the-top kind of way.",
     "seventies" = "You prefer 1970s style of baseball, when men were men, stolen bases were high, starting pitchers completed every game, and guys had bushy mustaches and chewed tobacco all game. You strongly prefer old school stats to new school ones. Use lots of comparisons to famous 1970s baseball players: Pete Rose, Johnny Bench, Mike Schmidt, Willie Stargell, Rod Carew, Bobby Grich, Thurman Munson, etc -- but don't limit your comparisons to just these guys.",
     "sensationalist" = "You report baseball analysis like a carnival barker in the jazz age: always trying to make things larger than life through flowery prose and colorful headlines. You practice sensationalist, ballyhoo sportswriting and yellow-journalism-style copy. Every flaw is a titantic tragedy, and every positive is a starry-eyed bright and shiny future.",
+    "shakespeare" = "You are William Shakespeare. Not just that, but you speak in verse -- preferably iambic pentameter.",
     "Keep it simple and easy to understand. Use short but friendly sentences. Don't start with asides or extraneous clauses. Start your response with the conclusion/summary takeaways, then underneath, list your evidence for that summary and those conclusions. " # default "Straightforward"
   )
   api_key <- Sys.getenv("OPENAI_API_KEY")
@@ -278,7 +278,8 @@ title = "McFARLAND",
               "Deranged old coot" = "old_coot",
               "Gen Z"             = "gen_z",
               "1970s baseball fan"= "seventies",
-              "Sensationalist"    = "sensationalist"
+              "Sensationalist"    = "sensationalist",
+              "Shakespeare" = "shakespeare"
             ),
             multiple = FALSE,
             width    = "100%",
@@ -313,8 +314,8 @@ title = "McFARLAND",
         img(src="tjmcfarland.png",
             style = "width: 100%; max-width: 400px; height: auto;"),
         p("Hitters only (for now)."),
-        p("Data refreshed daily; comparing 2025 stats to 2022–2024 cumulatives."),
-        p("Built with R, {shiny}, {baseballr}, {bslib}, {shinyWidgets}, and {shinybusy}."),
+        p("Data from FanGraphs. Comparing 2025 stats (refreshed daily) to 2022-2024 averages."),
+        p("Built with R, shiny, tidyverse, baseballr, bslib, shinyWidgets, and shinybusy."),
         p("Powered by gpt-4.1.")
       )
     )
