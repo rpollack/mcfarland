@@ -7,7 +7,6 @@ date: "2025-05-23"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-Sys.setenv(OPENAI_API_KEY = "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")
 
 # Load necessary libraries
 library(dplyr)
@@ -17,25 +16,7 @@ library(httr)
 library(jsonlite)
 library(cli)
 ```
-```{r}
 
-read_csv("~/Downloads/fangraphs-leaderboards-29.csv", show_col_types = FALSE) |>
-
-career_avg <- player_data %>%
-  summarise(
-    AVG = sum(H, na.rm = TRUE) / sum(AB, na.rm = TRUE),
-    OBP = (sum(H, na.rm = TRUE) + sum(BB, na.rm = TRUE) + sum(HBP, na.rm = TRUE)) /
-          (sum(AB, na.rm = TRUE) + sum(BB, na.rm = TRUE) + sum(HBP, na.rm = TRUE) + sum(SF, na.rm = TRUE)),
-    SLG = sum(TB, na.rm = TRUE) / sum(AB, na.rm = TRUE),
-    K_pct = 100 * sum(SO, na.rm = TRUE) / sum(PA, na.rm = TRUE),
-    BB_pct = 100 * sum(BB, na.rm = TRUE) / sum(PA, na.rm = TRUE),
-    BABIP = (sum(H, na.rm = TRUE) - sum(HR, na.rm = TRUE)) /
-            (sum(AB, na.rm = TRUE) - sum(K, na.rm = TRUE) - sum(HR, na.rm = TRUE) + sum(SF, na.rm = TRUE)),
-    xwOBA = weighted.mean(xwOBA, w = PA, na.rm = TRUE)
-  )
-
-
-```
 
 ```{r}
 
@@ -110,25 +91,27 @@ full_stats <-
          across(where(is.numeric), ~ round(.x, 3))
          )
 
-#after filtering down to the player
 
-current <-
-  full_stats |>
-  filter(Name == "Gunnar Henderson")
 
-glue(
-"
-Age: {current$Age}
-Year: {current_year}
-AVG: {current$AVG_cur}  Last 3 Years: {current$AVG_l3}  Diff: {current$AVG_diff}
-OBP: {current$OBP_cur}   Last 3 Years: {current$OBP_l3}  Diff: {current$OBP_diff}
-SLG: {current$SLG_cur}   Last 3 Years: {current$SLG_l3}  Diff: {current$SLG_diff}
-K%: {current$K_pct_cur}  Last 3 Years: {current$K_pct_l3}  Diff: {current$K_pct_diff}
-BB%: {current$BB_pct_cur}  Last 3 Years: {current$BB_pct_l3}  Diff: {current$BB_pct_diff}
-BABIP: {current$BABIP_cur}   Last 3 Years: {current$BABIP_l3}  Diff: {current$BABIP_diff}
-wOBA: {current$wOBA_cur}  Last 3 Years: {current$wOBA_l3}  Diff: {current$wOBA_diff}
-xwOBA: {current$xwOBA_cur}   Last 3 Years: {current$xwOBA_l3}  Diff: {current$xwOBA_diff}
-")
+#Test: after filtering down to the player
+# 
+# current <-
+#   full_stats |>
+#   filter(Name == "Gunnar Henderson")
+# 
+# glue(
+# "
+# Age: {current$Age}
+# Year: {current_year}
+# AVG: {current$AVG_cur}  Last 3 Years: {current$AVG_l3}  Diff: {current$AVG_diff}
+# OBP: {current$OBP_cur}   Last 3 Years: {current$OBP_l3}  Diff: {current$OBP_diff}
+# SLG: {current$SLG_cur}   Last 3 Years: {current$SLG_l3}  Diff: {current$SLG_diff}
+# K%: {current$K_pct_cur}  Last 3 Years: {current$K_pct_l3}  Diff: {current$K_pct_diff}
+# BB%: {current$BB_pct_cur}  Last 3 Years: {current$BB_pct_l3}  Diff: {current$BB_pct_diff}
+# BABIP: {current$BABIP_cur}   Last 3 Years: {current$BABIP_l3}  Diff: {current$BABIP_diff}
+# wOBA: {current$wOBA_cur}  Last 3 Years: {current$wOBA_l3}  Diff: {current$wOBA_diff}
+# xwOBA: {current$xwOBA_cur}   Last 3 Years: {current$xwOBA_l3}  Diff: {current$xwOBA_diff}
+# ")
 
   
 ```
@@ -136,17 +119,6 @@ xwOBA: {current$xwOBA_cur}   Last 3 Years: {current$xwOBA_l3}  Diff: {current$xw
 
 
 ```{r cars}
-
-current_year = 2025
-
-# Load your dataset
-# stats <- 
-#   read_csv("~/Downloads/fangraphs-leaderboards-32.csv", show_col_types = FALSE) |>
-#  select(Name, Age, PA, AVG, OBP, SLG, K_pct = `K%`, BB_pct = `BB%`, BABIP, wOBA, xwOBA) |>
-#   mutate(year = 2025)
-
-# Adjust path
-
 # Function to send structured prompt to GPT
 generate_gpt_analysis <- function(player_name, prompt_text) {
   api_key <- Sys.getenv("OPENAI_API_KEY")
@@ -158,13 +130,17 @@ generate_gpt_analysis <- function(player_name, prompt_text) {
     body = toJSON(list(
       model = "gpt-4.1",  # or "gpt-3.5-turbo" for cheaper usage
       messages = list(
-        list(role = "system", content = "You are a sabermetric baseball analyst tasked with understanding both current in-season performance and getting a sense of future performance for the rest of the season."),
+        list(role = "system", content = "You are a sabermetric baseball analyst tasked with understanding both current in-season performance and getting a sense of future performance for the rest of the season. You need to communicate to a technical audience, but also to the lay audience who just wants to know how concerned they should be about this player."),
         list(role = "user", content = glue("
 Here is current-year performance data for {player_name}:
 
 {prompt_text}
 
 Please write a clear, concise analysis explaining how the player is performing this year, what trends stand out, and whether any aspects of the performance appear to be skill- or luck-driven. Start your response with the conclusion/summary takeaways, then underneath, list your evidence for that summary and those conclusions. Incorporate a prediction: will the player improve, decline, or stay the same for the rest of the season? Explain your reasoning.
+
+Your analysis should be framed as: metric, direction, and magnitude of difference. For example BB% is up, indicate by how much, and what the size of that gap might indicate. You don't need to explicitly call out this framing (e.g. in bullets), just make sure to weave it into your analysis.
+
+Separate your analysis into core skills and luck/regression indicators. 
 
 Don't repeat yourself. For example, if you say a stat or performance or trend is 'lucky', you don't need to say it's 'not unlucky'.
         "))
@@ -196,21 +172,6 @@ analyze_player <- function(player_name) {
     return(glue("{player_name} not found."))
   }
 
-  # current <- tail(player_data, 1)
-  
-  # career_avg <- player_data |>
-  #  # filter(year != current_year) |> # exclude current year from career avg calc
-  #   summarize(across(c(AVG, OBP, SLG, K_pct, BB_pct, BABIP, xwOBA), mean, na.rm = TRUE)) |>
-  #   select(AVG, OBP, SLG, K_pct, BB_pct, BABIP, xwOBA)
-
-#   print(current)
-#   
-# print(career_avg)
-  
-  # Differences
-  # diff <- current %>%
-  #   select(AVG, OBP, SLG, K_pct, BB_pct, BABIP, xwOBA) -
-  #   career_avg
 
   # Structured output
   output <- glue("
@@ -250,13 +211,18 @@ For in-season, current/year analysis:
 
 ```{r}
 # Example usage
-analyze_player("Gunnar Henderson")
 
 analyze_player("Adley Rutschman")
 
-analyze_player("Kyle Schwarber")
+analyze_player("Jackson Holliday")
 
 analyze_player("Nolan Arenado")
+
+analyze_player("Wyatt Langford")
+
+analyze_player("Hunter Renfroe")
+
+analyze_player("Gunnar Henderson")
 
 ```
 
