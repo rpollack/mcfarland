@@ -3,6 +3,9 @@
 .RData
 .Ruserdata
 *.csv
+!fangraphs-leaderboards*.csv
+!full_stats.csv
+!player_names.csv
 !warcels-2019.csv
 *.Rproj
 cubs-rays-relative.png
