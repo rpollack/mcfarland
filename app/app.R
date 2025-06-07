@@ -17,45 +17,32 @@ library(shinybusy)
 
 # load data from github. these CSV's are generated at 6 AM daily via a Github Action.
 load_baseball_data <- function() {
-  tryCatch({
-    base_url <- "https://raw.githubusercontent.com/rpollack/leadRboard/master/"
-    
-    cat("Attempting to load data from:", base_url, "\n")
-    
-    full_stats <- read_csv(paste0(base_url, "full_stats.csv"), show_col_types = FALSE)
-    cat("Loaded full_stats with", nrow(full_stats), "rows\n")
-    
-    player_names <- read_csv(paste0(base_url, "player_names.csv"), show_col_types = FALSE)
-    cat("Loaded player_names with", nrow(player_names), "rows\n")
-    
-    list(
-      full_stats = full_stats,
-      player_names = player_names
-    )
-  }, error = function(e) {
-    cat("Error loading data:", e$message, "\n")
-    # Return empty data instead of NULL
-    list(
-      full_stats = data.frame(),
-      player_names = data.frame(Name = character(0))
-    )
-  })
-}
+  tryCatch(
+    {
+      base_url <- "https://raw.githubusercontent.com/rpollack/leadRboard/master/"
 
-# In your server function, add safety checks:
-server <- function(input, output, session) {
-  baseball_data <- load_baseball_data()
-  
-  # Safety check
-  if (is.null(baseball_data) || nrow(baseball_data$player_names) == 0) {
-    showNotification("Failed to load data. Please try refreshing.", type = "error")
-    return()
-  }
-  
-  full_stats <- baseball_data$full_stats
-  player_names <- baseball_data$player_names
-  
-  # Rest of your app...
+      cat("Attempting to load data from:", base_url, "\n")
+
+      full_stats <- read_csv(paste0(base_url, "full_stats.csv"), show_col_types = FALSE)
+      cat("Loaded full_stats with", nrow(full_stats), "rows\n")
+
+      player_names <- read_csv(paste0(base_url, "player_names.csv"), show_col_types = FALSE)
+      cat("Loaded player_names with", nrow(player_names), "rows\n")
+
+      list(
+        full_stats = full_stats,
+        player_names = player_names
+      )
+    },
+    error = function(e) {
+      cat("Error loading data:", e$message, "\n")
+      # Return empty data instead of NULL
+      list(
+        full_stats = data.frame(),
+        player_names = data.frame(Name = character(0))
+      )
+    }
+  )
 }
 
 # ChatGPT integration
@@ -89,7 +76,7 @@ Please analyze how the player is performing this year, what trends stand out, an
 
 The very first element of the response should be a title that encompasses your findings.
 
-Your analysis incorporate metric, direction, and magnitude of difference. For example BB% is up, indicate by how much, and what the size of that gap might indicate. You don't need to explicitly call out this framing (e.g. in bullets), just make sure to weave it into your analysis.
+Your analysis must incorporate metric, direction, and magnitude of difference. For example BB% is up, indicate by how much, and what the size of that gap might indicate. You don't need to explicitly call out this framing (e.g. in bullets), just make sure to weave it into your analysis.
 
 Separate your analysis into core skills and luck/regression indicators.
 
@@ -170,27 +157,103 @@ analyze_player <- function(player_name, analysis_mode = "default", full_stats, c
   generate_gpt_analysis(player_name, prompt, analysis_mode)
 }
 
-library(shiny)
-library(bslib)
-library(shinyWidgets)
-library(shinybusy)
+prepare_player_comparison <- function(player_name, full_stats_data) {
+  library(tidyr)
+  library(dplyr)
+
+  # Filter to the specific player
+  player_data <- full_stats_data |>
+    filter(Name == player_name)
+
+  # Define the metrics we want to compare (without suffixes)
+  base_metrics <- c("AVG", "OBP", "SLG", "K_pct", "BB_pct", "BABIP", "wOBA", "xwOBA")
+
+  # Create comparison data
+  comparison_data <- tibble()
+
+  for (metric in base_metrics) {
+    current_col <- paste0(metric, "_cur")
+    avg_col <- paste0(metric, "_l3") # l3 = last 3 years
+
+    # Check if both columns exist
+    if (current_col %in% colnames(player_data) && avg_col %in% colnames(player_data)) {
+      # Get current and 3-year average values
+      current_val <- player_data[[current_col]]
+      avg_val <- player_data[[avg_col]]
+
+      # Create rows for this metric
+      metric_data <- tibble(
+        player = player_name,
+        metric = metric,
+        period = c("Past 3 years", "2025"),
+        value = c(avg_val, current_val)
+      )
+
+      comparison_data <- bind_rows(comparison_data, metric_data)
+    }
+  }
+
+  return(comparison_data)
+}
+
+create_comparison_plot <- function(comparison_data, selected_metrics = NULL) {
+  library(ggplot2)
+
+  # Filter to selected metrics if specified
+  if (!is.null(selected_metrics)) {
+    comparison_data <- comparison_data |>
+      filter(metric %in% selected_metrics)
+  }
+
+  # Clean up metric names for display
+  comparison_data <- comparison_data |>
+    mutate(
+      metric_display = case_when(
+        metric == "K_pct" ~ "K%",
+        metric == "BB_pct" ~ "BB%",
+        TRUE ~ metric
+      )
+    )
+
+  # Create the plot
+  ggplot(comparison_data, aes(
+    x = factor(period, levels = c("Past 3 years", "2025")),
+    y = value, group = metric_display
+  )) +
+    geom_point(size = 3, color = "#2E86AB") +
+    geom_line() +
+    facet_wrap(~metric_display, scales = "free_y") +
+    labs(
+      title = paste("Trends: ", unique(comparison_data$player)),
+      x = "",
+      y = "Value"
+    ) +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 0, hjust = 0.5),
+      strip.text = element_text(face = "bold", size = 10),
+      plot.title = element_text(size = 14, face = "bold")
+    ) +
+    expand_limits(y = 0)
+}
 
 ui <- page_navbar(
-title = "McFARLAND",
+  title = "McFARLAND",
   header = tagList(
     # (a) “Full‐page” busy spinner
     add_busy_bar(
-      #spin     = "fading-circle", 
-                #     position = "full-page",
-                     # optionally add text below the spinner (see docs for add_busy_spinner)
-                #     color    = "#333333",
-                     height = "25px"),
-    
+      # spin     = "fading-circle",
+      #     position = "full-page",
+      # optionally add text below the spinner (see docs for add_busy_spinner)
+      #     color    = "#333333",
+      height = "25px"
+    ),
+
     # (b) Custom <meta> + CSS + JS to prevent horizontal scrolling & auto‐close picker
     tags$head(
       # 1a) Lock viewport & disable Safari’s shrink‐to‐fit
       tags$meta(
-        name    = "viewport",
+        name = "viewport",
         content = paste(
           "width=device-width",
           "initial-scale=1",
@@ -202,7 +265,7 @@ title = "McFARLAND",
           sep = ", "
         )
       ),
-      
+
       # 1b) Force no horizontal overflow on page + cards
       tags$style(HTML("
         html, body, .shiny-fill-page {
@@ -217,7 +280,7 @@ title = "McFARLAND",
           overscroll-behavior-x: none !important;
         }
       ")),
-      
+
       # 1c) JS to auto‐close Bootstrap‐Select dropdown when an option is picked
       #     Note the selector '#player_name' (must include '#')
       # tags$script(HTML("
@@ -230,18 +293,15 @@ title = "McFARLAND",
       # "))
     )
   ),
-  
+
   # ─────────────────────────────────────────────────────────────────────────────
   # 2) Now your nav_panel()s can come next—no other UI at top level
   # ─────────────────────────────────────────────────────────────────────────────
-  
+
   # ─────────── Home Panel ───────────
   nav_panel(
-    title     = "Home",
-    icon      = icon("home"),
-    
-    
-    
+    title = "Home",
+    icon = icon("home"),
     layout_columns(
       # On ≥768px: col1 = 4/12, col2 = 8/12. On <768px: they stack 12/12.
       col_widths = breakpoints(
@@ -249,41 +309,40 @@ title = "McFARLAND",
         md = c(4, 8),
         lg = c(3, 9)
       ),
-      
+
       # Column 1: “picker” card
       card(
-     #   card_header("McFARLAND"),
+        #   card_header("McFARLAND"),
         card_body(
           pickerInput(
-            inputId  = "player_name",
-            label    = "Player:",
-            choices  = NULL,  
+            inputId = "player_name",
+            label = "Player:",
+            choices = NULL,
             multiple = FALSE,
-            width    = "100%",
-            options  = pickerOptions(
-              container            = "body",
-              dropupAuto           = FALSE,
-              liveSearch           = TRUE,
-              liveSearchStyle      = "contains",
+            width = "100%",
+            options = pickerOptions(
+              container = "body",
+              dropupAuto = FALSE,
+              liveSearch = TRUE,
+              liveSearchStyle = "contains",
               liveSearchPlaceholder = "Search for a player..."
             )
           ),
-          
           pickerInput(
-            inputId  = "analysis_mode",
-            label    = "Vibe:",
-            choices  = c(
-              "Straightforward"   = "default",
-              "Analytics dork"    = "analytics_dork",
+            inputId = "analysis_mode",
+            label = "Vibe:",
+            choices = c(
+              "Straightforward" = "default",
+              "Analytics dork" = "analytics_dork",
               "Deranged old coot" = "old_coot",
-              "Gen Z"             = "gen_z",
-              "1970s baseball fan"= "seventies",
-              "Sensationalist"    = "sensationalist",
+              "Gen Z" = "gen_z",
+              "1970s baseball fan" = "seventies",
+              "Sensationalist" = "sensationalist",
               "Shakespeare" = "shakespeare"
             ),
             multiple = FALSE,
-            width    = "100%",
-            options  = pickerOptions(
+            width = "100%",
+            options = pickerOptions(
               create      = FALSE,
               container   = "body",
               dropupAuto  = FALSE
@@ -291,7 +350,7 @@ title = "McFARLAND",
           )
         )
       ),
-      
+
       # Column 2: result card placeholder
       card(
         width = "100%",
@@ -302,21 +361,29 @@ title = "McFARLAND",
       )
     )
   ),
-  
+
   # ─────────── About Panel ───────────
   nav_panel(
     title = "About",
-    icon  = icon("info-circle"),
+    icon = icon("info-circle"),
     card(
       card_header("About"),
       card_body(
         p("McFARLAND: Machine-crafted Forecasting And Reasoning for Luck, Analytics, Narratives, and Data"),
-        img(src="tjmcfarland.png",
-            style = "width: 100%; max-width: 400px; height: auto;"),
+        img(
+          src = "tjmcfarland.png",
+          style = "width: 100%; max-width: 400px; height: auto;"
+        ),
         p("Hitters only (for now)."),
         p("Data from FanGraphs. Comparing 2025 stats (refreshed daily) to 2022-2024 averages."),
         p("Built with R, shiny, tidyverse, baseballr, bslib, shinyWidgets, and shinybusy."),
-        p("Powered by gpt-4.1.")
+        p("Powered by gpt-4.1."),
+        h4("Version History"),
+        tags$ul(
+          tags$li("0.3 - Added player stat graphs below analysis."),
+          tags$li("0.2 - Added Shakespeare vibe."),
+          tags$li("0.1 - First version I wasn't horrendously ashamed of.")
+        )
       )
     )
   )
@@ -326,30 +393,51 @@ title = "McFARLAND",
 
 # Server
 server <- function(input, output, session) {
-  
   current_year <- 2025
-  
+
   # Load data once when app starts
   baseball_data <- load_baseball_data()
   full_stats <- baseball_data$full_stats
   player_names <- baseball_data$player_names
-  
+
   if (!is.null(baseball_data) && nrow(baseball_data$player_names) > 0) {
     # Update the picker with actual player names
     updatePickerInput(
       session = session,
-      inputId = "player_name", 
+      inputId = "player_name",
       choices = c("", baseball_data$player_names$Name)
     )
   }
-  
+
   output$result_wrapper <- renderUI({
     # ensure we're about to analyze a valid player name.
     shiny::validate(
       need(input$player_name %in% player_names$Name, "Enter a valid player name.")
     )
 
-    analyze_player(input$player_name, input$analysis_mode, full_stats, current_year)
+    # Get the main analysis
+    main_analysis <- analyze_player(input$player_name, input$analysis_mode, full_stats, current_year)
+
+    # Prepare comparison data
+    player_comparison <- prepare_player_comparison(input$player_name, full_stats)
+
+    # Combine everything
+    tagList(
+      # Your existing analysis
+      main_analysis,
+
+      # Add separator and comparison section
+      hr(),
+      #  h3("Current Season vs 3-Year Average"),
+
+      # The comparison plot
+      renderPlot(
+        {
+          create_comparison_plot(player_comparison)
+        },
+        height = 400
+      )
+    )
   })
 }
 
