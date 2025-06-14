@@ -144,15 +144,13 @@ analyze_player <- function(player_name, analysis_mode = "default", full_stats, c
 ",
     "- Remember that xwOBA includes contact quality and plate discipline.
 ",
-    "- BB%/K% changes reflect approach/contact skill.
-",
-    "- Strong BB/K balance shows good zone control.
+    "- BB%/K% changes reflect plate discpline skills, which are more sustainable than batted-ball performance generally. 
 ",
     "- Take age into account. Older players less likely to improve; younger trend upward. Players generally peak in their early to mid 20's now.
 ",
     "- Incorporate injuries or known context.
 ",
-    "- For small sample, be cautious with conclusions. For context, larger samples trend towards hundreds of PA. A full season is ~600 PA."
+    "- For small samples, be cautious with conclusions. For context, larger samples trend towards hundreds of PA. A full season is ~600 PA."
   )
   generate_gpt_analysis(player_name, prompt, analysis_mode)
 }
