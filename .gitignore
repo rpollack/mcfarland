@@ -8,6 +8,7 @@
 !player_names.csv
 !warcels-2019.csv
 *.Rproj
+app/.Renviron
 cubs-rays-relative.png
 warcels-copy.Rmd
 *.png
