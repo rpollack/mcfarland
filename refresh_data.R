@@ -12,8 +12,8 @@ stats <-
     read_csv("fangraphs-leaderboards-2023.csv", show_col_types = FALSE) |> mutate(year = 2023),
     read_csv("fangraphs-leaderboards-2024.csv", show_col_types = FALSE) |> mutate(year = 2024),
     # This is the part that changes daily
-    fg_bat_leaders(pos = "np", startseason = current_year, endseason = current_year) |>
-      select(Name = PlayerName, Age, PlayerId = playerid, AB, PA, `1B`, `2B`, `3B`, HR, H, HBP, SF, wOBA, xwOBA, SO, BB) |>
+    fg_batter_leaders(pos = "np", startseason = current_year, endseason = current_year) |>
+      select(Name = PlayerName, Age, PlayerId = playerid, AB, PA, `1B`, `2B`, `3B`, HR, H, HBP, SF, wOBA, xwOBA, SO, BB, Barrels) |>
       mutate(year = current_year)
   ) |>
   mutate(
@@ -32,6 +32,7 @@ last_3 <-
     SLG = sum(TB) / sum(AB),
     K_pct = 100 * sum(SO) / sum(PA),
     BB_pct = 100 * sum(BB) / sum(PA),
+    Barrel_pct = 100 * sum(Barrels) / sum(PA),
     BABIP = (sum(H) - sum(HR)) / (sum(AB) - sum(SO) - sum(HR) + sum(SF)),
     wOBA = weighted.mean(wOBA, w = PA, na.rm = TRUE),
     xwOBA = weighted.mean(xwOBA, w = PA, na.rm = TRUE),
@@ -50,6 +51,7 @@ this_year <-
     SLG = sum(TB) / sum(AB),
     K_pct = 100 * sum(SO) / sum(PA),
     BB_pct = 100 * sum(BB) / sum(PA),
+    Barrel_pct = 100 * sum(Barrels) / sum(PA),
     BABIP = (sum(H) - sum(HR)) / (sum(AB) - sum(SO) - sum(HR) + sum(SF)),
     wOBA = weighted.mean(wOBA, w = PA, na.rm = TRUE),
     xwOBA = weighted.mean(xwOBA, w = PA, na.rm = TRUE),
@@ -68,6 +70,7 @@ full_stats <-
     SLG_diff = SLG_cur - SLG_l3,
     K_pct_diff = K_pct_cur - K_pct_l3,
     BB_pct_diff = BB_pct_cur - BB_pct_l3,
+    Barrel_pct_diff = Barrel_pct_cur - Barrel_pct_l3,
     BABIP_diff = BABIP_cur - BABIP_l3,
     wOBA_diff = wOBA_cur - wOBA_l3,
     xwOBA_diff = xwOBA_cur - xwOBA_l3
