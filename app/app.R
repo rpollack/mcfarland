@@ -136,13 +136,15 @@ analyze_player <- function(player_name, analysis_mode = "default", full_stats, c
     "xwOBA: {data$xwOBA_cur}  Last 3 Years: {data$xwOBA_l3}  Diff: {data$xwOBA_diff}
 
 ",
+    "xwOBA wOBA gap: {data$xwOBA_wOBA_gap_cur} Last 3 Years: {data$xwOBA_wOBA_gap_l3}  Diff: {data$xwOBA_wOBA_gap_diff}",
+    
     "--- Notes for analysis ---
 ",
     "- Focus on current-year performance compared to the last three years explanations.
 ",
     "- BABIP above/below norms indicates luck.
 ",
-    "- Gaps between wOBA and xwOBA signal luck vs skill.
+    "- Gaps between wOBA and xwOBA signal luck vs skill, unless that gap is close to what it has been historically.
 ",
     "- Remember that xwOBA includes contact quality and plate discipline.
 ",
@@ -150,7 +152,7 @@ analyze_player <- function(player_name, analysis_mode = "default", full_stats, c
 ",
     "- Take age into account. Older players less likely to improve; younger trend upward. Players generally peak in their early to mid 20's now.
 ",
-    "- High Barrel% indiciates legitimate change to core skillsets that creates batted-ball authority and should lead to good results. Higher Barrel% should mean higher BABIP, higher wOBA, and higher xWOBA -- unless bad luck is a significant factor.",
+    "- High Barrel% indiciates the player is hitting the ball hard at ideal launch angles. Changes are indicate legitimate improvements or declines. Higher Barrel% should mean higher BABIP, higher wOBA, and higher xWOBA -- unless bad luck is a significant factor.",
     
     "- Incorporate injuries or known context.
 ",
@@ -168,7 +170,7 @@ prepare_player_comparison <- function(player_name, full_stats_data) {
     filter(Name == player_name)
 
   # Define the metrics we want to compare (without suffixes)
-  base_metrics <- c("AVG", "OBP", "SLG", "K_pct", "BB_pct", "Barrel_pct", "BABIP", "wOBA", "xwOBA")
+  base_metrics <- c("AVG", "OBP", "SLG", "K_pct", "BB_pct", "Barrel_pct", "BABIP", "wOBA", "xwOBA", "xWOBA_wOBA_gap")
 
   # Create comparison data
   comparison_data <- tibble()
@@ -214,6 +216,7 @@ create_comparison_plot <- function(comparison_data, selected_metrics = NULL) {
         metric == "K_pct" ~ "K%",
         metric == "BB_pct" ~ "BB%",
         metric == "Barrel_pct" ~ "Barrels/PA",
+        metric == "data$xWOBA_wOBA_gap_" ~ "xwOBA - wOBA",
         TRUE ~ metric
       )
     )
