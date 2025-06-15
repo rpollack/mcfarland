@@ -386,7 +386,7 @@ ui <- page_navbar(
         p("Powered by gpt-4.1."),
         h4("Version History"),
         tags$ul(
-          tags$li("0.4 - Added Barrels/PA to stats that are analyzed"),
+          tags$li("0.4 - Added Barrels/PA and historical xwOBA/wOBA gap to stats that are analyzed"),
           tags$li("0.3 - Added player stat graphs below analysis."),
           tags$li("0.2 - Added Shakespeare vibe."),
           tags$li("0.1 - First version I wasn't horrendously ashamed of.")
