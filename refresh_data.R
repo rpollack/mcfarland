@@ -36,6 +36,7 @@ last_3 <-
     BABIP = (sum(H) - sum(HR)) / (sum(AB) - sum(SO) - sum(HR) + sum(SF)),
     wOBA = weighted.mean(wOBA, w = PA, na.rm = TRUE),
     xwOBA = weighted.mean(xwOBA, w = PA, na.rm = TRUE),
+    xwOBA_wOBA_gap = xwOBA - wOBA,
     PA = sum(PA),
     .groups = "drop"
   )
@@ -55,6 +56,7 @@ this_year <-
     BABIP = (sum(H) - sum(HR)) / (sum(AB) - sum(SO) - sum(HR) + sum(SF)),
     wOBA = weighted.mean(wOBA, w = PA, na.rm = TRUE),
     xwOBA = weighted.mean(xwOBA, w = PA, na.rm = TRUE),
+    xwOBA_wOBA_gap = xwOBA - wOBA,
     PA = sum(PA),
     Age = first(Age),
     .groups = "drop"
@@ -73,7 +75,8 @@ full_stats <-
     Barrel_pct_diff = Barrel_pct_cur - Barrel_pct_l3,
     BABIP_diff = BABIP_cur - BABIP_l3,
     wOBA_diff = wOBA_cur - wOBA_l3,
-    xwOBA_diff = xwOBA_cur - xwOBA_l3
+    xwOBA_diff = xwOBA_cur - xwOBA_l3,
+    xwOBA_wOBA_gap_diff = xwOBA_wOBA_gap_cur - xwOBA_wOBA_gap_l3
   ) |>
   mutate(across(where(is.numeric), ~ round(.x, 3)))
 
