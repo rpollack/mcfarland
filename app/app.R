@@ -127,6 +127,8 @@ analyze_player <- function(player_name, analysis_mode = "default", full_stats, c
 ",
     "BB%: {data$BB_pct_cur}  Last 3 Years: {data$BB_pct_l3}  Diff: {data$BB_pct_diff}
 ",
+    "Barrel% {data$Barrel_pct_cur} Last 3 years: {data$Barrel_pct_l3} Diff: {data$Barrel_pct_diff}",
+    
     "BABIP: {data$BABIP_cur}  Last 3 Years: {data$BABIP_l3}  Diff: {data$BABIP_diff}
 ",
     "wOBA: {data$wOBA_cur}  Last 3 Years: {data$wOBA_l3}  Diff: {data$wOBA_diff}
@@ -148,6 +150,8 @@ analyze_player <- function(player_name, analysis_mode = "default", full_stats, c
 ",
     "- Take age into account. Older players less likely to improve; younger trend upward. Players generally peak in their early to mid 20's now.
 ",
+    "- High Barrel% indiciates legitimate change to core skillsets that creates batted-ball authority and should lead to good results. Higher Barrel% should mean higher BABIP, higher wOBA, and higher xWOBA -- unless bad luck is a significant factor.",
+    
     "- Incorporate injuries or known context.
 ",
     "- For small samples, be cautious with conclusions. For context, larger samples trend towards hundreds of PA. A full season is ~600 PA."
@@ -164,7 +168,7 @@ prepare_player_comparison <- function(player_name, full_stats_data) {
     filter(Name == player_name)
 
   # Define the metrics we want to compare (without suffixes)
-  base_metrics <- c("AVG", "OBP", "SLG", "K_pct", "BB_pct", "BABIP", "wOBA", "xwOBA")
+  base_metrics <- c("AVG", "OBP", "SLG", "K_pct", "BB_pct", "Barrel_pct", "BABIP", "wOBA", "xwOBA")
 
   # Create comparison data
   comparison_data <- tibble()
@@ -209,6 +213,7 @@ create_comparison_plot <- function(comparison_data, selected_metrics = NULL) {
       metric_display = case_when(
         metric == "K_pct" ~ "K%",
         metric == "BB_pct" ~ "BB%",
+        metric == "Barrel_pct" ~ "Barrels/PA",
         TRUE ~ metric
       )
     )
@@ -378,6 +383,7 @@ ui <- page_navbar(
         p("Powered by gpt-4.1."),
         h4("Version History"),
         tags$ul(
+          tags$li("0.4 - Added Barrels/PA to stats that are analyzed"),
           tags$li("0.3 - Added player stat graphs below analysis."),
           tags$li("0.2 - Added Shakespeare vibe."),
           tags$li("0.1 - First version I wasn't horrendously ashamed of.")
