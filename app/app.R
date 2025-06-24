@@ -128,7 +128,6 @@ analyze_player <- function(player_name, analysis_mode = "default", full_stats, c
     "BB%: {data$BB_pct_cur}  Last 3 Years: {data$BB_pct_l3}  Diff: {data$BB_pct_diff}
 ",
     "Barrel% {data$Barrel_pct_cur} Last 3 years: {data$Barrel_pct_l3} Diff: {data$Barrel_pct_diff}",
-    
     "BABIP: {data$BABIP_cur}  Last 3 Years: {data$BABIP_l3}  Diff: {data$BABIP_diff}
 ",
     "wOBA: {data$wOBA_cur}  Last 3 Years: {data$wOBA_l3}  Diff: {data$wOBA_diff}
@@ -137,7 +136,6 @@ analyze_player <- function(player_name, analysis_mode = "default", full_stats, c
 
 ",
     "xwOBA wOBA gap: {data$xwOBA_wOBA_gap_cur} Last 3 Years: {data$xwOBA_wOBA_gap_l3}  Diff: {data$xwOBA_wOBA_gap_diff}",
-    
     "--- Notes for analysis ---
 ",
     "- Focus on current-year performance compared to the last three years explanations.
@@ -148,12 +146,11 @@ analyze_player <- function(player_name, analysis_mode = "default", full_stats, c
 ",
     "- Remember that xwOBA includes contact quality and plate discipline.
 ",
-    "- BB%/K% changes reflect plate discpline skills, which are more sustainable than batted-ball performance generally. 
+    "- BB%/K% changes reflect plate discpline skills, which are more sustainable than batted-ball performance generally.
 ",
     "- Take age into account. Older players less likely to improve; younger trend upward. Players generally peak in their early to mid 20's now.
 ",
     "- High Barrel% indiciates the player is hitting the ball hard at ideal launch angles. Changes are indicate legitimate improvements or declines. Higher Barrel% should mean higher BABIP, higher wOBA, and higher xWOBA -- unless bad luck is a significant factor.",
-    
     "- Incorporate injuries or known context.
 ",
     "- For small samples, be cautious with conclusions. For context, larger samples trend towards hundreds of PA. A full season is ~600 PA."
@@ -247,9 +244,11 @@ create_comparison_plot <- function(comparison_data, selected_metrics = NULL) {
 
 ui <- page_navbar(
   title = tagList(
-    tags$img(src   = "baseball.png",
-             width = "24px",
-             style = "vertical-align: middle;"),
+    tags$img(
+      src = "baseball.png",
+      width = "24px",
+      style = "vertical-align: middle;"
+    ),
     "McFARLAND v0.5"
   ),
   header = tagList(
@@ -421,7 +420,7 @@ server <- function(input, output, session) {
   baseball_data <- load_baseball_data()
   full_stats <- baseball_data$full_stats
   player_names <- baseball_data$player_names
-  
+
 
   if (!is.null(baseball_data) && nrow(baseball_data$player_names) > 0) {
     # Update the picker with actual player names
