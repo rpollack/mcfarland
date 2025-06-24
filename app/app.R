@@ -397,6 +397,24 @@ ui <- page_navbar(
         p("Data from FanGraphs. Comparing 2025 stats (refreshed daily) to 2022-2024 averages."),
         p("Built with R, shiny, tidyverse, baseballr, bslib, shinyWidgets, and shinybusy."),
         p("Powered by gpt-4.1."),
+        h4("Get In Touch"),
+        tags$a(
+          href    = "https://docs.google.com/forms/d/e/1FAIpQLScPiHfO2XxwCXd2V-7pNsUKs-mMaqzzsH2ohA_kBflk_n8AQw/viewform",
+          target  = "_blank",
+          class   = "btn btn-sm btn-primary",
+          style   = "margin-left: 1rem;",
+          icon("envelope"),
+          "Get updated when we add new features"
+        ),
+        tags$a(
+          href    = "https://forms.gle/NDJJKj7XrsnFH6m16",
+          target  = "_blank",
+          class   = "btn btn-sm btn-primary",
+          style   = "margin-left: 1rem;",
+          icon("envelope"),
+          "Submit feedback"
+        ),
+        
         h4("Version History"),
         tags$ul(
           tags$li("0.5 - Added ability to sign up for notifications."),
