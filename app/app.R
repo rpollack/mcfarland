@@ -243,8 +243,15 @@ create_comparison_plot <- function(comparison_data, selected_metrics = NULL) {
     expand_limits(y = 0)
 }
 
+
+
 ui <- page_navbar(
-  title = "McFARLAND",
+  title = tagList(
+    tags$img(src   = "baseball.png",
+             width = "24px",
+             style = "vertical-align: middle;"),
+    "McFARLAND v0.5"
+  ),
   header = tagList(
     # (a) “Full‐page” busy spinner
     add_busy_bar(
@@ -271,7 +278,6 @@ ui <- page_navbar(
           sep = ", "
         )
       ),
-
       # 1b) Force no horizontal overflow on page + cards
       tags$style(HTML("
         html, body, .shiny-fill-page {
@@ -353,7 +359,15 @@ ui <- page_navbar(
               container   = "body",
               dropupAuto  = FALSE
             )
-          )
+          ),
+          tags$a(
+            href    = "https://docs.google.com/forms/d/e/1FAIpQLScPiHfO2XxwCXd2V-7pNsUKs-mMaqzzsH2ohA_kBflk_n8AQw/viewform",
+            target  = "_blank",
+            class   = "btn btn-sm btn-primary",
+            style   = "margin-left: 1rem;",
+            icon("envelope"),
+            "Get updates"
+          ),
         )
       ),
 
@@ -386,6 +400,7 @@ ui <- page_navbar(
         p("Powered by gpt-4.1."),
         h4("Version History"),
         tags$ul(
+          tags$li("0.5 - Added ability to sign up for notifications."),
           tags$li("0.4 - Added Barrels/PA and historical xwOBA/wOBA gap to stats that are analyzed"),
           tags$li("0.3 - Added player stat graphs below analysis."),
           tags$li("0.2 - Added Shakespeare vibe."),
@@ -406,6 +421,7 @@ server <- function(input, output, session) {
   baseball_data <- load_baseball_data()
   full_stats <- baseball_data$full_stats
   player_names <- baseball_data$player_names
+  
 
   if (!is.null(baseball_data) && nrow(baseball_data$player_names) > 0) {
     # Update the picker with actual player names
