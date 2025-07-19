@@ -19,7 +19,7 @@ stats_hitters <-
     # daily-updated current-year
     fg_batter_leaders(pos = "np", startseason = current_year, endseason = current_year) |>
       select(
-        Name, Age,
+        Name = PlayerName, Age,
         PlayerId = playerid,
         AB, PA, `1B`, `2B`, `3B`, HR, H, HBP, SF,
         wOBA, xwOBA, SO, BB, Barrels
