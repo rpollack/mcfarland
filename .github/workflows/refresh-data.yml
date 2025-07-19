@@ -1,4 +1,5 @@
 name: Daily Baseball Data Refresh
+
 on:
   schedule:
     - cron: '0 11 * * *'  # 6 AM EST (11 AM UTC)
@@ -21,7 +22,7 @@ jobs:
 
       - name: Install R dependencies
         uses: r-lib/actions/setup-r-dependencies@v2
-        with
+        with:
           packages: |
             tidyverse
             baseballr
