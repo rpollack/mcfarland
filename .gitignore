@@ -4,8 +4,9 @@
 .Ruserdata
 *.csv
 !fangraphs-leaderboards*.csv
-!full_stats.csv
-!player_names.csv
+!pitcher-stats*.csv
+!full_stats*.csv
+!player_names*.csv
 !warcels-2019.csv
 *.Rproj
 app/.Renviron
