@@ -23,10 +23,10 @@ load_baseball_data <- function() {
 
       cat("Attempting to load data from:", base_url, "\n")
 
-      full_stats <- read_csv(paste0(base_url, "full_stats.csv"), show_col_types = FALSE)
+      full_stats <- read_csv(paste0(base_url, "full_stats_hitters.csv"), show_col_types = FALSE)
       cat("Loaded full_stats with", nrow(full_stats), "rows\n")
 
-      player_names <- read_csv(paste0(base_url, "player_names.csv"), show_col_types = FALSE)
+      player_names <- read_csv(paste0(base_url, "player_names_hitters.csv"), show_col_types = FALSE)
       cat("Loaded player_names with", nrow(player_names), "rows\n")
 
       list(
