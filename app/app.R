@@ -23,23 +23,31 @@ load_baseball_data <- function() {
 
       cat("Attempting to load data from:", base_url, "\n")
 
-      full_stats <- read_csv(paste0(base_url, "full_stats_hitters.csv"), show_col_types = FALSE)
-      cat("Loaded full_stats with", nrow(full_stats), "rows\n")
+      full_stats_hitters <- read_csv(paste0(base_url, "full_stats_hitters.csv"), show_col_types = FALSE)
+      full_stats_pitchers <- read_csv(paste0(base_url, "full_stats_pitchers.csv"), show_col_types = FALSE)
+      cat("Loaded hitter stats with", nrow(full_stats_hitters), "rows\n")
+      cat("Loaded pitcher stats with", nrow(full_stats_pitchers), "rows\n")
 
-      player_names <- read_csv(paste0(base_url, "player_names_hitters.csv"), show_col_types = FALSE)
-      cat("Loaded player_names with", nrow(player_names), "rows\n")
+      player_names_hitters <- read_csv(paste0(base_url, "player_names_hitters.csv"), show_col_types = FALSE)
+      player_names_pitchers <- read_csv(paste0(base_url, "player_names_pitchers.csv"), show_col_types = FALSE)
+      cat("Loaded hitter names with", nrow(player_names_hitters), "rows\n")
+      cat("Loaded pitcher names with", nrow(player_names_pitchers), "rows\n")
 
       list(
-        full_stats = full_stats,
-        player_names = player_names
+        full_stats_hitters = full_stats_hitters,
+        full_stats_pitchers = full_stats_pitchers,
+        player_names_hitters = player_names_hitters,
+        player_names_pitchers = player_names_pitchers
       )
     },
     error = function(e) {
       cat("Error loading data:", e$message, "\n")
       # Return empty data instead of NULL
       list(
-        full_stats = data.frame(),
-        player_names = data.frame(Name = character(0))
+        full_stats_hitters = data.frame(),
+        full_stats_pitchers = data.frame(),
+        player_names_hitters = data.frame(Name = character(0)),
+        player_names_pitchers = data.frame(Name = character(0))
       )
     }
   )
@@ -47,8 +55,9 @@ load_baseball_data <- function() {
 
 # ChatGPT integration
 generate_gpt_analysis <- function(player_name, prompt_text, analysis_mode = "default") {
-  prompt_modifier <- switch(analysis_mode,
-    "analytics_dork" = "You are a front office nerd, raised on moneyball and new school stats, always at the cutting edge. You favor new school stats, talk in probabilities, and are very dismissive of people who don't believe you. You might be the smartet person in the room, but people would describe you as a real tool. Be ruthless and dismissive!",
+  prompt_modifier <- switch(
+    analysis_mode,
+    "analytics_dork" = "You are a front office nerd, raised on moneyball and new school stats, always at the cutting edge. You favor new school stats, talk in probabilities, and are very dismissive of people who don't believe you. You might be the smartest person in the room, but people would describe you as a real tool. Be ruthless and dismissive!",
     "old_coot" = "You are a deranged old coot, ranting and raving about everything. Yell a lot. People would describe you as 'off your meds'. Throw in references to people spying on you. Appear confused at times. Get stats wrong occasionally. You know, just -- be insane.",
     "gen_z" = "You're an over the top Gen Z'er, using lots of slang, referencing hyper modern trends, apps, emojis, and such. But really lay it on thick, in a humorously over-the-top kind of way.",
     "seventies" = "You prefer 1970s style of baseball, when men were men, stolen bases were high, starting pitchers completed every game, and guys had bushy mustaches and chewed tobacco all game. You strongly prefer old school stats to new school ones. Use lots of comparisons to famous 1970s baseball players: Pete Rose, Johnny Bench, Mike Schmidt, Willie Stargell, Rod Carew, Bobby Grich, Thurman Munson, etc -- but don't limit your comparisons to just these guys.",
@@ -104,61 +113,69 @@ Here is your persona that should inform your writing style and response, even if
 }
 
 # function to analyze a given player
-analyze_player <- function(player_name, analysis_mode = "default", full_stats, current_year) {
+analyze_player <- function(player_name, analysis_mode = "default", full_stats, current_year, player_type = "hitter") {
   data <- full_stats |> filter(trimws(tolower(Name)) == trimws(tolower(player_name)))
-  prompt <- glue(
-    "Player: {player_name}
+  if (player_type == "hitter") {
+    prompt <- glue(
+      "Player: {player_name}
 
---- Key metrics to analyze---
-",
-    "Age: {data$Age}
-",
-    "Year: {current_year}
-",
-    "Plate Appearances (PA): {data$PA_cur}
-",
-    "AVG: {data$AVG_cur}  Last 3 Years: {data$AVG_l3}  Diff: {data$AVG_diff}
-",
-    "OBP: {data$OBP_cur}  Last 3 Years: {data$OBP_l3}  Diff: {data$OBP_diff}
-",
-    "SLG: {data$SLG_cur}  Last 3 Years: {data$SLG_l3}  Diff: {data$SLG_diff}
-",
-    "K%: {data$K_pct_cur}  Last 3 Years: {data$K_pct_l3}  Diff: {data$K_pct_diff}
-",
-    "BB%: {data$BB_pct_cur}  Last 3 Years: {data$BB_pct_l3}  Diff: {data$BB_pct_diff}
-",
-    "Barrel% {data$Barrel_pct_cur} Last 3 years: {data$Barrel_pct_l3} Diff: {data$Barrel_pct_diff}",
-    "BABIP: {data$BABIP_cur}  Last 3 Years: {data$BABIP_l3}  Diff: {data$BABIP_diff}
-",
-    "wOBA: {data$wOBA_cur}  Last 3 Years: {data$wOBA_l3}  Diff: {data$wOBA_diff}
-",
-    "xwOBA: {data$xwOBA_cur}  Last 3 Years: {data$xwOBA_l3}  Diff: {data$xwOBA_diff}
+--- Key metrics to analyze---",
+      "Age: {data$Age}",
+      "Year: {current_year}",
+      "Plate Appearances (PA): {data$PA_cur}",
+      "AVG: {data$AVG_cur}  Last 3 Years: {data$AVG_l3}  Diff: {data$AVG_diff}",
+      "OBP: {data$OBP_cur}  Last 3 Years: {data$OBP_l3}  Diff: {data$OBP_diff}",
+      "SLG: {data$SLG_cur}  Last 3 Years: {data$SLG_l3}  Diff: {data$SLG_diff}",
+      "K%: {data$K_pct_cur}  Last 3 Years: {data$K_pct_l3}  Diff: {data$K_pct_diff}",
+      "BB%: {data$BB_pct_cur}  Last 3 Years: {data$BB_pct_l3}  Diff: {data$BB_pct_diff}",
+      "Barrel%: {data$Barrel_pct_cur} Last 3 years: {data$Barrel_pct_l3} Diff: {data$Barrel_pct_diff}",
+      "BABIP: {data$BABIP_cur}  Last 3 Years: {data$BABIP_l3}  Diff: {data$BABIP_diff}",
+      "wOBA: {data$wOBA_cur}  Last 3 Years: {data$wOBA_l3}  Diff: {data$wOBA_diff}",
+      "xwOBA: {data$xwOBA_cur}  Last 3 Years: {data$xwOBA_l3}  Diff: {data$xwOBA_diff}",
+      "xwOBA wOBA gap: {data$xwOBA_wOBA_gap_cur} Last 3 Years: {data$xwOBA_wOBA_gap_l3}  Diff: {data$xwOBA_wOBA_gap_diff}",
+      "--- Notes for analysis ---",
+      "- Focus on current-year performance compared to the last three years explanations.",
+      "- BABIP above/below norms indicates luck.",
+      "- Gaps between wOBA and xwOBA signal luck vs skill, unless that gap is close to what it has been historically.",
+      "- Remember that xwOBA includes contact quality and plate discipline.",
+      "- BB%/K% changes reflect plate discpline skills, which are more sustainable than batted-ball performance generally.",
+      "- Take age into account. Older players less likely to improve; younger trend upward. Players generally peak in their early to mid 20's now.",
+      "- High Barrel% indiciates the player is hitting the ball hard at ideal launch angles. Changes are indicate legitimate improvements or declines. Higher Barrel% should mean higher BABIP, higher wOBA, and higher xWOBA -- unless bad luck is a significant factor.",
+      "- Incorporate injuries or known context.",
+      "- For small samples, be cautious with conclusions. For context, larger samples trend towards hundreds of PA. A full season is ~600 PA."
+    )
+  } else {
+    prompt <- glue(
+      "Player: {player_name}
 
-",
-    "xwOBA wOBA gap: {data$xwOBA_wOBA_gap_cur} Last 3 Years: {data$xwOBA_wOBA_gap_l3}  Diff: {data$xwOBA_wOBA_gap_diff}",
-    "--- Notes for analysis ---
-",
-    "- Focus on current-year performance compared to the last three years explanations.
-",
-    "- BABIP above/below norms indicates luck.
-",
-    "- Gaps between wOBA and xwOBA signal luck vs skill, unless that gap is close to what it has been historically.
-",
-    "- Remember that xwOBA includes contact quality and plate discipline.
-",
-    "- BB%/K% changes reflect plate discpline skills, which are more sustainable than batted-ball performance generally.
-",
-    "- Take age into account. Older players less likely to improve; younger trend upward. Players generally peak in their early to mid 20's now.
-",
-    "- High Barrel% indiciates the player is hitting the ball hard at ideal launch angles. Changes are indicate legitimate improvements or declines. Higher Barrel% should mean higher BABIP, higher wOBA, and higher xWOBA -- unless bad luck is a significant factor.",
-    "- Incorporate injuries or known context.
-",
-    "- For small samples, be cautious with conclusions. For context, larger samples trend towards hundreds of PA. A full season is ~600 PA."
-  )
+--- Key metrics to analyze---",
+      "Age: {data$Age}",
+      "Year: {current_year}",
+      "Innings Pitched (IP): {data$IP_cur}",
+      "ERA: {data$ERA_cur}  Last 3 Years: {data$ERA_l3}  Diff: {data$ERA_diff}",
+      "xERA: {data$xERA_cur}  Last 3 Years: {data$xERA_l3}  Diff: {data$xERA_diff}",
+      "FIP: {data$FIP_cur}  Last 3 Years: {data$FIP_l3}  Diff: {data$FIP_diff}",
+      "xFIP: {data$xFIP_cur}  Last 3 Years: {data$xFIP_l3}  Diff: {data$xFIP_diff}",
+      "K%: {data$K_pct_cur}  Last 3 Years: {data$K_pct_l3}  Diff: {data$K_pct_diff}",
+      "BB%: {data$BB_pct_cur}  Last 3 Years: {data$BB_pct_l3}  Diff: {data$BB_pct_diff}",
+      "K-BB%: {data$K_BB_pct_cur}  Last 3 Years: {data$K_BB_pct_l3}  Diff: {data$K_BB_pct_diff}",
+      "Barrel%: {data$Barrel_pct_cur} Last 3 years: {data$Barrel_pct_l3} Diff: {data$Barrel_pct_diff}",
+      "BABIP: {data$BABIP_cur}  Last 3 Years: {data$BABIP_l3}  Diff: {data$BABIP_diff}",
+      "LOB%: {data$LOB_pct_cur}  Last 3 Years: {data$LOB_pct_l3}  Diff: {data$LOB_pct_diff}",
+      "--- Notes for analysis ---",
+      "- Focus on current-year performance compared to the last three years explanations.",
+      "- BABIP above/below norms indicates luck.",
+      "- Differences between ERA and xERA or FIP may point to luck or defense.",
+      "- K%/BB% changes reflect command and stuff.",
+      "- Take age into account and consider workload.",
+      "- Incorporate injuries or known context.",
+      "- For small samples, be cautious with conclusions. Pitchers can be volatile in small IP samples."
+    )
+  }
   generate_gpt_analysis(player_name, prompt, analysis_mode)
 }
 
-prepare_player_comparison <- function(player_name, full_stats_data) {
+prepare_player_comparison <- function(player_name, full_stats_data, player_type = "hitter") {
   library(tidyr)
   library(dplyr)
 
@@ -167,7 +184,11 @@ prepare_player_comparison <- function(player_name, full_stats_data) {
     filter(Name == player_name)
 
   # Define the metrics we want to compare (without suffixes)
-  base_metrics <- c("AVG", "OBP", "SLG", "K_pct", "BB_pct", "Barrel_pct", "BABIP", "wOBA", "xwOBA", "xWOBA_wOBA_gap")
+  base_metrics <- if (player_type == "hitter") {
+    c("AVG", "OBP", "SLG", "K_pct", "BB_pct", "Barrel_pct", "BABIP", "wOBA", "xwOBA", "xWOBA_wOBA_gap")
+  } else {
+    c("ERA", "xERA", "FIP", "xFIP", "K_pct", "BB_pct", "K_BB_pct", "Barrel_pct", "BABIP", "LOB_pct")
+  }
 
   # Create comparison data
   comparison_data <- tibble()
@@ -207,16 +228,18 @@ create_comparison_plot <- function(comparison_data, selected_metrics = NULL) {
   }
 
   # Clean up metric names for display
-  comparison_data <- comparison_data |>
-    mutate(
-      metric_display = case_when(
-        metric == "K_pct" ~ "K%",
-        metric == "BB_pct" ~ "BB%",
-        metric == "Barrel_pct" ~ "Barrels/PA",
-        metric == "data$xWOBA_wOBA_gap_" ~ "xwOBA - wOBA",
-        TRUE ~ metric
+    comparison_data <- comparison_data |>
+      mutate(
+        metric_display = case_when(
+          metric == "K_pct" ~ "K%",
+          metric == "BB_pct" ~ "BB%",
+          metric == "K_BB_pct" ~ "K-BB%",
+          metric == "Barrel_pct" ~ "Barrel%",
+          metric == "xWOBA_wOBA_gap" ~ "xwOBA - wOBA",
+          metric == "LOB_pct" ~ "LOB%",
+          TRUE ~ metric
+        )
       )
-    )
 
   # Create the plot
   ggplot(comparison_data, aes(
@@ -324,21 +347,33 @@ ui <- page_navbar(
       # Column 1: “picker” card
       card(
         #   card_header("McFARLAND"),
-        card_body(
-          pickerInput(
-            inputId = "player_name",
-            label = "Player:",
-            choices = NULL,
-            multiple = FALSE,
-            width = "100%",
-            options = pickerOptions(
-              container = "body",
-              dropupAuto = FALSE,
-              liveSearch = TRUE,
-              liveSearchStyle = "contains",
-              liveSearchPlaceholder = "Search for a player..."
-            )
-          ),
+          card_body(
+            pickerInput(
+              inputId = "player_type",
+              label = "Player type:",
+              choices = c("Hitter" = "hitter", "Pitcher" = "pitcher"),
+              selected = "hitter",
+              multiple = FALSE,
+              width = "100%",
+              options = pickerOptions(
+                container = "body",
+                dropupAuto = FALSE
+              )
+            ),
+            pickerInput(
+              inputId = "player_name",
+              label = "Player:",
+              choices = NULL,
+              multiple = FALSE,
+              width = "100%",
+              options = pickerOptions(
+                container = "body",
+                dropupAuto = FALSE,
+                liveSearch = TRUE,
+                liveSearchStyle = "contains",
+                liveSearchPlaceholder = "Search for a player..."
+              )
+            ),
           pickerInput(
             inputId = "analysis_mode",
             label = "Vibe:",
@@ -393,7 +428,7 @@ ui <- page_navbar(
           src = "tjmcfarland.png",
           style = "width: 100%; max-width: 400px; height: auto;"
         ),
-        p("Hitters only (for now)."),
+        p("Includes hitters and pitchers."),
         p("Data from FanGraphs. Comparing 2025 stats (refreshed daily) to 2022-2024 averages."),
         p("Built with R, shiny, tidyverse, baseballr, bslib, shinyWidgets, and shinybusy."),
         p("Powered by gpt-4.1."),
@@ -416,13 +451,14 @@ ui <- page_navbar(
         ),
         
         h4("Version History"),
-        tags$ul(
-          tags$li("0.5 - Added ability to sign up for notifications."),
-          tags$li("0.4 - Added Barrels/PA and historical xwOBA/wOBA gap to stats that are analyzed"),
-          tags$li("0.3 - Added player stat graphs below analysis."),
-          tags$li("0.2 - Added Shakespeare vibe."),
-          tags$li("0.1 - First version I wasn't horrendously ashamed of.")
-        )
+          tags$ul(
+            tags$li("0.6 - Added pitcher support."),
+            tags$li("0.5 - Added ability to sign up for notifications."),
+            tags$li("0.4 - Added Barrels/PA and historical xwOBA/wOBA gap to stats that are analyzed"),
+            tags$li("0.3 - Added player stat graphs below analysis."),
+            tags$li("0.2 - Added Shakespeare vibe."),
+            tags$li("0.1 - First version I wasn't horrendously ashamed of.")
+          )
       )
     )
   )
@@ -436,30 +472,39 @@ server <- function(input, output, session) {
 
   # Load data once when app starts
   baseball_data <- load_baseball_data()
-  full_stats <- baseball_data$full_stats
-  player_names <- baseball_data$player_names
+  full_stats_hitters <- baseball_data$full_stats_hitters
+  full_stats_pitchers <- baseball_data$full_stats_pitchers
+  player_names_hitters <- baseball_data$player_names_hitters
+  player_names_pitchers <- baseball_data$player_names_pitchers
 
-
-  if (!is.null(baseball_data) && nrow(baseball_data$player_names) > 0) {
-    # Update the picker with actual player names
-    updatePickerInput(
-      session = session,
-      inputId = "player_name",
-      choices = c("", baseball_data$player_names$Name)
-    )
-  }
+  observe({
+    if (input$player_type == "hitter") {
+      updatePickerInput(session, "player_name", choices = c("", player_names_hitters$Name))
+    } else {
+      updatePickerInput(session, "player_name", choices = c("", player_names_pitchers$Name))
+    }
+  })
 
   output$result_wrapper <- renderUI({
+    full_stats <- if (input$player_type == "hitter") full_stats_hitters else full_stats_pitchers
+    player_names <- if (input$player_type == "hitter") player_names_hitters else player_names_pitchers
+
     # ensure we're about to analyze a valid player name.
     shiny::validate(
       need(input$player_name %in% player_names$Name, "Enter a valid player name.")
     )
 
     # Get the main analysis
-    main_analysis <- analyze_player(input$player_name, input$analysis_mode, full_stats, current_year)
+    main_analysis <- analyze_player(
+      player_name   = input$player_name,
+      analysis_mode = input$analysis_mode,
+      full_stats    = full_stats,
+      current_year  = current_year,
+      player_type   = input$player_type
+    )
 
     # Prepare comparison data
-    player_comparison <- prepare_player_comparison(input$player_name, full_stats)
+    player_comparison <- prepare_player_comparison(input$player_name, full_stats, input$player_type)
 
     # Combine everything
     tagList(
