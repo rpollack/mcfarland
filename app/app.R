@@ -254,10 +254,7 @@ ui <- page_navbar(
   header = tagList(
     # (a) “Full‐page” busy spinner
     add_busy_bar(
-      # spin     = "fading-circle",
-      #     position = "full-page",
-      # optionally add text below the spinner (see docs for add_busy_spinner)
-      #     color    = "#333333",
+      color = "#2E86AB", # Blue color for the busy bar
       height = "25px"
     ),
 
@@ -292,16 +289,7 @@ ui <- page_navbar(
         }
       ")),
 
-      # 1c) JS to auto‐close Bootstrap‐Select dropdown when an option is picked
-      #     Note the selector '#player_name' (must include '#')
-      # tags$script(HTML("
-      #   $(document).ready(function() {
-      #     // whenever the <select> with id='player_name' changes, force it to hide:
-      #     $(document).on('changed.bs.select', '#player_name', function(e) {
-      #       $(this).selectpicker('hide');
-      #     });
-      #   });
-      # "))
+ 
     )
   ),
 
