@@ -106,24 +106,22 @@ create_player_info_card <- function(player_id, baseball_data) {
   }
   
   div(
-    class = "text-center mb-3",
-    style = "background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 15px; border-radius: 10px; border: 1px solid #dee2e6;",
+    class = "text-center player-info-card",
     
     # Player headshot with multiple fallbacks
     img(
       src = headshot_url,
       alt = paste("Photo of", player_name),
-      style = "width: 150px; height: 150px; border-radius: 50%; border: 3px solid #2E86AB; margin-bottom: 10px; object-fit: cover;",
+      class = "player-photo",
       onerror = paste0("this.onerror=null; this.src='", mlb_fallback, "';")
     ),
     
     # Player name
-    h4(player_name, style = "margin-bottom: 5px; color: #2E86AB; font-weight: bold;"),
+    h4(player_name, class = "player-name"),
     
     # Player details
     p(
-      class = "text-muted mb-0",
-      style = "font-size: 14px;",
+      class = "player-details",
       if (!is.na(age)) paste("Age:", age),
       if (position_info != "") paste("•", position_info)
     )
@@ -429,6 +427,275 @@ ui <- page_navbar(
   header = tagList(
     # Viewport constraints for mobile - prevents zooming and wiggling
     tags$meta(name = "viewport", content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover"),
+    
+    # Custom CSS for professional, app-like styling
+    tags$style(HTML("
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+      
+      /* Global app styling */
+      * {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+      
+      body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        margin: 0;
+        overflow-x: hidden;
+      }
+      
+      /* Navbar styling */
+      .navbar {
+        background: rgba(255, 255, 255, 0.95) !important;
+        backdrop-filter: blur(20px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      }
+      
+      .navbar-brand {
+        font-weight: 700 !important;
+        font-size: 1.5rem !important;
+        color: #2E86AB !important;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      
+      .nav-link {
+        font-weight: 500 !important;
+        transition: all 0.3s ease !important;
+        border-radius: 8px !important;
+        margin: 0 4px !important;
+      }
+      
+      .nav-link:hover {
+        background: rgba(46, 134, 171, 0.1) !important;
+        transform: translateY(-1px);
+      }
+      
+      /* Card styling with glass morphism */
+      .card {
+        background: rgba(255, 255, 255, 0.95) !important;
+        backdrop-filter: blur(20px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        border-radius: 20px !important;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1) !important;
+        transition: all 0.3s ease !important;
+        overflow: hidden;
+      }
+      
+      .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15) !important;
+      }
+      
+      .card-header {
+        background: linear-gradient(135deg, #2E86AB, #4A90E2) !important;
+        color: white !important;
+        font-weight: 600 !important;
+        font-size: 1.1rem !important;
+        border-bottom: none !important;
+        padding: 1.25rem 1.5rem !important;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+      
+      .card-body {
+        padding: 1.5rem !important;
+      }
+      
+      /* Form controls styling */
+      .form-select, .form-control {
+        border: 2px solid rgba(46, 134, 171, 0.2) !important;
+        border-radius: 12px !important;
+        padding: 0.75rem 1rem !important;
+        font-weight: 500 !important;
+        transition: all 0.3s ease !important;
+        background: rgba(255, 255, 255, 0.9) !important;
+      }
+      
+      .form-select:focus, .form-control:focus {
+        border-color: #2E86AB !important;
+        box-shadow: 0 0 0 3px rgba(46, 134, 171, 0.2) !important;
+        transform: scale(1.02);
+      }
+      
+      /* Button styling */
+      .btn {
+        border-radius: 12px !important;
+        font-weight: 600 !important;
+        padding: 0.75rem 1.5rem !important;
+        transition: all 0.3s ease !important;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      
+      .btn-primary {
+        background: linear-gradient(135deg, #2E86AB, #4A90E2) !important;
+        border: none !important;
+        box-shadow: 0 4px 15px rgba(46, 134, 171, 0.3) !important;
+      }
+      
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(46, 134, 171, 0.4) !important;
+      }
+      
+      /* Player info card styling */
+      .player-info-card {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 249, 250, 0.95)) !important;
+        backdrop-filter: blur(20px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
+        border-radius: 20px !important;
+        padding: 2rem !important;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1) !important;
+        transition: all 0.4s ease !important;
+        margin-bottom: 1.5rem !important;
+      }
+      
+      .player-info-card:hover {
+        transform: translateY(-3px) scale(1.02);
+        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15) !important;
+      }
+      
+      .player-photo {
+        width: 160px !important;
+        height: 160px !important;
+        border-radius: 50% !important;
+        border: 4px solid #2E86AB !important;
+        margin-bottom: 1rem !important;
+        object-fit: cover !important;
+        transition: all 0.3s ease !important;
+        box-shadow: 0 10px 30px rgba(46, 134, 171, 0.3) !important;
+      }
+      
+      .player-photo:hover {
+        transform: scale(1.05);
+        box-shadow: 0 15px 40px rgba(46, 134, 171, 0.4) !important;
+      }
+      
+      .player-name {
+        margin-bottom: 0.5rem !important;
+        color: #2E86AB !important;
+        font-weight: 700 !important;
+        font-size: 1.5rem !important;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      
+      .player-details {
+        color: #6c757d !important;
+        font-size: 0.95rem !important;
+        font-weight: 500 !important;
+        margin-bottom: 0 !important;
+      }
+      
+      /* Alert styling */
+      .alert {
+        border-radius: 15px !important;
+        border: none !important;
+        font-weight: 500 !important;
+        backdrop-filter: blur(10px) !important;
+      }
+      
+      .alert-info {
+        background: rgba(13, 202, 240, 0.1) !important;
+        color: #0c5aa6 !important;
+      }
+      
+      .alert-warning {
+        background: rgba(255, 193, 7, 0.1) !important;
+        color: #997404 !important;
+      }
+      
+      /* Loading animation */
+      .progress {
+        height: 8px !important;
+        border-radius: 10px !important;
+        background: rgba(255, 255, 255, 0.2) !important;
+      }
+      
+      .progress-bar {
+        background: linear-gradient(90deg, #2E86AB, #4A90E2) !important;
+        border-radius: 10px !important;
+      }
+      
+      /* Plot container styling */
+      .shiny-plot-output {
+        border-radius: 15px !important;
+        overflow: hidden !important;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1) !important;
+      }
+      
+      /* Responsive improvements */
+      @media (max-width: 768px) {
+        .card {
+          margin-bottom: 1rem !important;
+          border-radius: 15px !important;
+        }
+        
+        .player-info-card {
+          padding: 1.5rem !important;
+        }
+        
+        .player-photo {
+          width: 120px !important;
+          height: 120px !important;
+        }
+        
+        .player-name {
+          font-size: 1.3rem !important;
+        }
+      }
+      
+      /* Smooth scrolling */
+      html {
+        scroll-behavior: smooth;
+      }
+      
+      /* Custom scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      
+      ::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.1);
+      }
+      
+      ::-webkit-scrollbar-thumb {
+        background: rgba(46, 134, 171, 0.5);
+        border-radius: 10px;
+      }
+      
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(46, 134, 171, 0.7);
+      }
+      
+      /* Analysis content styling */
+      .analysis-content {
+        line-height: 1.6 !important;
+        font-size: 1rem !important;
+      }
+      
+      .analysis-content h1, .analysis-content h2, .analysis-content h3 {
+        color: #2E86AB !important;
+        font-weight: 700 !important;
+        margin-top: 1.5rem !important;
+        margin-bottom: 1rem !important;
+      }
+      
+      .analysis-content p {
+        margin-bottom: 1rem !important;
+        color: #495057 !important;
+      }
+      
+      /* Data status styling */
+      .data-status p {
+        margin-bottom: 0.75rem !important;
+        font-size: 0.95rem !important;
+      }
+      
+      .data-status strong {
+        color: #2E86AB !important;
+      }
+    ")),
+    
     add_busy_bar(
       color = "#2E86AB",
       height = "25px"
@@ -569,7 +836,9 @@ server <- function(input, output, session) {
                                  baseball_data$pitchers$mlbamid != 0, na.rm = TRUE)
     }
     
-    tagList(
+    div(
+      class = "data-status",
+      style = "background: rgba(255, 255, 255, 0.9); padding: 1.5rem; border-radius: 15px; backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3);",
       p(strong("Players loaded:"), paste(hitters_total, "hitters,", pitchers_total, "pitchers")),
       p(strong("MLB photo coverage:"), 
         paste0(hitters_with_mlb, "/", hitters_total, " hitters (", 
@@ -601,7 +870,8 @@ server <- function(input, output, session) {
     if (input$player_selection == "") {
       return(div(
         class = "text-center text-muted p-4",
-        h5("⚾ Select a player to begin analysis")
+        style = "background: rgba(255, 255, 255, 0.9); border-radius: 20px; backdrop-filter: blur(20px);",
+        h5("⚾ Select a player to begin analysis", style = "color: #2E86AB; font-weight: 600;")
       ))
     }
     
@@ -621,15 +891,16 @@ server <- function(input, output, session) {
     
     # Combine main analysis and plots
     tagList(
-      main_analysis,
-      hr(),
+      div(class = "analysis-content", main_analysis),
+      hr(style = "border-color: rgba(46, 134, 171, 0.3); margin: 2rem 0;"),
       renderPlot({
         plot_result <- create_comparison_plot(input$player_selection, baseball_data)
         if (is.null(plot_result)) {
           # Return empty plot if no data
           ggplot() + 
-            geom_text(aes(x = 1, y = 1, label = "No trend data available"), size = 6) +
-            theme_void()
+            geom_text(aes(x = 1, y = 1, label = "No trend data available"), size = 6, color = "#6c757d") +
+            theme_void() +
+            theme(plot.background = element_rect(fill = "white", color = NA))
         } else {
           plot_result
         }
