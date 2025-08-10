@@ -427,6 +427,8 @@ ui <- page_navbar(
   title = "McFARLAND v0.7",
   
   header = tagList(
+    # Viewport constraints for mobile - prevents zooming and wiggling
+    tags$meta(name = "viewport", content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover"),
     add_busy_bar(
       color = "#2E86AB",
       height = "25px"
