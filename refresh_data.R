@@ -13,14 +13,18 @@ current_year <- 2025
 # =============================================================================
 
 # Load static hitter data 
+# First get current year data to check available columns
+current_hitters <- fg_batter_leaders(pos = "np", startseason = current_year, endseason = current_year)
+cat("Available columns in fg_batter_leaders:", paste(colnames(current_hitters)[1:10], collapse = ", "), "...\n")
+
 hitter_stats <-
   bind_rows(
     read_csv("fangraphs-leaderboards-2022.csv", show_col_types = FALSE) |> mutate(year = 2022),
     read_csv("fangraphs-leaderboards-2023.csv", show_col_types = FALSE) |> mutate(year = 2023),
     read_csv("fangraphs-leaderboards-2024.csv", show_col_types = FALSE) |> mutate(year = 2024),
-    # This is the part that changes daily
-    fg_batter_leaders(pos = "np", startseason = current_year, endseason = current_year) |>
-      select(Name = PlayerName, Age, PlayerId = playerid, AB, PA, `1B`, `2B`, `3B`, HR, H, HBP, SF, wOBA, xwOBA, SO, BB, Barrels) |>
+    # Get current year data with MLB IDs
+    current_hitters |>
+      select(Name = PlayerName, Age, PlayerId = playerid, mlbamid = xMLBAMID, AB, PA, `1B`, `2B`, `3B`, HR, H, HBP, SF, wOBA, xwOBA, SO, BB, Barrels) |>
       mutate(year = current_year)
   ) |>
   mutate(
@@ -66,6 +70,7 @@ hitters_this_year <-
     xwOBA_wOBA_gap = xwOBA - wOBA,
     PA = sum(PA),
     Age = first(Age),
+    mlbamid = first(mlbamid),  # Capture MLB ID for headshots
     .groups = "drop"
   )
 
@@ -187,19 +192,27 @@ full_stats_pitchers <-
   rename(Name = name, PlayerId = playerid, Age = age)
 
 # =============================================================================
-# CREATE UNIFIED PLAYER LOOKUP
+# CREATE UNIFIED PLAYER LOOKUP WITH MLB IDS
 # =============================================================================
 
-# Create unified player lookup table
+# Ensure mlbamid column exists in both datasets
+if (!"mlbamid" %in% colnames(full_stats_hitters)) {
+  full_stats_hitters$mlbamid <- NA
+}
+if (!"mlbamid" %in% colnames(full_stats_pitchers)) {
+  full_stats_pitchers$mlbamid <- NA
+}
+
+# Create unified player lookup table with MLB IDs for headshots
 player_lookup <- bind_rows(
   full_stats_hitters |>
-    select(Name, PlayerId, Age, player_type) |>
+    select(Name, PlayerId, Age, player_type, mlbamid) |>
     mutate(
       display_name = paste0(Name, " (Hitter)"),
       position_detail = "Hitter"
     ),
   full_stats_pitchers |>
-    select(Name, PlayerId, Age, player_type, position) |>
+    select(Name, PlayerId, Age, player_type, position, mlbamid) |>
     mutate(
       display_name = paste0(Name, " (", position, ")"),
       position_detail = position
@@ -220,3 +233,10 @@ cat("Data refreshed at:", as.character(Sys.time()), "\n")
 cat("Hitters:", nrow(full_stats_hitters), "\n")
 cat("Pitchers:", nrow(full_stats_pitchers), "\n")
 cat("Total players:", nrow(player_lookup), "\n")
+
+# Check MLB ID coverage
+hitters_with_mlb_id <- sum(!is.na(full_stats_hitters$mlbamid) & full_stats_hitters$mlbamid != "")
+pitchers_with_mlb_id <- sum(!is.na(full_stats_pitchers$mlbamid) & full_stats_pitchers$mlbamid != "")
+
+cat("Hitters with MLB IDs:", hitters_with_mlb_id, "/", nrow(full_stats_hitters), "\n")
+cat("Pitchers with MLB IDs:", pitchers_with_mlb_id, "/", nrow(full_stats_pitchers), "\n")
