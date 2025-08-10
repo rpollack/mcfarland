@@ -14,6 +14,7 @@ library(jsonlite)
 library(stringi)
 library(baseballr)
 library(glue)
+library(janitor)
 library(shinyWidgets)
 library(bslib)
 library(commonmark)
@@ -173,7 +174,7 @@ full_stats <-
 
 data <-
   full_stats |>
-  filter(name == "David Bednar")
+  filter(name == "Paul Skenes")
 
 prompt <- glue(
   "Player: {data$name}
@@ -246,6 +247,9 @@ Separate your analysis into core skills and luck/regression indicators.
 Don't repeat yourself. For example, if you say a stat or performance or trend is 'lucky', you don't need to say it's 'not unlucky'.
 
 Remember that when it comes to stats and trends, you only have knowledge of two things: a player's current-year stats and the average of the same stats for the past 3 years (e.g. not their entire career). So when you say things like a stat is 'up' or 'down', make it clear that this is relative to the last 3 years' average.
+
+“Write in the style of a thoughtful baseball analyst on a sports radio show — explain trends with examples, transitions, and context.”
+
 "
         ))
       ),
