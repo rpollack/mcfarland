@@ -1,4 +1,4 @@
-# McFARLAND - Clean syntax version
+# McFARLAND - Clean syntax version with Player Headshots
 library(shiny)
 library(dplyr)
 library(tidyr)
@@ -36,7 +36,101 @@ load_baseball_data <- function() {
   })
 }
 
-# Stats comparison plotting function - moved here for proper scoping
+# Function to get player headshot URL
+get_player_headshot_url <- function(player_id, baseball_data) {
+  # First check if this player exists in our lookup
+  player_info <- baseball_data$lookup[baseball_data$lookup$PlayerId == player_id, ]
+  if (nrow(player_info) == 0) return("https://via.placeholder.com/200x200/2E86AB/ffffff?text=Player")
+  
+  player_name <- player_info$Name
+  player_type <- player_info$player_type
+  mlb_id <- NULL
+  
+  # Get MLB ID based on player type
+  if (player_type == "hitter" && nrow(baseball_data$hitters) > 0) {
+    player_data <- baseball_data$hitters[baseball_data$hitters$PlayerId == player_id, ]
+    if (nrow(player_data) > 0 && "mlbamid" %in% colnames(player_data)) {
+      mlb_id <- player_data$mlbamid[1]
+    }
+  } else if (player_type == "pitcher" && nrow(baseball_data$pitchers) > 0) {
+    player_data <- baseball_data$pitchers[baseball_data$pitchers$PlayerId == player_id, ]
+    if (nrow(player_data) > 0 && "mlbamid" %in% colnames(player_data)) {
+      mlb_id <- player_data$mlbamid[1]
+    }
+  }
+  
+  # Try MLB headshot URL if we have a valid MLB ID (using correct MLB URL format)
+  if (!is.null(mlb_id) && !is.na(mlb_id) && mlb_id != "" && mlb_id != 0) {
+    return(paste0("https://img.mlbstatic.com/mlb-photos/image/upload/w_213,d_people:generic:headshot:silo:current.png,q_auto:best,f_auto/v1/people/", mlb_id, "/headshot/67/current"))
+  }
+  
+  # Fallback 1: Try FanGraphs player photo using FG player ID
+  fg_photo_url <- paste0("https://www.fangraphs.com/img/players/", player_id, ".jpg")
+  
+  # Return FanGraphs URL first, with JavaScript fallback to placeholder
+  return(fg_photo_url)
+}
+
+# Function to create player info card with headshot and better error handling
+create_player_info_card <- function(player_id, baseball_data) {
+  player_info <- baseball_data$lookup[baseball_data$lookup$PlayerId == player_id, ]
+  if (nrow(player_info) == 0) return(NULL)
+  
+  player_name <- player_info$Name
+  player_type <- player_info$player_type
+  headshot_url <- get_player_headshot_url(player_id, baseball_data)
+  
+  # Create fallback chain for photo loading
+  mlb_fallback <- "https://via.placeholder.com/200x200/2E86AB/ffffff?text=⚾"
+  
+  # Get additional player info
+  age <- NA
+  position_info <- ""
+  
+  if (player_type == "hitter" && nrow(baseball_data$hitters) > 0) {
+    player_data <- baseball_data$hitters[baseball_data$hitters$PlayerId == player_id, ]
+    if (nrow(player_data) > 0) {
+      age <- player_data$Age[1]
+      position_info <- "Hitter"
+    }
+  } else if (player_type == "pitcher" && nrow(baseball_data$pitchers) > 0) {
+    player_data <- baseball_data$pitchers[baseball_data$pitchers$PlayerId == player_id, ]
+    if (nrow(player_data) > 0) {
+      age <- player_data$Age[1]
+      if ("position" %in% colnames(player_data)) {
+        position_info <- paste(player_data$position[1], "• Pitcher")
+      } else {
+        position_info <- "Pitcher"
+      }
+    }
+  }
+  
+  div(
+    class = "text-center mb-3",
+    style = "background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 15px; border-radius: 10px; border: 1px solid #dee2e6;",
+    
+    # Player headshot with multiple fallbacks
+    img(
+      src = headshot_url,
+      alt = paste("Photo of", player_name),
+      style = "width: 150px; height: 150px; border-radius: 50%; border: 3px solid #2E86AB; margin-bottom: 10px; object-fit: cover;",
+      onerror = paste0("this.onerror=null; this.src='", mlb_fallback, "';")
+    ),
+    
+    # Player name
+    h4(player_name, style = "margin-bottom: 5px; color: #2E86AB; font-weight: bold;"),
+    
+    # Player details
+    p(
+      class = "text-muted mb-0",
+      style = "font-size: 14px;",
+      if (!is.na(age)) paste("Age:", age),
+      if (position_info != "") paste("•", position_info)
+    )
+  )
+}
+
+# Stats comparison plotting function
 create_comparison_plot <- function(player_id, baseball_data) {
   player_info <- baseball_data$lookup[baseball_data$lookup$PlayerId == player_id, ]
   if (nrow(player_info) == 0) return(NULL)
@@ -330,7 +424,7 @@ analyze_player <- function(player_id, analysis_mode, baseball_data) {
 
 # UI
 ui <- page_navbar(
-  title = "McFARLAND v0.6",
+  title = "McFARLAND v0.7",
   
   header = tagList(
     add_busy_bar(
@@ -367,7 +461,10 @@ ui <- page_navbar(
               "Shakespeare" = "shakespeare"
             ),
             width = "100%"
-          )
+          ),
+          
+          # Player info card with headshot
+          uiOutput("player_info_card")
         )
       ),
       
@@ -383,16 +480,22 @@ ui <- page_navbar(
     icon = icon("info-circle"),
     card(
       card_body(
-        p("AI-powered baseball player analysis."),
+        p("AI-powered baseball player analysis with player headshots."),
         p("McFARLAND: Machine-crafted Forecasting And Reasoning for Luck, Analytics, Narratives, and Data"),
         img(
           src = "tjmcfarland.png",
           style = "width: 100%; max-width: 400px; height: auto;"
         ),
-        p("Now supports both hitters and pitchers!"),
+        p("Now supports both hitters and pitchers with MLB player headshots!"),
         p("Data from FanGraphs. Comparing 2025 stats (refreshed daily) to 2022-2024 averages."),
+        p("Player photos courtesy of MLB."),
         p("Built with R, shiny, tidyverse, baseballr, bslib, shinyWidgets, and shinybusy."),
         p("Powered by GPT-4.1."),
+        
+        # Data status section
+        h4("Data Status"),
+        uiOutput("data_status"),
+        
         h4("Get In Touch"),
         tags$a(
           href    = "https://docs.google.com/forms/d/e/1FAIpQLScPiHfO2XxwCXd2V-7pNsUKs-mMaqzzsH2ohA_kBflk_n8AQw/viewform",
@@ -413,6 +516,7 @@ ui <- page_navbar(
         
         h4("Version History"),
         tags$ul(
+          tags$li("0.7 - Added player headshots from MLB! Photos now display with player info."),
           tags$li("0.6 - Added pitcher analysis! Now supports both hitters and pitchers."),
           tags$li("0.5 - Added ability to sign up for notifications."),
           tags$li("0.4 - Added Barrels/PA and historical xwOBA/wOBA gap to stats that are analyzed"),
@@ -437,6 +541,57 @@ server <- function(input, output, session) {
       choices <- setNames(baseball_data$lookup$PlayerId, baseball_data$lookup$display_name)
       updateSelectInput(session, "player_selection", choices = c("Select a player..." = "", choices))
     }
+  })
+  
+  # Data status output
+  output$data_status <- renderUI({
+    if (nrow(baseball_data$lookup) == 0) {
+      return(div(class = "alert alert-warning", "No data loaded"))
+    }
+    
+    hitters_total <- nrow(baseball_data$hitters)
+    pitchers_total <- nrow(baseball_data$pitchers)
+    
+    hitters_with_mlb <- 0
+    pitchers_with_mlb <- 0
+    
+    if (hitters_total > 0 && "mlbamid" %in% colnames(baseball_data$hitters)) {
+      hitters_with_mlb <- sum(!is.na(baseball_data$hitters$mlbamid) & 
+                                baseball_data$hitters$mlbamid != "" & 
+                                baseball_data$hitters$mlbamid != 0, na.rm = TRUE)
+    }
+    
+    if (pitchers_total > 0 && "mlbamid" %in% colnames(baseball_data$pitchers)) {
+      pitchers_with_mlb <- sum(!is.na(baseball_data$pitchers$mlbamid) & 
+                                 baseball_data$pitchers$mlbamid != "" & 
+                                 baseball_data$pitchers$mlbamid != 0, na.rm = TRUE)
+    }
+    
+    tagList(
+      p(strong("Players loaded:"), paste(hitters_total, "hitters,", pitchers_total, "pitchers")),
+      p(strong("MLB photo coverage:"), 
+        paste0(hitters_with_mlb, "/", hitters_total, " hitters (", 
+               round(100 * hitters_with_mlb / max(hitters_total, 1), 1), "%)"),
+        br(),
+        paste0(pitchers_with_mlb, "/", pitchers_total, " pitchers (", 
+               round(100 * pitchers_with_mlb / max(pitchers_total, 1), 1), "%)")
+      ),
+      if (hitters_with_mlb == 0 && pitchers_with_mlb == 0) {
+        div(class = "alert alert-info", 
+            "No MLB IDs found. Photos will use FanGraphs fallback or placeholders.")
+      } else {
+        NULL
+      }
+    )
+  })
+  
+  # Player info card with headshot
+  output$player_info_card <- renderUI({
+    if (input$player_selection == "") {
+      return(NULL)
+    }
+    
+    create_player_info_card(input$player_selection, baseball_data)
   })
   
   # Main output
