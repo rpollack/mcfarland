@@ -26,50 +26,23 @@ CURRENT_YEAR <- 2025
 
 # Data Loading Functions ----------------------------------------------------
 
-#' Load baseball data from GitHub repository or local files
+#' Load baseball data from GitHub repository 
 #' @return List containing hitters, pitchers, and lookup data frames
+
 load_baseball_data <- function() {
-  cat("Loading baseball data...\n")
+  cat("Loading data from GitHub...\n")
   
-  # Try local files first (for shinyapps.io deployment)
-  local_files <- c("full_stats_hitters.csv", "full_stats_pitchers.csv", "player_lookup.csv")
-  
-  if (all(file.exists(local_files))) {
-    cat("Loading from local files...\n")
-    tryCatch({
-      data_list <- map(local_files, ~ read_csv(.x, show_col_types = FALSE))
-      names(data_list) <- c("hitters", "pitchers", "lookup")
-      
-      cat("Successfully loaded from local:", nrow(data_list$hitters), "hitters,", nrow(data_list$pitchers), "pitchers\n")
-      return(data_list)
-      
-    }, error = function(e) {
-      cat("Error loading local files:", e$message, "\n")
-    })
-  }
-  
-  # Fallback to GitHub (for local development)
-  cat("Loading from GitHub...\n")
   tryCatch({
-    data_files <- c("full_stats_hitters.csv", "full_stats_pitchers.csv", "player_lookup.csv")
-    data_list <- map(data_files, ~ {
-      url <- paste0(GITHUB_DATA_URL, .x)
-      cat("Fetching:", url, "\n")
-      read_csv(url, show_col_types = FALSE)
-    })
-    names(data_list) <- c("hitters", "pitchers", "lookup")
+    hitters <- read_csv(paste0(GITHUB_DATA_URL, "full_stats_hitters.csv"), show_col_types = FALSE)
+    pitchers <- read_csv(paste0(GITHUB_DATA_URL, "full_stats_pitchers.csv"), show_col_types = FALSE)
+    lookup <- read_csv(paste0(GITHUB_DATA_URL, "player_lookup.csv"), show_col_types = FALSE)
     
-    cat("Successfully loaded from GitHub:", nrow(data_list$hitters), "hitters,", nrow(data_list$pitchers), "pitchers\n")
-    data_list
+    cat("Loaded:", nrow(hitters), "hitters,", nrow(pitchers), "pitchers\n")
+    list(hitters = hitters, pitchers = pitchers, lookup = lookup)
     
   }, error = function(e) {
-    cat("Error loading from GitHub:", e$message, "\n")
-    # Return empty but valid data structure
-    list(
-      hitters = data.frame(),
-      pitchers = data.frame(),
-      lookup = data.frame(display_name = character(0), PlayerId = character(0), player_type = character(0))
-    )
+    cat("Error loading data:", e$message, "\n")
+    list(hitters = data.frame(), pitchers = data.frame(), lookup = data.frame())
   })
 }
 
