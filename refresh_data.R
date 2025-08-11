@@ -192,7 +192,7 @@ full_stats_pitchers <-
   rename(Name = name, PlayerId = playerid, Age = age)
 
 # =============================================================================
-# CREATE UNIFIED PLAYER LOOKUP WITH MLB IDS
+# CREATE UNIFIED PLAYER LOOKUP WITH MLB IDS AND COMPOUND KEYS
 # =============================================================================
 
 # Ensure mlbamid column exists in both datasets
@@ -203,16 +203,18 @@ if (!"mlbamid" %in% colnames(full_stats_pitchers)) {
   full_stats_pitchers$mlbamid <- NA
 }
 
-# Create unified player lookup table with MLB IDs for headshots
 # Check for players who appear in both datasets (same name, different types)
 hitter_names <- full_stats_hitters$Name
 pitcher_names <- full_stats_pitchers$Name
 duplicate_names <- intersect(hitter_names, pitcher_names)
 
+# Create unified player lookup table with unique compound keys
 player_lookup <- bind_rows(
   full_stats_hitters |>
     select(Name, PlayerId, Age, player_type, mlbamid) |>
     mutate(
+      # Create unique compound key: PlayerId + player_type
+      compound_id = paste0(PlayerId, "_", player_type),
       # Only add position label if name appears in both datasets
       display_name = ifelse(Name %in% duplicate_names, 
                             paste0(Name, " (Hitter)"), 
@@ -222,6 +224,8 @@ player_lookup <- bind_rows(
   full_stats_pitchers |>
     select(Name, PlayerId, Age, player_type, position, mlbamid) |>
     mutate(
+      # Create unique compound key: PlayerId + player_type  
+      compound_id = paste0(PlayerId, "_", player_type),
       # Only add position label if name appears in both datasets
       display_name = ifelse(Name %in% duplicate_names, 
                             paste0(Name, " (", position, ")"), 
@@ -230,6 +234,14 @@ player_lookup <- bind_rows(
     )
 ) |>
   arrange(Name)
+
+# Debug output
+cat("Players with duplicate names:", length(duplicate_names), "\n")
+if (length(duplicate_names) > 0) {
+  cat("Duplicate names found:", paste(duplicate_names, collapse = ", "), "\n")
+}
+cat("Total lookup records:", nrow(player_lookup), "\n")
+cat("Unique compound_ids:", length(unique(player_lookup$compound_id)), "\n")
 
 # =============================================================================
 # SAVE FILES
