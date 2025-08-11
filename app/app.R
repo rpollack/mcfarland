@@ -61,20 +61,41 @@ build_mlb_photo_url <- function(mlb_id) {
   paste0(MLB_PHOTO_BASE_URL, mlb_id, "/headshot/67/current")
 }
 
+#' Extract PlayerId from compound ID or return as-is
+#' @param compound_id Either a compound ID like "12345_hitter" or a simple PlayerId
+#' @return PlayerId as string
+extract_player_id <- function(compound_id) {
+  if (grepl("_", compound_id)) {
+    # Extract PlayerId from compound format "PlayerId_playertype"
+    strsplit(compound_id, "_")[[1]][1]
+  } else {
+    # Backwards compatibility - already a simple PlayerId
+    compound_id
+  }
+}
+
 #' Get player's MLB ID from the data
-#' @param player_id FanGraphs player ID
+#' @param player_id FanGraphs player ID (can be compound or simple)
 #' @param baseball_data Complete baseball data list
 #' @return MLB ID if found, NULL otherwise
 get_player_mlb_id <- function(player_id, baseball_data) {
-  player_info <- filter(baseball_data$lookup, PlayerId == player_id)
+  # Handle both compound IDs and backwards compatibility
+  if ("compound_id" %in% colnames(baseball_data$lookup)) {
+    player_info <- filter(baseball_data$lookup, compound_id == player_id)
+  } else {
+    actual_player_id <- extract_player_id(player_id)
+    player_info <- filter(baseball_data$lookup, PlayerId == actual_player_id)
+  }
+  
   if (nrow(player_info) == 0) return(NULL)
   
   player_type <- player_info$player_type
+  actual_player_id <- extract_player_id(player_id)
   dataset <- if (player_type == "hitter") baseball_data$hitters else baseball_data$pitchers
   
   if (nrow(dataset) == 0) return(NULL)
   
-  player_data <- filter(dataset, PlayerId == player_id)
+  player_data <- filter(dataset, PlayerId == actual_player_id)
   if (nrow(player_data) == 0 || !"mlbamid" %in% colnames(player_data)) return(NULL)
   
   mlb_id <- player_data$mlbamid[1]
@@ -103,19 +124,27 @@ get_player_photo_url <- function(player_id, baseball_data) {
 # Player Information Functions ---------------------------------------------
 
 #' Get player basic information
-#' @param player_id FanGraphs player ID
+#' @param player_id FanGraphs player ID (can be compound or simple)
 #' @param baseball_data Complete baseball data list
 #' @return List with name, type, age, position info
 get_player_info <- function(player_id, baseball_data) {
-  player_lookup <- filter(baseball_data$lookup, PlayerId == player_id)
+  # Handle both compound IDs and backwards compatibility
+  if ("compound_id" %in% colnames(baseball_data$lookup)) {
+    player_lookup <- filter(baseball_data$lookup, compound_id == player_id)
+  } else {
+    actual_player_id <- extract_player_id(player_id)
+    player_lookup <- filter(baseball_data$lookup, PlayerId == actual_player_id)
+  }
+  
   if (nrow(player_lookup) == 0) return(NULL)
   
   player_name <- player_lookup$Name
   player_type <- player_lookup$player_type
+  actual_player_id <- extract_player_id(player_id)
   
   # Get detailed info based on type
   if (player_type == "hitter" && nrow(baseball_data$hitters) > 0) {
-    player_data <- filter(baseball_data$hitters, PlayerId == player_id)
+    player_data <- filter(baseball_data$hitters, PlayerId == actual_player_id)
     if (nrow(player_data) > 0) {
       return(list(
         name = player_name,
@@ -125,7 +154,7 @@ get_player_info <- function(player_id, baseball_data) {
       ))
     }
   } else if (player_type == "pitcher" && nrow(baseball_data$pitchers) > 0) {
-    player_data <- filter(baseball_data$pitchers, PlayerId == player_id)
+    player_data <- filter(baseball_data$pitchers, PlayerId == actual_player_id)
     if (nrow(player_data) > 0) {
       position_detail <- if ("position" %in% colnames(player_data)) {
         paste(player_data$position[1], "• Pitcher")
@@ -219,7 +248,7 @@ clean_metric_names <- function(metrics, player_type) {
 }
 
 #' Create comparison plot for player trends
-#' @param player_id FanGraphs player ID
+#' @param player_id FanGraphs player ID (can be compound or simple)
 #' @param baseball_data Complete baseball data list
 #' @return ggplot object or NULL
 create_player_trends_plot <- function(player_id, baseball_data) {
@@ -230,7 +259,8 @@ create_player_trends_plot <- function(player_id, baseball_data) {
   dataset <- if (player_info$type == "hitter") baseball_data$hitters else baseball_data$pitchers
   if (nrow(dataset) == 0) return(NULL)
   
-  player_data <- filter(dataset, PlayerId == player_id)
+  actual_player_id <- extract_player_id(player_id)
+  player_data <- filter(dataset, PlayerId == actual_player_id)
   if (nrow(player_data) == 0) return(NULL)
   
   # Build comparison data
@@ -946,7 +976,12 @@ server <- function(input, output, session) {
   # Update player choices when data is available
   observe({
     if (nrow(baseball_data$lookup) > 0) {
-      player_choices <- setNames(baseball_data$lookup$PlayerId, baseball_data$lookup$display_name)
+      # Use compound_id if available, fallback to PlayerId for backwards compatibility
+      if ("compound_id" %in% colnames(baseball_data$lookup)) {
+        player_choices <- setNames(baseball_data$lookup$compound_id, baseball_data$lookup$display_name)
+      } else {
+        player_choices <- setNames(baseball_data$lookup$PlayerId, baseball_data$lookup$display_name)
+      }
       updateSelectInput(session, "player_selection", choices = c("Select a player..." = "", player_choices))
     }
   })
