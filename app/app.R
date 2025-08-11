@@ -26,21 +26,45 @@ CURRENT_YEAR <- 2025
 
 # Data Loading Functions ----------------------------------------------------
 
-#' Load baseball data from GitHub repository
+#' Load baseball data from GitHub repository or local files
 #' @return List containing hitters, pitchers, and lookup data frames
 load_baseball_data <- function() {
-  cat("Loading baseball data from GitHub...\n")
+  cat("Loading baseball data...\n")
   
+  # Try local files first (for shinyapps.io deployment)
+  local_files <- c("full_stats_hitters.csv", "full_stats_pitchers.csv", "player_lookup.csv")
+  
+  if (all(file.exists(local_files))) {
+    cat("Loading from local files...\n")
+    tryCatch({
+      data_list <- map(local_files, ~ read_csv(.x, show_col_types = FALSE))
+      names(data_list) <- c("hitters", "pitchers", "lookup")
+      
+      cat("Successfully loaded from local:", nrow(data_list$hitters), "hitters,", nrow(data_list$pitchers), "pitchers\n")
+      return(data_list)
+      
+    }, error = function(e) {
+      cat("Error loading local files:", e$message, "\n")
+    })
+  }
+  
+  # Fallback to GitHub (for local development)
+  cat("Loading from GitHub...\n")
   tryCatch({
     data_files <- c("full_stats_hitters.csv", "full_stats_pitchers.csv", "player_lookup.csv")
-    data_list <- map(data_files, ~ read_csv(paste0(GITHUB_DATA_URL, .x), show_col_types = FALSE))
+    data_list <- map(data_files, ~ {
+      url <- paste0(GITHUB_DATA_URL, .x)
+      cat("Fetching:", url, "\n")
+      read_csv(url, show_col_types = FALSE)
+    })
     names(data_list) <- c("hitters", "pitchers", "lookup")
     
-    cat("Successfully loaded:", nrow(data_list$hitters), "hitters,", nrow(data_list$pitchers), "pitchers\n")
+    cat("Successfully loaded from GitHub:", nrow(data_list$hitters), "hitters,", nrow(data_list$pitchers), "pitchers\n")
     data_list
     
   }, error = function(e) {
-    cat("Error loading data:", e$message, "\n")
+    cat("Error loading from GitHub:", e$message, "\n")
+    # Return empty but valid data structure
     list(
       hitters = data.frame(),
       pitchers = data.frame(),
@@ -81,16 +105,18 @@ extract_player_id <- function(compound_id) {
 get_player_mlb_id <- function(player_id, baseball_data) {
   # Handle both compound IDs and backwards compatibility
   if ("compound_id" %in% colnames(baseball_data$lookup)) {
+    # New format with compound IDs
     player_info <- filter(baseball_data$lookup, compound_id == player_id)
-  } else {
     actual_player_id <- extract_player_id(player_id)
-    player_info <- filter(baseball_data$lookup, PlayerId == actual_player_id)
+  } else {
+    # Old format - player_id is just a simple PlayerId
+    player_info <- filter(baseball_data$lookup, PlayerId == player_id)
+    actual_player_id <- player_id
   }
   
   if (nrow(player_info) == 0) return(NULL)
   
   player_type <- player_info$player_type
-  actual_player_id <- extract_player_id(player_id)
   dataset <- if (player_type == "hitter") baseball_data$hitters else baseball_data$pitchers
   
   if (nrow(dataset) == 0) return(NULL)
@@ -130,17 +156,24 @@ get_player_photo_url <- function(player_id, baseball_data) {
 get_player_info <- function(player_id, baseball_data) {
   # Handle both compound IDs and backwards compatibility
   if ("compound_id" %in% colnames(baseball_data$lookup)) {
+    # New format with compound IDs
     player_lookup <- filter(baseball_data$lookup, compound_id == player_id)
   } else {
-    actual_player_id <- extract_player_id(player_id)
-    player_lookup <- filter(baseball_data$lookup, PlayerId == actual_player_id)
+    # Old format - player_id is just a simple PlayerId
+    player_lookup <- filter(baseball_data$lookup, PlayerId == player_id)
   }
   
   if (nrow(player_lookup) == 0) return(NULL)
   
   player_name <- player_lookup$Name
   player_type <- player_lookup$player_type
-  actual_player_id <- extract_player_id(player_id)
+  
+  # For old format, use the player_id directly; for new format, extract it
+  actual_player_id <- if ("compound_id" %in% colnames(baseball_data$lookup)) {
+    extract_player_id(player_id)
+  } else {
+    player_id
+  }
   
   # Get detailed info based on type
   if (player_type == "hitter" && nrow(baseball_data$hitters) > 0) {
@@ -259,7 +292,13 @@ create_player_trends_plot <- function(player_id, baseball_data) {
   dataset <- if (player_info$type == "hitter") baseball_data$hitters else baseball_data$pitchers
   if (nrow(dataset) == 0) return(NULL)
   
-  actual_player_id <- extract_player_id(player_id)
+  # For old format, use the player_id directly; for new format, extract it
+  actual_player_id <- if ("compound_id" %in% colnames(baseball_data$lookup)) {
+    extract_player_id(player_id)
+  } else {
+    player_id
+  }
+  
   player_data <- filter(dataset, PlayerId == actual_player_id)
   if (nrow(player_data) == 0) return(NULL)
   
@@ -983,6 +1022,9 @@ server <- function(input, output, session) {
         player_choices <- setNames(baseball_data$lookup$PlayerId, baseball_data$lookup$display_name)
       }
       updateSelectInput(session, "player_selection", choices = c("Select a player..." = "", player_choices))
+    } else {
+      # Show error message in dropdown when no data
+      updateSelectInput(session, "player_selection", choices = c("⚠️ Data not loaded - check logs" = ""))
     }
   })
   
