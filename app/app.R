@@ -26,23 +26,31 @@ CURRENT_YEAR <- 2025
 
 # Data Loading Functions ----------------------------------------------------
 
-#' Load baseball data from GitHub repository 
+#' Load baseball data from GitHub repository
 #' @return List containing hitters, pitchers, and lookup data frames
-
 load_baseball_data <- function() {
-  cat("Loading data from GitHub...\n")
+  cat("Loading baseball data from GitHub...\n")
   
   tryCatch({
-    hitters <- read_csv(paste0(GITHUB_DATA_URL, "full_stats_hitters.csv"), show_col_types = FALSE)
-    pitchers <- read_csv(paste0(GITHUB_DATA_URL, "full_stats_pitchers.csv"), show_col_types = FALSE)
-    lookup <- read_csv(paste0(GITHUB_DATA_URL, "player_lookup.csv"), show_col_types = FALSE)
+    data_files <- c("full_stats_hitters.csv", "full_stats_pitchers.csv", "player_lookup.csv")
+    data_list <- lapply(data_files, function(x) {
+      url <- paste0(GITHUB_DATA_URL, x)
+      cat("Fetching:", url, "\n")
+      read_csv(url, show_col_types = FALSE)
+    })
+    names(data_list) <- c("hitters", "pitchers", "lookup")
     
-    cat("Loaded:", nrow(hitters), "hitters,", nrow(pitchers), "pitchers\n")
-    list(hitters = hitters, pitchers = pitchers, lookup = lookup)
+    cat("Successfully loaded from GitHub:", nrow(data_list$hitters), "hitters,", nrow(data_list$pitchers), "pitchers\n")
+    data_list
     
   }, error = function(e) {
-    cat("Error loading data:", e$message, "\n")
-    list(hitters = data.frame(), pitchers = data.frame(), lookup = data.frame())
+    cat("Error loading from GitHub:", e$message, "\n")
+    # Return empty but valid data structure
+    list(
+      hitters = data.frame(),
+      pitchers = data.frame(),
+      lookup = data.frame(display_name = character(0), PlayerId = character(0), player_type = character(0))
+    )
   })
 }
 
@@ -277,25 +285,35 @@ create_player_trends_plot <- function(player_id, baseball_data) {
   
   # Build comparison data
   metrics <- get_comparison_metrics(player_info$type)
-  comparison_data <- map_dfr(metrics, ~ {
-    current_col <- paste0(.x, "_cur")
-    avg_col <- paste0(.x, "_l3")
+  comparison_data_list <- lapply(metrics, function(metric) {
+    current_col <- paste0(metric, "_cur")
+    avg_col <- paste0(metric, "_l3")
     
     if (current_col %in% colnames(player_data) && avg_col %in% colnames(player_data)) {
       current_val <- player_data[[current_col]]
       avg_val <- player_data[[avg_col]]
       
       if (!is.na(current_val) && !is.na(avg_val)) {
-        tibble(
+        data.frame(
           player = rep(player_info$name, 2),
-          metric = rep(.x, 2),
+          metric = rep(metric, 2),
           period = c("Past 3 years", "2025"),
-          value = c(avg_val, current_val)
+          value = c(avg_val, current_val),
+          stringsAsFactors = FALSE
         )
+      } else {
+        NULL
       }
+    } else {
+      NULL
     }
   })
   
+  # Remove NULL entries and combine
+  comparison_data_list <- comparison_data_list[!sapply(comparison_data_list, is.null)]
+  if (length(comparison_data_list) == 0) return(NULL)
+  
+  comparison_data <- do.call(rbind, comparison_data_list)
   if (nrow(comparison_data) == 0) return(NULL)
   
   # Clean metric names
@@ -564,38 +582,6 @@ analyze_player_performance <- function(player_id, analysis_mode, baseball_data) 
   }
 }
 
-# Statistics Functions ------------------------------------------------------
-
-#' Calculate MLB photo coverage statistics
-#' @param baseball_data Complete baseball data list
-#' @return List with coverage statistics
-calculate_photo_coverage <- function(baseball_data) {
-  hitters_total <- nrow(baseball_data$hitters)
-  pitchers_total <- nrow(baseball_data$pitchers)
-  
-  hitters_with_mlb <- 0
-  pitchers_with_mlb <- 0
-  
-  if (hitters_total > 0 && "mlbamid" %in% colnames(baseball_data$hitters)) {
-    hitters_with_mlb <- sum(!is.na(baseball_data$hitters$mlbamid) & 
-                              baseball_data$hitters$mlbamid != "" & 
-                              baseball_data$hitters$mlbamid != 0, na.rm = TRUE)
-  }
-  
-  if (pitchers_total > 0 && "mlbamid" %in% colnames(baseball_data$pitchers)) {
-    pitchers_with_mlb <- sum(!is.na(baseball_data$pitchers$mlbamid) & 
-                               baseball_data$pitchers$mlbamid != "" & 
-                               baseball_data$pitchers$mlbamid != 0, na.rm = TRUE)
-  }
-  
-  list(
-    hitters_total = hitters_total,
-    pitchers_total = pitchers_total,
-    hitters_with_mlb = hitters_with_mlb,
-    pitchers_with_mlb = pitchers_with_mlb
-  )
-}
-
 # UI Styling ----------------------------------------------------------------
 
 ui_styles <- HTML("
@@ -853,16 +839,6 @@ ui_styles <- HTML("
     margin-bottom: 1rem !important;
     color: #495057 !important;
   }
-  
-  /* Data status styling */
-  .data-status p {
-    margin-bottom: 0.75rem !important;
-    font-size: 0.95rem !important;
-  }
-  
-  .data-status strong {
-    color: #2E86AB !important;
-  }
 ")
 
 # UI Definition -------------------------------------------------------------
@@ -941,10 +917,6 @@ ui <- page_navbar(
         p("Built with R, shiny, tidyverse, baseballr, bslib, shinyWidgets, and shinybusy."),
         p("Powered by GPT-4.1."),
         
-        # Data status section
-        h4("Data Status"),
-        uiOutput("data_status"),
-        
         h4("Get In Touch"),
         tags$a(
           href    = "https://docs.google.com/forms/d/e/1FAIpQLScPiHfO2XxwCXd2V-7pNsUKs-mMaqzzsH2ohA_kBflk_n8AQw/viewform",
@@ -999,34 +971,6 @@ server <- function(input, output, session) {
       # Show error message in dropdown when no data
       updateSelectInput(session, "player_selection", choices = c("⚠️ Data not loaded - check logs" = ""))
     }
-  })
-  
-  # Data status display
-  output$data_status <- renderUI({
-    if (nrow(baseball_data$lookup) == 0) {
-      return(div(class = "alert alert-warning", "No data loaded"))
-    }
-    
-    coverage_stats <- calculate_photo_coverage(baseball_data)
-    
-    div(
-      class = "data-status",
-      style = "background: rgba(255, 255, 255, 0.9); padding: 1.5rem; border-radius: 15px; backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3);",
-      p(strong("Players loaded:"), paste(coverage_stats$hitters_total, "hitters,", coverage_stats$pitchers_total, "pitchers")),
-      p(strong("MLB photo coverage:"), 
-        paste0(coverage_stats$hitters_with_mlb, "/", coverage_stats$hitters_total, " hitters (", 
-               round(100 * coverage_stats$hitters_with_mlb / max(coverage_stats$hitters_total, 1), 1), "%)"),
-        br(),
-        paste0(coverage_stats$pitchers_with_mlb, "/", coverage_stats$pitchers_total, " pitchers (", 
-               round(100 * coverage_stats$pitchers_with_mlb / max(coverage_stats$pitchers_total, 1), 1), "%)")
-      ),
-      if (coverage_stats$hitters_with_mlb == 0 && coverage_stats$pitchers_with_mlb == 0) {
-        div(class = "alert alert-info", 
-            "No MLB IDs found. Photos will use FanGraphs fallback or placeholders.")
-      } else {
-        NULL
-      }
-    )
   })
   
   # Player info card display
