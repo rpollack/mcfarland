@@ -204,17 +204,28 @@ if (!"mlbamid" %in% colnames(full_stats_pitchers)) {
 }
 
 # Create unified player lookup table with MLB IDs for headshots
+# Check for players who appear in both datasets (same name, different types)
+hitter_names <- full_stats_hitters$Name
+pitcher_names <- full_stats_pitchers$Name
+duplicate_names <- intersect(hitter_names, pitcher_names)
+
 player_lookup <- bind_rows(
   full_stats_hitters |>
     select(Name, PlayerId, Age, player_type, mlbamid) |>
     mutate(
-      display_name = paste0(Name, " (Hitter)"),
+      # Only add position label if name appears in both datasets
+      display_name = ifelse(Name %in% duplicate_names, 
+                            paste0(Name, " (Hitter)"), 
+                            Name),
       position_detail = "Hitter"
     ),
   full_stats_pitchers |>
     select(Name, PlayerId, Age, player_type, position, mlbamid) |>
     mutate(
-      display_name = paste0(Name, " (", position, ")"),
+      # Only add position label if name appears in both datasets
+      display_name = ifelse(Name %in% duplicate_names, 
+                            paste0(Name, " (", position, ")"), 
+                            Name),
       position_detail = position
     )
 ) |>
