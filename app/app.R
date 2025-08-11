@@ -422,7 +422,7 @@ analyze_player <- function(player_id, analysis_mode, baseball_data) {
 
 # UI
 ui <- page_navbar(
-  title = "McFARLAND v0.7",
+  title = HTML("McFARLAND <small style='font-size: 0.6em; color: #6c757d; font-weight: 400;'>🤖⚾ AI-powered baseball player analysis</small>"),
   
   header = tagList(
     # Viewport constraints for mobile - prevents zooming and wiggling
