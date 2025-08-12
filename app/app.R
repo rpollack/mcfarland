@@ -605,43 +605,65 @@ analyze_player_performance <- function(player_id, analysis_mode, baseball_data) 
   )
 }
 
-# UI Styling (unchanged) -------------------------------------------------------
+# UI Styling ----------------------------------------------------------------
 
 ui_styles <- HTML("
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
   
-  /* Global app styling */
+  /* Global app styling with viewport lock */
   * {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
   
-  body {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    min-height: 100vh;
+  html, body {
     margin: 0;
-    overflow-x: hidden;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow-x: hidden !important;
+    position: fixed !important;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   }
   
-  /* Navbar styling */
+  #shiny-ui {
+    width: 100vw !important;
+    height: 100vh !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+  }
+  
+  /* Navbar styling with responsive brand */
   .navbar {
     background: rgba(255, 255, 255, 0.95) !important;
     backdrop-filter: blur(20px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.2);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    padding: 0.5rem 1rem !important;
   }
   
   .navbar-brand {
     font-weight: 700 !important;
-    font-size: 1.5rem !important;
+    font-size: 1.3rem !important;
     color: #2E86AB !important;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 0.25rem 0 !important;
+  }
+  
+  .navbar-subtitle {
+    font-size: 0.65rem !important;
+    color: #6c757d !important;
+    font-weight: 400 !important;
+    line-height: 1 !important;
+    margin-top: 2px !important;
   }
   
   .nav-link {
     font-weight: 500 !important;
     transition: all 0.3s ease !important;
     border-radius: 8px !important;
-    margin: 0 4px !important;
+    margin: 0 2px !important;
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.9rem !important;
   }
   
   .nav-link:hover {
@@ -649,42 +671,52 @@ ui_styles <- HTML("
     transform: translateY(-1px);
   }
   
+  /* Container adjustments for mobile */
+  .container-fluid {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+  
   /* Card styling with glass morphism */
   .card {
     background: rgba(255, 255, 255, 0.95) !important;
     backdrop-filter: blur(20px) !important;
     border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    border-radius: 20px !important;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1) !important;
+    border-radius: 15px !important;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1) !important;
     transition: all 0.3s ease !important;
     overflow: hidden;
+    margin-bottom: 1rem !important;
   }
   
   .card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15) !important;
+    transform: translateY(-3px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15) !important;
   }
   
   .card-header {
     background: linear-gradient(135deg, #2E86AB, #4A90E2) !important;
     color: white !important;
     font-weight: 600 !important;
-    font-size: 1.1rem !important;
+    font-size: 1rem !important;
     border-bottom: none !important;
-    padding: 1.25rem 1.5rem !important;
+    padding: 1rem 1.25rem !important;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   }
   
   .card-body {
-    padding: 1.5rem !important;
+    padding: 1.25rem !important;
   }
   
   /* Form controls styling */
   .form-select, .form-control {
     border: 2px solid rgba(46, 134, 171, 0.2) !important;
-    border-radius: 12px !important;
-    padding: 0.75rem 1rem !important;
+    border-radius: 10px !important;
+    padding: 0.6rem 0.85rem !important;
     font-weight: 500 !important;
+    font-size: 0.9rem !important;
     transition: all 0.3s ease !important;
     background: rgba(255, 255, 255, 0.9) !important;
   }
@@ -692,17 +724,18 @@ ui_styles <- HTML("
   .form-select:focus, .form-control:focus {
     border-color: #2E86AB !important;
     box-shadow: 0 0 0 3px rgba(46, 134, 171, 0.2) !important;
-    transform: scale(1.02);
+    transform: scale(1.01);
   }
   
   /* Button styling */
   .btn {
-    border-radius: 12px !important;
+    border-radius: 10px !important;
     font-weight: 600 !important;
-    padding: 0.75rem 1.5rem !important;
+    padding: 0.6rem 1.2rem !important;
     transition: all 0.3s ease !important;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    font-size: 0.8rem !important;
   }
   
   .btn-primary {
@@ -721,55 +754,56 @@ ui_styles <- HTML("
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 249, 250, 0.95)) !important;
     backdrop-filter: blur(20px) !important;
     border: 1px solid rgba(255, 255, 255, 0.3) !important;
-    border-radius: 20px !important;
-    padding: 2rem !important;
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1) !important;
+    border-radius: 15px !important;
+    padding: 1.5rem !important;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1) !important;
     transition: all 0.4s ease !important;
-    margin-bottom: 1.5rem !important;
+    margin-bottom: 1rem !important;
   }
   
   .player-info-card:hover {
-    transform: translateY(-3px) scale(1.02);
-    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15) !important;
+    transform: translateY(-2px) scale(1.01);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15) !important;
   }
   
   .player-photo {
-    width: 160px !important;
-    height: 160px !important;
+    width: 120px !important;
+    height: 120px !important;
     border-radius: 50% !important;
-    border: 4px solid #2E86AB !important;
-    margin-bottom: 1rem !important;
+    border: 3px solid #2E86AB !important;
+    margin-bottom: 0.75rem !important;
     object-fit: cover !important;
     transition: all 0.3s ease !important;
-    box-shadow: 0 10px 30px rgba(46, 134, 171, 0.3) !important;
+    box-shadow: 0 8px 20px rgba(46, 134, 171, 0.3) !important;
   }
   
   .player-photo:hover {
-    transform: scale(1.05);
-    box-shadow: 0 15px 40px rgba(46, 134, 171, 0.4) !important;
+    transform: scale(1.03);
+    box-shadow: 0 10px 25px rgba(46, 134, 171, 0.4) !important;
   }
   
   .player-name {
-    margin-bottom: 0.5rem !important;
+    margin-bottom: 0.4rem !important;
     color: #2E86AB !important;
     font-weight: 700 !important;
-    font-size: 1.5rem !important;
+    font-size: 1.2rem !important;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
   
   .player-details {
     color: #6c757d !important;
-    font-size: 0.95rem !important;
+    font-size: 0.85rem !important;
     font-weight: 500 !important;
     margin-bottom: 0 !important;
   }
   
   /* Alert styling */
   .alert {
-    border-radius: 15px !important;
+    border-radius: 12px !important;
     border: none !important;
     font-weight: 500 !important;
     backdrop-filter: blur(10px) !important;
+    font-size: 0.9rem !important;
   }
   
   .alert-info {
@@ -784,7 +818,7 @@ ui_styles <- HTML("
   
   /* Loading animation */
   .progress {
-    height: 8px !important;
+    height: 6px !important;
     border-radius: 10px !important;
     background: rgba(255, 255, 255, 0.2) !important;
   }
@@ -796,29 +830,125 @@ ui_styles <- HTML("
   
   /* Plot container styling */
   .shiny-plot-output {
-    border-radius: 15px !important;
+    border-radius: 12px !important;
     overflow: hidden !important;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1) !important;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1) !important;
   }
   
-  /* Responsive improvements */
+  /* Analysis content styling */
+  .analysis-content {
+    line-height: 1.5 !important;
+    font-size: 0.95rem !important;
+  }
+  
+  .analysis-content h1, .analysis-content h2, .analysis-content h3 {
+    color: #2E86AB !important;
+    font-weight: 700 !important;
+    margin-top: 1.2rem !important;
+    margin-bottom: 0.8rem !important;
+    font-size: 1.1rem !important;
+  }
+  
+  .analysis-content p {
+    margin-bottom: 0.8rem !important;
+    color: #495057 !important;
+  }
+  
+  /* Mobile-specific optimizations */
   @media (max-width: 768px) {
+    .navbar-brand {
+      font-size: 1.1rem !important;
+    }
+    
+    .navbar-subtitle {
+      font-size: 0.6rem !important;
+    }
+    
+    .nav-link {
+      font-size: 0.85rem !important;
+      padding: 0.4rem 0.6rem !important;
+    }
+    
     .card {
-      margin-bottom: 1rem !important;
-      border-radius: 15px !important;
+      border-radius: 12px !important;
+      margin-bottom: 0.75rem !important;
+    }
+    
+    .card-body {
+      padding: 1rem !important;
     }
     
     .player-info-card {
-      padding: 1.5rem !important;
+      padding: 1.2rem !important;
     }
     
     .player-photo {
-      width: 120px !important;
-      height: 120px !important;
+      width: 100px !important;
+      height: 100px !important;
     }
     
     .player-name {
-      font-size: 1.3rem !important;
+      font-size: 1.1rem !important;
+    }
+    
+    .player-details {
+      font-size: 0.8rem !important;
+    }
+    
+    .analysis-content {
+      font-size: 0.9rem !important;
+    }
+    
+    .analysis-content h1, .analysis-content h2, .analysis-content h3 {
+      font-size: 1rem !important;
+    }
+    
+    /* Ensure columns stack properly on mobile */
+    .layout-columns {
+      flex-direction: column !important;
+    }
+    
+    .layout-columns > * {
+      width: 100% !important;
+      flex: none !important;
+    }
+  }
+  
+  /* Extra small screens */
+  @media (max-width: 576px) {
+    .container-fluid {
+      padding-left: 0.5rem !important;
+      padding-right: 0.5rem !important;
+    }
+    
+    .navbar {
+      padding: 0.4rem 0.75rem !important;
+    }
+    
+    .navbar-brand {
+      font-size: 1rem !important;
+    }
+    
+    .navbar-subtitle {
+      font-size: 0.55rem !important;
+    }
+    
+    .card-body {
+      padding: 0.85rem !important;
+    }
+    
+    .player-info-card {
+      padding: 1rem !important;
+    }
+    
+    .form-select, .form-control {
+      font-size: 0.85rem !important;
+      padding: 0.5rem 0.7rem !important;
+    }
+    
+    .btn {
+      font-size: 0.75rem !important;
+      padding: 0.5rem 1rem !important;
     }
   }
   
@@ -829,7 +959,7 @@ ui_styles <- HTML("
   
   /* Custom scrollbar */
   ::-webkit-scrollbar {
-    width: 8px;
+    width: 6px;
   }
   
   ::-webkit-scrollbar-track {
@@ -844,40 +974,27 @@ ui_styles <- HTML("
   ::-webkit-scrollbar-thumb:hover {
     background: rgba(46, 134, 171, 0.7);
   }
-  
-  /* Analysis content styling */
-  .analysis-content {
-    line-height: 1.6 !important;
-    font-size: 1rem !important;
-  }
-  
-  .analysis-content h1, .analysis-content h2, .analysis-content h3 {
-    color: #2E86AB !important;
-    font-weight: 700 !important;
-    margin-top: 1.5rem !important;
-    margin-bottom: 1rem !important;
-  }
-  
-  .analysis-content p {
-    margin-bottom: 1rem !important;
-    color: #495057 !important;
-  }
 ")
 
-# UI Definition (unchanged) ----------------------------------------------------
+# UI Definition -------------------------------------------------------------
 
 ui <- page_navbar(
   title = "McFARLAND: AI-Powered Baseball Analysis",  # Clean title for browser tab
   
   header = tagList(
-    tags$meta(name = "viewport", content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover"),
+    tags$meta(name = "viewport", content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover, shrink-to-fit=no"),
     tags$style(ui_styles),
     add_busy_bar(color = "#2E86AB", height = "25px"),
     
-    # Custom JavaScript to update navbar brand with styled version
+    # Custom JavaScript to update navbar brand with responsive stacked version
     tags$script(HTML("
       $(document).ready(function() {
-        $('.navbar-brand').html('McFARLAND <small style=\"font-size: 0.6em; color: #6c757d; font-weight: 400;\">🤖⚾ AI-powered baseball player analysis</small>');
+        $('.navbar-brand').html(`
+          <div class='d-flex flex-column'>
+            <div class='fw-bold'>McFARLAND</div>
+            <div class='navbar-subtitle'>🤖⚾ AI-powered baseball analysis</div>
+          </div>
+        `);
       });
     "))
   ),
