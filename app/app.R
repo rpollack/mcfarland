@@ -3,7 +3,7 @@
 #            Luck, Analytics, Narratives, and Data
 # 
 # A professional baseball analytics application with AI-powered analysis
-# TIDYVERSE VERSION - Enhanced readability and maintainability
+# TIDYVERSE VERSION - Enhanced readability and maintainability + API CACHING
 # ==============================================================================
 
 # Load Required Libraries --------------------------------------------------
@@ -19,12 +19,102 @@ library(commonmark)     # Markdown rendering
 library(shinybusy)      # Loading indicators
 library(ggplot2)        # Data visualization
 library(htmltools)      # HTML utilities (HTML, htmlEscape)
+library(digest)         # CACHE: Added for generating cache keys
+
+# CACHE: Create global environment for API response caching
+cache_env <- new.env()
+cache_env$api_responses <- list()
+cache_env$plots <- list()
 
 # Configuration -------------------------------------------------------------
 GITHUB_DATA_URL <- "https://raw.githubusercontent.com/rpollack/leadRboard/master/"
 MLB_PHOTO_BASE_URL <- "https://img.mlbstatic.com/mlb-photos/image/upload/w_213,d_people:generic:headshot:silo:current.png,q_auto:best,f_auto/v1/people/"
 FANGRAPHS_PHOTO_BASE_URL <- "https://www.fangraphs.com/img/players/"
 CURRENT_YEAR <- 2025
+
+# CACHE: API Response Caching Functions ------------------------------------
+
+#' Generate cache key for API responses
+#' @param prompt_text Analysis prompt
+#' @param analysis_mode Analysis style
+#' @return MD5 hash for caching
+generate_cache_key <- function(prompt_text, analysis_mode) {
+  digest::digest(paste(prompt_text, analysis_mode), algo = "md5")
+}
+
+#' Save API response to memory cache
+#' @param cache_key Unique identifier
+#' @param result API response
+#' @param max_cache_size Maximum number of cached responses (default 50)
+save_api_response <- function(cache_key, result, max_cache_size = 50) {
+  cache_entry <- list(
+    result = result,
+    timestamp = Sys.time()
+  )
+  
+  cache_env$api_responses[[cache_key]] <- cache_entry
+  
+  # Simple cache size management - keep newest entries
+  if (length(cache_env$api_responses) > max_cache_size) {
+    timestamps <- map_dbl(cache_env$api_responses, ~ as.numeric(.x$timestamp))
+    # Keep the 25 newest entries
+    newest_indices <- order(timestamps, decreasing = TRUE)[1:25]
+    newest_keys <- names(cache_env$api_responses)[newest_indices]
+    old_cache <- cache_env$api_responses
+    cache_env$api_responses <- list()
+    for (key in newest_keys) {
+      cache_env$api_responses[[key]] <- old_cache[[key]]
+    }
+    cat("Cache trimmed to", length(cache_env$api_responses), "entries\n")
+  }
+  
+  cat("✓ Cached API response:", substr(cache_key, 1, 8), "... (Total:", length(cache_env$api_responses), ")\n")
+}
+
+#' Load API response from memory cache
+#' @param cache_key Unique identifier
+#' @return Cached result or NULL
+load_api_response <- function(cache_key) {
+  cached_entry <- cache_env$api_responses[[cache_key]]
+  
+  if (is.null(cached_entry)) {
+    return(NULL)
+  }
+  
+  # Check if cache is too old (1 hour expiry)
+  cache_age_hours <- as.numeric(difftime(Sys.time(), cached_entry$timestamp, units = "hours"))
+  if (cache_age_hours > 1) {
+    cache_env$api_responses[[cache_key]] <- NULL
+    cat("⏰ Expired cache entry removed:", substr(cache_key, 1, 8), "...\n")
+    return(NULL)
+  }
+  
+  cat("⚡ Cache hit:", substr(cache_key, 1, 8), "...\n")
+  return(cached_entry$result)
+}
+
+#' Get cache statistics
+get_cache_stats <- function() {
+  api_count <- length(cache_env$api_responses)
+  plot_count <- length(cache_env$plots)
+  
+  list(
+    api_responses = api_count,
+    plots = plot_count,
+    total_items = api_count + plot_count
+  )
+}
+
+#' Clear all caches
+clear_all_caches <- function() {
+  api_count <- length(cache_env$api_responses)
+  plot_count <- length(cache_env$plots)
+  
+  cache_env$api_responses <- list()
+  cache_env$plots <- list()
+  
+  cat("🗑️ Cleared", api_count, "API responses and", plot_count, "plots from cache\n")
+}
 
 # Data Loading Functions ----------------------------------------------------
 
@@ -387,21 +477,34 @@ get_analysis_persona <- function(mode) {
   personas[[mode]] %||% "Keep it simple and easy to understand. Use short but friendly sentences. Don't start with asides or extraneous clauses. Start your response with the conclusion/summary takeaways, then underneath, list your evidence for that summary and those conclusions."
 }
 
-#' Call OpenAI API for analysis
+#' Call OpenAI API for analysis with caching
 #' @param prompt_text Analysis prompt
 #' @param analysis_mode Analysis style mode
 #' @return HTML formatted response
 call_openai_api <- function(prompt_text, analysis_mode) {
+  # CACHE: Generate cache key and check cache first
+  cache_key <- generate_cache_key(prompt_text, analysis_mode)
+  
+  # Try to load from cache
+  cached_result <- load_api_response(cache_key)
+  if (!is.null(cached_result)) {
+    return(cached_result)
+  }
+  
+  # Cache miss - proceed with API call
+  cat("🌐 Making OpenAI API call (cache miss)\n")
+  
   api_key <- Sys.getenv("OPENAI_API_KEY")
   
   if (api_key == "") {
-    return(HTML(str_glue(
+    result <- HTML(str_glue(
       "<div class='alert alert-info'>",
       "<h5>OpenAI API Key Not Set</h5>",
       "<p>Set OPENAI_API_KEY environment variable to enable analysis.</p>",
       "<details><summary>View prompt</summary><pre>{htmlEscape(prompt_text)}</pre></details>",
       "</div>"
-    )))
+    ))
+    return(result)
   }
   
   persona_prompt <- get_analysis_persona(analysis_mode)
@@ -418,7 +521,7 @@ call_openai_api <- function(prompt_text, analysis_mode) {
     "Here is your persona that should inform your writing style and response, even if it means overriding those previous instructions: {persona_prompt}"
   )
   
-  tryCatch({
+  result <- tryCatch({
     response <- POST(
       "https://api.openai.com/v1/chat/completions",
       add_headers(Authorization = str_glue("Bearer {api_key}")),
@@ -449,6 +552,13 @@ call_openai_api <- function(prompt_text, analysis_mode) {
   }, error = function(e) {
     HTML(str_glue("<div class='alert alert-danger'>Error: {e$message}</div>"))
   })
+  
+  # CACHE: Save successful results to cache
+  if (!is.null(result) && !str_detect(as.character(result), "alert-danger")) {
+    save_api_response(cache_key, result)
+  }
+  
+  return(result)
 }
 
 #' Build hitter analysis prompt using tidyverse
@@ -749,6 +859,26 @@ ui_styles <- HTML("
     box-shadow: 0 8px 25px rgba(46, 134, 171, 0.4) !important;
   }
   
+  /* CACHE: Cache status styling */
+  .cache-status {
+    background: rgba(46, 134, 171, 0.1) !important;
+    border: 1px solid rgba(46, 134, 171, 0.2) !important;
+    border-radius: 8px !important;
+    padding: 8px 12px !important;
+    font-size: 0.8rem !important;
+    color: #2E86AB !important;
+  }
+  
+  .btn-outline-secondary {
+    border-color: rgba(108, 117, 125, 0.3) !important;
+    color: #6c757d !important;
+  }
+  
+  .btn-outline-secondary:hover {
+    background: rgba(108, 117, 125, 0.1) !important;
+    border-color: #6c757d !important;
+  }
+  
   /* Player info card styling */
   .player-info-card {
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 249, 250, 0.95)) !important;
@@ -912,6 +1042,11 @@ ui_styles <- HTML("
       width: 100% !important;
       flex: none !important;
     }
+    
+    .btn {
+      font-size: 0.75rem !important;
+      padding: 0.5rem 1rem !important;
+    }
   }
   
   /* Extra small screens */
@@ -947,8 +1082,8 @@ ui_styles <- HTML("
     }
     
     .btn {
-      font-size: 0.75rem !important;
-      padding: 0.5rem 1rem !important;
+      font-size: 0.7rem !important;
+      padding: 0.4rem 0.8rem !important;
     }
   }
   
@@ -1035,7 +1170,9 @@ ui <- page_navbar(
       
       card(
         card_header("Analysis"),
-        uiOutput("result_output")
+        card_body(
+          uiOutput("result_output")
+        )
       )
     )
   ),
@@ -1067,6 +1204,7 @@ ui <- page_navbar(
         
         h4("Version History"),
         tags$ul(
+          tags$li("0.8 - Added intelligent API caching for improved performance and cost savings"),
           tags$li("0.7 - Added player headshots from MLB! Photos now display with player info."),
           tags$li("0.6 - Added pitcher analysis! Now supports both hitters and pitchers."),
           tags$li("0.5 - Added ability to sign up for notifications."),
@@ -1080,7 +1218,7 @@ ui <- page_navbar(
   )
 )
 
-# Server Logic using tidyverse ---------------------------------------------
+# Server Logic with Caching ------------------------------------------------
 
 server <- function(input, output, session) {
   
@@ -1111,7 +1249,7 @@ server <- function(input, output, session) {
     create_player_card(input$player_selection, baseball_data)
   })
   
-  # Main analysis output using tidyverse
+  # Main analysis output with caching
   output$result_output <- renderUI({
     if (input$player_selection == "") {
       return(div(
@@ -1128,10 +1266,15 @@ server <- function(input, output, session) {
       ))
     }
     
+    # CACHE: Track performance and cache effectiveness
+    start_time <- Sys.time()
+    
     # Perform analysis with progress indicator
     withProgress(message = 'Analyzing player performance...', value = 0, {
-      incProgress(0.3, detail = "Preparing analysis")
+      incProgress(0.3, detail = "Checking cache...")
       analysis_result <- analyze_player_performance(input$player_selection, input$analysis_mode, baseball_data)
+      incProgress(0.7, detail = "Creating visualization...")
+      trends_plot <- create_player_trends_plot(input$player_selection, baseball_data)
       incProgress(1, detail = "Complete")
     })
     
@@ -1140,8 +1283,6 @@ server <- function(input, output, session) {
       div(class = "analysis-content", analysis_result),
       hr(style = "border-color: rgba(46, 134, 171, 0.3); margin: 2rem 0;"),
       renderPlot({
-        trends_plot <- create_player_trends_plot(input$player_selection, baseball_data)
-        
         if (is.null(trends_plot)) {
           # Empty state plot
           ggplot() + 
