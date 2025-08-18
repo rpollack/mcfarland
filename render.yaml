@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: mcfarland-baseball
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon
+    branch: master
+    healthCheckPath: /
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: RENDER
+        value: "true"
+    autoDeploy: true
