@@ -189,6 +189,51 @@ clear_all_caches <- function() {
 
 # Data Loading Functions ----------------------------------------------------
 
+# Add this data caching system to your app.R
+# Replace your existing load_baseball_data() calls with this cached version
+
+# Global cache for baseball data
+.baseball_data_cache <- NULL
+.cache_timestamp <- NULL
+
+# Cached data loading function
+load_baseball_data_cached <- function() {
+  # Check if cache exists and is fresh (within 1 hour)
+  if (!is.null(.baseball_data_cache) && 
+      !is.null(.cache_timestamp) && 
+      (Sys.time() - .cache_timestamp) < 3600) {
+    
+    cat("✓ Using cached baseball data\n")
+    return(.baseball_data_cache)
+  }
+  
+  # Load fresh data
+  cat("Loading fresh baseball data...\n")
+  start_time <- Sys.time()
+  
+  fresh_data <- tryCatch({
+    load_baseball_data()  # Your existing function
+  }, error = function(e) {
+    cat("Error loading data:", e$message, "\n")
+    # Return empty but valid structure
+    list(
+      hitters = tibble(),
+      pitchers = tibble(),
+      lookup = tibble(display_name = character(), PlayerId = character(), player_type = character())
+    )
+  })
+  
+  load_time <- Sys.time() - start_time
+  cat("✓ Data loaded in", round(as.numeric(load_time), 1), "seconds\n")
+  
+  # Cache the data
+  .baseball_data_cache <<- fresh_data
+  .cache_timestamp <<- Sys.time()
+  
+  return(fresh_data)
+}
+
+
 #' Load baseball data from GitHub repository using tidyverse
 #' @return List containing hitters, pitchers, and lookup data frames
 load_baseball_data <- function() {
@@ -1294,7 +1339,7 @@ ui <- page_navbar(
 server <- function(input, output, session) {
   
   # Load data on startup
-  baseball_data <- load_baseball_data()
+  baseball_data <- load_baseball_data_cached()
   
   # Update player choices using tidyverse
   observe({
