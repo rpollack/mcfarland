@@ -6,6 +6,24 @@
 # TIDYVERSE VERSION - Enhanced readability and maintainability + API CACHING
 # ==============================================================================
 
+# RENDER.COM COMPATIBILITY CONFIGURATION
+if (Sys.getenv("RENDER") == "true") {
+  # Running on Render - configure host and port
+  options(shiny.host = "0.0.0.0")
+  options(shiny.port = 3838)
+  
+  # Production settings
+  options(shiny.sanitize.errors = FALSE)
+  options(shiny.trace = FALSE)
+  options(shiny.autoreload = FALSE)
+  
+  cat("Running on Render.com - Host: 0.0.0.0, Port: 3838\n")
+} else {
+  # Local development settings
+  options(shiny.autoreload = TRUE)
+  cat("Running in development mode\n")
+}
+
 # Load Required Libraries --------------------------------------------------
 library(shiny)          # Core Shiny framework
 library(dplyr)          # Data manipulation (filter, select, case_when, etc.)
