@@ -6,23 +6,76 @@
 # TIDYVERSE VERSION - Enhanced readability and maintainability + API CACHING
 # ==============================================================================
 
+# Updated configuration for the top of your app/app.R file
+# Replace the existing Render configuration block with this:
+
+cat("=== MCFARLAND APP STARTING ===\n")
+cat("Timestamp:", as.character(Sys.time()), "\n")
+cat("Working directory:", getwd(), "\n")
+cat("R version:", R.version.string, "\n")
+
 # RENDER.COM COMPATIBILITY CONFIGURATION
 if (Sys.getenv("RENDER") == "true") {
-  # Running on Render - configure host and port
-  options(shiny.host = "0.0.0.0")
-  options(shiny.port = 3838)
-  
-  # Production settings
+  # Running on Render - options are set by the CMD in Dockerfile
   options(shiny.sanitize.errors = FALSE)
-  options(shiny.trace = FALSE)
-  options(shiny.autoreload = FALSE)
-  
-  cat("Running on Render.com - Host: 0.0.0.0, Port: 3838\n")
+  options(shiny.trace = TRUE)  # Enable tracing to see errors
+  cat("✓ Render config applied (host/port set by CMD)\n")
 } else {
-  # Local development settings
+  # Local development
   options(shiny.autoreload = TRUE)
-  cat("Running in development mode\n")
+  cat("✓ Development mode\n")
 }
+
+cat("=== CHECKING ENVIRONMENT ===\n")
+cat("RENDER env var:", Sys.getenv("RENDER"), "\n")
+cat("OPENAI_API_KEY set:", nchar(Sys.getenv("OPENAI_API_KEY")) > 0, "\n")
+
+cat("=== LOADING LIBRARIES ===\n")
+
+# Load libraries with error handling
+tryCatch({
+  library(shiny)
+  cat("✓ shiny loaded\n")
+}, error = function(e) {
+  cat("✗ shiny FAILED:", e$message, "\n")
+  stop("Cannot load shiny package")
+})
+
+tryCatch({
+  library(dplyr)
+  cat("✓ dplyr loaded\n")
+}, error = function(e) {
+  cat("✗ dplyr FAILED:", e$message, "\n")
+  stop("Cannot load dplyr package")
+})
+
+# Load other essential packages
+for (pkg in c("readr", "purrr", "stringr", "httr", "jsonlite", 
+              "bslib", "commonmark", "shinybusy", "ggplot2", "htmltools", "digest")) {
+  tryCatch({
+    library(pkg, character.only = TRUE)
+    cat("✓", pkg, "loaded\n")
+  }, error = function(e) {
+    cat("✗", pkg, "FAILED:", e$message, "\n")
+    stop(paste("Cannot load", pkg, "package"))
+  })
+}
+
+# Load baseball-specific packages (these might fail)
+for (pkg in c("baseballr", "stringi", "janitor")) {
+  tryCatch({
+    library(pkg, character.only = TRUE)
+    cat("✓", pkg, "loaded\n")
+  }, error = function(e) {
+    cat("⚠", pkg, "FAILED:", e$message, "\n")
+    cat("Continuing without", pkg, "\n")
+  })
+}
+
+cat("=== LIBRARIES LOADED ===\n")
+
+# Rest of your existing app.R code continues here...
+# (All your existing functions, UI, server, etc.)
 
 # Load Required Libraries --------------------------------------------------
 library(shiny)          # Core Shiny framework

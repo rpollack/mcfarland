@@ -1,5 +1,8 @@
-FROM rocker/shiny:4.3.2
+# Simplified Dockerfile - Direct R Shiny approach
 
+FROM rocker/r-base:4.3.2
+
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     libcurl4-openssl-dev \
     libssl-dev \
@@ -8,38 +11,21 @@ RUN apt-get update && apt-get install -y \
     libfontconfig1-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Install R packages
 RUN R -e "install.packages(c( \
-    'shiny', \
-    'dplyr', \
-    'readr', \
-    'purrr', \
-    'stringr', \
-    'httr', \
-    'jsonlite', \
-    'bslib', \
-    'commonmark', \
-    'shinybusy', \
-    'ggplot2', \
-    'htmltools', \
-    'digest', \
-    'tidyverse', \
-    'baseballr', \
-    'stringi', \
-    'janitor' \
+    'shiny', 'dplyr', 'readr', 'purrr', 'stringr', \
+    'httr', 'jsonlite', 'bslib', 'commonmark', \
+    'shinybusy', 'ggplot2', 'htmltools', 'digest', \
+    'tidyverse', 'baseballr', 'stringi', 'janitor' \
     ), repos='https://cran.rstudio.com/')"
 
-RUN mkdir -p /srv/shiny-server/
-COPY app/app.R /srv/shiny-server/app.R
+# Create app directory
+WORKDIR /app
 
-RUN echo 'run_as shiny; \
-server { \
-  listen 3838 0.0.0.0; \
-  location / { \
-    site_dir /srv/shiny-server; \
-    log_dir /var/log/shiny-server; \
-    directory_index on; \
-  } \
-}' > /etc/shiny-server/shiny-server.conf
+# Copy your app
+COPY app/app.R /app/app.R
 
 EXPOSE 3838
-CMD ["/usr/bin/shiny-server"]
+
+# Run R directly to start the Shiny app
+CMD ["R", "-e", "shiny::runApp('/app/app.R', host='0.0.0.0', port=3838)"]
