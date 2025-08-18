@@ -11,12 +11,9 @@
 !warcels-2019.csv
 *.Rproj
 app/.Renviron
-cubs-rays-relative.png
-warcels-copy.Rmd
 *.png
 *.txt
 *.html
-Untitled.Rmd
 *.jpg
 *.numbers
 .DS_Store
