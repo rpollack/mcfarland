@@ -12,6 +12,8 @@
 *.Rproj
 app/.Renviron
 *.png
+!app/www/baseball.png
+!app/www/tjmcfarland.png
 *.txt
 *.html
 *.jpg
