@@ -183,7 +183,7 @@ Submit feedback and feature requests via the in-app forms or GitHub issues.
 
 - **Data**: [FanGraphs](https://www.fangraphs.com/) for comprehensive baseball statistics
 - **Photos**: MLB for official player headshots
-- **Inspiration**: [T.J. McFarland](https://www.baseball-reference.com/players/m/mcfart01.shtml) - the utility pitcher who inspired the name
+- **Inspiration**: [T.J. McFarland](https://www.fangraphs.com/players/tj-mcfarland/3237/stats?position=P) - the utility pitcher who inspired the name
 - **AI**: OpenAI GPT-4.1 for intelligent analysis generation
 
 ## License
