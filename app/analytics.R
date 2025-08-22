@@ -12,6 +12,8 @@ postgres_available <- requireNamespace("RPostgreSQL", quietly = TRUE)
 # ==============================================================================
 # DATABASE CONNECTION
 # ==============================================================================
+# Replace your get_db_connection() function with this version
+# that handles Render's internal URL format (missing port)
 
 get_db_connection <- function() {
   database_url <- Sys.getenv("DATABASE_URL")
@@ -31,19 +33,74 @@ get_db_connection <- function() {
       library(RPostgreSQL)
       cat("🔗 Connecting to PostgreSQL\n")
       
-      # Parse DATABASE_URL format: postgres://user:password@host:port/dbname
-      url_parts <- regmatches(database_url, regexec("postgres://([^:]+):([^@]+)@([^:]+):(\\d+)/(.+)", database_url))[[1]]
-      
-      if (length(url_parts) < 6) {
-        stop("Invalid DATABASE_URL format")
+      # Robust URL parsing that handles missing port
+      parse_db_url <- function(url) {
+        # Remove protocol
+        if (grepl("^postgres://", url)) {
+          url <- sub("^postgres://", "", url)
+        } else if (grepl("^postgresql://", url)) {
+          url <- sub("^postgresql://", "", url)
+        } else {
+          stop("URL must start with postgres:// or postgresql://")
+        }
+        
+        # Split into auth@host/db parts
+        parts <- strsplit(url, "@")[[1]]
+        if (length(parts) != 2) stop("Invalid URL format: missing @")
+        
+        auth_part <- parts[1]
+        host_db_part <- parts[2]
+        
+        # Parse auth (user:password)
+        auth_split <- strsplit(auth_part, ":")[[1]]
+        if (length(auth_split) != 2) stop("Invalid auth format")
+        user <- auth_split[1]
+        password <- auth_split[2]
+        
+        # Parse host/database (may or may not have port)
+        host_db_split <- strsplit(host_db_part, "/")[[1]]
+        if (length(host_db_split) != 2) stop("Invalid host/database format")
+        
+        host_port <- host_db_split[1]
+        database <- host_db_split[2]
+        
+        # Parse host:port (port might be missing)
+        if (grepl(":", host_port)) {
+          # Port is specified
+          host_port_split <- strsplit(host_port, ":")[[1]]
+          host <- host_port_split[1]
+          port <- as.integer(host_port_split[2])
+        } else {
+          # No port specified, use default PostgreSQL port
+          host <- host_port
+          port <- 5432L
+        }
+        
+        return(list(
+          user = user,
+          password = password,
+          host = host,
+          port = port,
+          database = database
+        ))
       }
       
+      # Parse the URL
+      db_params <- parse_db_url(database_url)
+      
+      cat("✓ Parsed connection details:\n")
+      cat("  Host:", db_params$host, "\n")
+      cat("  Port:", db_params$port, "\n")
+      cat("  Database:", db_params$database, "\n")
+      cat("  User:", db_params$user, "\n")
+      
       dbConnect(RPostgreSQL::PostgreSQL(),
-                host = url_parts[4], 
-                port = as.integer(url_parts[5]),
-                dbname = url_parts[6], 
-                user = url_parts[2], 
-                password = url_parts[3])
+                host = db_params$host,
+                port = db_params$port,
+                dbname = db_params$database,
+                user = db_params$user,
+                password = db_params$password)
+      
     }, error = function(e) {
       cat("⚠ PostgreSQL connection failed:", e$message, "\n")
       cat("📁 Falling back to SQLite\n")
@@ -51,7 +108,6 @@ get_db_connection <- function() {
     })
   }
 }
-
 # ==============================================================================
 # DATABASE SETUP
 # ==============================================================================
@@ -128,59 +184,5 @@ log_analysis <- function(session, player_name, analysis_mode) {
     cat("📊", player_name, "-", analysis_mode, "- User:", substr(user_id, 1, 8), "...\n")
   }, error = function(e) {
     cat("⚠ Logging error:", e$message, "\n")
-  })
-}
-
-# ==============================================================================
-# ADMIN ANALYTICS FUNCTIONS
-# ==============================================================================
-
-get_analytics_summary <- function() {
-  con <- get_db_connection()
-  on.exit(dbDisconnect(con))
-  
-  tryCatch({
-    # Total analyses today
-    today_count <- dbGetQuery(con, "
-      SELECT COUNT(*) as count 
-      FROM analyses 
-      WHERE DATE(timestamp) = DATE('now')
-    ")
-    
-    # Total analyses this week  
-    week_count <- dbGetQuery(con, "
-      SELECT COUNT(*) as count 
-      FROM analyses 
-      WHERE timestamp >= datetime('now', '-7 days')
-    ")
-    
-    # Top players analyzed today
-    top_players <- dbGetQuery(con, "
-      SELECT player_name, COUNT(*) as count
-      FROM analyses 
-      WHERE DATE(timestamp) = DATE('now')
-      GROUP BY player_name 
-      ORDER BY count DESC 
-      LIMIT 5
-    ")
-    
-    # Top analysis modes
-    top_modes <- dbGetQuery(con, "
-      SELECT analysis_mode, COUNT(*) as count
-      FROM analyses 
-      WHERE DATE(timestamp) = DATE('now')
-      GROUP BY analysis_mode 
-      ORDER BY count DESC
-    ")
-    
-    list(
-      today_total = today_count$count,
-      week_total = week_count$count,
-      top_players = top_players,
-      top_modes = top_modes
-    )
-  }, error = function(e) {
-    cat("⚠ Analytics query error:", e$message, "\n")
-    list(today_total = 0, week_total = 0, top_players = data.frame(), top_modes = data.frame())
   })
 }
