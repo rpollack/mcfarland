@@ -19,7 +19,7 @@ services:
     autoDeploy: true
 
 databases:
-  - name: mcfarland-postgres
+  - name: mcfarlandpostgres
     databaseName: mcfarland_analytics
     plan: free
     region: oregon
