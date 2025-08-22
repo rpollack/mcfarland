@@ -1,7 +1,7 @@
 name: Daily Baseball Data Refresh
 on:
   schedule:
-    - cron: '0 11 * * *'  # 6 AM EST (11 AM UTC) - fixed the cron syntax
+    - cron: '0 11 * * *'  # 6 AM EST (11 AM UTC)
   workflow_dispatch:  # Allows manual trigger
 
 jobs:
@@ -32,12 +32,16 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           
-          # Add the new file names that the updated script creates
-          git add full_stats_hitters.csv full_stats_pitchers.csv player_lookup.csv
-          
-          # Remove old files if they exist (cleanup)
-          git rm -f full_stats.csv player_names.csv || true
-          
-          # Commit if there are changes
-          git diff --staged --quiet || git commit -m "Daily data refresh $(date)"
-          git push
+          # Check if there are any changes to commit
+          if [[ -n $(git status --porcelain) ]]; then
+            # Add only the generated files we want to track
+            git add full_stats_hitters.csv full_stats_pitchers.csv player_lookup.csv
+            
+            # Commit the changes
+            git commit -m "Daily data refresh $(date -u '+%Y-%m-%d %H:%M UTC')"
+            git push
+            
+            echo "✓ Data refreshed and pushed"
+          else
+            echo "✓ No changes to commit"
+          fi
