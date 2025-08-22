@@ -1,5 +1,5 @@
 # app/analytics.R
-# Absolute minimal: just log "user X analyzed player Y with vibe Z at time T"
+# Minimal logging: just log "user X analyzed player Y with vibe Z at time T"
 
 # Load required libraries
 library(DBI)
@@ -12,8 +12,6 @@ postgres_available <- requireNamespace("RPostgreSQL", quietly = TRUE)
 # ==============================================================================
 # DATABASE CONNECTION
 # ==============================================================================
-# Replace your get_db_connection() function with this version
-# that handles Render's internal URL format (missing port)
 
 get_db_connection <- function() {
   database_url <- Sys.getenv("DATABASE_URL")
@@ -64,7 +62,7 @@ get_db_connection <- function() {
         host_port <- host_db_split[1]
         database <- host_db_split[2]
         
-        # Parse host:port (port might be missing)
+        # Parse host:port (port might be missing) - THIS IS THE MISSING PORT FIX
         if (grepl(":", host_port)) {
           # Port is specified
           host_port_split <- strsplit(host_port, ":")[[1]]
@@ -108,6 +106,7 @@ get_db_connection <- function() {
     })
   }
 }
+
 # ==============================================================================
 # DATABASE SETUP
 # ==============================================================================
@@ -176,10 +175,22 @@ log_analysis <- function(session, player_name, analysis_mode) {
   on.exit(dbDisconnect(con))
   
   tryCatch({
-    dbExecute(con, "
-      INSERT INTO analyses (user_id, player_name, analysis_mode)
-      VALUES (?, ?, ?)
-    ", params = list(user_id, player_name, analysis_mode))
+    # Check database type and use appropriate parameter syntax
+    db_type <- class(con)[1]
+    
+    if (db_type == "PostgreSQLConnection") {
+      # PostgreSQL uses $1, $2, $3 syntax
+      dbExecute(con, "
+        INSERT INTO analyses (user_id, player_name, analysis_mode)
+        VALUES ($1, $2, $3)
+      ", params = list(user_id, player_name, analysis_mode))
+    } else {
+      # SQLite uses ? syntax
+      dbExecute(con, "
+        INSERT INTO analyses (user_id, player_name, analysis_mode)
+        VALUES (?, ?, ?)
+      ", params = list(user_id, player_name, analysis_mode))
+    }
     
     cat("📊", player_name, "-", analysis_mode, "- User:", substr(user_id, 1, 8), "...\n")
   }, error = function(e) {
