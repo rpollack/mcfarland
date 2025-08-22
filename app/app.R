@@ -14,6 +14,19 @@ cat("Timestamp:", as.character(Sys.time()), "\n")
 cat("Working directory:", getwd(), "\n")
 cat("R version:", R.version.string, "\n")
 
+cat("=== DEBUGGING LOG_FUNCTION ERROR ===\n")
+
+# Check for the problematic function
+if (exists("log_function")) {
+  cat("❌ log_function exists - this is the problem!\n")
+  rm(log_function)  # Remove it
+  cat("✅ log_function removed\n")
+} else {
+  cat("✅ log_function does not exist\n")
+}
+
+cat("=== DEBUG COMPLETE ===\n")
+
 # RENDER.COM COMPATIBILITY CONFIGURATION
 if (Sys.getenv("RENDER") == "true") {
   # Running on Render - options are set by the CMD in Dockerfile
@@ -74,6 +87,7 @@ for (pkg in c("baseballr", "stringi", "janitor")) {
 
 cat("=== LIBRARIES LOADED ===\n")
 
+
 # Rest of your existing app.R code continues here...
 # (All your existing functions, UI, server, etc.)
 
@@ -91,6 +105,43 @@ library(shinybusy)      # Loading indicators
 library(ggplot2)        # Data visualization
 library(htmltools)      # HTML utilities (HTML, htmlEscape)
 library(digest)         # CACHE: Added for generating cache keys
+library(DBI)            # Database interface  
+library(RSQLite)        # SQLite (for development)
+library(digest)         # For hashing (if using PostgreSQL later)
+library(uuid)           # For generating user IDs
+
+# Load analytics
+tryCatch({
+  source("admin.R")
+  source("analytics.R")
+}, error = function(e) {
+  # Create dummy functions if analytics fails
+  is_admin <- function(session) FALSE
+  log_if_not_admin <- function(session, log_function, ...) {}
+  init_analytics_db <- function() {}
+  generate_user_id <- function(session) "dummy"
+  track_user <- function(...) {}
+})
+
+# Initialize database
+if (exists("init_analytics_db")) {
+  init_analytics_db()
+}
+
+# Tidyverse-style analysis logger
+log_analysis <- function(player_name, analysis_mode, ...) {
+  timestamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
+  
+  message_parts <- c(
+    if (!is.null(player_name)) str_glue("Player = {player_name}"),
+    if (!is.null(analysis_mode)) str_glue("Mode = {analysis_mode}"),
+    ...
+  ) %>%
+    compact() %>%
+    str_c(collapse = " | ")
+  
+  cat("[", timestamp, "] 🎯 ANALYSIS:", message_parts, "\n")
+}
 
 # CACHE: Create global environment for API response caching
 cache_env <- new.env()
@@ -1336,7 +1387,12 @@ ui <- page_navbar(
 
 # Server Logic with Caching ------------------------------------------------
 
+# Complete server function for your app.R with analytics integration
+
 server <- function(input, output, session) {
+  
+  # Generate user ID on session start
+  user_id <- generate_user_id(session)
   
   # Load data on startup
   baseball_data <- load_baseball_data_cached()
@@ -1365,7 +1421,7 @@ server <- function(input, output, session) {
     create_player_card(input$player_selection, baseball_data)
   })
   
-  # Main analysis output with caching
+  # Main analysis output with caching AND LOGGING
   output$result_output <- renderUI({
     if (input$player_selection == "") {
       return(div(
@@ -1380,6 +1436,12 @@ server <- function(input, output, session) {
         class = "alert alert-warning",
         "No player data available. Make sure the GitHub Action has run successfully."
       ))
+    }
+    
+    # LOG THE ANALYSIS REQUEST
+    player_info <- get_player_info(input$player_selection, baseball_data)
+    if (!is.null(player_info)) {
+      log_if_not_admin(session, player_info$name, input$analysis_mode)
     }
     
     # CACHE: Track performance and cache effectiveness
@@ -1412,8 +1474,8 @@ server <- function(input, output, session) {
       }, height = 400)
     )
   })
-}
-
+}  
+  
 # Application Initialization -----------------------------------------------
 
 shinyApp(ui = ui, server = server)

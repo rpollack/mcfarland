@@ -1,4 +1,6 @@
-# Keep your existing admin check (this is good!)
+# app/admin.R - Fixed version
+
+# Admin check function (keep your existing one - this is good!)
 is_admin <- function(session) {
   query <- parseQueryString(session$clientData$url_search)
   if (!is.null(query$admin) && query$admin == Sys.getenv("ADMIN_PASSWORD", "")) {
@@ -8,16 +10,10 @@ is_admin <- function(session) {
   return(isTRUE(session$userData$admin_mode))
 }
 
-# OPTION 1: Fixed log_if_not_admin - with default log_function parameter
-log_if_not_admin <- function(session, log_function = cat, ...) {
+# SIMPLIFIED: Much simpler logging function
+log_if_not_admin <- function(session, player_name, analysis_mode) {
   if (!is_admin(session)) {
-    # Check if log_function is actually a function
-    if (is.function(log_function)) {
-      log_function(...)
-    } else {
-      # Fallback to cat if log_function is not a function
-      cat("📝 LOG:", log_function, ..., "\n")
-    }
+    log_analysis(session, player_name, analysis_mode)
   } else {
     cat("🔧 Admin usage - not logged\n")
   }

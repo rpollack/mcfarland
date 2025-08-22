@@ -12,4 +12,14 @@ services:
         sync: false
       - key: RENDER
         value: "true"
+      - key: DATABASE_URL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
     autoDeploy: true
+
+databases:
+  - name: mcfarland-postgres
+    databaseName: mcfarland_analytics
+    plan: free
+    region: oregon
