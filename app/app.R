@@ -11,19 +11,6 @@ cat("Timestamp:", as.character(Sys.time()), "\n")
 cat("Working directory:", getwd(), "\n")
 cat("R version:", R.version.string, "\n")
 
-cat("=== DEBUGGING LOG_FUNCTION ERROR ===\n")
-
-# Check for the problematic function
-if (exists("log_function")) {
-  cat("❌ log_function exists - this is the problem!\n")
-  rm(log_function)  # Remove it
-  cat("✅ log_function removed\n")
-} else {
-  cat("✅ log_function does not exist\n")
-}
-
-cat("=== DEBUG COMPLETE ===\n")
-
 # RENDER.COM COMPATIBILITY CONFIGURATION
 if (Sys.getenv("RENDER") == "true") {
   # Running on Render - options are set by the CMD in Dockerfile
