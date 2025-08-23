@@ -2374,13 +2374,11 @@ server <- function(input, output, session) {
         if (!is.null(ai_result)) {
           # COMPLETE: Show AI analysis
           tagList(
-            h5("Detailed AI Analysis", style = "color: #2E86AB; margin-bottom: 1rem;"),
             div(class = "analysis-content", ai_result)
           )
         } else if (ai_loading) {
           # LOADING: Show progress with context
           tagList(
-            h5("Detailed AI Analysis", style = "color: #2E86AB; margin-bottom: 1rem;"),
             div(
               class = "loading-state",
               div(
@@ -2399,7 +2397,6 @@ server <- function(input, output, session) {
         } else {
           # READY: Analysis will start automatically
           tagList(
-            h5("Detailed AI Analysis", style = "color: #2E86AB; margin-bottom: 1rem;"),
             div(
               class = "empty-state",
               icon("robot", class = "empty-icon"),
