@@ -1276,27 +1276,306 @@ ui_styles <- HTML("
 
 # UI Definition -------------------------------------------------------------
 
+# Replace the UI section in your app.R with this redesigned layout
+
+# UI Definition - Redesigned with Progressive Flow
 ui <- page_navbar(
-  title = "McFARLAND: AI-Powered Baseball Analysis",  # Clean title for browser tab
+  title = "McFARLAND: AI-Powered Baseball Analysis",
   
   header = tagList(
     tags$meta(name = "viewport", content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover, shrink-to-fit=no"),
-    tags$style(ui_styles),
+    tags$style(ui_styles),  # Keep your existing styles
+    # Add new styles for the progressive flow
+    tags$style(HTML("
+      /* Progressive Flow Specific Styles */
+      .hero-section {
+        text-align: center;
+        color: white;
+        margin: 2rem 0 3rem 0;
+        padding: 0 1rem;
+      }
+      
+      .hero-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      }
+      
+      .hero-subtitle {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        margin-bottom: 0;
+      }
+      
+      .search-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 20px;
+        padding: 2rem;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+      }
+      
+      .search-input-container .form-select {
+        border: 2px solid rgba(46, 134, 171, 0.2);
+        border-radius: 15px;
+        padding: 1rem 1.5rem;
+        font-size: 1.1rem;
+        background: rgba(255, 255, 255, 0.9);
+      }
+      
+      .quick-filters {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+      }
+      
+      .filter-chip {
+        background: rgba(46, 134, 171, 0.1);
+        border: 1px solid rgba(46, 134, 171, 0.3);
+        border-radius: 25px;
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+        color: #2E86AB;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+      }
+      
+      .filter-chip:hover, .filter-chip.active {
+        background: #2E86AB;
+        color: white;
+        transform: translateY(-1px);
+      }
+      
+      .step-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 15px;
+        padding: 1.5rem;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+        border-left: 4px solid transparent;
+        margin-bottom: 1.5rem;
+      }
+      
+      .step-card.active {
+        border-left-color: #2E86AB;
+        transform: translateY(-2px);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+      }
+      
+      .step-card.inactive {
+        opacity: 0.6;
+        border-left-color: #dee2e6;
+      }
+      
+      .step-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1rem;
+      }
+      
+      .step-number {
+        background: linear-gradient(135deg, #2E86AB, #4A90E2);
+        color: white;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1.1rem;
+        flex-shrink: 0;
+      }
+      
+      .step-number.inactive {
+        background: #dee2e6;
+        color: #6c757d;
+      }
+      
+      .step-title {
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: #2E86AB;
+        margin: 0;
+      }
+      
+      .step-title.inactive {
+        color: #6c757d;
+      }
+      
+      .player-preview {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        background: rgba(46, 134, 171, 0.05);
+        border-radius: 12px;
+        margin-bottom: 1rem;
+      }
+      
+      .player-preview-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        border: 2px solid #2E86AB;
+        object-fit: cover;
+      }
+      
+      .player-preview-info h4 {
+        margin: 0;
+        color: #2E86AB;
+        font-weight: 600;
+      }
+      
+      .player-preview-info p {
+        margin: 0;
+        color: #6c757d;
+        font-size: 0.9rem;
+      }
+      
+      .vibe-selector {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+      }
+      
+      .vibe-card {
+        background: rgba(255, 255, 255, 0.8);
+        border: 2px solid rgba(46, 134, 171, 0.2);
+        border-radius: 12px;
+        padding: 1rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+      }
+      
+      .vibe-card:hover {
+        border-color: #2E86AB;
+        background: rgba(46, 134, 171, 0.1);
+        transform: translateY(-2px);
+      }
+      
+      .vibe-card.selected {
+        border-color: #2E86AB;
+        background: rgba(46, 134, 171, 0.1);
+      }
+      
+      .vibe-card.selected::after {
+        content: '✓';
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        background: #2E86AB;
+        color: white;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        font-weight: bold;
+      }
+      
+      .vibe-icon {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+      }
+      
+      .vibe-name {
+        font-weight: 600;
+        color: #2E86AB;
+        margin-bottom: 0.5rem;
+      }
+      
+      .vibe-desc {
+        font-size: 0.8rem;
+        color: #6c757d;
+        line-height: 1.3;
+      }
+      
+      .insight-summary {
+        background: linear-gradient(135deg, rgba(46, 134, 171, 0.1), rgba(74, 144, 226, 0.1));
+        border-left: 4px solid #2E86AB;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+      }
+      
+      .insight-summary h5 {
+        color: #2E86AB;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      
+      .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: #6c757d;
+      }
+      
+      .empty-state .empty-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+      }
+      
+      .empty-state .empty-title {
+        font-size: 1.2rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #2E86AB;
+      }
+      
+      .empty-state .empty-subtitle {
+        font-size: 0.9rem;
+        margin-bottom: 0;
+      }
+      
+      @media (max-width: 768px) {
+        .hero-title {
+          font-size: 2rem;
+        }
+        
+        .search-card {
+          padding: 1.5rem;
+        }
+        
+        .vibe-selector {
+          grid-template-columns: 1fr;
+        }
+        
+        .step-header {
+          flex-direction: row;
+          align-items: flex-start;
+          gap: 0.75rem;
+        }
+        
+        .step-title {
+          font-size: 1.1rem;
+        }
+        
+        .player-preview {
+          flex-direction: column;
+          text-align: center;
+          gap: 0.75rem;
+        }
+      }
+    ")),
     add_busy_bar(color = "#2E86AB", height = "25px"),
     
-    # Custom JavaScript to update navbar brand with responsive stacked version
-    tags$script(HTML("
-      $(document).ready(function() {
-        $('.navbar-brand').html(`
-          <div class='d-flex flex-column'>
-            <div class='fw-bold'>McFARLAND</div>
-            <div class='navbar-subtitle'>🤖⚾ AI-powered baseball analysis</div>
-          </div>
-        `);
-      });
-    ")),
-    
-    # Keep-alive system
+    # Keep your existing JavaScript for keep-alive
     tags$script(HTML("
       $(document).ready(function() {
         console.log('🔄 Keep-alive system initialized');
@@ -1360,50 +1639,129 @@ ui <- page_navbar(
         startKeepAlive();
         console.log('✅ Keep-alive system active');
       });
-    "))
+    ")),
+    
+   # // Add this JavaScript to your UI header section, after your existing keep-alive script
+    
+     tags$script(HTML("
+  $(document).ready(function() {
+    var lastAnalysisTime = 0;
+    var userScrolledUp = false;
+    var analysisScrollTimeout;
+    
+    // Track user scroll behavior
+    $(window).on('scroll', function() {
+      var scrollTop = $(window).scrollTop();
+      var analysisSection = $('.step-card.active .analysis-content');
+      
+      if (analysisSection.length > 0) {
+        var analysisTop = analysisSection.offset().top - 100;
+        userScrolledUp = scrollTop < analysisTop;
+      }
+    });
+    
+    // Vibe card interaction handler
+    $(document).on('click', '.vibe-card', function() {
+      var mode = $(this).data('mode');
+      
+      // Update visual selection
+      $('.vibe-card').removeClass('selected');
+      $(this).addClass('selected');
+      
+      // Send to Shiny
+      Shiny.setInputValue('analysis_mode', mode, {priority: 'event'});
+      
+      // Mark that analysis was just triggered
+      lastAnalysisTime = Date.now();
+      userScrolledUp = false; // Reset scroll tracking
+      
+      console.log('🎨 Analysis mode changed to:', mode);
+    });
+    
+    // Filter chip interaction
+    $(document).on('click', '.filter-chip', function() {
+      $('.filter-chip').removeClass('active');
+      $(this).addClass('active');
+      
+      var filterType = $(this).text();
+      console.log('🏷️ Filter changed to:', filterType);
+    });
+    
+    // Smart scroll to analysis - only when analysis is newly generated
+    var observer = new MutationObserver(function(mutations) {
+      mutations.forEach(function(mutation) {
+        // Look for new analysis content
+        if (mutation.type === 'childList') {
+          var newAnalysisContent = $(mutation.addedNodes).find('.analysis-content');
+          if (newAnalysisContent.length > 0) {
+            var timeSinceAnalysis = Date.now() - lastAnalysisTime;
+            
+            // Only auto-scroll if:
+            // 1. Analysis was recently triggered (within 5 seconds)
+            // 2. User hasn't deliberately scrolled up
+            if (timeSinceAnalysis < 5000 && !userScrolledUp) {
+              clearTimeout(analysisScrollTimeout);
+              analysisScrollTimeout = setTimeout(function() {
+                newAnalysisContent[0].scrollIntoView({
+                  behavior: 'smooth',
+                  block: 'start'
+                });
+                console.log('📜 Auto-scrolled to new analysis');
+              }, 800); // Slight delay to let content render
+            } else {
+              console.log('📜 Skipped auto-scroll (user control)');
+            }
+          }
+        }
+      });
+    });
+    
+    // Start observing
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+    
+    console.log('✅ Smart scroll interactions initialized');
+  });
+"))
   ),
   
   nav_panel(
-    title = "Home",
-    icon = icon("home"),
+    title = "Analysis",
+    icon = icon("chart-line"),
     
-    layout_columns(
-      col_widths = c(4, 8),
-      
-      card(
-        card_body(
-          selectInput(
-            inputId = "player_selection",
-            label = "Player:",
-            choices = NULL,
-            width = "100%"
-          ),
-          selectInput(
-            inputId = "analysis_mode",
-            label = "Vibe:",
-            choices = c(
-              "Straightforward" = "default",
-              "Analytics Dork" = "analytics_dork",
-              "Old Coot" = "old_coot",
-              "Gen Z" = "gen_z",
-              "1970s Fan" = "seventies",
-              "Sensationalist" = "sensationalist",
-              "Shakespeare" = "shakespeare"
-            ),
-            width = "100%"
-          ),
-          
-          uiOutput("player_info_card")
+    # Hero Section
+    div(class = "hero-section",
+        h1(class = "hero-title", "McFARLAND"),
+        p(class = "hero-subtitle", "🤖⚾ AI-powered baseball performance analysis")
+    ),
+    
+    # Player Search Section
+    div(class = "search-card",
+        div(class = "search-input-container",
+            selectInput(
+              inputId = "player_selection",
+              label = "Search for a player:",
+              choices = NULL,
+              width = "100%"
+            )
+        ),
+        div(class = "quick-filters",
+            span(class = "filter-chip active", "All Players"),
+            span(class = "filter-chip", "Hitters"),
+            span(class = "filter-chip", "Pitchers")
         )
-      ),
-      
-      card(
-        card_header("Analysis"),
-        card_body(
-          uiOutput("result_output")
-        )
-      )
-    )
+    ),
+    
+    # Step 1: Player Selection
+    uiOutput("step_1_player_selection"),
+    
+    # Step 2: Analysis Style
+    uiOutput("step_2_analysis_style"),
+    
+    # Step 3: Analysis Results  
+    uiOutput("step_3_analysis_results")
   ),
   
   nav_panel(
@@ -1433,6 +1791,7 @@ ui <- page_navbar(
         
         h4("Version History"),
         tags$ul(
+          tags$li("0.9 - Redesigned with progressive flow layout for better UX"),
           tags$li("0.8 - Added intelligent API caching for improved performance and cost savings"),
           tags$li("0.7 - Added player headshots from MLB! Photos now display with player info."),
           tags$li("0.6 - Added pitcher analysis! Now supports both hitters and pitchers."),
@@ -1447,8 +1806,139 @@ ui <- page_navbar(
   )
 )
 
-# Server Logic with Caching ------------------------------------------------
+# Add these new UI generation functions before your server function:
 
+# Generate Step 1: Player Selection UI
+generate_step_1_ui <- function(player_selected = FALSE, player_info = NULL) {
+  step_class <- if (player_selected) "step-card active" else "step-card inactive"
+  number_class <- if (player_selected) "step-number" else "step-number inactive"
+  title_class <- if (player_selected) "step-title" else "step-title inactive"
+  
+  div(class = step_class,
+      div(class = "step-header",
+          div(class = number_class, "1"),
+          h3(class = title_class, "Player Selected")
+      ),
+      
+      if (player_selected && !is.null(player_info)) {
+        tagList(
+          div(class = "player-preview",
+              img(
+                src = player_info$photo_url %||% "https://via.placeholder.com/60x60/2E86AB/ffffff?text=⚾",
+                alt = str_glue("Photo of {player_info$name}"),
+                class = "player-preview-avatar",
+                onerror = "this.src='https://via.placeholder.com/60x60/2E86AB/ffffff?text=⚾';"
+              ),
+              div(class = "player-preview-info",
+                  h4(player_info$name),
+                  p(str_glue("Age: {player_info$age %||% 'N/A'} • {player_info$position_info %||% 'Player'}"))
+              )
+          ),
+          div(class = "insight-summary",
+              h5(icon("lightbulb"), "Quick Insight"),
+              p(player_info$quick_insight %||% "Analysis ready - choose your preferred style below.")
+          )
+        )
+      } else {
+        div(class = "empty-state",
+            icon("search", class = "empty-icon"),
+            h4(class = "empty-title", "Select a player above"),
+            p(class = "empty-subtitle", "Choose from over 500 MLB players to get started")
+        )
+      }
+  )
+}
+
+# Generate Step 2: Analysis Style UI  
+generate_step_2_ui <- function(player_selected = FALSE, current_mode = "default") {
+  step_class <- if (player_selected) "step-card active" else "step-card inactive"
+  number_class <- if (player_selected) "step-number" else "step-number inactive"
+  title_class <- if (player_selected) "step-title" else "step-title inactive"
+  
+  vibe_options <- list(
+    list(mode = "default", icon = "📊", name = "Straightforward", desc = "Clear, data-driven analysis"),
+    list(mode = "analytics_dork", icon = "🤓", name = "Analytics Dork", desc = "Modern stats, dismissive vibes"),
+    list(mode = "old_coot", icon = "👴", name = "Old Coot", desc = "Grumpy old-school wisdom"),
+    list(mode = "gen_z", icon = "🔥", name = "Gen Z", desc = "Modern slang and trends"),
+    list(mode = "seventies", icon = "🥸", name = "1970s Fan", desc = "Retro baseball perspective"),
+    list(mode = "sensationalist", icon = "📰", name = "Sensationalist", desc = "Dramatic sports journalism"),
+    list(mode = "shakespeare", icon = "🎭", name = "Shakespeare", desc = "Iambic pentameter analysis")
+  )
+  
+  div(class = step_class,
+      div(class = "step-header",
+          div(class = number_class, "2"),
+          h3(class = title_class, "Choose Analysis Vibe")
+      ),
+      
+      if (player_selected) {
+        div(class = "vibe-selector",
+            map(vibe_options, ~{
+              card_class <- if (.x$mode == current_mode) "vibe-card selected" else "vibe-card"
+              div(
+                class = card_class,
+                `data-mode` = .x$mode,
+                onclick = str_glue("Shiny.setInputValue('analysis_mode', '{.x$mode}', {{priority: 'event'}});"),
+                div(class = "vibe-icon", .x$icon),
+                div(class = "vibe-name", .x$name),
+                div(class = "vibe-desc", .x$desc)
+              )
+            })
+        )
+      } else {
+        div(class = "empty-state",
+            icon("palette", class = "empty-icon"),
+            h4(class = "empty-title", "Analysis styles will appear here"),
+            p(class = "empty-subtitle", "First select a player to continue")
+        )
+      }
+  )
+}
+
+# Generate Step 3: Analysis Results UI
+generate_step_3_ui <- function(player_selected = FALSE, analysis_mode = NULL, analysis_result = NULL, trends_plot = NULL) {
+  both_selected <- player_selected && !is.null(analysis_mode)
+  step_class <- if (both_selected) "step-card active" else "step-card inactive"
+  number_class <- if (both_selected) "step-number" else "step-number inactive" 
+  title_class <- if (both_selected) "step-title" else "step-title inactive"
+  
+  div(class = step_class,
+      div(class = "step-header",
+          div(class = number_class, "3"),
+          h3(class = title_class, "Performance Analysis")
+      ),
+      
+      if (both_selected) {
+        if (!is.null(analysis_result)) {
+          tagList(
+            div(class = "analysis-content", analysis_result),
+            if (!is.null(trends_plot)) {
+              tagList(
+                hr(style = "border-color: rgba(46, 134, 171, 0.3); margin: 2rem 0;"),
+                renderPlot(trends_plot, height = 400)
+              )
+            }
+          )
+        } else {
+          div(class = "empty-state",
+              icon("chart-line", class = "empty-icon"),
+              h4(class = "empty-title", "Generating analysis..."),
+              p(class = "empty-subtitle", "This may take a few seconds")
+          )
+        }
+      } else {
+        div(class = "empty-state",
+            icon("robot", class = "empty-icon"),
+            h4(class = "empty-title", "AI analysis will appear here"),
+            p(class = "empty-subtitle", "Complete the steps above to get started")
+        )
+      }
+  )
+}
+
+# Server Logic with Caching ------------------------------------------------
+# Complete Updated Server Function
+# Complete Updated Server Function
 server <- function(input, output, session) {
   
   # Generate user ID on session start
@@ -1472,10 +1962,18 @@ server <- function(input, output, session) {
   # Load data on startup
   baseball_data <- load_baseball_data_cached()
   
+  # Reactive values for managing state
+  values <- reactiveValues(
+    selected_player_info = NULL,
+    analysis_mode = "default",
+    analysis_result = NULL,
+    trends_plot = NULL,
+    current_analysis_key = NULL
+  )
+  
   # Update player choices using tidyverse
   observe({
     if (nrow(baseball_data$lookup) > 0) {
-      # Use compound_id if available, fallback to PlayerId for backwards compatibility
       player_choices <- if ("compound_id" %in% colnames(baseball_data$lookup)) {
         setNames(baseball_data$lookup$compound_id, baseball_data$lookup$display_name)
       } else {
@@ -1490,67 +1988,405 @@ server <- function(input, output, session) {
     }
   })
   
-  # Player info card display
-  output$player_info_card <- renderUI({
-    if (input$player_selection == "") return(NULL)
-    create_player_card(input$player_selection, baseball_data)
+  # Generate quick insight for a player
+  generate_quick_insight <- function(player_data, player_type) {
+    if (is.null(player_data) || nrow(player_data) == 0) return("Select a player to see analysis.")
+    
+    positive_changes <- c()
+    negative_changes <- c()
+    
+    if (player_type == "hitter") {
+      # Positive changes for hitters
+      if (!is.na(player_data$AVG_diff) && player_data$AVG_diff > 0.02) {
+        positive_changes <- c(positive_changes, "batting average is up")
+      }
+      if (!is.na(player_data$K_pct_diff) && player_data$K_pct_diff < -2) {
+        positive_changes <- c(positive_changes, "strikeouts are down")
+      }
+      if (!is.na(player_data$BB_pct_diff) && player_data$BB_pct_diff > 1.5) {
+        positive_changes <- c(positive_changes, "walks are up")
+      }
+      if (!is.na(player_data$Barrel_pct_diff) && player_data$Barrel_pct_diff > 2) {
+        positive_changes <- c(positive_changes, "hard contact is up")
+      }
+      
+      # Negative changes for hitters
+      if (!is.na(player_data$AVG_diff) && player_data$AVG_diff < -0.02) {
+        negative_changes <- c(negative_changes, "batting average is down")
+      }
+      if (!is.na(player_data$K_pct_diff) && player_data$K_pct_diff > 2) {
+        negative_changes <- c(negative_changes, "strikeouts are up")
+      }
+      if (!is.na(player_data$BB_pct_diff) && player_data$BB_pct_diff < -1.5) {
+        negative_changes <- c(negative_changes, "walks are down")
+      }
+      if (!is.na(player_data$Barrel_pct_diff) && player_data$Barrel_pct_diff < -2) {
+        negative_changes <- c(negative_changes, "hard contact is down")
+      }
+      
+    } else { # pitcher
+      # Positive changes for pitchers
+      if (!is.na(player_data$era_diff) && player_data$era_diff < -0.5) {
+        positive_changes <- c(positive_changes, "ERA is down")
+      }
+      if (!is.na(player_data$k_percent_diff) && player_data$k_percent_diff > 2) {
+        positive_changes <- c(positive_changes, "strikeouts are up")
+      }
+      if (!is.na(player_data$bb_percent_diff) && player_data$bb_percent_diff < -1.5) {
+        positive_changes <- c(positive_changes, "walks allowed are down")
+      }
+      if (!is.na(player_data$barrel_percent_diff) && player_data$barrel_percent_diff < -1) {
+        positive_changes <- c(positive_changes, "hard contact allowed is down")
+      }
+      
+      # Negative changes for pitchers
+      if (!is.na(player_data$era_diff) && player_data$era_diff > 0.5) {
+        negative_changes <- c(negative_changes, "ERA is up")
+      }
+      if (!is.na(player_data$k_percent_diff) && player_data$k_percent_diff < -2) {
+        negative_changes <- c(negative_changes, "strikeouts are down")
+      }
+      if (!is.na(player_data$bb_percent_diff) && player_data$bb_percent_diff > 1.5) {
+        negative_changes <- c(negative_changes, "walks allowed are up")
+      }
+      if (!is.na(player_data$barrel_percent_diff) && player_data$barrel_percent_diff > 1) {
+        negative_changes <- c(negative_changes, "hard contact allowed is up")
+      }
+    }
+    
+    # Calculate regression likelihood
+    regression_risk <- assess_regression_likelihood(player_data, player_type)
+    
+    # Build the insight message
+    performance_text <- ""
+    if (length(positive_changes) > 0 && length(negative_changes) > 0) {
+      # Mixed performance
+      pos_text <- if (length(positive_changes) > 1) {
+        str_c(positive_changes[1:min(2, length(positive_changes))], collapse = " and ")
+      } else {
+        positive_changes[1]
+      }
+      neg_text <- if (length(negative_changes) > 1) {
+        str_c(negative_changes[1:min(2, length(negative_changes))], collapse = " and ")
+      } else {
+        negative_changes[1]
+      }
+      performance_text <- str_glue("Mixed performance: {pos_text}, but {neg_text}.")
+      
+    } else if (length(positive_changes) > 0) {
+      # Only positive changes
+      if (length(positive_changes) == 1) {
+        performance_text <- str_glue("Improved performance: {positive_changes[1]}.")
+      } else if (length(positive_changes) == 2) {
+        performance_text <- str_glue("Improved performance: {positive_changes[1]} and {positive_changes[2]}.")
+      } else {
+        performance_text <- str_glue("Strong improvement: {positive_changes[1]}, {positive_changes[2]}, and more.")
+      }
+      
+    } else if (length(negative_changes) > 0) {
+      # Only negative changes  
+      if (length(negative_changes) == 1) {
+        performance_text <- str_glue("Concerning trend: {negative_changes[1]}.")
+      } else if (length(negative_changes) == 2) {
+        performance_text <- str_glue("Concerning trends: {negative_changes[1]} and {negative_changes[2]}.")
+      } else {
+        performance_text <- str_glue("Multiple concerns: {negative_changes[1]}, {negative_changes[2]}, and more.")
+      }
+      
+    } else {
+      # No significant changes
+      performance_text <- "Performance is similar to recent seasons."
+    }
+    
+    # Combine performance text with regression assessment
+    return(str_glue("{performance_text} Likelihood of regression: {regression_risk}."))
+  }
+  
+  # New function to assess regression likelihood
+  assess_regression_likelihood <- function(player_data, player_type) {
+    luck_indicators <- c()
+    
+    if (player_type == "hitter") {
+      # BABIP analysis - normal range roughly 0.290-0.320 for most hitters
+      if (!is.na(player_data$BABIP_cur) && !is.na(player_data$BABIP_l3)) {
+        babip_diff <- player_data$BABIP_cur - player_data$BABIP_l3
+        if (abs(babip_diff) > 0.025) {  # 25+ point BABIP difference
+          if (babip_diff > 0) {
+            luck_indicators <- c(luck_indicators, "high_babip")
+          } else {
+            luck_indicators <- c(luck_indicators, "low_babip") 
+          }
+        }
+      }
+      
+      # xwOBA-wOBA gap analysis
+      if (!is.na(player_data$xwOBA_wOBA_gap_cur)) {
+        # Current gap vs historical gap
+        current_gap <- player_data$xwOBA_wOBA_gap_cur
+        historical_gap <- player_data$xwOBA_wOBA_gap_l3 %||% 0
+        
+        if (abs(current_gap) > 0.015 || abs(current_gap - historical_gap) > 0.020) {
+          if (current_gap < -0.015) {  # wOBA much higher than xwOBA (lucky)
+            luck_indicators <- c(luck_indicators, "lucky_woba")
+          } else if (current_gap > 0.015) {  # xwOBA much higher than wOBA (unlucky)
+            luck_indicators <- c(luck_indicators, "unlucky_woba")
+          }
+        }
+      }
+      
+      # Barrel rate vs BABIP inconsistency
+      if (!is.na(player_data$Barrel_pct_diff) && !is.na(player_data$BABIP_diff)) {
+        # If barrels are down but BABIP is up (or vice versa), that's concerning
+        if ((player_data$Barrel_pct_diff < -1 && player_data$BABIP_diff > 0.02) ||
+            (player_data$Barrel_pct_diff > 1 && player_data$BABIP_diff < -0.02)) {
+          luck_indicators <- c(luck_indicators, "contact_babip_mismatch")
+        }
+      }
+      
+    } else { # pitcher
+      # BABIP analysis - normal range roughly 0.290-0.310 for pitchers
+      if (!is.na(player_data$babip_cur) && !is.na(player_data$babip_l3)) {
+        babip_diff <- player_data$babip_cur - player_data$babip_l3
+        if (abs(babip_diff) > 0.025) {
+          if (babip_diff < 0) {  # Lower BABIP = lucky for pitcher
+            luck_indicators <- c(luck_indicators, "lucky_babip")
+          } else {  # Higher BABIP = unlucky for pitcher
+            luck_indicators <- c(luck_indicators, "unlucky_babip")
+          }
+        }
+      }
+      
+      # ERA vs xERA gap
+      if (!is.na(player_data$era_cur) && !is.na(player_data$xera_cur)) {
+        era_xera_gap <- player_data$era_cur - player_data$xera_cur
+        if (abs(era_xera_gap) > 0.30) {
+          if (era_xera_gap < -0.30) {  # ERA much lower than xERA (lucky)
+            luck_indicators <- c(luck_indicators, "lucky_era")
+          } else if (era_xera_gap > 0.30) {  # ERA much higher than xERA (unlucky)
+            luck_indicators <- c(luck_indicators, "unlucky_era")
+          }
+        }
+      }
+      
+      # LOB% analysis - normal range roughly 70-75%
+      if (!is.na(player_data$lob_percent_cur) && !is.na(player_data$lob_percent_l3)) {
+        lob_diff <- player_data$lob_percent_cur - player_data$lob_percent_l3
+        if (abs(lob_diff) > 3) {  # 3+ percentage point difference
+          if (lob_diff > 3) {  # Higher LOB% = lucky for pitcher
+            luck_indicators <- c(luck_indicators, "high_lob")
+          } else if (lob_diff < -3) {  # Lower LOB% = unlucky for pitcher
+            luck_indicators <- c(luck_indicators, "low_lob")
+          }
+        }
+      }
+      
+      # Barrel rate vs ERA inconsistency
+      if (!is.na(player_data$barrel_percent_diff) && !is.na(player_data$era_diff)) {
+        # If barrels allowed are up but ERA is down (or vice versa)
+        if ((player_data$barrel_percent_diff > 1 && player_data$era_diff < -0.5) ||
+            (player_data$barrel_percent_diff < -1 && player_data$era_diff > 0.5)) {
+          luck_indicators <- c(luck_indicators, "barrel_era_mismatch")
+        }
+      }
+    }
+    
+    # Determine regression likelihood based on luck indicators
+    luck_count <- length(luck_indicators)
+    lucky_indicators <- sum(str_detect(luck_indicators, "lucky|high_babip|high_lob"))
+    unlucky_indicators <- sum(str_detect(luck_indicators, "unlucky|low_babip|low_lob"))
+    mismatch_indicators <- sum(str_detect(luck_indicators, "mismatch"))
+    
+    if (luck_count == 0) {
+      return("low")
+    } else if (luck_count >= 3 || mismatch_indicators >= 2) {
+      return("high") 
+    } else if (luck_count == 2 || (lucky_indicators >= 1 && unlucky_indicators >= 1)) {
+      return("medium")
+    } else if (luck_count == 1) {
+      return("medium")
+    } else {
+      return("low")
+    }
+  }
+  
+  # React to player selection
+  observeEvent(input$player_selection, {
+    cat("👤 Player selection changed to:", input$player_selection, "\n")
+    
+    if (input$player_selection != "") {
+      player_info <- get_player_info(input$player_selection, baseball_data)
+      
+      if (!is.null(player_info)) {
+        # Get additional info for the player
+        actual_player_id <- if ("compound_id" %in% colnames(baseball_data$lookup)) {
+          extract_player_id(input$player_selection)
+        } else {
+          input$player_selection
+        }
+        
+        # Get player data for quick insight
+        if (player_info$type == "hitter" && nrow(baseball_data$hitters) > 0) {
+          player_data <- baseball_data$hitters %>% filter(PlayerId == actual_player_id)
+        } else if (player_info$type == "pitcher" && nrow(baseball_data$pitchers) > 0) {
+          player_data <- baseball_data$pitchers %>% filter(PlayerId == actual_player_id)
+        } else {
+          player_data <- NULL
+        }
+        
+        # Generate quick insight
+        quick_insight <- generate_quick_insight(player_data, player_info$type)
+        
+        # Store enhanced player info
+        values$selected_player_info <- list(
+          name = player_info$name,
+          type = player_info$type,
+          age = player_info$age,
+          position_info = player_info$position_info,
+          photo_url = get_player_photo_url(input$player_selection, baseball_data),
+          quick_insight = quick_insight
+        )
+        
+        cat("✅ Player info loaded for:", player_info$name, "\n")
+      } else {
+        values$selected_player_info <- NULL
+        cat("❌ Player info not found\n")
+      }
+    } else {
+      values$selected_player_info <- NULL
+      cat("🗑️ Player selection cleared\n")
+    }
+    
+    # Reset analysis when player changes
+    values$analysis_result <- NULL
+    values$trends_plot <- NULL
+    values$current_analysis_key <- NULL
+  }, ignoreInit = TRUE)
+  
+  # React to analysis mode selection
+  observeEvent(input$analysis_mode, {
+    cat("🎨 Analysis mode changed to:", input$analysis_mode, "\n")
+    values$analysis_mode <- input$analysis_mode
+    
+    # Don't reset analysis here - let the main observe() handle it
+    # This prevents double-generation when both player and mode change
+  }, ignoreInit = TRUE)
+  
+  # Generate analysis when both player and mode are selected
+  observe({
+    if (!is.null(values$selected_player_info) && !is.null(values$analysis_mode)) {
+      
+      # Create a unique key for this analysis request
+      analysis_key <- paste(values$selected_player_info$name, values$analysis_mode, sep = "_")
+      
+      # Check if we already have this exact analysis
+      current_key <- if (!is.null(values$current_analysis_key)) values$current_analysis_key else ""
+      
+      if (analysis_key != current_key) {
+        cat("🎯 New analysis request:", analysis_key, "\n")
+        
+        # LOG THE ANALYSIS REQUEST - moved here to catch all analyses
+        log_if_not_admin(session, values$selected_player_info$name, values$analysis_mode)
+        
+        # Reset previous results
+        values$analysis_result <- NULL
+        values$trends_plot <- NULL
+        
+        # Generate analysis with progress
+        withProgress(message = 'Analyzing player performance...', value = 0, {
+          incProgress(0.3, detail = "Checking cache...")
+          
+          analysis_result <- analyze_player_performance(
+            input$player_selection, 
+            values$analysis_mode, 
+            baseball_data
+          )
+          
+          incProgress(0.7, detail = "Creating visualization...")
+          
+          trends_plot <- create_player_trends_plot(input$player_selection, baseball_data)
+          
+          incProgress(1, detail = "Complete")
+          
+          # Store results and current key
+          values$analysis_result <- analysis_result
+          values$trends_plot <- trends_plot
+          values$current_analysis_key <- analysis_key
+          
+          cat("✅ Analysis complete for:", analysis_key, "\n")
+        })
+      } else {
+        cat("♻️ Using existing analysis for:", analysis_key, "\n")
+      }
+    }
   })
   
-  # Main analysis output with caching AND LOGGING
-  output$result_output <- renderUI({
-    if (input$player_selection == "") {
-      return(div(
-        class = "text-center text-muted p-4",
-        style = "background: rgba(255, 255, 255, 0.9); border-radius: 20px; backdrop-filter: blur(20px);",
-        h5("⚾ Select a player to begin analysis", style = "color: #2E86AB; font-weight: 600;")
-      ))
-    }
-    
-    if (nrow(baseball_data$lookup) == 0) {
-      return(div(
-        class = "alert alert-warning",
-        "No player data available. Make sure the GitHub Action has run successfully."
-      ))
-    }
-    
-    # LOG THE ANALYSIS REQUEST
-    player_info <- get_player_info(input$player_selection, baseball_data)
-    if (!is.null(player_info)) {
-      log_if_not_admin(session, player_info$name, input$analysis_mode)
-    }
-    
-    # CACHE: Track performance and cache effectiveness
-    start_time <- Sys.time()
-    
-    # Perform analysis with progress indicator
-    withProgress(message = 'Analyzing player performance...', value = 0, {
-      incProgress(0.3, detail = "Checking cache...")
-      analysis_result <- analyze_player_performance(input$player_selection, input$analysis_mode, baseball_data)
-      incProgress(0.7, detail = "Creating visualization...")
-      trends_plot <- create_player_trends_plot(input$player_selection, baseball_data)
-      incProgress(1, detail = "Complete")
-    })
-    
-    # Combine analysis and visualization
-    tagList(
-      div(class = "analysis-content", analysis_result),
-      hr(style = "border-color: rgba(46, 134, 171, 0.3); margin: 2rem 0;"),
-      renderPlot({
-        if (is.null(trends_plot)) {
-          # Empty state plot
-          ggplot() + 
-            geom_text(aes(x = 1, y = 1, label = "No trend data available"), 
-                      size = 6, color = "#6c757d") +
-            theme_void() +
-            theme(plot.background = element_rect(fill = "white", color = NA))
-        } else {
-          trends_plot
-        }
-      }, height = 400)
-    )
+  # Render Step 1: Player Selection
+  output$step_1_player_selection <- renderUI({
+    player_selected <- !is.null(values$selected_player_info)
+    generate_step_1_ui(player_selected, values$selected_player_info)
   })
-}  
-
+  
+  # Render Step 2: Analysis Style
+  output$step_2_analysis_style <- renderUI({
+    player_selected <- !is.null(values$selected_player_info)
+    generate_step_2_ui(player_selected, values$analysis_mode)
+  })
+  
+  # Render Step 3: Analysis Results
+  output$step_3_analysis_results <- renderUI({
+    player_selected <- !is.null(values$selected_player_info)
+    
+    # Create the step UI based on current state
+    if (player_selected && !is.null(values$analysis_mode) && !is.null(values$analysis_result)) {
+      # Show completed analysis
+      div(class = "step-card active",
+          div(class = "step-header",
+              div(class = "step-number", "3"),
+              h3(class = "step-title", "Performance Analysis")
+          ),
+          
+          # Analysis content
+          div(class = "analysis-content", values$analysis_result),
+          
+          # Trends plot if available
+          if (!is.null(values$trends_plot)) {
+            tagList(
+              hr(style = "border-color: rgba(46, 134, 171, 0.3); margin: 2rem 0;"),
+              renderPlot({
+                values$trends_plot
+              }, height = 400)
+            )
+          }
+      )
+    } else if (player_selected && !is.null(values$analysis_mode)) {
+      # Show loading state
+      div(class = "step-card active",
+          div(class = "step-header",
+              div(class = "step-number", "3"),
+              h3(class = "step-title", "Performance Analysis")
+          ),
+          div(class = "empty-state",
+              tags$i(class = "fas fa-spinner fa-spin empty-icon"),
+              h4(class = "empty-title", "Generating analysis..."),
+              p(class = "empty-subtitle", "This may take a few seconds")
+          )
+      )
+    } else {
+      # Show inactive state
+      div(class = "step-card inactive",
+          div(class = "step-header",
+              div(class = "step-number inactive", "3"),
+              h3(class = "step-title inactive", "Performance Analysis")
+          ),
+          div(class = "empty-state",
+              icon("robot", class = "empty-icon"),
+              h4(class = "empty-title", "AI analysis will appear here"),
+              p(class = "empty-subtitle", "Complete the steps above to get started")
+          )
+      )
+    }
+  })
+}
 # Application Initialization -----------------------------------------------
 
 shinyApp(ui = ui, server = server)
