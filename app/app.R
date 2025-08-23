@@ -153,7 +153,7 @@ cache_env$api_responses <- list()
 cache_env$plots <- list()
 
 # Configuration -------------------------------------------------------------
-GITHUB_DATA_URL <- "https://raw.githubusercontent.com/rpollack/leadRboard/master/"
+GITHUB_DATA_URL <- "https://raw.githubusercontent.com/rpollack/mcfarland/master/"
 MLB_PHOTO_BASE_URL <- "https://img.mlbstatic.com/mlb-photos/image/upload/w_213,d_people:generic:headshot:silo:current.png,q_auto:best,f_auto/v1/people/"
 FANGRAPHS_PHOTO_BASE_URL <- "https://www.fangraphs.com/img/players/"
 CURRENT_YEAR <- 2025
