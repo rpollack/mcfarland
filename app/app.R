@@ -2400,8 +2400,8 @@ server <- function(input, output, session) {
             div(
               class = "empty-state",
               icon("robot", class = "empty-icon"),
-              h4(class = "empty-title", "Preparing analysis..."),
-              p(class = "empty-subtitle", "AI analysis will begin shortly")
+              h4(class = "empty-title", "Analyzing player..."),
+              p(class = "empty-subtitle", "AI analysis will be available shortly")
             )
           )
         }
