@@ -6,9 +6,6 @@
 # TIDYVERSE VERSION - Enhanced readability and maintainability + API CACHING
 # ==============================================================================
 
-# Updated configuration for the top of your app/app.R file
-# Replace the existing Render configuration block with this:
-
 cat("=== MCFARLAND APP STARTING ===\n")
 cat("Timestamp:", as.character(Sys.time()), "\n")
 cat("Working directory:", getwd(), "\n")
@@ -38,6 +35,13 @@ if (Sys.getenv("RENDER") == "true") {
   options(shiny.autoreload = TRUE)
   cat("✓ Development mode\n")
 }
+
+# Keep-alive options
+options(
+  shiny.disconnected.timeout = 300000,  # 5 minutes in milliseconds
+  shiny.autoreload.interval = 500,      # Check every 500ms
+  shiny.websocket.ping.interval = 25000 # 25 seconds
+)
 
 cat("=== CHECKING ENVIRONMENT ===\n")
 cat("RENDER env var:", Sys.getenv("RENDER"), "\n")
@@ -86,10 +90,6 @@ for (pkg in c("baseballr", "stringi", "janitor")) {
 }
 
 cat("=== LIBRARIES LOADED ===\n")
-
-
-# Rest of your existing app.R code continues here...
-# (All your existing functions, UI, server, etc.)
 
 # Load Required Libraries --------------------------------------------------
 library(shiny)          # Core Shiny framework
@@ -240,9 +240,6 @@ clear_all_caches <- function() {
 
 # Data Loading Functions ----------------------------------------------------
 
-# Add this data caching system to your app.R
-# Replace your existing load_baseball_data() calls with this cached version
-
 # Global cache for baseball data
 .baseball_data_cache <- NULL
 .cache_timestamp <- NULL
@@ -283,7 +280,6 @@ load_baseball_data_cached <- function() {
   
   return(fresh_data)
 }
-
 
 #' Load baseball data from GitHub repository using tidyverse
 #' @return List containing hitters, pitchers, and lookup data frames
@@ -1298,6 +1294,72 @@ ui <- page_navbar(
           </div>
         `);
       });
+    ")),
+    
+    # Keep-alive system
+    tags$script(HTML("
+      $(document).ready(function() {
+        console.log('🔄 Keep-alive system initialized');
+        var keepAliveInterval = 120000;
+        var keepAliveTimer;
+        var lastActivity = Date.now();
+        var isVisible = true;
+        
+        function sendKeepAlivePing() {
+          if (!isVisible) {
+            console.log('⏸️ Tab not visible, skipping keep-alive ping');
+            return;
+          }
+          console.log('💓 Sending keep-alive ping');
+          Shiny.setInputValue('keepalive_ping', Date.now(), {priority: 'event'});
+        }
+        
+        function updateActivity() {
+          lastActivity = Date.now();
+          console.log('👤 User activity detected');
+          clearInterval(keepAliveTimer);
+          startKeepAlive();
+        }
+        
+        function startKeepAlive() {
+          keepAliveTimer = setInterval(function() {
+            var timeSinceActivity = Date.now() - lastActivity;
+            if (timeSinceActivity < 600000) {
+              sendKeepAlivePing();
+            } else {
+              console.log('💤 No recent activity, pausing keep-alive');
+            }
+          }, keepAliveInterval);
+        }
+        
+        document.addEventListener('visibilitychange', function() {
+          isVisible = !document.hidden;
+          if (isVisible) {
+            console.log('👁️ Tab visible, resuming keep-alive');
+            updateActivity();
+          } else {
+            console.log('🙈 Tab hidden, pausing keep-alive');
+          }
+        });
+        
+        ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'].forEach(function(event) {
+          document.addEventListener(event, updateActivity, true);
+        });
+        
+        setInterval(function() {
+          if (Shiny && Shiny.shinyapp && Shiny.shinyapp.isConnected()) {
+            console.log('💚 Shiny connection healthy');
+          } else {
+            console.log('💔 Shiny connection lost - attempting reconnect');
+            if (Shiny && Shiny.shinyapp && Shiny.shinyapp.reconnect) {
+              Shiny.shinyapp.reconnect();
+            }
+          }
+        }, 30000);
+        
+        startKeepAlive();
+        console.log('✅ Keep-alive system active');
+      });
     "))
   ),
   
@@ -1387,12 +1449,25 @@ ui <- page_navbar(
 
 # Server Logic with Caching ------------------------------------------------
 
-# Complete server function for your app.R with analytics integration
-
 server <- function(input, output, session) {
   
   # Generate user ID on session start
   user_id <- generate_user_id(session)
+  
+  # Keep-alive ping handler
+  observeEvent(input$keepalive_ping, {
+    if (!is.null(input$keepalive_ping)) {
+      timestamp <- as.POSIXct(input$keepalive_ping / 1000, origin = "1970-01-01")
+      cat("💓 Keep-alive ping received at:", format(timestamp, "%H:%M:%S"), 
+          "- User:", substr(user_id, 1, 8), "...\n")
+      session$userData$last_keepalive <- Sys.time()
+    }
+  }, ignoreInit = TRUE, ignoreNULL = TRUE)
+  
+  # Session ended handler
+  session$onSessionEnded(function() {
+    cat("📤 Session ended for user:", substr(user_id, 1, 8), "...\n")
+  })
   
   # Load data on startup
   baseball_data <- load_baseball_data_cached()
@@ -1475,7 +1550,7 @@ server <- function(input, output, session) {
     )
   })
 }  
-  
+
 # Application Initialization -----------------------------------------------
 
 shinyApp(ui = ui, server = server)
