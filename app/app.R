@@ -1451,6 +1451,14 @@ ui_styles <- HTML("
   @media (max-width: 768px) {
     .navbar-brand {
       font-size: 1.1rem !important;
+      /* Show mobile-specific layout */
+.vibe-selector {
+  display: none;
+}
+
+.vibe-selector-mobile {
+  display: flex;
+}
     }
 
     .navbar-subtitle {
@@ -1780,68 +1788,154 @@ ui <- page_navbar(
         font-size: 0.9rem;
       }
 
-      .vibe-selector {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 1rem;
-        margin-top: 1rem;
-      }
 
-      .vibe-card {
-        background: rgba(255, 255, 255, 0.8);
-        border: 2px solid rgba(46, 134, 171, 0.2);
-        border-radius: 12px;
-        padding: 1rem;
-        text-align: center;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        position: relative;
-      }
+/* Compact Vibe Selector - Mobile First Design */
 
-      .vibe-card:hover {
-        border-color: #2E86AB;
-        background: rgba(46, 134, 171, 0.1);
-        transform: translateY(-2px);
-      }
+/* Replace the existing .vibe-selector styles with this more compact version */
+.vibe-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
 
-      .vibe-card.selected {
-        border-color: #2E86AB;
-        background: rgba(46, 134, 171, 0.1);
-      }
+.vibe-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
 
-      .vibe-card.selected::after {
-        content: '✓';
-        position: absolute;
-        top: 0.5rem;
-        right: 0.5rem;
-        background: #2E86AB;
-        color: white;
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.8rem;
-        font-weight: bold;
-      }
+.vibe-card-compact {
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid rgba(46, 134, 171, 0.2);
+  border-radius: 8px;
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  flex: 1;
+  min-width: 120px;
+  max-width: 160px;
+  text-align: center;
+}
 
-      .vibe-icon {
-        font-size: 2rem;
-        margin-bottom: 0.5rem;
-      }
+.vibe-card-compact:hover {
+  border-color: #2E86AB;
+  background: rgba(46, 134, 171, 0.1);
+  transform: translateY(-1px);
+}
 
-      .vibe-name {
-        font-weight: 600;
-        color: #2E86AB;
-        margin-bottom: 0.5rem;
-      }
+.vibe-card-compact.selected {
+  border-color: #2E86AB;
+  background: rgba(46, 134, 171, 0.15);
+  box-shadow: 0 2px 8px rgba(46, 134, 171, 0.3);
+}
 
-      .vibe-desc {
-        font-size: 0.8rem;
-        color: #6c757d;
-        line-height: 1.3;
-      }
+.vibe-card-compact.selected::after {
+  content: '✓';
+  position: absolute;
+  top: 0.25rem;
+  right: 0.25rem;
+  background: #2E86AB;
+  color: white;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+.vibe-icon-compact {
+  font-size: 1.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.vibe-name-compact {
+  font-weight: 600;
+  color: #2E86AB;
+  font-size: 0.85rem;
+  margin: 0;
+  line-height: 1.2;
+}
+
+/* Mobile: Compact vertical stack - Option A */
+.vibe-selector-mobile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.vibe-option-mobile {
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid rgba(46, 134, 171, 0.2);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  position: relative;
+}
+
+.vibe-option-mobile:hover {
+  border-color: #2E86AB;
+  background: rgba(46, 134, 171, 0.1);
+}
+
+.vibe-option-mobile.selected {
+  border-color: #2E86AB;
+  background: rgba(46, 134, 171, 0.15);
+  box-shadow: 0 2px 8px rgba(46, 134, 171, 0.3);
+}
+
+.vibe-option-mobile.selected::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  right: 1rem;
+  transform: translateY(-50%);
+  background: #2E86AB;
+  color: white;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+.vibe-option-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.vibe-option-text {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.vibe-option-name {
+  font-weight: 600;
+  color: #2E86AB;
+  font-size: 0.9rem;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.vibe-option-desc {
+  font-size: 0.75rem;
+  color: #6c757d;
+  margin: 0;
+  line-height: 1.2;
+}
 
       .insight-summary {
         background: linear-gradient(135deg, rgba(46, 134, 171, 0.1), rgba(74, 144, 226, 0.1));
@@ -2310,20 +2404,21 @@ server <- function(input, output, session) {
   }
   
   # Generate Step 2: Analysis Style UI
+  # Generate Step 2: Analysis Style UI - COMPACT VERSION
   generate_step_2_ui <- function(player_selected = FALSE, current_mode = "default") {
     step_class <- if (player_selected) "step-card active" else "step-card inactive"
     number_class <- if (player_selected) "step-number" else "step-number inactive"
     title_class <- if (player_selected) "step-title" else "step-title inactive"
     
     vibe_options <- list(
-      list(mode = "default", icon = "📊", name = "Straightforward", desc = "Clear, data-driven analysis"),
-      list(mode = "analytics_dork", icon = "🤓", name = "Analytics Dork", desc = "Modern stats, dismissive vibes"),
-      list(mode = "old_coot", icon = "👴", name = "Old Coot", desc = "Grumpy old-school wisdom"),
-      list(mode = "gen_z", icon = "🔥", name = "Gen Z", desc = "Modern slang and trends"),
-      list(mode = "seventies", icon = "🥸", name = "1970s Fan", desc = "Retro baseball perspective"),
-      list(mode = "sensationalist", icon = "📰", name = "Sensationalist", desc = "Dramatic sports journalism"),
-      list(mode = "shakespeare", icon = "🎭", name = "Shakespeare", desc = "Iambic pentameter analysis"),
-      list(mode = "rose_colored_glasses", icon = "🌹", name = "Rose-colored Glasses", desc = "Always positive")
+      list(mode = "default", icon = "📊", name = "Straightforward"),
+      list(mode = "analytics_dork", icon = "🤓", name = "Analytics Dork"),
+      list(mode = "old_coot", icon = "👴", name = "Old Coot"),
+      list(mode = "gen_z", icon = "🔥", name = "Gen Z"),
+      list(mode = "seventies", icon = "🥸", name = "1970s Fan"),
+      list(mode = "sensationalist", icon = "📰", name = "Sensationalist"),
+      list(mode = "shakespeare", icon = "🎭", name = "Shakespeare"),
+      list(mode = "rose_colored_glasses", icon = "🌹", name = "Rose-colored")
     )
     
     div(
@@ -2334,19 +2429,70 @@ server <- function(input, output, session) {
         h3(class = title_class, "Choose Analysis Vibe")
       ),
       if (player_selected) {
-        div(
-          class = "vibe-selector",
-          map(vibe_options, ~ {
-            card_class <- if (.x$mode == current_mode) "vibe-card selected" else "vibe-card"
+        tagList(
+          # Desktop/Tablet: Compact 2x4 grid
+          div(
+            class = "vibe-selector d-none d-md-flex",
             div(
-              class = card_class,
-              `data-mode` = .x$mode,
-              onclick = str_glue("Shiny.setInputValue('analysis_mode', '{.x$mode}', {{priority: 'event'}});"),
-              div(class = "vibe-icon", .x$icon),
-              div(class = "vibe-name", .x$name),
-              div(class = "vibe-desc", .x$desc)
+              class = "vibe-row",
+              map(vibe_options[1:4], ~ {
+                card_class <- if (.x$mode == current_mode) "vibe-card-compact selected" else "vibe-card-compact"
+                div(
+                  class = card_class,
+                  `data-mode` = .x$mode,
+                  onclick = str_glue("Shiny.setInputValue('analysis_mode', '{.x$mode}', {{priority: 'event'}});"),
+                  div(class = "vibe-icon-compact", .x$icon),
+                  div(class = "vibe-name-compact", .x$name)
+                )
+              })
+            ),
+            div(
+              class = "vibe-row",
+              map(vibe_options[5:8], ~ {
+                card_class <- if (.x$mode == current_mode) "vibe-card-compact selected" else "vibe-card-compact"
+                div(
+                  class = card_class,
+                  `data-mode` = .x$mode,
+                  onclick = str_glue("Shiny.setInputValue('analysis_mode', '{.x$mode}', {{priority: 'event'}});"),
+                  div(class = "vibe-icon-compact", .x$icon),
+                  div(class = "vibe-name-compact", .x$name)
+                )
+              })
             )
-          })
+          ),
+          
+          # Mobile Option A: Compact vertical stack
+          div(
+            class = "vibe-selector-mobile d-md-none",
+            map(vibe_options, ~ {
+              option_class <- if (.x$mode == current_mode) "vibe-option-mobile selected" else "vibe-option-mobile"
+              div(
+                class = option_class,
+                `data-mode` = .x$mode,
+                onclick = str_glue("Shiny.setInputValue('analysis_mode', '{.x$mode}', {{priority: 'event'}});"),
+                span(class = "vibe-option-icon", .x$icon),
+                div(
+                  class = "vibe-option-text",
+                  div(class = "vibe-option-name", .x$name),
+                  div(class = "vibe-option-desc", 
+                      case_when(
+                        .x$mode == "default" ~ "Clear, data-driven analysis",
+                        .x$mode == "analytics_dork" ~ "Modern stats, dismissive vibes",
+                        .x$mode == "old_coot" ~ "Grumpy old-school wisdom",
+                        .x$mode == "gen_z" ~ "Modern slang and trends",
+                        .x$mode == "seventies" ~ "Retro baseball perspective",
+                        .x$mode == "sensationalist" ~ "Dramatic sports journalism",
+                        .x$mode == "shakespeare" ~ "Iambic pentameter analysis",
+                        .x$mode == "rose_colored_glasses" ~ "Always positive",
+                        TRUE ~ ""
+                      )
+                  )
+                )
+              )
+            })
+          )
+          
+      
         )
       } else {
         div(
