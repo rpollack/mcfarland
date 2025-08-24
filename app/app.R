@@ -1622,6 +1622,534 @@ ui_styles <- HTML("
   ::-webkit-scrollbar-thumb:hover {
     background: rgba(46, 134, 171, 0.7);
   }
+  
+  /* About Page Styling - Add this to your existing ui_styles HTML block */
+
+/* About Page Hero - Enhanced with proper visual container */
+.about-hero-wrapper {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 2rem 1rem;
+  margin: -1rem -1rem 2rem -1rem; /* Extend to edges */
+}
+
+.about-hero {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  padding: 3rem 2rem;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.hero-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 3rem;
+}
+
+.hero-text {
+  flex: 2;
+  text-align: left;
+}
+
+.hero-text-container {
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 15px;
+  padding: 2rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.hero-image {
+  flex: 1;
+  text-align: center;
+}
+
+.about-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #2E86AB;
+  margin-bottom: 0.5rem;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.about-subtitle {
+  font-size: 1.2rem;
+  color: #4A90E2;
+  margin-bottom: 1rem;
+  font-weight: 500;
+}
+
+.about-description {
+  font-size: 1.1rem;
+  color: #495057;
+  line-height: 1.6;
+  margin-bottom: 0;
+}
+
+.mcfarland-photo {
+  max-width: 200px;
+  width: 100%;
+  height: auto;
+  border-radius: 15px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+  border: 3px solid #2E86AB;
+}
+
+.about-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* Feature Cards */
+.feature-card .card-header {
+  background: linear-gradient(135deg, #2E86AB, #4A90E2);
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+}
+
+.feature-item {
+  text-align: center;
+  padding: 1rem;
+  background: rgba(46, 134, 171, 0.05);
+  border-radius: 12px;
+  transition: transform 0.3s ease;
+}
+
+.feature-item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.feature-icon {
+  font-size: 2rem;
+  color: #2E86AB;
+  margin-bottom: 0.75rem;
+}
+
+.feature-item h5 {
+  color: #2E86AB;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.feature-item p {
+  color: #6c757d;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  margin-bottom: 0;
+}
+
+/* Story Card */
+.story-card .card-header {
+  background: linear-gradient(135deg, #28a745, #20c997);
+}
+
+.story-card p {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #495057;
+}
+
+/* Updates Card */
+.updates-card .card-header {
+  background: linear-gradient(135deg, #ffc107, #fd7e14);
+}
+
+/* Version Timeline */
+.version-timeline {
+  position: relative;
+  padding-left: 0;
+}
+
+.version-item {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  position: relative;
+}
+
+.version-item:not(:last-child):before {
+  content: '';
+  position: absolute;
+  left: 22px;
+  top: 45px;
+  bottom: -24px;
+  width: 2px;
+  background: #dee2e6;
+}
+
+.version-item.current:not(:last-child):before {
+  background: #2E86AB;
+}
+
+.version-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-right: 1rem;
+  position: relative;
+  z-index: 2;
+}
+
+.version-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #dee2e6;
+  border: 3px solid white;
+  box-shadow: 0 0 0 2px #dee2e6;
+}
+
+.version-item.current .version-dot {
+  background: #2E86AB;
+  box-shadow: 0 0 0 2px #2E86AB;
+}
+
+.version-item.major .version-dot {
+  background: #dc3545;
+  box-shadow: 0 0 0 2px #dc3545;
+}
+
+.version-item.beloved .version-dot {
+  background: #6f42c1;
+  box-shadow: 0 0 0 2px #6f42c1;
+}
+
+.version-item.founding .version-dot {
+  background: #ffc107;
+  box-shadow: 0 0 0 2px #ffc107;
+}
+
+.version-number {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #6c757d;
+  margin-top: 0.25rem;
+  text-align: center;
+}
+
+.version-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.version-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.version-title {
+  font-weight: 600;
+  color: #2E86AB;
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.version-title.founding {
+  color: #ffc107;
+}
+
+.version-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.version-badge.new {
+  background: #28a745;
+  color: white;
+}
+
+.version-badge.founding {
+  background: #ffc107;
+  color: #212529;
+}
+
+.version-date {
+  font-size: 0.8rem;
+  color: #6c757d;
+  margin-left: auto;
+}
+
+.version-description {
+  color: #495057;
+  line-height: 1.4;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.version-description.founding {
+  font-style: italic;
+}
+
+.version-content h5 {
+  color: #2E86AB;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+}
+
+.version-content p {
+  color: #6c757d;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* Tech Card */
+.tech-card .card-header {
+  background: linear-gradient(135deg, #6f42c1, #e83e8c);
+}
+
+.tech-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+
+.tech-item h5 {
+  color: #2E86AB;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+}
+
+.tech-item ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.tech-item li {
+  color: #495057;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin-bottom: 0.5rem;
+}
+
+.tech-item strong {
+  color: #2E86AB;
+}
+
+/* Connect Card */
+.connect-card .card-header {
+  background: linear-gradient(135deg, #dc3545, #fd7e14);
+}
+
+.connect-buttons {
+  display: flex;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.connect-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.connect-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(46, 134, 171, 0.3);
+}
+
+.connect-note {
+  background: rgba(46, 134, 171, 0.05);
+  border: 1px solid rgba(46, 134, 171, 0.2);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.connect-note p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #495057;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.connect-note .fa-shield-alt {
+  color: #28a745;
+}
+
+/* About Footer - Enhanced with proper visual container */
+.about-footer-wrapper {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 1.5rem 1rem;
+  margin: 2rem -1rem -1rem -1rem; /* Extend to edges, connect to bottom */
+}
+
+.about-footer {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 15px;
+  padding: 2rem;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+  max-width: 1200px;
+  margin: 0 auto;
+  text-align: center;
+  border-top: none; /* Remove the old border */
+}
+
+.about-footer p {
+  margin: 0.5rem 0;
+  color: #495057; /* Darker text for better contrast */
+}
+
+.credits {
+  font-size: 0.9rem;
+}
+
+.credits strong {
+  color: #2E86AB;
+}
+
+/* About Page Mobile Responsiveness */
+@media (max-width: 768px) {
+  .about-hero-wrapper {
+    padding: 1.5rem 0.5rem;
+    margin: -0.75rem -0.75rem 1.5rem -0.75rem;
+  }
+  
+  .about-hero {
+    padding: 2rem 1.5rem;
+  }
+  
+  .about-footer-wrapper {
+    padding: 1.25rem 0.5rem;
+    margin: 2rem -0.75rem -0.75rem -0.75rem;
+  }
+  
+  .about-footer {
+    padding: 1.5rem;
+  }
+  
+  .hero-content {
+    flex-direction: column;
+    text-align: center;
+    gap: 2rem;
+  }
+  
+  .hero-text {
+    text-align: center;
+  }
+  
+  .hero-text-container {
+    padding: 1.5rem;
+  }
+  
+  .about-title {
+    font-size: 2rem;
+  }
+  
+  .about-subtitle {
+    font-size: 1rem;
+  }
+  
+  .about-description {
+    font-size: 1rem;
+  }
+  
+  .mcfarland-photo {
+    max-width: 150px;
+  }
+  
+  .feature-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .tech-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .connect-buttons {
+    flex-direction: column;
+  }
+  
+  .version-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .version-date {
+    margin-left: 0;
+    align-self: flex-start;
+  }
+  
+  .version-timeline {
+    padding-left: 0;
+  }
+  
+  .version-item {
+    margin-bottom: 2rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .about-hero-wrapper {
+    padding: 1rem 0.25rem;
+    margin: -0.75rem -0.75rem 1rem -0.75rem;
+  }
+  
+  .about-hero {
+    padding: 1.5rem 1rem;
+  }
+  
+  .about-footer-wrapper {
+    padding: 1rem 0.25rem;
+    margin: 1.5rem -0.75rem -0.75rem -0.75rem;
+  }
+  
+  .about-footer {
+    padding: 1.25rem;
+  }
+  
+  .hero-text-container {
+    padding: 1.25rem;
+  }
+  
+  .about-title {
+    font-size: 1.75rem;
+  }
+  
+  .about-subtitle {
+    font-size: 0.9rem;
+  }
+  
+  .feature-item {
+    padding: 0.75rem;
+  }
+  
+  .version-description {
+    font-size: 0.85rem;
+  }
+}
+  
 ")
 
 # UI Definition -------------------------------------------------------------
@@ -1630,7 +2158,7 @@ ui_styles <- HTML("
 
 # UI Definition - Redesigned with Progressive Flow
 ui <- page_navbar(
-  title = "McFARLAND: AI-Powered Baseball Analysis",
+  title = "McFARLAND",
   header = tagList(
     tags$meta(name = "viewport", content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover, shrink-to-fit=no"),
     tags$style(ui_styles), # Keep your existing styles
@@ -2201,44 +2729,367 @@ ui <- page_navbar(
     # Step 3: Analysis Results
     uiOutput("step_3_analysis_results")
   ),
+
   nav_panel(
     title = "About",
     icon = icon("info-circle"),
-    card(
-      card_body(
-        p("McFARLAND: Machine-crafted Forecasting And Reasoning for Luck, Analytics, Narratives, and Data"),
-        img(src = "tjmcfarland.png", style = "width: 100%; max-width: 400px; height: auto;"),
-        p("Now supports both hitters and pitchers with MLB player headshots!"),
-        p("Data from FanGraphs. Comparing 2025 stats (refreshed daily) to 2022-2024 averages."),
-        p("Player photos courtesy of MLB."),
-        p("Built with R, shiny, tidyverse, baseballr, bslib, shinyWidgets, and shinybusy."),
-        p("Powered by GPT-4.1."),
-        h4("Get In Touch"),
-        tags$a(
-          href = "https://docs.google.com/forms/d/e/1FAIpQLScPiHfO2XxwCXd2V-7pNsUKs-mMaqzzsH2ohA_kBflk_n8AQw/viewform",
-          target = "_blank", class = "btn btn-sm btn-primary", style = "margin-left: 1rem;",
-          icon("envelope"), "Get updated when we add new features"
+    
+    # Hero Section with proper visual container
+    div(
+      class = "about-hero-wrapper",
+      div(
+        class = "about-hero",
+        div(
+          class = "hero-content",
+          div(
+            class = "hero-text",
+            div(
+              class = "hero-text-container",
+              h1(class = "about-title", "Meet McFARLAND"),
+              h2(class = "about-subtitle", "🤖⚾ Machine-crafted Forecasting And Reasoning for Luck, Analytics, Narratives, and Data"),
+              p(class = "about-description", 
+                "Your AI-powered baseball analysis companion that cuts through the noise to tell you what's really happening with MLB players. We separate skill from luck, trends from flukes, and give you insights that matter."
+              )
+            )
+          ),
+          div(
+            class = "hero-image",
+            img(
+              src = "tjmcfarland.png", 
+              alt = "T.J. McFarland - The inspiration behind our name",
+              class = "mcfarland-photo"
+            )
+          )
+        )
+      )
+    ),
+    
+    # Main Content Cards
+    div(
+      class = "about-content",
+      
+      # App Features Card
+      card(
+        class = "feature-card",
+        card_header(
+          icon("chart-line"), "App Features"
         ),
-        tags$a(
-          href = "https://forms.gle/NDJJKj7XrsnFH6m16",
-          target = "_blank", class = "btn btn-sm btn-primary", style = "margin-left: 1rem;",
-          icon("envelope"), "Submit feedback"
+        card_body(
+          div(
+            class = "feature-grid",
+            div(
+              class = "feature-item",
+              icon("brain", class = "feature-icon"),
+              h5("Smart Analysis"),
+              p("AI-powered insights that explain not just what's happening, but why it matters for the rest of the season.")
+            ),
+            div(
+              class = "feature-item",
+              icon("dice", class = "feature-icon"),
+              h5("Skill vs Luck"),
+              p("We separate sustainable performance changes from statistical noise using advanced metrics like xwOBA and BABIP.")
+            ),
+            div(
+              class = "feature-item",
+              icon("users", class = "feature-icon"),
+              h5("Both Hitters & Pitchers"),
+              p("Comprehensive analysis for position players and pitchers with metrics tailored to each role.")
+            ),
+            div(
+              class = "feature-item",
+              icon("palette", class = "feature-icon"),
+              h5("Your Style"),
+              p("Choose from 8 analysis personalities - from Shakespeare to Gen Z to Old School wisdom.")
+            )
+          )
+        )
+      ),
+      
+      # Get Connected Card - MOVED UP for better visibility
+      card(
+        class = "connect-card",
+        card_header(
+          icon("heart"), "Get Connected"
         ),
-        h4("Version History"),
-        tags$ul(
-          tags$li("0.9 - Redesigned with progressive flow layout for better UX"),
-          tags$li("0.8 - Added intelligent API caching for improved performance and cost savings"),
-          tags$li("0.7 - Added player headshots from MLB! Photos now display with player info."),
-          tags$li("0.6 - Added pitcher analysis! Now supports both hitters and pitchers."),
-          tags$li("0.5 - Added ability to sign up for notifications."),
-          tags$li("0.4 - Added Barrels/PA and historical xwOBA/wOBA gap to stats that are analyzed"),
-          tags$li("0.3 - Added player stat graphs below analysis."),
-          tags$li("0.2 - Added Shakespeare vibe."),
-          tags$li("0.1 - First version I wasn't horrendously ashamed of.")
+        card_body(
+          p("McFARLAND is a passion project that gets better with your feedback. Whether you've found a bug, have an idea for a feature, or just want to say hello, we'd love to hear from you!"),
+          div(
+            class = "connect-buttons",
+            tags$a(
+              href = "https://docs.google.com/forms/d/e/1FAIpQLScPiHfO2XxwCXd2V-7pNsUKs-mMaqzzsH2ohA_kBflk_n8AQw/viewform",
+              target = "_blank", 
+              class = "btn btn-primary connect-btn",
+              icon("bell"), "Get Updates"
+            ),
+            tags$a(
+              href = "https://forms.gle/NDJJKj7XrsnFH6m16",
+              target = "_blank", 
+              class = "btn btn-primary connect-btn",
+              icon("comment"), "Send Feedback"
+            )
+          ),
+          div(
+            class = "connect-note",
+            p(
+              icon("shield-alt"), 
+              tags$strong("Privacy-First:"), 
+              " We only collect anonymous usage data to improve the app. No personal information is stored or shared."
+            )
+          )
+        )
+      ),
+      
+      
+      # The Story Card
+      card(
+        class = "story-card",
+        card_header(
+          icon("lightbulb"), "The Story"
+        ),
+        card_body(
+          p("Named after ", tags$strong("T.J. McFarland"), " - the utility pitcher who embodied versatility and adaptation - our app does what great utility players do: it adapts to what you need."),
+          p("Whether you're trying to figure out if your favorite player's hot streak is real, wondering if that pitcher's suddenly great season will continue, or just want to understand baseball better, McFARLAND gives you the insights that matter."),
+          p("We built this because baseball analysis shouldn't require a statistics degree. Everyone deserves to understand what's really happening beyond the basic stats.")
+        )
+      ),
+      
+      
+      
+      # What's New Section
+      card(
+        class = "updates-card",
+        card_header(
+          icon("sparkles"), "What's New"
+        ),
+        card_body(
+          div(
+            class = "version-timeline",
+            
+            # Latest Version - Highlighted
+            div(
+              class = "version-item current",
+              div(
+                class = "version-marker current",
+                span(class = "version-dot"),
+                span(class = "version-number", "v1.0")
+              ),
+              div(
+                class = "version-content",
+                div(
+                  class = "version-header",
+                  h4("Complete Experience Redesign", class = "version-title"),
+                  span(class = "version-badge new", "LATEST")
+                ),
+                p(class = "version-description",
+                  "We rebuilt the entire app with a guided, step-by-step experience. Now you get instant player insights, smooth interactions, and a much more intuitive flow from player selection to AI analysis."
+                )
+              )
+            ),
+            
+            # Recent Updates
+            div(
+              class = "version-item",
+              div(
+                class = "version-marker",
+                span(class = "version-dot"),
+                span(class = "version-number", "v0.9")
+              ),
+              div(
+                class = "version-content",
+                h5("Smart Caching & Performance"),
+                p("Lightning-fast responses with intelligent caching. Previously analyzed players load instantly.")
+              )
+            ),
+            
+            div(
+              class = "version-item",
+              div(
+                class = "version-marker",
+                span(class = "version-dot"),
+                span(class = "version-number", "v0.8")
+              ),
+              div(
+                class = "version-content",
+                h5("Player Photos"),
+                p("Official MLB headshots for every player. Now you can put a face to the stats.")
+              )
+            ),
+            
+            div(
+              class = "version-item major",
+              div(
+                class = "version-marker major",
+                span(class = "version-dot"),
+                span(class = "version-number", "v0.7")
+              ),
+              div(
+                class = "version-content",
+                h5("Pitcher Analysis"),
+                p("Major expansion! Added complete pitcher analysis covering all of MLB.")
+              )
+            ),
+            
+            div(
+              class = "version-item",
+              div(
+                class = "version-marker",
+                span(class = "version-dot"),
+                span(class = "version-number", "v0.6")
+              ),
+              div(
+                class = "version-content",
+                h5("Stay Connected"),
+                p("Notification signup and feedback systems to keep you updated.")
+              )
+            ),
+            
+            div(
+              class = "version-item",
+              div(
+                class = "version-marker",
+                span(class = "version-dot"),
+                span(class = "version-number", "v0.5")
+              ),
+              div(
+                class = "version-content",
+                h5("Advanced Metrics"),
+                p("Enhanced analysis with Barrel% and xwOBA to better distinguish skill from luck.")
+              )
+            ),
+            
+            div(
+              class = "version-item",
+              div(
+                class = "version-marker",
+                span(class = "version-dot"),
+                span(class = "version-number", "v0.4")
+              ),
+              div(
+                class = "version-content",
+                h5("Visual Trends"),
+                p("Beautiful charts showing how current season compares to recent history.")
+              )
+            ),
+            
+            div(
+              class = "version-item beloved",
+              div(
+                class = "version-marker beloved",
+                span(class = "version-dot"),
+                span(class = "version-number", "v0.3")
+              ),
+              div(
+                class = "version-content",
+                h5("Shakespeare Mode"),
+                p("The fan-favorite feature: baseball analysis in iambic pentameter!")
+              )
+            ),
+            
+            div(
+              class = "version-item",
+              div(
+                class = "version-marker",
+                span(class = "version-dot"),
+                span(class = "version-number", "v0.2")
+              ),
+              div(
+                class = "version-content",
+                h5("Analysis Personalities"),
+                p("Multiple analysis vibes from Analytics Dork to Old Coot.")
+              )
+            ),
+            
+            div(
+              class = "version-item founding",
+              div(
+                class = "version-marker founding",
+                span(class = "version-dot"),
+                span(class = "version-number", "v0.1")
+              ),
+              div(
+                class = "version-content",
+                div(
+                  class = "version-header",
+                  h5("The Beginning", class = "version-title founding"),
+                  span(class = "version-badge founding", "FOUNDING")
+                ),
+                p(class = "version-description founding",
+                  "The first version we weren't horrendously ashamed of! Basic hitter analysis comparing 2025 stats to recent history."
+                )
+              )
+            )
+          )
+        )
+      ),
+      
+    
+      
+      # Data & Tech Card
+      card(
+        class = "tech-card",
+        card_header(
+          icon("database"), "Data & Technology"
+        ),
+        card_body(
+          div(
+            class = "tech-grid",
+            div(
+              class = "tech-item",
+              h5("📊 Data Sources"),
+              tags$ul(
+                tags$li(tags$strong("FanGraphs:"), " Comprehensive baseball statistics and advanced metrics"),
+                tags$li(tags$strong("MLB:"), " Official player photos and league data"),
+                tags$li(tags$strong("Daily Updates:"), " Fresh statistics refreshed every morning")
+              )
+            ),
+            div(
+              class = "tech-item",
+              h5("🤖 AI & Analysis"),
+              tags$ul(
+                tags$li(tags$strong("GPT-4.1:"), " Advanced language model for intelligent analysis"),
+                tags$li(tags$strong("Smart Caching:"), " Faster responses and cost optimization"),
+                tags$li(tags$strong("Context Aware:"), " Analysis considers age, position, and sample size")
+              )
+            ),
+            div(
+              class = "tech-item",
+              h5("⚙️ Built With"),
+              tags$ul(
+                tags$li(tags$strong("R & Shiny:"), " Robust statistical computing and web framework"),
+                tags$li(tags$strong("Tidyverse:"), " Clean, maintainable data processing"),
+                tags$li(tags$strong("Bootstrap & Custom CSS:"), " Modern, responsive design")
+              )
+            ),
+            div(
+              class = "tech-item",
+              h5("📈 What We Compare"),
+              tags$ul(
+                tags$li(tags$strong("2025 Season:"), " Current year performance"),
+                tags$li(tags$strong("vs 2022-2024:"), " Three-year historical average"),
+                tags$li(tags$strong("500+ Players:"), " Both hitters and pitchers")
+              )
+            )
+          )
+        )
+      )
+    ),
+    
+    # Footer with proper visual container
+    div(
+      class = "about-footer-wrapper",
+      div(
+        class = "about-footer",
+        p("Built with ❤️ and ⚾ by Ryan Pollack"),
+        p(
+          class = "credits",
+          "Player data courtesy of ", tags$strong("FanGraphs"), " • Photos courtesy of ", tags$strong("MLB"), 
+          " • Powered by ", tags$strong("OpenAI GPT-4.1")
         )
       )
     )
   )
+  
+  
 )
 
 # Server
