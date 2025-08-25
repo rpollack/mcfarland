@@ -3189,7 +3189,7 @@ server <- function(input, output, session) {
           # INSTANT: Quick statistical insight
           div(
             class = "insight-summary",
-            h5(icon("lightbulb"), "Quick Statistical Overview"),
+            h5(icon("lightbulb"), "Summary Assessment"),
             p(player_info$quick_insight)
           ),
           
@@ -3366,7 +3366,7 @@ server <- function(input, output, session) {
       div(
         class = "step-header",
         div(class = if (both_selected) "step-number" else "step-number inactive", "3"),
-        h3(class = if (both_selected) "step-title" else "step-title inactive", "AI-Powered Analysis")
+        h3(class = if (both_selected) "step-title" else "step-title inactive", "Detailed Analysis")
       ),
       if (both_selected) {
         # DYNAMIC: AI Analysis section only (trends plot now in Step 1)
