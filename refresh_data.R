@@ -168,7 +168,8 @@ pitching_stats_current <-
     fip_era_gap = era - fip,
     barrel_percent = barrel_percent * 100,
     csw_percent = csw_percent * 100,
-    name = stri_trans_general(name, id = "Latin-ASCII")
+    name = stri_trans_general(name, id = "Latin-ASCII"),
+    lob_percent = lob_percent * 100
   )
 
 # Combine pitcher data and compute differences
