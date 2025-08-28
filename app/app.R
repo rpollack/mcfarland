@@ -2696,8 +2696,8 @@ ui <- page_navbar(
     # Hero Section
     div(
       class = "hero-section",
-      h1(class = "hero-title", "McFARLAND"),
-      p(class = "hero-subtitle", "🤖⚾ AI-powered baseball performance analysis")
+      h1(class = "hero-title", "⚾ McFARLAND ⚾"),
+      p(class = "hero-subtitle", "Advanced baseball analysis. Plain English.")
     ),
 
     # Player Search Section
@@ -2748,7 +2748,7 @@ ui <- page_navbar(
               h1(class = "about-title", "Meet McFARLAND"),
               h2(class = "about-subtitle", "🤖⚾ Machine-crafted Forecasting And Reasoning for Luck, Analytics, Narratives, and Data"),
               p(class = "about-description", 
-                "Your AI-powered baseball analysis companion that cuts through the noise to tell you what's really happening with MLB players. We separate skill from luck, trends from flukes, and give you insights that matter."
+                "Your baseball analysis companion that cuts through the noise to tell you what's really happening -- in plain English! -- with MLB players. We separate skill from luck, trends from flukes, and give you insights that matter."
               )
             )
           ),
@@ -2781,7 +2781,7 @@ ui <- page_navbar(
               class = "feature-item",
               icon("brain", class = "feature-icon"),
               h5("Smart Analysis"),
-              p("AI-powered insights that explain not just what's happening, but why it matters for the rest of the season.")
+              p("Insights that explain not just what's happening, but why it matters for the rest of the season.")
             ),
             div(
               class = "feature-item",
@@ -3157,7 +3157,7 @@ server <- function(input, output, session) {
             span(
               class = "badge bg-primary ms-3",
               tags$i(class = "fas fa-spinner fa-spin me-1"),
-              "AI Analyzing..."
+              "Analyzing..."
             )
           } else if (!is.null(ai_result)) {
             span(
