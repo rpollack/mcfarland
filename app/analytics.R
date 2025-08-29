@@ -62,7 +62,7 @@ get_db_connection <- function() {
         host_port <- host_db_split[1]
         database <- host_db_split[2]
         
-        # Parse host:port (port might be missing) - THIS IS THE MISSING PORT FIX
+        # Parse host and optional port, defaulting to 5432 if absent
         if (grepl(":", host_port)) {
           # Port is specified
           host_port_split <- strsplit(host_port, ":")[[1]]
