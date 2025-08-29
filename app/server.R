@@ -72,8 +72,8 @@ generate_player_stat_line <- function(player_id, baseball_data) {
         list(label = "AVG", value = format_stat_value(player_data$AVG_cur)),
         list(label = "OBP", value = format_stat_value(player_data$OBP_cur)),
         list(label = "SLG", value = format_stat_value(player_data$SLG_cur)),
-        list(label = "K%", value = paste0(round(player_data$K_pct_cur, 1), "%")),
-        list(label = "BB%", value = paste0(round(player_data$BB_pct_cur, 1), "%")),
+        list(label = "K%", value = format_percentage(player_data$K_pct_cur)),
+        list(label = "BB%", value = format_percentage(player_data$BB_pct_cur)),
         list(label = "wOBA", value = format_stat_value(player_data$wOBA_cur))
       )
       
@@ -93,10 +93,10 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       stats <- list(
         list(label = "ERA", value = sprintf("%.2f", player_data$era_cur)),
         list(label = "xERA", value = sprintf("%.2f", player_data$xera_cur)),
-        list(label = "K%", value = paste0(round(player_data$k_percent_cur, 1), "%")),
-        list(label = "BB%", value = paste0(round(player_data$bb_percent_cur, 1), "%")),
+        list(label = "K%", value = format_percentage(player_data$k_percent_cur)),
+        list(label = "BB%", value = format_percentage(player_data$bb_percent_cur)),
         list(label = "BABIP", value = babip_val),
-        list(label = "LOB%", value = paste0(round(player_data$lob_percent_cur, 1), "%"))
+        list(label = "LOB%", value = format_percentage(player_data$lob_percent_cur))
       )
       
       return(list(
@@ -958,8 +958,8 @@ generate_player_stat_line <- function(player_id, baseball_data) {
           list(label = "AVG", value = format_stat_value(player_data$AVG_cur)),
           list(label = "OBP", value = format_stat_value(player_data$OBP_cur)),
           list(label = "SLG", value = format_stat_value(player_data$SLG_cur)),
-          list(label = "K%", value = paste0(format_stat_value(player_data$K_pct_cur), "%")),
-          list(label = "BB%", value = paste0(format_stat_value(player_data$BB_pct_cur), "%")),
+          list(label = "K%", value = format_percentage(player_data$K_pct_cur)),
+          list(label = "BB%", value = format_percentage(player_data$BB_pct_cur)),
           list(label = "wOBA", value = format_stat_value(player_data$wOBA_cur))
         )
         
@@ -979,10 +979,10 @@ generate_player_stat_line <- function(player_id, baseball_data) {
         stats <- list(
           list(label = "ERA", value = format_stat_value(player_data$era_cur)),
           list(label = "xERA", value = format_stat_value(player_data$xera_cur)),
-          list(label = "K%", value = paste0(format_stat_value(player_data$k_percent_cur), "%")),
-          list(label = "BB%", value = paste0(format_stat_value(player_data$bb_percent_cur), "%")),
+          list(label = "K%", value = format_percentage(player_data$k_percent_cur)),
+          list(label = "BB%", value = format_percentage(player_data$bb_percent_cur)),
           list(label = "BABIP", value = format_stat_value(player_data$babip_cur)),
-          list(label = "LOB%", value = paste0(format_stat_value(player_data$lob_percent_cur), "%"))
+          list(label = "LOB%", value = format_percentage(player_data$lob_percent_cur))
         )
         
         return(list(

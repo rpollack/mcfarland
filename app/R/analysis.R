@@ -12,6 +12,17 @@ format_stat_value <- function(x) {
   )
 }
 
+#' Format percentage values consistently
+#' @param x Numeric percentage value
+#' @return Formatted percentage string like "12.3%"
+format_percentage <- function(x) {
+  case_when(
+    is.na(x) | is.null(x) ~ "N/A",
+    is.numeric(x) ~ sprintf("%.1f%%", x),
+    TRUE ~ as.character(x)
+  )
+}
+
 #' Get analysis persona prompt using tidyverse
 #' @param mode Analysis mode string
 #' @return Persona prompt text
@@ -139,9 +150,9 @@ build_hitter_prompt <- function(player_name, hitter_data) {
     str_glue("AVG: {format_stat_value(data$AVG_cur)}  Last 3 Years: {format_stat_value(data$AVG_l3)}  Diff: {format_stat_value(data$AVG_diff)}"),
     str_glue("OBP: {format_stat_value(data$OBP_cur)}  Last 3 Years: {format_stat_value(data$OBP_l3)}  Diff: {format_stat_value(data$OBP_diff)}"),
     str_glue("SLG: {format_stat_value(data$SLG_cur)}  Last 3 Years: {format_stat_value(data$SLG_l3)}  Diff: {format_stat_value(data$SLG_diff)}"),
-    str_glue("K%: {format_stat_value(data$K_pct_cur)}  Last 3 Years: {format_stat_value(data$K_pct_l3)}  Diff: {format_stat_value(data$K_pct_diff)}"),
-    str_glue("BB%: {format_stat_value(data$BB_pct_cur)}  Last 3 Years: {format_stat_value(data$BB_pct_l3)}  Diff: {format_stat_value(data$BB_pct_diff)}"),
-    str_glue("Barrel%: {format_stat_value(data$Barrel_pct_cur)}  Last 3 Years: {format_stat_value(data$Barrel_pct_l3)}  Diff: {format_stat_value(data$Barrel_pct_diff)}"),
+    str_glue("K%: {format_percentage(data$K_pct_cur)}  Last 3 Years: {format_percentage(data$K_pct_l3)}  Diff: {format_percentage(data$K_pct_diff)}"),
+    str_glue("BB%: {format_percentage(data$BB_pct_cur)}  Last 3 Years: {format_percentage(data$BB_pct_l3)}  Diff: {format_percentage(data$BB_pct_diff)}"),
+    str_glue("Barrel%: {format_percentage(data$Barrel_pct_cur)}  Last 3 Years: {format_percentage(data$Barrel_pct_l3)}  Diff: {format_percentage(data$Barrel_pct_diff)}"),
     str_glue("BABIP: {format_stat_value(data$BABIP_cur)}  Last 3 Years: {format_stat_value(data$BABIP_l3)}  Diff: {format_stat_value(data$BABIP_diff)}"),
     str_glue("wOBA: {format_stat_value(data$wOBA_cur)}  Last 3 Years: {format_stat_value(data$wOBA_l3)}  Diff: {format_stat_value(data$wOBA_diff)}"),
     str_glue("xwOBA: {format_stat_value(data$xwOBA_cur)}  Last 3 Years: {format_stat_value(data$xwOBA_l3)}  Diff: {format_stat_value(data$xwOBA_diff)}"),
@@ -191,13 +202,13 @@ build_pitcher_prompt <- function(player_name, pitcher_data) {
     str_glue("ERA: {format_stat_value(data$era_cur)}  Last 3 Years: {format_stat_value(data$era_l3)}  Diff: {format_stat_value(data$era_diff)}"),
     str_glue("xERA: {format_stat_value(data$xera_cur)}  Last 3 Years: {format_stat_value(data$xera_l3)}  Diff: {format_stat_value(data$xera_diff)}"),
     str_glue("BABIP: {format_stat_value(data$babip_cur)}  Last 3 Years: {format_stat_value(data$babip_l3)}  Diff: {format_stat_value(data$babip_diff)}"),
-    str_glue("Barrel Rate: {format_stat_value(data$barrel_percent_cur)}%  Last 3 Years: {format_stat_value(data$barrel_percent_l3)}%  Diff: {format_stat_value(data$barrel_percent_diff)}%"),
-    str_glue("Strikeout Rate (K%): {format_stat_value(data$k_percent_cur)}%  Last 3 Years: {format_stat_value(data$k_percent_l3)}%  Diff: {format_stat_value(data$k_percent_diff)}%"),
-    str_glue("Called Strike & Whiff Rate (CSW%): {format_stat_value(data$csw_percent_cur)}%  Last 3 Years: {format_stat_value(data$csw_percent_l3)}%  Diff: {format_stat_value(data$csw_percent_diff)}%"),
-    str_glue("Outside Zone Swing Rate (O-Swing%): {format_stat_value(data$o_swing_percent_cur)}%  Last 3 Years: {format_stat_value(data$o_swing_percent_l3)}%  Diff: {format_stat_value(data$o_swing_percent_diff)}%"),
-    str_glue("Walk Rate (BB%): {format_stat_value(data$bb_percent_cur)}%  Last 3 Years: {format_stat_value(data$bb_percent_l3)}%  Diff: {format_stat_value(data$bb_percent_diff)}%"),
-    str_glue("K-BB%: {format_stat_value(data$k_minus_bb_percent_cur)}%  Last 3 Years: {format_stat_value(data$k_minus_bb_percent_l3)}%  Diff: {format_stat_value(data$k_minus_bb_percent_diff)}%"),
-    str_glue("LOB% (Left-on-base rate): {format_stat_value(data$lob_percent_cur)}%  Last 3 Years: {format_stat_value(data$lob_percent_l3)}%  Diff: {format_stat_value(data$lob_percent_diff)}%")
+    str_glue("Barrel Rate: {format_percentage(data$barrel_percent_cur)}  Last 3 Years: {format_percentage(data$barrel_percent_l3)}  Diff: {format_percentage(data$barrel_percent_diff)}"),
+    str_glue("Strikeout Rate (K%): {format_percentage(data$k_percent_cur)}  Last 3 Years: {format_percentage(data$k_percent_l3)}  Diff: {format_percentage(data$k_percent_diff)}"),
+    str_glue("Called Strike & Whiff Rate (CSW%): {format_percentage(data$csw_percent_cur)}  Last 3 Years: {format_percentage(data$csw_percent_l3)}  Diff: {format_percentage(data$csw_percent_diff)}"),
+    str_glue("Outside Zone Swing Rate (O-Swing%): {format_percentage(data$o_swing_percent_cur)}  Last 3 Years: {format_percentage(data$o_swing_percent_l3)}  Diff: {format_percentage(data$o_swing_percent_diff)}"),
+    str_glue("Walk Rate (BB%): {format_percentage(data$bb_percent_cur)}  Last 3 Years: {format_percentage(data$bb_percent_l3)}  Diff: {format_percentage(data$bb_percent_diff)}"),
+    str_glue("K-BB%: {format_percentage(data$k_minus_bb_percent_cur)}  Last 3 Years: {format_percentage(data$k_minus_bb_percent_l3)}  Diff: {format_percentage(data$k_minus_bb_percent_diff)}"),
+    str_glue("LOB% (Left-on-base rate): {format_percentage(data$lob_percent_cur)}  Last 3 Years: {format_percentage(data$lob_percent_l3)}  Diff: {format_percentage(data$lob_percent_diff)}")
   )
 
   notes_section <- c(
