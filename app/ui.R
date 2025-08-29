@@ -1,7 +1,5 @@
 # UI Definition -------------------------------------------------------------
 
-# Replace the UI section in your app.R with this redesigned layout
-
 # UI Definition - Redesigned with Progressive Flow
 ui <- page_navbar(
   title = "McFARLAND",
@@ -165,7 +163,7 @@ ui <- page_navbar(
 
 /* Compact Vibe Selector - Mobile First Design */
 
-/* Replace the existing .vibe-selector styles with this more compact version */
+/* More compact .vibe-selector styles */
 .vibe-selector {
   display: flex;
   flex-direction: column;

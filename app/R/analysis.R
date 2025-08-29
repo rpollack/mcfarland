@@ -413,7 +413,7 @@ assess_regression_likelihood <- function(player_data, player_type) {
   luck_indicators <- c()
 
   if (player_type == "hitter") {
-    # BABIP analysis - FIXED: Proper NA handling
+    # BABIP analysis
     babip_cur <- player_data$BABIP_cur
     babip_l3 <- player_data$BABIP_l3
 
@@ -430,7 +430,7 @@ assess_regression_likelihood <- function(player_data, player_type) {
       }
     }
 
-    # xwOBA-wOBA gap analysis - FIXED: Proper NA handling
+    # xwOBA-wOBA gap analysis
     current_gap <- player_data$xwOBA_wOBA_gap_cur
     historical_gap <- player_data$xwOBA_wOBA_gap_l3
 
@@ -446,7 +446,7 @@ assess_regression_likelihood <- function(player_data, player_type) {
       }
     }
 
-    # Barrel rate vs BABIP inconsistency - FIXED: Proper NA handling
+    # Barrel rate vs BABIP inconsistency
     barrel_diff <- player_data$Barrel_pct_diff
     babip_diff <- player_data$BABIP_diff
 
@@ -459,7 +459,7 @@ assess_regression_likelihood <- function(player_data, player_type) {
       }
     }
   } else { # pitcher
-    # BABIP analysis - FIXED: Proper NA handling
+    # BABIP analysis
     babip_cur <- player_data$babip_cur
     babip_l3 <- player_data$babip_l3
 
@@ -476,7 +476,7 @@ assess_regression_likelihood <- function(player_data, player_type) {
       }
     }
 
-    # ERA vs xERA gap - FIXED: Proper NA handling
+    # ERA vs xERA gap
     era_cur <- player_data$era_cur
     xera_cur <- player_data$xera_cur
 
@@ -493,7 +493,7 @@ assess_regression_likelihood <- function(player_data, player_type) {
       }
     }
 
-    # LOB% analysis - FIXED: Proper NA handling
+    # LOB% analysis
     lob_cur <- player_data$lob_percent_cur
     lob_l3 <- player_data$lob_percent_l3
 
@@ -510,7 +510,7 @@ assess_regression_likelihood <- function(player_data, player_type) {
       }
     }
 
-    # Barrel rate vs ERA inconsistency - FIXED: Proper NA handling
+    # Barrel rate vs ERA inconsistency
     barrel_diff <- player_data$barrel_percent_diff
     era_diff <- player_data$era_diff
 

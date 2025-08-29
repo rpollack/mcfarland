@@ -37,7 +37,7 @@ server <- function(input, output, session) {
     ai_analysis_loading = FALSE,
     current_analysis_key = "",
     last_logged_key = "",
-    stat_line_data = NULL  # ADD THIS LINE
+    stat_line_data = NULL  # current stat line
   )
   
   # UI update trigger for forcing refreshes
@@ -47,7 +47,7 @@ server <- function(input, output, session) {
   # INTERNAL UI GENERATION FUNCTIONS (moved inside server for proper scoping)
   # ============================================================================
 
-  # Replace your entire generate_player_stat_line function with this clean version:
+  # Generate stat line for selected player
 
 generate_player_stat_line <- function(player_id, baseball_data) {
   if (is.null(player_id) || player_id == "" || is.null(baseball_data)) {
@@ -895,14 +895,8 @@ generate_player_stat_line <- function(player_id, baseball_data) {
   # ============================================================================
   
   # Render Step 1: Player Selection (using internal function)
-
-  # DEBUGGING STEPS:
-  
-  # 1. First, let's check what's being passed to the generate_step_1_ui function
-  # Update your output$step_1_player_selection in server.R:
-  
   output$step_1_player_selection <- renderUI({
-    ui_update_trigger()  # Access reactive trigger
+    ui_update_trigger()
     
     player_selected <- !is.null(values$selected_player_info)
     
@@ -913,93 +907,9 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       ai_loading = isTRUE(values$ai_analysis_loading),
       ai_result = values$ai_analysis_result,
       analysis_mode = values$analysis_mode %||% "default",
-      stat_line_data = values$stat_line_data  # Make sure this line exists
+      stat_line_data = values$stat_line_data
     )
   })
-  
-  # 2. Let's also add debugging to the stat line function itself:
-  generate_player_stat_line <- function(player_id, baseball_data) {
-    cat("🔍 DEBUG: generate_player_stat_line called with:\n")
-    cat("  - player_id:", player_id %||% "NULL", "\n")
-    cat("  - baseball_data is null:", is.null(baseball_data), "\n")
-    
-    if (is.null(player_id) || player_id == "" || is.null(baseball_data)) {
-      cat("❌ DEBUG: Early return - missing player_id or baseball_data\n")
-      return(NULL)
-    }
-    
-    player_info <- get_player_info(player_id, baseball_data)
-    cat("  - player_info is null:", is.null(player_info), "\n")
-    
-    if (is.null(player_info)) {
-      cat("❌ DEBUG: Early return - no player_info\n")
-      return(NULL)
-    }
-    
-    cat("  - player_type:", player_info$type, "\n")
-    
-    # Extract actual player ID
-    actual_player_id <- if ("compound_id" %in% colnames(baseball_data$lookup)) {
-      extract_player_id(player_id)
-    } else {
-      player_id
-    }
-    
-    cat("  - actual_player_id:", actual_player_id, "\n")
-    
-    if (player_info$type == "hitter" && nrow(baseball_data$hitters) > 0) {
-      player_data <- baseball_data$hitters %>% filter(PlayerId == actual_player_id)
-      cat("  - hitter data rows found:", nrow(player_data), "\n")
-      
-      if (nrow(player_data) > 0) {
-        cat("✅ DEBUG: Generating hitter stats\n")
-        # Clean current stats display
-        stats <- list(
-          list(label = "AVG", value = format_stat_value(player_data$AVG_cur)),
-          list(label = "OBP", value = format_stat_value(player_data$OBP_cur)),
-          list(label = "SLG", value = format_stat_value(player_data$SLG_cur)),
-          list(label = "K%", value = format_percentage(player_data$K_pct_cur)),
-          list(label = "BB%", value = format_percentage(player_data$BB_pct_cur)),
-          list(label = "wOBA", value = format_stat_value(player_data$wOBA_cur))
-        )
-        
-        return(list(
-          type = "hitter",
-          pa = player_data$PA_cur,
-          stats = stats
-        ))
-      }
-    } else if (player_info$type == "pitcher" && nrow(baseball_data$pitchers) > 0) {
-      player_data <- baseball_data$pitchers %>% filter(PlayerId == actual_player_id)
-      cat("  - pitcher data rows found:", nrow(player_data), "\n")
-      
-      if (nrow(player_data) > 0) {
-        cat("✅ DEBUG: Generating pitcher stats\n")
-        # Clean current stats display
-        stats <- list(
-          list(label = "ERA", value = format_era(player_data$era_cur)),
-          list(label = "xERA", value = format_era(player_data$xera_cur)),
-          list(label = "K%", value = format_percentage(player_data$k_percent_cur)),
-          list(label = "BB%", value = format_percentage(player_data$bb_percent_cur)),
-          list(label = "BABIP", value = format_stat_value(player_data$babip_cur)),
-          list(label = "LOB%", value = format_percentage(player_data$lob_percent_cur))
-        )
-        
-        return(list(
-          type = "pitcher", 
-          tbf = player_data$tbf,
-          position = if ("position" %in% colnames(player_data)) player_data$position else "P",
-          stats = stats
-        ))
-      }
-    }
-    
-    cat("❌ DEBUG: No data found for player\n")
-    return(NULL)
-  }
-  
-  # 3. Also update the UI generation to show when it's trying to call the stat line:
-  # In your generate_step_1_ui function, replace the stat line section with:
   
   
   
