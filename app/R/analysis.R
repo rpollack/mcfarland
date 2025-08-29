@@ -18,7 +18,7 @@ format_stat_value <- function(x) {
 format_percentage <- function(x) {
   case_when(
     is.na(x) | is.null(x) ~ "N/A",
-    is.numeric(x) ~ sprintf("%.1f%%", x),
+    is.numeric(x) ~ sub("^(-?)0+([0-9])", "\\1\\2", sprintf("%.1f%%", x)),
     TRUE ~ as.character(x)
   )
 }
