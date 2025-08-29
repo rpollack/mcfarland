@@ -2149,6 +2149,102 @@ ui_styles <- HTML("
     font-size: 0.85rem;
   }
 }
+
+/* Player Stat Line Styling */
+  .player-stat-line {
+    background: rgba(46, 134, 171, 0.05);
+    border: 1px solid rgba(46, 134, 171, 0.15);
+    border-radius: 12px;
+    padding: 1rem;
+    margin: 1rem 0;
+  }
+
+  .stat-line-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(46, 134, 171, 0.2);
+  }
+
+  .stat-line-title {
+    font-weight: 600;
+    color: #2E86AB;
+    font-size: 0.95rem;
+    margin: 0;
+  }
+
+  .stat-line-context {
+    font-size: 0.8rem;
+    color: #6c757d;
+    font-weight: 500;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .stat-item {
+    text-align: center;
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    transition: all 0.3s ease;
+    position: relative;
+  }
+
+  .stat-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(46, 134, 171, 0.15);
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6c757d;
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .stat-value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #2E86AB;
+    margin: 0;
+  }
+
+  /* Mobile responsiveness */
+  @media (max-width: 768px) {
+    .stats-grid {
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+    }
+    
+    .stat-item {
+      padding: 0.4rem;
+    }
+    
+    .stat-value {
+      font-size: 0.9rem;
+    }
+  }
+
+  @media (max-width: 576px) {
+    .stats-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .stat-line-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.25rem;
+    }
+  }
   
 ")
 
@@ -3125,12 +3221,13 @@ server <- function(input, output, session) {
   # Initialize reactive values with safe defaults
   values <- reactiveValues(
     selected_player_info = NULL,
-    analysis_mode = "default", # Start with default
+    analysis_mode = "default", 
     trends_plot = NULL,
     ai_analysis_result = NULL,
     ai_analysis_loading = FALSE,
     current_analysis_key = "",
-    last_logged_key = ""
+    last_logged_key = "",
+    stat_line_data = NULL  # ADD THIS LINE
   )
   
   # UI update trigger for forcing refreshes
@@ -3139,10 +3236,81 @@ server <- function(input, output, session) {
   # ============================================================================
   # INTERNAL UI GENERATION FUNCTIONS (moved inside server for proper scoping)
   # ============================================================================
+
+  # Replace your entire generate_player_stat_line function with this clean version:
+
+generate_player_stat_line <- function(player_id, baseball_data) {
+  if (is.null(player_id) || player_id == "" || is.null(baseball_data)) {
+    return(NULL)
+  }
+  
+  player_info <- get_player_info(player_id, baseball_data)
+  if (is.null(player_info)) return(NULL)
+  
+  # Extract actual player ID
+  actual_player_id <- if ("compound_id" %in% colnames(baseball_data$lookup)) {
+    extract_player_id(player_id)
+  } else {
+    player_id
+  }
+  
+  if (player_info$type == "hitter" && nrow(baseball_data$hitters) > 0) {
+    player_data <- baseball_data$hitters %>% filter(PlayerId == actual_player_id)
+    
+    if (nrow(player_data) > 0) {
+      # Simple formatting - remove leading zeros from batting averages
+      avg_val <- sprintf("%.3f", player_data$AVG_cur) %>% sub("^0\\.", ".", .)
+      obp_val <- sprintf("%.3f", player_data$OBP_cur) %>% sub("^0\\.", ".", .)
+      slg_val <- sprintf("%.3f", player_data$SLG_cur) %>% sub("^0\\.", ".", .)
+      woba_val <- sprintf("%.3f", player_data$wOBA_cur) %>% sub("^0\\.", ".", .)
+      
+      stats <- list(
+        list(label = "AVG", value = avg_val),
+        list(label = "OBP", value = obp_val),
+        list(label = "SLG", value = slg_val),
+        list(label = "K%", value = paste0(round(player_data$K_pct_cur, 1), "%")),
+        list(label = "BB%", value = paste0(round(player_data$BB_pct_cur, 1), "%")),
+        list(label = "wOBA", value = woba_val)
+      )
+      
+      return(list(
+        type = "hitter",
+        pa = player_data$PA_cur,
+        stats = stats
+      ))
+    }
+  } else if (player_info$type == "pitcher" && nrow(baseball_data$pitchers) > 0) {
+    player_data <- baseball_data$pitchers %>% filter(PlayerId == actual_player_id)
+    
+    if (nrow(player_data) > 0) {
+      # Format pitcher stats
+      babip_val <- sprintf("%.3f", player_data$babip_cur) %>% sub("^0\\.", ".", .)
+      
+      stats <- list(
+        list(label = "ERA", value = sprintf("%.2f", player_data$era_cur)),
+        list(label = "xERA", value = sprintf("%.2f", player_data$xera_cur)),
+        list(label = "K%", value = paste0(round(player_data$k_percent_cur, 1), "%")),
+        list(label = "BB%", value = paste0(round(player_data$bb_percent_cur, 1), "%")),
+        list(label = "BABIP", value = babip_val),
+        list(label = "LOB%", value = paste0(round(player_data$lob_percent_cur, 1), "%"))
+      )
+      
+      return(list(
+        type = "pitcher", 
+        tbf = player_data$tbf,
+        position = if ("position" %in% colnames(player_data)) player_data$position else "P",
+        stats = stats
+      ))
+    }
+  }
+  
+  return(NULL)
+}
   
   # Generate Step 1: Player Selection UI (with trends plot)
   generate_step_1_ui <- function(player_selected = FALSE, player_info = NULL, trends_plot = NULL, 
-                                 ai_loading = FALSE, ai_result = NULL, analysis_mode = "default") {
+                                 ai_loading = FALSE, ai_result = NULL, analysis_mode = "default", 
+                                 stat_line_data = NULL) {
     step_class <- if (player_selected) "step-card active" else "step-card inactive"
     
     div(
@@ -3161,7 +3329,7 @@ server <- function(input, output, session) {
             )
           } else if (!is.null(ai_result)) {
             span(
-              class = "badge bg-success ms-3",
+              class = "badge bg-success ms-3", 
               tags$i(class = "fas fa-check-circle me-1"),
               "Analysis Ready"
             )
@@ -3186,6 +3354,42 @@ server <- function(input, output, session) {
             )
           ),
           
+          # NEW: Player stat line using pre-computed data
+          if (!is.null(stat_line_data)) {
+            div(
+              class = "player-stat-line",
+              div(
+                class = "stat-line-header",
+                h5(
+                  class = "stat-line-title",
+                  if (stat_line_data$type == "hitter") {
+                    "2025 Hitting Stats"
+                  } else {
+                    "2025 Pitching Stats" 
+                  }
+                ),
+                span(
+                  class = "stat-line-context",
+                  if (stat_line_data$type == "hitter") {
+                    str_glue("{stat_line_data$pa} PA")
+                  } else {
+                    str_glue("{stat_line_data$tbf} TBF • {stat_line_data$position}")
+                  }
+                )
+              ),
+              div(
+                class = "stats-grid",
+                map(stat_line_data$stats, ~ {
+                  div(
+                    class = "stat-item",
+                    div(class = "stat-label", .x$label),
+                    div(class = "stat-value", .x$value)
+                  )
+                })
+              )
+            )
+          },
+          
           # INSTANT: Quick statistical insight
           div(
             class = "insight-summary",
@@ -3193,7 +3397,7 @@ server <- function(input, output, session) {
             p(player_info$quick_insight)
           ),
           
-          # INSTANT: Performance trends plot (MOVED FROM STEP 3)
+          # INSTANT: Performance trends plot
           if (!is.null(trends_plot)) {
             div(
               style = "margin-top: 1rem;",
@@ -3254,7 +3458,7 @@ server <- function(input, output, session) {
     )
   }
   
-  # Generate Step 2: Analysis Style UI
+  
   # Generate Step 2: Analysis Style UI - COMPACT VERSION
   generate_step_2_ui <- function(player_selected = FALSE, current_mode = "default") {
     step_class <- if (player_selected) "step-card active" else "step-card inactive"
@@ -3713,6 +3917,9 @@ server <- function(input, output, session) {
   # IMMEDIATE: React to player selection - UPDATE UI INSTANTLY
   observeEvent(input$player_selection,
                {
+                 values$stat_line_data <- generate_player_stat_line(input$player_selection, baseball_data)
+                 
+                 
                  if (!is.null(input$player_selection) && input$player_selection != "") {
                    player_info <- get_player_info(input$player_selection, baseball_data)
                    
@@ -3884,6 +4091,12 @@ server <- function(input, output, session) {
   # ============================================================================
   
   # Render Step 1: Player Selection (using internal function)
+
+  # DEBUGGING STEPS:
+  
+  # 1. First, let's check what's being passed to the generate_step_1_ui function
+  # Update your output$step_1_player_selection in server.R:
+  
   output$step_1_player_selection <- renderUI({
     ui_update_trigger()  # Access reactive trigger
     
@@ -3895,9 +4108,96 @@ server <- function(input, output, session) {
       trends_plot = values$trends_plot,
       ai_loading = isTRUE(values$ai_analysis_loading),
       ai_result = values$ai_analysis_result,
-      analysis_mode = values$analysis_mode %||% "default"
+      analysis_mode = values$analysis_mode %||% "default",
+      stat_line_data = values$stat_line_data  # Make sure this line exists
     )
   })
+  
+  # 2. Let's also add debugging to the stat line function itself:
+  generate_player_stat_line <- function(player_id, baseball_data) {
+    cat("🔍 DEBUG: generate_player_stat_line called with:\n")
+    cat("  - player_id:", player_id %||% "NULL", "\n")
+    cat("  - baseball_data is null:", is.null(baseball_data), "\n")
+    
+    if (is.null(player_id) || player_id == "" || is.null(baseball_data)) {
+      cat("❌ DEBUG: Early return - missing player_id or baseball_data\n")
+      return(NULL)
+    }
+    
+    player_info <- get_player_info(player_id, baseball_data)
+    cat("  - player_info is null:", is.null(player_info), "\n")
+    
+    if (is.null(player_info)) {
+      cat("❌ DEBUG: Early return - no player_info\n")
+      return(NULL)
+    }
+    
+    cat("  - player_type:", player_info$type, "\n")
+    
+    # Extract actual player ID
+    actual_player_id <- if ("compound_id" %in% colnames(baseball_data$lookup)) {
+      extract_player_id(player_id)
+    } else {
+      player_id
+    }
+    
+    cat("  - actual_player_id:", actual_player_id, "\n")
+    
+    if (player_info$type == "hitter" && nrow(baseball_data$hitters) > 0) {
+      player_data <- baseball_data$hitters %>% filter(PlayerId == actual_player_id)
+      cat("  - hitter data rows found:", nrow(player_data), "\n")
+      
+      if (nrow(player_data) > 0) {
+        cat("✅ DEBUG: Generating hitter stats\n")
+        # Clean current stats display
+        stats <- list(
+          list(label = "AVG", value = format_stat_value(player_data$AVG_cur)),
+          list(label = "OBP", value = format_stat_value(player_data$OBP_cur)),
+          list(label = "SLG", value = format_stat_value(player_data$SLG_cur)),
+          list(label = "K%", value = paste0(format_stat_value(player_data$K_pct_cur), "%")),
+          list(label = "BB%", value = paste0(format_stat_value(player_data$BB_pct_cur), "%")),
+          list(label = "wOBA", value = format_stat_value(player_data$wOBA_cur))
+        )
+        
+        return(list(
+          type = "hitter",
+          pa = player_data$PA_cur,
+          stats = stats
+        ))
+      }
+    } else if (player_info$type == "pitcher" && nrow(baseball_data$pitchers) > 0) {
+      player_data <- baseball_data$pitchers %>% filter(PlayerId == actual_player_id)
+      cat("  - pitcher data rows found:", nrow(player_data), "\n")
+      
+      if (nrow(player_data) > 0) {
+        cat("✅ DEBUG: Generating pitcher stats\n")
+        # Clean current stats display
+        stats <- list(
+          list(label = "ERA", value = format_stat_value(player_data$era_cur)),
+          list(label = "xERA", value = format_stat_value(player_data$xera_cur)),
+          list(label = "K%", value = paste0(format_stat_value(player_data$k_percent_cur), "%")),
+          list(label = "BB%", value = paste0(format_stat_value(player_data$bb_percent_cur), "%")),
+          list(label = "BABIP", value = format_stat_value(player_data$babip_cur)),
+          list(label = "LOB%", value = paste0(format_stat_value(player_data$lob_percent_cur), "%"))
+        )
+        
+        return(list(
+          type = "pitcher", 
+          tbf = player_data$tbf,
+          position = if ("position" %in% colnames(player_data)) player_data$position else "P",
+          stats = stats
+        ))
+      }
+    }
+    
+    cat("❌ DEBUG: No data found for player\n")
+    return(NULL)
+  }
+  
+  # 3. Also update the UI generation to show when it's trying to call the stat line:
+  # In your generate_step_1_ui function, replace the stat line section with:
+  
+  
   
   # Render Step 2: Analysis Style (using internal function)
   output$step_2_analysis_style <- renderUI({
