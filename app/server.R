@@ -91,8 +91,8 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       babip_val <- sprintf("%.3f", player_data$babip_cur) %>% sub("^0\\.", ".", .)
       
       stats <- list(
-        list(label = "ERA", value = sprintf("%.2f", player_data$era_cur)),
-        list(label = "xERA", value = sprintf("%.2f", player_data$xera_cur)),
+        list(label = "ERA", value = format_era(player_data$era_cur)),
+        list(label = "xERA", value = format_era(player_data$xera_cur)),
         list(label = "K%", value = format_percentage(player_data$k_percent_cur)),
         list(label = "BB%", value = format_percentage(player_data$bb_percent_cur)),
         list(label = "BABIP", value = babip_val),
@@ -977,8 +977,8 @@ generate_player_stat_line <- function(player_id, baseball_data) {
         cat("✅ DEBUG: Generating pitcher stats\n")
         # Clean current stats display
         stats <- list(
-          list(label = "ERA", value = format_stat_value(player_data$era_cur)),
-          list(label = "xERA", value = format_stat_value(player_data$xera_cur)),
+          list(label = "ERA", value = format_era(player_data$era_cur)),
+          list(label = "xERA", value = format_era(player_data$xera_cur)),
           list(label = "K%", value = format_percentage(player_data$k_percent_cur)),
           list(label = "BB%", value = format_percentage(player_data$bb_percent_cur)),
           list(label = "BABIP", value = format_stat_value(player_data$babip_cur)),

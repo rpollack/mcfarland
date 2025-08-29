@@ -23,6 +23,17 @@ format_percentage <- function(x) {
   )
 }
 
+#' Format ERA-style values with two decimals
+#' @param x Numeric ERA value
+#' @return Formatted string like "1.23"
+format_era <- function(x) {
+  case_when(
+    is.na(x) | is.null(x) ~ "N/A",
+    is.numeric(x) ~ sprintf("%.2f", x),
+    TRUE ~ as.character(x)
+  )
+}
+
 #' Get analysis persona prompt using tidyverse
 #' @param mode Analysis mode string
 #' @return Persona prompt text
@@ -199,8 +210,8 @@ build_pitcher_prompt <- function(player_name, pitcher_data) {
   )
 
   metrics_section <- c(
-    str_glue("ERA: {format_stat_value(data$era_cur)}  Last 3 Years: {format_stat_value(data$era_l3)}  Diff: {format_stat_value(data$era_diff)}"),
-    str_glue("xERA: {format_stat_value(data$xera_cur)}  Last 3 Years: {format_stat_value(data$xera_l3)}  Diff: {format_stat_value(data$xera_diff)}"),
+    str_glue("ERA: {format_era(data$era_cur)}  Last 3 Years: {format_era(data$era_l3)}  Diff: {format_era(data$era_diff)}"),
+    str_glue("xERA: {format_era(data$xera_cur)}  Last 3 Years: {format_era(data$xera_l3)}  Diff: {format_era(data$xera_diff)}"),
     str_glue("BABIP: {format_stat_value(data$babip_cur)}  Last 3 Years: {format_stat_value(data$babip_l3)}  Diff: {format_stat_value(data$babip_diff)}"),
     str_glue("Barrel Rate: {format_percentage(data$barrel_percent_cur)}  Last 3 Years: {format_percentage(data$barrel_percent_l3)}  Diff: {format_percentage(data$barrel_percent_diff)}"),
     str_glue("Strikeout Rate (K%): {format_percentage(data$k_percent_cur)}  Last 3 Years: {format_percentage(data$k_percent_l3)}  Diff: {format_percentage(data$k_percent_diff)}"),
