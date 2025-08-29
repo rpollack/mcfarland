@@ -6,6 +6,7 @@
 format_stat_value <- function(x) {
   case_when(
     is.na(x) | is.null(x) ~ "N/A",
+    is.numeric(x) & abs(x) < 1 ~ sub("^(-?)0", "\\1", sprintf("%.3f", x)),
     is.numeric(x) ~ as.character(round(x, 3)),
     TRUE ~ as.character(x)
   )

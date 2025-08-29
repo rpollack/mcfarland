@@ -68,19 +68,13 @@ generate_player_stat_line <- function(player_id, baseball_data) {
     player_data <- baseball_data$hitters %>% filter(PlayerId == actual_player_id)
     
     if (nrow(player_data) > 0) {
-      # Simple formatting - remove leading zeros from batting averages
-      avg_val <- sprintf("%.3f", player_data$AVG_cur) %>% sub("^0\\.", ".", .)
-      obp_val <- sprintf("%.3f", player_data$OBP_cur) %>% sub("^0\\.", ".", .)
-      slg_val <- sprintf("%.3f", player_data$SLG_cur) %>% sub("^0\\.", ".", .)
-      woba_val <- sprintf("%.3f", player_data$wOBA_cur) %>% sub("^0\\.", ".", .)
-      
       stats <- list(
-        list(label = "AVG", value = avg_val),
-        list(label = "OBP", value = obp_val),
-        list(label = "SLG", value = slg_val),
+        list(label = "AVG", value = format_stat_value(player_data$AVG_cur)),
+        list(label = "OBP", value = format_stat_value(player_data$OBP_cur)),
+        list(label = "SLG", value = format_stat_value(player_data$SLG_cur)),
         list(label = "K%", value = paste0(round(player_data$K_pct_cur, 1), "%")),
         list(label = "BB%", value = paste0(round(player_data$BB_pct_cur, 1), "%")),
-        list(label = "wOBA", value = woba_val)
+        list(label = "wOBA", value = format_stat_value(player_data$wOBA_cur))
       )
       
       return(list(
