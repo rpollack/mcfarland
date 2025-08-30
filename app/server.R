@@ -146,7 +146,24 @@ generate_player_stat_line <- function(player_id, baseball_data) {
         selectInput(
           inputId = "player_selection",
           label = "Search for a player:",
-          choices = NULL,
+          choices = {
+            lookup <- baseball_data$lookup
+            filter <- input$player_filter
+            if (!is.null(filter)) {
+              if (filter == "Hitters") {
+                lookup <- lookup %>% filter(player_type == "hitter")
+              } else if (filter == "Pitchers") {
+                lookup <- lookup %>% filter(player_type == "pitcher")
+              }
+            }
+            player_choices <- if ("compound_id" %in% colnames(lookup)) {
+              setNames(lookup$compound_id, lookup$display_name)
+            } else {
+              setNames(lookup$PlayerId, lookup$display_name)
+            }
+            c("Select a player..." = "", player_choices)
+          },
+          selected = isolate(input$player_selection),
           width = "100%"
         )
       ),
@@ -714,40 +731,6 @@ generate_player_stat_line <- function(player_id, baseball_data) {
   # ============================================================================
   # DATA AND REACTIVE LOGIC
   # ============================================================================
-  
-  # Update player choices using tidyverse
-  update_player_choices <- function(filter = isolate(input$player_filter)) {
-    if (nrow(baseball_data$lookup) > 0) {
-      lookup <- baseball_data$lookup
-      if (!is.null(filter)) {
-        if (filter == "Hitters") {
-          lookup <- lookup %>% filter(player_type == "hitter")
-        } else if (filter == "Pitchers") {
-          lookup <- lookup %>% filter(player_type == "pitcher")
-        }
-      }
-      player_choices <- if ("compound_id" %in% colnames(lookup)) {
-        setNames(lookup$compound_id, lookup$display_name)
-      } else {
-        setNames(lookup$PlayerId, lookup$display_name)
-      }
-      selected <- isolate(input$player_selection)
-      updateSelectInput(session, "player_selection",
-                        choices = c("Select a player..." = "", player_choices),
-                        selected = if (!is.null(selected) && selected %in% player_choices) selected else "")
-    } else {
-      updateSelectInput(session, "player_selection",
-                        choices = c("⚠️ Data not loaded - check logs" = ""))
-    }
-  }
-
-  observeEvent(input$player_filter, {
-    update_player_choices(input$player_filter)
-  }, ignoreNULL = FALSE)
-
-  observeEvent(ui_update_trigger(), {
-    update_player_choices()
-  })
   
   # IMMEDIATE: React to player selection - UPDATE UI INSTANTLY
   observeEvent(input$player_selection,
