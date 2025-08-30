@@ -585,26 +585,6 @@ ui <- page_navbar(
       )
     ),
 
-    # Player Search Section
-    div(
-      class = "search-card",
-      div(
-        class = "search-input-container",
-        selectInput(
-          inputId = "player_selection",
-          label = "Search for a player:",
-          choices = NULL,
-          width = "100%"
-        )
-      ),
-      div(
-        class = "quick-filters",
-        span(class = "filter-chip active", "All Players"),
-        span(class = "filter-chip", "Hitters"),
-        span(class = "filter-chip", "Pitchers")
-      )
-    ),
-
     # Step 1: Player Selection
     uiOutput("step_1_player_selection"),
 

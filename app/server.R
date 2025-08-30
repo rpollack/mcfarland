@@ -122,7 +122,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       div(
         class = "step-header",
         div(class = if (player_selected) "step-number" else "step-number inactive", "1"),
-        h3(class = if (player_selected) "step-title" else "step-title inactive", "Player Selected"),
+        h3(class = if (player_selected) "step-title" else "step-title inactive", "Select a Player"),
         # AI Analysis status badge in header
         if (player_selected) {
           if (ai_loading) {
@@ -133,12 +133,27 @@ generate_player_stat_line <- function(player_id, baseball_data) {
             )
           } else if (!is.null(ai_result)) {
             span(
-              class = "badge bg-success ms-3", 
+              class = "badge bg-success ms-3",
               tags$i(class = "fas fa-check-circle me-1"),
               "Analysis Ready"
             )
           }
         }
+      ),
+      div(
+        class = "search-input-container",
+        selectInput(
+          inputId = "player_selection",
+          label = "Search for a player:",
+          choices = NULL,
+          width = "100%"
+        )
+      ),
+      div(
+        class = "quick-filters",
+        span(class = "filter-chip active", "All Players"),
+        span(class = "filter-chip", "Hitters"),
+        span(class = "filter-chip", "Pitchers")
       ),
       if (player_selected && !is.null(player_info)) {
         tagList(
