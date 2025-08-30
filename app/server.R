@@ -264,7 +264,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
     updateSelectizeInput(
       session,
       "player_selection",
-      choices = player_choices(),
+      choices = isolate(player_choices()),
       selected = isolate(input$player_selection %||% ""),
       server = TRUE
     )
