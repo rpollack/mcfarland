@@ -168,6 +168,10 @@ ui <- page_navbar(
         object-fit: cover;
       }
 
+      .player-preview-info {
+        flex: 1;
+      }
+
       .player-preview-info h4 {
         margin: 0;
         color: #2E86AB;

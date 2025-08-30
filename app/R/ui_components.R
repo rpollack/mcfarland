@@ -16,7 +16,11 @@ create_player_card <- function(player_id, baseball_data) {
   # Build player details text using tidyverse approach
   details_parts <- c(
     if (!is.na(player_info$age)) str_glue("Age: {player_info$age}"),
-    if (player_info$position_info != "") str_glue("• {player_info$position_info}")
+    if (player_info$type == "pitcher" && !is.na(player_info$tbf)) {
+      str_glue("• TBF: {player_info$tbf}")
+    } else if (player_info$type == "hitter" && !is.na(player_info$pa)) {
+      str_glue("• PA: {player_info$pa}")
+    }
   ) %>%
     compact() %>%
     str_c(collapse = " ")

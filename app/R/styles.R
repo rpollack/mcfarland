@@ -1001,10 +1001,33 @@ ui_styles <- HTML("
     font-weight: 500;
   }
 
+  .player-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 0.75rem;
+    width: 100%;
+    align-items: center;
+  }
+
+  .player-preview-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  .player-preview-info {
+    grid-column: span 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
   .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
     gap: 0.75rem;
+    width: 100%;
   }
 
   .stat-item {
