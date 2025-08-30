@@ -407,7 +407,7 @@ ui <- page_navbar(
     add_busy_bar(color = "#2E86AB", height = "25px"),
 
     # Keep your existing JavaScript for keep-alive
-    tags$script(HTML("
+      tags$script(HTML("
       $(document).ready(function() {
         console.log('🔄 Keep-alive system initialized');
         var keepAliveInterval = 120000;
