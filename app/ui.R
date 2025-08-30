@@ -509,8 +509,9 @@ ui <- page_navbar(
       $('.filter-chip').removeClass('active');
       $(this).addClass('active');
 
-      var filterType = $(this).text();
+      var filterType = $(this).text().trim();
       console.log('🏷️ Filter changed to:', filterType);
+      Shiny.setInputValue('player_filter', filterType, {priority: 'event'});
     });
 
     // Smart scroll to analysis - only when analysis is newly generated
