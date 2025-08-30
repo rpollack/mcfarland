@@ -167,12 +167,27 @@ generate_player_stat_line <- function(player_id, baseball_data) {
           width = "100%"
         )
       ),
-      div(
-        class = "quick-filters",
-        span(class = "filter-chip active", "All Players"),
-        span(class = "filter-chip", "Hitters"),
-        span(class = "filter-chip", "Pitchers")
-      ),
+      {
+        filter_selected <- input$player_filter
+        if (is.null(filter_selected) || filter_selected == "") {
+          filter_selected <- "All Players"
+        }
+        div(
+          class = "quick-filters",
+          span(
+            class = if (filter_selected == "All Players") "filter-chip active" else "filter-chip",
+            "All Players"
+          ),
+          span(
+            class = if (filter_selected == "Hitters") "filter-chip active" else "filter-chip",
+            "Hitters"
+          ),
+          span(
+            class = if (filter_selected == "Pitchers") "filter-chip active" else "filter-chip",
+            "Pitchers"
+          )
+        )
+      },
       if (player_selected && !is.null(player_info)) {
         tagList(
           # INSTANT: Player card with photo
