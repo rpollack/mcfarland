@@ -112,17 +112,18 @@ generate_player_stat_line <- function(player_id, baseball_data) {
 }
   
   # Generate Step 1: Player Selection UI (with trends plot)
-  generate_step_1_ui <- function(player_selected = FALSE, player_info = NULL, trends_plot = NULL, 
-                                 ai_loading = FALSE, ai_result = NULL, analysis_mode = "default", 
+  generate_step_1_ui <- function(player_selected = FALSE, player_info = NULL, trends_plot = NULL,
+                                 ai_loading = FALSE, ai_result = NULL, analysis_mode = "default",
                                  stat_line_data = NULL) {
-    step_class <- if (player_selected) "step-card active" else "step-card inactive"
+    # Step 1 should appear active even before a player is selected
+    step_class <- "step-card active"
     
     div(
       class = step_class,
       div(
         class = "step-header",
-        div(class = if (player_selected) "step-number" else "step-number inactive", "1"),
-        h3(class = if (player_selected) "step-title" else "step-title inactive", "Player Selected"),
+        div(class = "step-number", "1"),
+        h3(class = "step-title", "Select a Player"),
         # AI Analysis status badge in header
         if (player_selected) {
           if (ai_loading) {
@@ -133,13 +134,60 @@ generate_player_stat_line <- function(player_id, baseball_data) {
             )
           } else if (!is.null(ai_result)) {
             span(
-              class = "badge bg-success ms-3", 
+              class = "badge bg-success ms-3",
               tags$i(class = "fas fa-check-circle me-1"),
               "Analysis Ready"
             )
           }
         }
       ),
+      div(
+        class = "search-input-container",
+        selectInput(
+          inputId = "player_selection",
+          label = "Search for a player:",
+          choices = {
+            lookup <- baseball_data$lookup
+            filter <- input$player_filter
+            if (!is.null(filter)) {
+              if (filter == "Hitters") {
+                lookup <- lookup %>% filter(player_type == "hitter")
+              } else if (filter == "Pitchers") {
+                lookup <- lookup %>% filter(player_type == "pitcher")
+              }
+            }
+            player_choices <- if ("compound_id" %in% colnames(lookup)) {
+              setNames(lookup$compound_id, lookup$display_name)
+            } else {
+              setNames(lookup$PlayerId, lookup$display_name)
+            }
+            c("Select a player..." = "", player_choices)
+          },
+          selected = isolate(input$player_selection),
+          width = "100%"
+        )
+      ),
+      {
+        filter_selected <- input$player_filter
+        if (is.null(filter_selected) || filter_selected == "") {
+          filter_selected <- "All Players"
+        }
+        div(
+          class = "quick-filters",
+          span(
+            class = if (filter_selected == "All Players") "filter-chip active" else "filter-chip",
+            "All Players"
+          ),
+          span(
+            class = if (filter_selected == "Hitters") "filter-chip active" else "filter-chip",
+            "Hitters"
+          ),
+          span(
+            class = if (filter_selected == "Pitchers") "filter-chip active" else "filter-chip",
+            "Pitchers"
+          )
+        )
+      },
       if (player_selected && !is.null(player_info)) {
         tagList(
           # INSTANT: Player card with photo
@@ -698,40 +746,6 @@ generate_player_stat_line <- function(player_id, baseball_data) {
   # ============================================================================
   # DATA AND REACTIVE LOGIC
   # ============================================================================
-  
-  # Update player choices using tidyverse
-  update_player_choices <- function(filter = isolate(input$player_filter)) {
-    if (nrow(baseball_data$lookup) > 0) {
-      lookup <- baseball_data$lookup
-      if (!is.null(filter)) {
-        if (filter == "Hitters") {
-          lookup <- lookup %>% filter(player_type == "hitter")
-        } else if (filter == "Pitchers") {
-          lookup <- lookup %>% filter(player_type == "pitcher")
-        }
-      }
-      player_choices <- if ("compound_id" %in% colnames(lookup)) {
-        setNames(lookup$compound_id, lookup$display_name)
-      } else {
-        setNames(lookup$PlayerId, lookup$display_name)
-      }
-      selected <- isolate(input$player_selection)
-      updateSelectInput(session, "player_selection",
-                        choices = c("Select a player..." = "", player_choices),
-                        selected = if (!is.null(selected) && selected %in% player_choices) selected else "")
-    } else {
-      updateSelectInput(session, "player_selection",
-                        choices = c("⚠️ Data not loaded - check logs" = ""))
-    }
-  }
-
-  observeEvent(input$player_filter, {
-    update_player_choices(input$player_filter)
-  }, ignoreNULL = FALSE)
-
-  observeEvent(ui_update_trigger(), {
-    update_player_choices()
-  })
   
   # IMMEDIATE: React to player selection - UPDATE UI INSTANTLY
   observeEvent(input$player_selection,

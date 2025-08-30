@@ -70,6 +70,7 @@ ui <- page_navbar(
         gap: 0.5rem;
         flex-wrap: wrap;
         margin-top: 1rem;
+        margin-bottom: 1rem;
       }
 
       .filter-chip {
@@ -582,26 +583,6 @@ ui <- page_navbar(
         class = "btn-close",
         `data-bs-dismiss` = "alert",
         `aria-label` = "Close"
-      )
-    ),
-
-    # Player Search Section
-    div(
-      class = "search-card",
-      div(
-        class = "search-input-container",
-        selectInput(
-          inputId = "player_selection",
-          label = "Search for a player:",
-          choices = NULL,
-          width = "100%"
-        )
-      ),
-      div(
-        class = "quick-filters",
-        span(class = "filter-chip active", "All Players"),
-        span(class = "filter-chip", "Hitters"),
-        span(class = "filter-chip", "Pitchers")
       )
     ),
 
