@@ -29,6 +29,25 @@ ui <- page_navbar(
         margin-bottom: 0;
       }
 
+      .instruction-alert {
+        background-color: rgba(255,255,255,0.15);
+        color: #fff;
+        border: 1px solid rgba(255,255,255,0.25);
+        margin: 0 1rem 1rem;
+      }
+
+      .instruction-steps {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.25rem;
+        text-align: center;
+      }
+
+      .instruction-steps span {
+        white-space: nowrap;
+      }
+
       .search-card {
         background: rgba(255, 255, 255, 0.95);
         backdrop-filter: blur(20px);
@@ -542,6 +561,27 @@ ui <- page_navbar(
       class = "hero-section",
       h1(class = "hero-title", "⚾ McFARLAND ⚾"),
       p(class = "hero-subtitle", "Advanced baseball analysis. Plain English.")
+    ),
+
+    # Quick Instructional Alert
+    div(
+      class = "alert alert-dismissible fade show instruction-alert",
+      role = "alert",
+      HTML(
+        "<div class='instruction-steps'>
+            <span>1. 🧢 Pick a player</span>
+            <span>&rarr;</span>
+            <span>2. 🎧 Choose a vibe</span>
+            <span>&rarr;</span>
+            <span>3. 📊 Read the analysis</span>
+        </div>"
+      ),
+      tags$button(
+        type = "button",
+        class = "btn-close",
+        `data-bs-dismiss` = "alert",
+        `aria-label` = "Close"
+      )
     ),
 
     # Player Search Section
