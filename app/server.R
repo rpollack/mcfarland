@@ -112,17 +112,18 @@ generate_player_stat_line <- function(player_id, baseball_data) {
 }
   
   # Generate Step 1: Player Selection UI (with trends plot)
-  generate_step_1_ui <- function(player_selected = FALSE, player_info = NULL, trends_plot = NULL, 
-                                 ai_loading = FALSE, ai_result = NULL, analysis_mode = "default", 
+  generate_step_1_ui <- function(player_selected = FALSE, player_info = NULL, trends_plot = NULL,
+                                 ai_loading = FALSE, ai_result = NULL, analysis_mode = "default",
                                  stat_line_data = NULL) {
-    step_class <- if (player_selected) "step-card active" else "step-card inactive"
+    # Step 1 should appear active even before a player is selected
+    step_class <- "step-card active"
     
     div(
       class = step_class,
       div(
         class = "step-header",
-        div(class = if (player_selected) "step-number" else "step-number inactive", "1"),
-        h3(class = if (player_selected) "step-title" else "step-title inactive", "Select a Player"),
+        div(class = "step-number", "1"),
+        h3(class = "step-title", "Select a Player"),
         # AI Analysis status badge in header
         if (player_selected) {
           if (ai_loading) {
