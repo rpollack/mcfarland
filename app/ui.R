@@ -556,7 +556,7 @@ ui <- page_navbar(
 
     // Allow server to programmatically set analysis vibe
     Shiny.addCustomMessageHandler('update-vibe', function(mode) {
-      var card = $('.vibe-card[data-mode="' + mode + '"]');
+      var card = $('.vibe-card[data-mode=' + mode + ']');
       if (card.length) {
         $('.vibe-card').removeClass('selected');
         card.addClass('selected');
