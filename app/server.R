@@ -145,7 +145,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
         class = "search-input-container",
         selectInput(
           inputId = "player_selection",
-          label = "Search for a player:",
+          label = NULL,
           choices = {
             lookup <- baseball_data$lookup
             filter <- input$player_filter
@@ -202,7 +202,11 @@ generate_player_stat_line <- function(player_id, baseball_data) {
             div(
               class = "player-preview-info",
               h4(player_info$name),
-              p(str_glue("Age: {player_info$age %||% 'N/A'} • {player_info$position_info}"))
+              p(
+                str_glue(
+                  "Age: {player_info$age %||% 'N/A'} • {if (player_info$type == 'pitcher') 'TBF' else 'PA'}: {(if (player_info$type == 'pitcher') player_info$tbf else player_info$pa) %||% 'N/A'}"
+                )
+              )
             ),
             if (!is.null(stat_line_data)) {
               map(stat_line_data$stats, ~ {
@@ -749,7 +753,8 @@ generate_player_stat_line <- function(player_id, baseball_data) {
                        name = player_info$name,
                        type = player_info$type,
                        age = player_info$age,
-                       position_info = player_info$position_info,
+                       tbf = player_info$tbf,
+                       pa = player_info$pa,
                        photo_url = get_player_photo_url(input$player_selection, baseball_data),
                        quick_insight = quick_insight
                      )
