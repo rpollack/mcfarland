@@ -123,23 +123,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       div(
         class = "step-header",
         div(class = "step-number", "1"),
-        h3(class = "step-title", "Select a Player"),
-        # AI Analysis status badge in header
-        if (player_selected) {
-          if (ai_loading) {
-            span(
-              class = "badge bg-primary ms-3",
-              tags$i(class = "fas fa-spinner fa-spin me-1"),
-              "Analyzing..."
-            )
-          } else if (!is.null(ai_result)) {
-            span(
-              class = "badge bg-success ms-3",
-              tags$i(class = "fas fa-check-circle me-1"),
-              "Analysis Ready"
-            )
-          }
-        }
+        h3(class = "step-title", "Select a Player")
       ),
       div(
         class = "search-input-container",
