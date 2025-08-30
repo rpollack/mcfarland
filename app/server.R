@@ -43,17 +43,21 @@ server <- function(input, output, session) {
   # UI update trigger for forcing refreshes
   ui_update_trigger <- reactiveVal(0)
 
-  # Parse query string for player and vibe on load
-  observe({
-    query <- parseQueryString(session$clientData$url_search)
-    if (!is.null(query$player) && query$player != "") {
-      updateSelectInput(session, "player_selection", selected = query$player)
-    }
-    if (!is.null(query$vibe) && query$vibe != "") {
-      values$analysis_mode <- query$vibe
-      session$sendCustomMessage("update-vibe", query$vibe)
-    }
-  }, once = TRUE)
+  # Parse query string for player and vibe once on load
+  observeEvent(
+    TRUE,
+    {
+      query <- parseQueryString(session$clientData$url_search)
+      if (!is.null(query$player) && query$player != "") {
+        updateSelectInput(session, "player_selection", selected = query$player)
+      }
+      if (!is.null(query$vibe) && query$vibe != "") {
+        values$analysis_mode <- query$vibe
+        session$sendCustomMessage("update-vibe", query$vibe)
+      }
+    },
+    once = TRUE
+  )
   
   # ============================================================================
   # INTERNAL UI GENERATION FUNCTIONS (moved inside server for proper scoping)
