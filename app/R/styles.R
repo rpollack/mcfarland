@@ -1005,6 +1005,7 @@ ui_styles <- HTML("
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
     gap: 0.75rem;
+    width: 100%;
   }
 
   .stat-item {
