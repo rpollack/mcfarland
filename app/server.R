@@ -190,9 +190,9 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       },
       if (player_selected && !is.null(player_info)) {
         tagList(
-          # Player preview with embedded stat line
+          # Player preview with headshot and quick stats in one responsive grid
           div(
-            class = "player-preview",
+            class = "player-preview-grid",
             img(
               src = player_info$photo_url %||% "https://via.placeholder.com/60x60/2E86AB/ffffff?text=⚾",
               alt = str_glue("Photo of {player_info$name}"),
@@ -202,42 +202,17 @@ generate_player_stat_line <- function(player_id, baseball_data) {
             div(
               class = "player-preview-info",
               h4(player_info$name),
-              p(str_glue("Age: {player_info$age %||% 'N/A'} • {player_info$position_info}")),
-              if (!is.null(stat_line_data)) {
+              p(str_glue("Age: {player_info$age %||% 'N/A'} • {player_info$position_info}"))
+            ),
+            if (!is.null(stat_line_data)) {
+              map(stat_line_data$stats, ~ {
                 div(
-                  class = "player-stat-line",
-                  div(
-                    class = "stat-line-header",
-                    h5(
-                      class = "stat-line-title",
-                      if (stat_line_data$type == "hitter") {
-                        "2025 Hitting Stats"
-                      } else {
-                        "2025 Pitching Stats"
-                      }
-                    ),
-                    span(
-                      class = "stat-line-context",
-                      if (stat_line_data$type == "hitter") {
-                        str_glue("{stat_line_data$pa} PA")
-                      } else {
-                        str_glue("{stat_line_data$tbf} TBF • {stat_line_data$position}")
-                      }
-                    )
-                  ),
-                  div(
-                    class = "stats-grid",
-                    map(stat_line_data$stats, ~ {
-                      div(
-                        class = "stat-item",
-                        div(class = "stat-label", .x$label),
-                        div(class = "stat-value", .x$value)
-                      )
-                    })
-                  )
+                  class = "stat-item",
+                  div(class = "stat-label", .x$label),
+                  div(class = "stat-value", .x$value)
                 )
-              }
-            )
+              })
+            }
           ),
 
           # AI Analysis status section
