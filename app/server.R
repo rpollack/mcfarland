@@ -817,14 +817,17 @@ generate_player_stat_line <- function(player_id, baseball_data) {
                        cat("📊 IMMEDIATE LOG: Player selected, triggering analysis with mode:", current_mode, "\n")
                      }
                    }
-                 } else {
-                   values$selected_player_info <- NULL
-                   values$trends_plot <- NULL
-                   values$ai_analysis_result <- NULL
-                   values$ai_analysis_loading <- FALSE
-                   ui_update_trigger(ui_update_trigger() + 1)
-                   cat("🗑️ Player selection cleared\n")
-                 }
+                  } else if (!is.null(values$selected_player_info)) {
+                    # Only clear if a player was previously selected to avoid
+                    # triggering an infinite UI update loop when the input is
+                    # already empty.
+                    values$selected_player_info <- NULL
+                    values$trends_plot <- NULL
+                    values$ai_analysis_result <- NULL
+                    values$ai_analysis_loading <- FALSE
+                    ui_update_trigger(ui_update_trigger() + 1)
+                    cat("🗑️ Player selection cleared\n")
+                  }
                },
                 ignoreNULL = TRUE
    )
