@@ -43,20 +43,21 @@ server <- function(input, output, session) {
   # UI update trigger for forcing refreshes
   ui_update_trigger <- reactiveVal(0)
 
-  # Parse query string for player and vibe once on load
+  # Parse query string for player and vibe once after the session is established
   observeEvent(
-    TRUE,
+    session$clientData$url_search,
     {
       query <- parseQueryString(session$clientData$url_search)
-      if (!is.null(query$player) && query$player != "") {
+      if (!is.null(query$player) && nzchar(query$player)) {
         updateSelectInput(session, "player_selection", selected = query$player)
       }
-      if (!is.null(query$vibe) && query$vibe != "") {
+      if (!is.null(query$vibe) && nzchar(query$vibe)) {
         values$analysis_mode <- query$vibe
         session$sendCustomMessage("update-vibe", query$vibe)
       }
     },
-    once = TRUE
+    once = TRUE,
+    ignoreNULL = FALSE
   )
   
   # ============================================================================
@@ -825,8 +826,8 @@ generate_player_stat_line <- function(player_id, baseball_data) {
                    cat("🗑️ Player selection cleared\n")
                  }
                },
-               ignoreInit = TRUE
-  )
+                ignoreNULL = TRUE
+   )
   
   # IMMEDIATE: React to analysis mode selection
   observeEvent(input$analysis_mode,
@@ -853,8 +854,8 @@ generate_player_stat_line <- function(player_id, baseball_data) {
                    }
                  }
                },
-               ignoreInit = TRUE
-  )
+                ignoreNULL = TRUE
+   )
   
   # SEPARATE ASYNC OBSERVER - AI Analysis Generation
   observeEvent(
