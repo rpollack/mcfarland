@@ -544,6 +544,19 @@ ui <- page_navbar(
       p(class = "hero-subtitle", "Advanced baseball analysis. Plain English.")
     ),
 
+    # Quick Instructional Alert
+    div(
+      class = "alert alert-info alert-dismissible fade show",
+      role = "alert",
+      HTML("1. Pick a player &rarr; 2. Choose a vibe &rarr; 3. Read the analysis. <a href='?nav=About' class='alert-link'>Learn more on the About page</a>."),
+      tags$button(
+        type = "button",
+        class = "btn-close",
+        `data-bs-dismiss` = "alert",
+        `aria-label` = "Close"
+      )
+    ),
+
     # Player Search Section
     div(
       class = "search-card",
