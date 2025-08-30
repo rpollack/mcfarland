@@ -546,9 +546,10 @@ ui <- page_navbar(
 
     # Quick Instructional Alert
     div(
-      class = "alert alert-info alert-dismissible fade show",
+      class = "alert alert-dismissible fade show",
       role = "alert",
-      HTML("1. Pick a player &rarr; 2. Choose a vibe &rarr; 3. Read the analysis. <a href='?nav=About' class='alert-link'>Learn more on the About page</a>."),
+      style = "background-color: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.25);",
+      HTML("1. Pick a player &rarr; 2. Choose a vibe &rarr; 3. Read the analysis. <a href='#about' class='alert-link text-white'>Learn more on the About page</a>."),
       tags$button(
         type = "button",
         class = "btn-close",
