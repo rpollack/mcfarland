@@ -70,6 +70,7 @@ ui <- page_navbar(
         gap: 0.5rem;
         flex-wrap: wrap;
         margin-top: 1rem;
+        margin-bottom: 1rem;
       }
 
       .filter-chip {
