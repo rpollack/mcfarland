@@ -127,28 +127,15 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       ),
       div(
         class = "search-input-container",
-        selectInput(
+        selectizeInput(
           inputId = "player_selection",
           label = NULL,
-          choices = {
-            lookup <- baseball_data$lookup
-            filter <- input$player_filter
-            if (!is.null(filter)) {
-              if (filter == "Hitters") {
-                lookup <- lookup %>% filter(player_type == "hitter")
-              } else if (filter == "Pitchers") {
-                lookup <- lookup %>% filter(player_type == "pitcher")
-              }
-            }
-            player_choices <- if ("compound_id" %in% colnames(lookup)) {
-              setNames(lookup$compound_id, lookup$display_name)
-            } else {
-              setNames(lookup$PlayerId, lookup$display_name)
-            }
-            c("Select a player..." = "", player_choices)
-          },
+          choices = NULL,
           selected = isolate(input$player_selection),
-          width = "100%"
+          width = "100%",
+          options = list(
+            placeholder = "Type a player name…"
+          )
         )
       ),
       {
@@ -254,8 +241,34 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       }
     )
   }
-  
-  
+
+  player_choices <- reactive({
+    lookup <- baseball_data$lookup
+    filter <- input$player_filter
+    if (!is.null(filter)) {
+      if (filter == "Hitters") {
+        lookup <- lookup %>% filter(player_type == "hitter")
+      } else if (filter == "Pitchers") {
+        lookup <- lookup %>% filter(player_type == "pitcher")
+      }
+    }
+    if ("compound_id" %in% colnames(lookup)) {
+      setNames(lookup$compound_id, lookup$display_name)
+    } else {
+      setNames(lookup$PlayerId, lookup$display_name)
+    }
+  })
+  # Populate/refresh selectize options whenever choices change
+  observeEvent(player_choices(), {
+    updateSelectizeInput(
+      session,
+      "player_selection",
+      choices = player_choices(),
+      selected = isolate(input$player_selection),
+      server = TRUE
+    )
+  }, ignoreNULL = FALSE)
+
   # Generate Step 2: Analysis Style UI - COMPACT VERSION
   generate_step_2_ui <- function(player_selected = FALSE, current_mode = "default") {
     step_class <- if (player_selected) "step-card active" else "step-card inactive"
@@ -830,12 +843,13 @@ generate_player_stat_line <- function(player_id, baseball_data) {
         
         if (analysis_key != current_key) {
           cat("🎯 ASYNC: Starting AI analysis for:", analysis_key, "\n")
-          
+
           # Set loading state immediately
           values$ai_analysis_loading <- TRUE
           values$ai_analysis_result <- NULL
           values$current_analysis_key <- analysis_key
-          
+          ui_update_trigger(ui_update_trigger() + 1)
+
           # Generate AI analysis asynchronously
           later::later(function() {
             tryCatch(
@@ -847,11 +861,12 @@ generate_player_stat_line <- function(player_id, baseball_data) {
                   analysis_mode,
                   baseball_data
                 )
-                
+
                 # Update when complete
                 values$ai_analysis_result <- analysis_result
                 values$ai_analysis_loading <- FALSE
-                
+                ui_update_trigger(ui_update_trigger() + 1)
+
                 cat("✅ ASYNC: AI analysis complete for:", analysis_key, "\n")
               },
               error = function(e) {
@@ -862,6 +877,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
                   "Error generating analysis: ", e$message,
                   "</div>"
                 ))
+                ui_update_trigger(ui_update_trigger() + 1)
               }
             )
           }, delay = 0.1)
