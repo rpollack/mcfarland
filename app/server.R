@@ -111,10 +111,10 @@ generate_player_stat_line <- function(player_id, baseball_data) {
   return(NULL)
 }
   
-  # Generate Step 1: Player Selection UI (with trends plot)
-  generate_step_1_ui <- function(player_selected = FALSE, player_info = NULL, trends_plot = NULL,
-                                 ai_loading = FALSE, ai_result = NULL, analysis_mode = "default",
-                                 stat_line_data = NULL) {
+  # Generate Step 1: Player Selection UI (photo with quick stats)
+  generate_step_1_ui <- function(player_selected = FALSE, player_info = NULL,
+                                 ai_loading = FALSE, ai_result = NULL,
+                                 analysis_mode = "default", stat_line_data = NULL) {
     # Step 1 should appear active even before a player is selected
     step_class <- "step-card active"
     
@@ -190,7 +190,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       },
       if (player_selected && !is.null(player_info)) {
         tagList(
-          # INSTANT: Player card with photo
+          # Player preview with embedded stat line
           div(
             class = "player-preview",
             img(
@@ -202,62 +202,44 @@ generate_player_stat_line <- function(player_id, baseball_data) {
             div(
               class = "player-preview-info",
               h4(player_info$name),
-              p(str_glue("Age: {player_info$age %||% 'N/A'} • {player_info$position_info}"))
-            )
-          ),
-          
-          # NEW: Player stat line using pre-computed data
-          if (!is.null(stat_line_data)) {
-            div(
-              class = "player-stat-line",
-              div(
-                class = "stat-line-header",
-                h5(
-                  class = "stat-line-title",
-                  if (stat_line_data$type == "hitter") {
-                    "2025 Hitting Stats"
-                  } else {
-                    "2025 Pitching Stats" 
-                  }
-                ),
-                span(
-                  class = "stat-line-context",
-                  if (stat_line_data$type == "hitter") {
-                    str_glue("{stat_line_data$pa} PA")
-                  } else {
-                    str_glue("{stat_line_data$tbf} TBF • {stat_line_data$position}")
-                  }
-                )
-              ),
-              div(
-                class = "stats-grid",
-                map(stat_line_data$stats, ~ {
+              p(str_glue("Age: {player_info$age %||% 'N/A'} • {player_info$position_info}")),
+              if (!is.null(stat_line_data)) {
+                div(
+                  class = "player-stat-line",
                   div(
-                    class = "stat-item",
-                    div(class = "stat-label", .x$label),
-                    div(class = "stat-value", .x$value)
+                    class = "stat-line-header",
+                    h5(
+                      class = "stat-line-title",
+                      if (stat_line_data$type == "hitter") {
+                        "2025 Hitting Stats"
+                      } else {
+                        "2025 Pitching Stats"
+                      }
+                    ),
+                    span(
+                      class = "stat-line-context",
+                      if (stat_line_data$type == "hitter") {
+                        str_glue("{stat_line_data$pa} PA")
+                      } else {
+                        str_glue("{stat_line_data$tbf} TBF • {stat_line_data$position}")
+                      }
+                    )
+                  ),
+                  div(
+                    class = "stats-grid",
+                    map(stat_line_data$stats, ~ {
+                      div(
+                        class = "stat-item",
+                        div(class = "stat-label", .x$label),
+                        div(class = "stat-value", .x$value)
+                      )
+                    })
                   )
-                })
-              )
+                )
+              }
             )
-          },
-          
-          # INSTANT: Quick statistical insight
-          div(
-            class = "insight-summary",
-            h5(icon("lightbulb"), "Summary Assessment"),
-            p(player_info$quick_insight)
           ),
-          
-          # INSTANT: Performance trends plot
-          if (!is.null(trends_plot)) {
-            div(
-              style = "margin-top: 1rem;",
-              h5("Performance Trends", style = "color: #2E86AB; margin-bottom: 1rem;"),
-              renderPlot(trends_plot, height = 300)
-            )
-          },
-          
+
           # AI Analysis status section
           if (ai_loading) {
             div(
@@ -412,9 +394,10 @@ generate_player_stat_line <- function(player_id, baseball_data) {
     )
   }
   
-  # Generate Step 3: Analysis Results UI (without trends plot)
+  # Generate Step 3: Analysis Results UI (AI analysis with trends summary)
   generate_step_3_ui <- function(player_selected = FALSE, analysis_mode = NULL,
-                                 ai_loading = FALSE, ai_result = NULL) {
+                                 ai_loading = FALSE, ai_result = NULL,
+                                 trends_plot = NULL) {
     both_selected <- player_selected && !is.null(analysis_mode)
     
     div(
@@ -425,11 +408,18 @@ generate_player_stat_line <- function(player_id, baseball_data) {
         h3(class = if (both_selected) "step-title" else "step-title inactive", "Detailed Analysis")
       ),
       if (both_selected) {
-        # DYNAMIC: AI Analysis section only (trends plot now in Step 1)
+        # DYNAMIC: AI Analysis followed by trends plot
         if (!is.null(ai_result)) {
-          # COMPLETE: Show AI analysis
+          # COMPLETE: Show AI analysis with trends
           tagList(
-            div(class = "analysis-content", ai_result)
+            div(class = "analysis-content", ai_result),
+            if (!is.null(trends_plot)) {
+              div(
+                style = "margin-top: 1rem;",
+                h5("Performance Trends", style = "color: #2E86AB; margin-bottom: 1rem;"),
+                renderPlot(trends_plot, height = 300)
+              )
+            }
           )
         } else if (ai_loading) {
           # LOADING: Show progress with context
@@ -932,7 +922,6 @@ generate_player_stat_line <- function(player_id, baseball_data) {
     generate_step_1_ui(
       player_selected = player_selected,
       player_info = values$selected_player_info,
-      trends_plot = values$trends_plot,
       ai_loading = isTRUE(values$ai_analysis_loading),
       ai_result = values$ai_analysis_result,
       analysis_mode = values$analysis_mode %||% "default",
@@ -964,7 +953,8 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       player_selected = player_selected,
       analysis_mode = values$analysis_mode,
       ai_loading = isTRUE(values$ai_analysis_loading),
-      ai_result = values$ai_analysis_result
+      ai_result = values$ai_analysis_result,
+      trends_plot = values$trends_plot
     )
   })
   
