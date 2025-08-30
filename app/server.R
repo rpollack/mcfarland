@@ -42,6 +42,18 @@ server <- function(input, output, session) {
   
   # UI update trigger for forcing refreshes
   ui_update_trigger <- reactiveVal(0)
+
+  # Parse query string for player and vibe on load
+  observe({
+    query <- parseQueryString(session$clientData$url_search)
+    if (!is.null(query$player) && query$player != "") {
+      updateSelectInput(session, "player_selection", selected = query$player)
+    }
+    if (!is.null(query$vibe) && query$vibe != "") {
+      values$analysis_mode <- query$vibe
+      session$sendCustomMessage("update-vibe", query$vibe)
+    }
+  }, once = TRUE)
   
   # ============================================================================
   # INTERNAL UI GENERATION FUNCTIONS (moved inside server for proper scoping)
@@ -374,8 +386,39 @@ generate_player_stat_line <- function(player_id, baseball_data) {
         # DYNAMIC: AI Analysis followed by trends plot
         if (!is.null(ai_result)) {
           # COMPLETE: Show AI analysis with trends
+          share_link <- {
+            base <- session$clientData$url_protocol
+            host <- session$clientData$url_hostname
+            port <- session$clientData$url_port
+            path <- session$clientData$url_pathname
+            base_url <- paste0(base, "//", host,
+                               if (!port %in% c("", "80", "443")) paste0(":", port) else "",
+                               path)
+            player_id <- input$player_selection %||% ""
+            vibe <- analysis_mode %||% "default"
+            app_url <- paste0(base_url, "?player=", URLencode(player_id, reserved = TRUE),
+                              "&vibe=", URLencode(vibe, reserved = TRUE))
+            analysis_text <- as.character(ai_result) %>%
+              str_replace_all("<[^>]+>", " ") %>%
+              str_squish()
+            snippet <- substr(analysis_text, 1, 180)
+            tweet_text <- URLencode(snippet, reserved = TRUE)
+            paste0("https://twitter.com/intent/tweet?text=", tweet_text,
+                   "&url=", URLencode(app_url, reserved = TRUE))
+          }
+
           tagList(
             div(class = "analysis-content", ai_result),
+            div(
+              class = "mt-3",
+              tags$a(
+                href = share_link,
+                target = "_blank",
+                class = "btn btn-primary btn-sm",
+                icon("share"),
+                " Share to X"
+              )
+            ),
             if (!is.null(trends_plot)) {
               div(
                 style = "margin-top: 1rem;",

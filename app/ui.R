@@ -554,6 +554,16 @@ ui <- page_navbar(
       subtree: true
     });
 
+    // Allow server to programmatically set analysis vibe
+    Shiny.addCustomMessageHandler('update-vibe', function(mode) {
+      var card = $('.vibe-card[data-mode="' + mode + '"]');
+      if (card.length) {
+        $('.vibe-card').removeClass('selected');
+        card.addClass('selected');
+      }
+      Shiny.setInputValue('analysis_mode', mode, {priority: 'event'});
+    });
+
     console.log('✅ Smart scroll interactions initialized');
   });
 "))
