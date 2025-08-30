@@ -127,28 +127,15 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       ),
       div(
         class = "search-input-container",
-        selectInput(
+        selectizeInput(
           inputId = "player_selection",
           label = NULL,
-          choices = {
-            lookup <- baseball_data$lookup
-            filter <- input$player_filter
-            if (!is.null(filter)) {
-              if (filter == "Hitters") {
-                lookup <- lookup %>% filter(player_type == "hitter")
-              } else if (filter == "Pitchers") {
-                lookup <- lookup %>% filter(player_type == "pitcher")
-              }
-            }
-            player_choices <- if ("compound_id" %in% colnames(lookup)) {
-              setNames(lookup$compound_id, lookup$display_name)
-            } else {
-              setNames(lookup$PlayerId, lookup$display_name)
-            }
-            c("Select a player..." = "", player_choices)
-          },
+          choices = NULL,
           selected = isolate(input$player_selection),
-          width = "100%"
+          width = "100%",
+          options = list(
+            placeholder = "Type a player name…"
+          )
         )
       ),
       {
@@ -254,8 +241,34 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       }
     )
   }
-  
-  
+
+  player_choices <- reactive({
+    lookup <- baseball_data$lookup
+    filter <- input$player_filter
+    if (!is.null(filter)) {
+      if (filter == "Hitters") {
+        lookup <- lookup %>% filter(player_type == "hitter")
+      } else if (filter == "Pitchers") {
+        lookup <- lookup %>% filter(player_type == "pitcher")
+      }
+    }
+    if ("compound_id" %in% colnames(lookup)) {
+      setNames(lookup$compound_id, lookup$display_name)
+    } else {
+      setNames(lookup$PlayerId, lookup$display_name)
+    }
+  })
+
+  observe({
+    updateSelectizeInput(
+      session,
+      "player_selection",
+      choices = player_choices(),
+      selected = isolate(input$player_selection %||% ""),
+      server = TRUE
+    )
+  })
+
   # Generate Step 2: Analysis Style UI - COMPACT VERSION
   generate_step_2_ui <- function(player_selected = FALSE, current_mode = "default") {
     step_class <- if (player_selected) "step-card active" else "step-card inactive"
