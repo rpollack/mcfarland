@@ -258,28 +258,16 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       setNames(lookup$PlayerId, lookup$display_name)
     }
   })
-
-  # Ensure the player select loads options after the input is rendered
-  session$onFlushed(function() {
-    updateSelectizeInput(
-      session,
-      "player_selection",
-      choices = isolate(player_choices()),
-      selected = isolate(input$player_selection %||% ""),
-      server = TRUE
-    )
-  }, once = TRUE)
-
-  # Refresh available players when the filter changes
-  observeEvent(input$player_filter, {
+  # Populate/refresh selectize options whenever choices change
+  observeEvent(player_choices(), {
     updateSelectizeInput(
       session,
       "player_selection",
       choices = player_choices(),
-      selected = isolate(input$player_selection %||% ""),
+      selected = isolate(input$player_selection),
       server = TRUE
     )
-  })
+  }, ignoreNULL = FALSE)
 
   # Generate Step 2: Analysis Style UI - COMPACT VERSION
   generate_step_2_ui <- function(player_selected = FALSE, current_mode = "default") {
@@ -855,12 +843,13 @@ generate_player_stat_line <- function(player_id, baseball_data) {
         
         if (analysis_key != current_key) {
           cat("🎯 ASYNC: Starting AI analysis for:", analysis_key, "\n")
-          
+
           # Set loading state immediately
           values$ai_analysis_loading <- TRUE
           values$ai_analysis_result <- NULL
           values$current_analysis_key <- analysis_key
-          
+          ui_update_trigger(ui_update_trigger() + 1)
+
           # Generate AI analysis asynchronously
           later::later(function() {
             tryCatch(
@@ -872,11 +861,12 @@ generate_player_stat_line <- function(player_id, baseball_data) {
                   analysis_mode,
                   baseball_data
                 )
-                
+
                 # Update when complete
                 values$ai_analysis_result <- analysis_result
                 values$ai_analysis_loading <- FALSE
-                
+                ui_update_trigger(ui_update_trigger() + 1)
+
                 cat("✅ ASYNC: AI analysis complete for:", analysis_key, "\n")
               },
               error = function(e) {
@@ -887,6 +877,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
                   "Error generating analysis: ", e$message,
                   "</div>"
                 ))
+                ui_update_trigger(ui_update_trigger() + 1)
               }
             )
           }, delay = 0.1)
