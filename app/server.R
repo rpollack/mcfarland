@@ -259,7 +259,19 @@ generate_player_stat_line <- function(player_id, baseball_data) {
     }
   })
 
-  observe({
+  # Ensure the player select loads options after the input is rendered
+  session$onFlushed(function() {
+    updateSelectizeInput(
+      session,
+      "player_selection",
+      choices = player_choices(),
+      selected = isolate(input$player_selection %||% ""),
+      server = TRUE
+    )
+  }, once = TRUE)
+
+  # Refresh available players when the filter changes
+  observeEvent(input$player_filter, {
     updateSelectizeInput(
       session,
       "player_selection",
