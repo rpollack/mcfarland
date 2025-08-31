@@ -623,7 +623,6 @@ Jake Woodford,18674,28,pitcher,663765,18674_pitcher,Jake Woodford,RP,RP
 Jakob Junis,13619,32,pitcher,596001,13619_pitcher,Jakob Junis,RP,RP
 Jakob Marsee,31370,24,hitter,805300,31370_hitter,Jakob Marsee,Hitter,NA
 Jalen Beeks,17192,31,pitcher,656222,17192_pitcher,Jalen Beeks,RP,RP
-James Crooks,31354,23,hitter,699625,31354_hitter,James Crooks,Hitter,NA
 James McCann,12859,35,hitter,543510,12859_hitter,James McCann,Hitter,NA
 James Outman,24770,28,hitter,681546,24770_hitter,James Outman,Hitter,NA
 James Wood,29518,22,hitter,695578,29518_hitter,James Wood,Hitter,NA
@@ -667,6 +666,7 @@ Jhonny Pereda,19802,29,hitter,640902,19802_hitter,Jhonny Pereda (Hitter),Hitter,
 Jhonny Pereda,19802,29,pitcher,640902,19802_pitcher,Jhonny Pereda (RP),RP,RP
 Jhostynxon Garcia,28142,22,hitter,691373,28142_hitter,Jhostynxon Garcia,Hitter,NA
 Ji Hwan Bae,23818,25,hitter,678225,23818_hitter,Ji Hwan Bae,Hitter,NA
+Jimmy Crooks,31354,23,hitter,699625,31354_hitter,Jimmy Crooks,Hitter,NA
 Jimmy Herget,17556,31,pitcher,623474,17556_pitcher,Jimmy Herget,RP,RP
 Jo Adell,20220,26,hitter,666176,20220_hitter,Jo Adell,Hitter,NA
 JoJo Romero,19574,28,pitcher,668941,19574_pitcher,JoJo Romero,RP,RP
@@ -942,6 +942,7 @@ Mark Vientos,22184,25,hitter,668901,22184_hitter,Mark Vientos,Hitter,NA
 Martin Maldonado,6887,38,hitter,455117,6887_hitter,Martin Maldonado,Hitter,NA
 Martin Perez,6902,34,pitcher,527048,6902_pitcher,Martin Perez,SP,SP
 Masataka Yoshida,31837,31,hitter,807799,31837_hitter,Masataka Yoshida,Hitter,NA
+Mason Barnett,31741,24,pitcher,686930,31741_pitcher,Mason Barnett,SP,SP
 Mason Black,30171,25,pitcher,696131,30171_pitcher,Mason Black,RP,RP
 Mason Englert,22288,25,pitcher,669438,22288_pitcher,Mason Englert,RP,RP
 Mason Fluharty,31553,23,pitcher,689254,31553_pitcher,Mason Fluharty,RP,RP
@@ -1088,7 +1089,7 @@ Orion Kerkering,31776,24,pitcher,689147,31776_pitcher,Orion Kerkering,RP,RP
 Orlando Arcia,13185,30,hitter,606115,13185_hitter,Orlando Arcia,Hitter,NA
 Orlando Ribalta,26247,27,pitcher,687377,26247_pitcher,Orlando Ribalta,RP,RP
 Oscar Gonzalez,20970,27,hitter,660757,20970_hitter,Oscar Gonzalez,Hitter,NA
-Osvaldo Bido,23150,29,pitcher,674370,23150_pitcher,Osvaldo Bido,SP,SP
+Osvaldo Bido,23150,29,pitcher,674370,23150_pitcher,Osvaldo Bido,RP,RP
 Oswald Peraza,22823,25,hitter,672724,22823_hitter,Oswald Peraza (Hitter),Hitter,NA
 Oswald Peraza,22823,25,pitcher,672724,22823_pitcher,Oswald Peraza (RP),RP,RP
 Oswaldo Cabrera,21707,26,hitter,665828,21707_hitter,Oswaldo Cabrera,Hitter,NA
@@ -1187,7 +1188,8 @@ Ryan Brasier,5615,37,pitcher,518489,5615_pitcher,Ryan Brasier,RP,RP
 Ryan Burr,17536,31,pitcher,621114,17536_pitcher,Ryan Burr,RP,RP
 Ryan Feltner,21446,28,pitcher,663372,21446_pitcher,Ryan Feltner,SP,SP
 Ryan Fernandez,24862,27,pitcher,681676,24862_pitcher,Ryan Fernandez,RP,RP
-Ryan Fitzgerald,24622,31,hitter,680837,24622_hitter,Ryan Fitzgerald,Hitter,NA
+Ryan Fitzgerald,24622,31,hitter,680837,24622_hitter,Ryan Fitzgerald (Hitter),Hitter,NA
+Ryan Fitzgerald,24622,31,pitcher,680837,24622_pitcher,Ryan Fitzgerald (RP),RP,RP
 Ryan Gusto,26440,26,pitcher,687473,26440_pitcher,Ryan Gusto,SP,SP
 Ryan Helsley,18138,30,pitcher,664854,18138_pitcher,Ryan Helsley,RP,RP
 Ryan Jeffers,24618,28,hitter,680777,24618_hitter,Ryan Jeffers,Hitter,NA
