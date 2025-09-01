@@ -147,9 +147,15 @@ generate_player_stat_line <- function(player_id, baseball_data) {
               ids <- lookup$PlayerId
               names <- lookup$display_name
             }
-            setNames(c("", ids), c("", names))
+            setNames(ids, names)
           },
-          selected = isolate(input$player_selection) %||% "",
+          selected = isolate({
+            if (!is.null(input$player_selection) && input$player_selection %in% ids) {
+              input$player_selection
+            } else {
+              character(0)
+            }
+          }),
           options = pickerOptions(
             liveSearch = TRUE,
             title = "Select a player..."
