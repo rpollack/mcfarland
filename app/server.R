@@ -841,27 +841,31 @@ generate_player_stat_line <- function(player_id, baseball_data) {
             tryCatch(
               {
                 cat("🤖 Generating AI analysis...\n")
-                
+
                 analysis_result <- analyze_player_performance(
                   player_selection,
                   analysis_mode,
                   baseball_data
                 )
-                
-                # Update when complete
-                values$ai_analysis_result <- analysis_result
-                values$ai_analysis_loading <- FALSE
-                
+
+                # Update when complete within session's reactive domain
+                shiny::withReactiveDomain(session, {
+                  values$ai_analysis_result <- analysis_result
+                  values$ai_analysis_loading <- FALSE
+                })
+
                 cat("✅ ASYNC: AI analysis complete for:", analysis_key, "\n")
               },
               error = function(e) {
                 cat("❌ ASYNC: Error in AI analysis:", e$message, "\n")
-                values$ai_analysis_loading <- FALSE
-                values$ai_analysis_result <- HTML(paste0(
-                  "<div class='alert alert-danger'>",
-                  "Error generating analysis: ", e$message,
-                  "</div>"
-                ))
+                shiny::withReactiveDomain(session, {
+                  values$ai_analysis_loading <- FALSE
+                  values$ai_analysis_result <- HTML(paste0(
+                    "<div class='alert alert-danger'>",
+                    "Error generating analysis: ", e$message,
+                    "</div>"
+                  ))
+                })
               }
             )
           }, delay = 0.1)
