@@ -148,7 +148,8 @@ generate_player_stat_line <- function(player_id, baseball_data) {
             invisible(c("Select a player..." = "", player_choices))
           },
           selected = isolate(input$player_selection),
-          width = "100%"
+          width = "100%",
+          selectize = FALSE
         )
       ),
       {

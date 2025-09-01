@@ -470,11 +470,8 @@ ui <- page_navbar(
         startKeepAlive();
         console.log('✅ Keep-alive system active');
       });
-    ")),
-
-    # // Add this JavaScript to your UI header section, after your existing keep-alive script
-
-    tags$script(HTML("
+    ")), 
+    tags$script(HTML(" 
   $(document).ready(function() {
     var lastAnalysisTime = 0;
     var userScrolledUp = false;
