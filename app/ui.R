@@ -57,7 +57,7 @@ ui <- page_navbar(
         margin-bottom: 2rem;
       }
 
-      .search-input-container .form-select {
+      .search-input-container .bootstrap-select > .dropdown-toggle {
         border: 2px solid rgba(46, 134, 171, 0.2);
         border-radius: 15px;
         padding: 1rem 1.5rem;

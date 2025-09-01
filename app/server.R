@@ -127,7 +127,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       ),
       div(
         class = "search-input-container",
-        selectInput(
+        pickerInput(
           inputId = "player_selection",
           label = NULL,
           choices = {
@@ -140,16 +140,18 @@ generate_player_stat_line <- function(player_id, baseball_data) {
                 lookup <- lookup %>% filter(player_type == "pitcher")
               }
             }
-            player_choices <- if ("compound_id" %in% colnames(lookup)) {
+            if ("compound_id" %in% colnames(lookup)) {
               setNames(lookup$compound_id, lookup$display_name)
             } else {
               setNames(lookup$PlayerId, lookup$display_name)
             }
-            invisible(c("Select a player..." = "", player_choices))
           },
           selected = isolate(input$player_selection),
-          width = "100%",
-          selectize = FALSE
+          options = pickerOptions(
+            liveSearch = TRUE,
+            title = "Select a player..."
+          ),
+          width = "100%"
         )
       ),
       {

@@ -62,7 +62,7 @@ tryCatch(
 # Load other essential packages
 for (pkg in c(
   "readr", "purrr", "stringr", "httr", "jsonlite",
-  "bslib", "commonmark", "shinybusy", "ggplot2", "htmltools", "digest"
+  "bslib", "commonmark", "shinybusy", "shinyWidgets", "ggplot2", "htmltools", "digest"
 )) {
   tryCatch(
     {
@@ -103,6 +103,7 @@ library(jsonlite) # JSON handling for API calls
 library(bslib) # Bootstrap theming (page_navbar, card, etc.)
 library(commonmark) # Markdown rendering
 library(shinybusy) # Loading indicators
+library(shinyWidgets) # Enhanced select inputs
 library(ggplot2) # Data visualization
 library(htmltools) # HTML utilities (HTML, htmlEscape)
 library(digest) # CACHE: Added for generating cache keys
