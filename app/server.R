@@ -147,13 +147,13 @@ generate_player_stat_line <- function(player_id, baseball_data) {
                 ids <- lookup$PlayerId
                 names <- lookup$display_name
               }
-              setNames(c("", ids), c("Select a player...", names))
+              setNames(ids, names)
             },
             selected = isolate({
               if (!is.null(input$player_selection) && input$player_selection %in% ids) {
                 input$player_selection
               } else {
-                ""
+                NULL
               }
             }),
             options = pickerOptions(
@@ -718,7 +718,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
                  values$stat_line_data <- generate_player_stat_line(input$player_selection, baseball_data)
                  
                  
-                 if (!is.null(input$player_selection) && input$player_selection != "") {
+                 if (!is.null(input$player_selection) && nzchar(input$player_selection)) {
                    player_info <- get_player_info(input$player_selection, baseball_data)
                    
                    if (!is.null(player_info)) {
@@ -836,7 +836,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       if (!is.null(selected_info) &&
           !is.null(analysis_mode) &&
           !is.null(player_selection) &&
-          player_selection != "") {
+          nzchar(player_selection)) {
         analysis_key <- paste(selected_info$name, analysis_mode, sep = "_")
         current_key <- isolate(values$current_analysis_key)
         
