@@ -147,7 +147,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
                 ids <- lookup$PlayerId
                 names <- lookup$display_name
               }
-              setNames(c("", ids), c("", names))
+              setNames(c("", ids), c("Select a player...", names))
             },
             selected = isolate({
               if (!is.null(input$player_selection) && input$player_selection %in% ids) {
