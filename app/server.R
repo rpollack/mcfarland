@@ -145,7 +145,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
             } else {
               setNames(lookup$PlayerId, lookup$display_name)
             }
-            c("Select a player..." = "", player_choices)
+            invisible(c("Select a player..." = "", player_choices))
           },
           selected = isolate(input$player_selection),
           width = "100%"
