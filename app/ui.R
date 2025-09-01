@@ -588,7 +588,34 @@ ui <- page_navbar(
     ),
 
     # Step 1: Player Selection
-    uiOutput("step_1_player_selection"),
+    div(
+      class = "step-card active",
+      div(
+        class = "step-header",
+        div(class = "step-number", "1"),
+        h3(class = "step-title", "Select a Player")
+      ),
+      div(
+        class = "search-input-container",
+        pickerInput(
+          inputId = "player_selection",
+          label = NULL,
+          choices = NULL,
+          options = pickerOptions(
+            liveSearch = TRUE,
+            title = "Select a player..."
+          ),
+          width = "100%"
+        )
+      ),
+      div(
+        class = "quick-filters",
+        span(class = "filter-chip active", "All Players"),
+        span(class = "filter-chip", "Hitters"),
+        span(class = "filter-chip", "Pitchers")
+      ),
+      uiOutput("player_preview")
+    ),
 
     # Step 2: Analysis Style
     uiOutput("step_2_analysis_style"),
