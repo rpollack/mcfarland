@@ -830,12 +830,12 @@ generate_player_stat_line <- function(player_id, baseball_data) {
         
         if (analysis_key != current_key) {
           cat("🎯 ASYNC: Starting AI analysis for:", analysis_key, "\n")
-          
+
           # Set loading state immediately
           values$ai_analysis_loading <- TRUE
           values$ai_analysis_result <- NULL
           values$current_analysis_key <- analysis_key
-          
+
           # Generate AI analysis asynchronously
           later::later(function() {
             tryCatch(
@@ -865,6 +865,22 @@ generate_player_stat_line <- function(player_id, baseball_data) {
               }
             )
           }, delay = 0.1)
+
+          # Timeout safeguard
+          later::later(function() {
+            shiny::withReactiveDomain(session, {
+              shiny::isolate({
+                if (isTRUE(values$ai_analysis_loading) &&
+                    values$current_analysis_key == analysis_key) {
+                  values$ai_analysis_loading <- FALSE
+                  values$ai_analysis_result <- HTML(
+                    "<div class='alert alert-danger'>Analysis timed out. Please try again.</div>"
+                  )
+                  cat("⏱️ ASYNC: Analysis timed out for:", analysis_key, "\n")
+                }
+              })
+            })
+          }, delay = 60)
         } else {
           cat("♻️ ASYNC: Using existing analysis for:", analysis_key, "\n")
         }
