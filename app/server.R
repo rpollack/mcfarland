@@ -127,41 +127,41 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       ),
       div(
         class = "search-input-container",
-        pickerInput(
-          inputId = "player_selection",
-          label = NULL,
-          choices = {
-            lookup <- baseball_data$lookup
-            filter <- input$player_filter
-            if (!is.null(filter)) {
-              if (filter == "Hitters") {
-                lookup <- lookup %>% filter(player_type == "hitter")
-              } else if (filter == "Pitchers") {
-                lookup <- lookup %>% filter(player_type == "pitcher")
+          pickerInput(
+            inputId = "player_selection",
+            label = NULL,
+            choices = {
+              lookup <- baseball_data$lookup
+              filter <- input$player_filter
+              if (!is.null(filter)) {
+                if (filter == "Hitters") {
+                  lookup <- lookup %>% filter(player_type == "hitter")
+                } else if (filter == "Pitchers") {
+                  lookup <- lookup %>% filter(player_type == "pitcher")
+                }
               }
-            }
-            if ("compound_id" %in% colnames(lookup)) {
-              ids <- lookup$compound_id
-              names <- lookup$display_name
-            } else {
-              ids <- lookup$PlayerId
-              names <- lookup$display_name
-            }
-            setNames(ids, names)
-          },
-          selected = isolate({
-            if (!is.null(input$player_selection) && input$player_selection %in% ids) {
-              input$player_selection
-            } else {
-              character(0)
-            }
-          }),
-          options = pickerOptions(
-            liveSearch = TRUE,
-            title = "Select a player..."
-          ),
-          width = "100%"
-        )
+              if ("compound_id" %in% colnames(lookup)) {
+                ids <- lookup$compound_id
+                names <- lookup$display_name
+              } else {
+                ids <- lookup$PlayerId
+                names <- lookup$display_name
+              }
+              setNames(c("", ids), c("", names))
+            },
+            selected = isolate({
+              if (!is.null(input$player_selection) && input$player_selection %in% ids) {
+                input$player_selection
+              } else {
+                ""
+              }
+            }),
+            options = pickerOptions(
+              liveSearch = TRUE,
+              title = "Select a player..."
+            ),
+            width = "100%"
+          )
       ),
       {
         filter_selected <- input$player_filter
