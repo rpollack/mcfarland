@@ -1,5 +1,5 @@
 Name,PlayerId,Age,player_type,mlbamid,compound_id,display_name,position_detail,position
-A.J. Blubaugh,31764,24,pitcher,805123,31764_pitcher,A.J. Blubaugh,SP,SP
+A.J. Blubaugh,31764,24,pitcher,805123,31764_pitcher,A.J. Blubaugh,RP,RP
 A.J. Minter,18655,31,pitcher,621345,18655_pitcher,A.J. Minter,RP,RP
 A.J. Puk,19343,30,pitcher,640462,19343_pitcher,A.J. Puk,RP,RP
 AJ Smith-Shawver,29960,22,pitcher,700363,29960_pitcher,AJ Smith-Shawver,SP,SP
@@ -40,7 +40,8 @@ Alek Thomas,23792,25,hitter,677950,23792_hitter,Alek Thomas,Hitter,NA
 Alex Bregman,17678,31,hitter,608324,17678_hitter,Alex Bregman,Hitter,NA
 Alex Call,19296,30,hitter,669743,19296_hitter,Alex Call,Hitter,NA
 Alex Freeland,31665,23,hitter,690976,31665_hitter,Alex Freeland,Hitter,NA
-Alex Jackson,17276,29,hitter,656577,17276_hitter,Alex Jackson,Hitter,NA
+Alex Jackson,17276,29,hitter,656577,17276_hitter,Alex Jackson (Hitter),Hitter,NA
+Alex Jackson,17276,29,pitcher,656577,17276_pitcher,Alex Jackson (RP),RP,RP
 Alex Lange,19883,29,pitcher,656638,19883_pitcher,Alex Lange,RP,RP
 Alex Verdugo,17027,29,hitter,657077,17027_hitter,Alex Verdugo,Hitter,NA
 Alex Vesia,25007,29,pitcher,681911,25007_pitcher,Alex Vesia,RP,RP
@@ -220,6 +221,7 @@ Caleb Freeman,26255,27,pitcher,673965,26255_pitcher,Caleb Freeman,RP,RP
 Caleb Thielbar,10078,38,pitcher,573204,10078_pitcher,Caleb Thielbar,RP,RP
 Calvin Faucher,20116,29,pitcher,676534,20116_pitcher,Calvin Faucher,RP,RP
 Cam Booser,16061,33,pitcher,592155,16061_pitcher,Cam Booser,RP,RP
+Cam Devanney,25688,28,hitter,687478,25688_hitter,Cam Devanney,Hitter,NA
 Cam Sanders,23479,28,pitcher,676742,23479_pitcher,Cam Sanders,RP,RP
 Cam Smith,35108,22,hitter,701358,35108_hitter,Cam Smith,Hitter,NA
 Cameron Schlittler,32095,24,pitcher,693645,32095_pitcher,Cameron Schlittler,SP,SP
