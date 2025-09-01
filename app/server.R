@@ -31,7 +31,7 @@ server <- function(input, output, session) {
   # Initialize reactive values with safe defaults
   values <- reactiveValues(
     selected_player_info = NULL,
-    analysis_mode = "default", 
+    analysis_mode = "default",
     trends_plot = NULL,
     ai_analysis_result = NULL,
     ai_analysis_loading = FALSE,
@@ -40,9 +40,49 @@ server <- function(input, output, session) {
     stat_line_data = NULL  # current stat line
   )
   
-  # UI update trigger for forcing refreshes
-  ui_update_trigger <- reactiveVal(0)
-  
+  # Populate player picker on startup
+  observe({
+    lookup <- baseball_data$lookup
+    if ("compound_id" %in% colnames(lookup)) {
+      ids <- lookup$compound_id
+      names <- lookup$display_name
+    } else {
+      ids <- lookup$PlayerId
+      names <- lookup$display_name
+    }
+    updatePickerInput(session, "player_selection",
+                      choices = setNames(ids, names),
+                      selected = NULL)
+  })
+
+  observeEvent(input$player_filter, {
+    lookup <- baseball_data$lookup
+    if (!is.null(input$player_filter)) {
+      if (input$player_filter == "Hitters") {
+        lookup <- lookup %>% filter(player_type == "hitter")
+      } else if (input$player_filter == "Pitchers") {
+        lookup <- lookup %>% filter(player_type == "pitcher")
+      }
+    }
+    if ("compound_id" %in% colnames(lookup)) {
+      ids <- lookup$compound_id
+      names <- lookup$display_name
+    } else {
+      ids <- lookup$PlayerId
+      names <- lookup$display_name
+    }
+    selected <- isolate({
+      if (!is.null(input$player_selection) && input$player_selection %in% ids) {
+        input$player_selection
+      } else {
+        NULL
+      }
+    })
+    updatePickerInput(session, "player_selection",
+                      choices = setNames(ids, names),
+                      selected = selected)
+  })
+
   # ============================================================================
   # INTERNAL UI GENERATION FUNCTIONS (moved inside server for proper scoping)
   # ============================================================================
@@ -111,148 +151,86 @@ generate_player_stat_line <- function(player_id, baseball_data) {
   return(NULL)
 }
   
-  # Generate Step 1: Player Selection UI (photo with quick stats)
-  generate_step_1_ui <- function(player_selected = FALSE, player_info = NULL,
-                                 ai_loading = FALSE, ai_result = NULL,
-                                 analysis_mode = "default", stat_line_data = NULL) {
-    # Step 1 should appear active even before a player is selected
-    step_class <- "step-card active"
-    
-    div(
-      class = step_class,
-      div(
-        class = "step-header",
-        div(class = "step-number", "1"),
-        h3(class = "step-title", "Select a Player")
-      ),
-      div(
-        class = "search-input-container",
-        selectInput(
-          inputId = "player_selection",
-          label = NULL,
-          choices = {
-            lookup <- baseball_data$lookup
-            filter <- input$player_filter
-            if (!is.null(filter)) {
-              if (filter == "Hitters") {
-                lookup <- lookup %>% filter(player_type == "hitter")
-              } else if (filter == "Pitchers") {
-                lookup <- lookup %>% filter(player_type == "pitcher")
-              }
-            }
-            player_choices <- if ("compound_id" %in% colnames(lookup)) {
-              setNames(lookup$compound_id, lookup$display_name)
-            } else {
-              setNames(lookup$PlayerId, lookup$display_name)
-            }
-            invisible(c("Select a player..." = "", player_choices))
-          },
-          selected = isolate(input$player_selection),
-          width = "100%"
-        )
-      ),
-      {
-        filter_selected <- input$player_filter
-        if (is.null(filter_selected) || filter_selected == "") {
-          filter_selected <- "All Players"
-        }
+  generate_player_preview <- function(player_info = NULL, ai_loading = FALSE,
+                                      ai_result = NULL, analysis_mode = "default",
+                                      stat_line_data = NULL) {
+    if (!is.null(player_info)) {
+      tagList(
         div(
-          class = "quick-filters",
-          span(
-            class = if (filter_selected == "All Players") "filter-chip active" else "filter-chip",
-            "All Players"
+          class = "player-preview-grid",
+          img(
+            src = player_info$photo_url %||% "https://via.placeholder.com/60x60/2E86AB/ffffff?text=⚾",
+            alt = str_glue("Photo of {player_info$name}"),
+            class = "player-preview-avatar",
+            onerror = "this.src='https://via.placeholder.com/60x60/2E86AB/ffffff?text=⚾';"
           ),
-          span(
-            class = if (filter_selected == "Hitters") "filter-chip active" else "filter-chip",
-            "Hitters"
-          ),
-          span(
-            class = if (filter_selected == "Pitchers") "filter-chip active" else "filter-chip",
-            "Pitchers"
-          )
-        )
-      },
-      if (player_selected && !is.null(player_info)) {
-        tagList(
-          # Player preview with headshot and quick stats in one responsive grid
           div(
-            class = "player-preview-grid",
-            img(
-              src = player_info$photo_url %||% "https://via.placeholder.com/60x60/2E86AB/ffffff?text=⚾",
-              alt = str_glue("Photo of {player_info$name}"),
-              class = "player-preview-avatar",
-              onerror = "this.src='https://via.placeholder.com/60x60/2E86AB/ffffff?text=⚾';"
-            ),
+            class = "player-preview-info",
+            h4(player_info$name),
+            p(
+              str_glue(
+                "Age: {player_info$age %||% 'N/A'} • {if (player_info$type == 'pitcher') 'TBF' else 'PA'}: {(if (player_info$type == 'pitcher') player_info$tbf else player_info$pa) %||% 'N/A'}"
+              )
+            )
+          ),
+          if (!is.null(stat_line_data)) {
+            map(stat_line_data$stats, ~ {
+              div(
+                class = "stat-item",
+                div(class = "stat-label", .x$label),
+                div(class = "stat-value", .x$value)
+              )
+            })
+          }
+        ),
+        if (ai_loading) {
+          div(
+            class = "alert alert-info mt-3",
             div(
-              class = "player-preview-info",
-              h4(player_info$name),
-              p(
-                str_glue(
-                  "Age: {player_info$age %||% 'N/A'} • {if (player_info$type == 'pitcher') 'TBF' else 'PA'}: {(if (player_info$type == 'pitcher') player_info$tbf else player_info$pa) %||% 'N/A'}"
+              class = "d-flex align-items-center",
+              div(class = "spinner-border spinner-border-sm text-primary me-3", role = "status"),
+              div(
+                tags$strong("Detailed AI analysis in progress..."),
+                tags$br(),
+                tags$small(
+                  class = "text-muted",
+                  str_glue("Generating {analysis_mode} analysis. Usually takes 5-15 seconds.")
                 )
               )
-            ),
-            if (!is.null(stat_line_data)) {
-              map(stat_line_data$stats, ~ {
-                div(
-                  class = "stat-item",
-                  div(class = "stat-label", .x$label),
-                  div(class = "stat-value", .x$value)
-                )
-              })
-            }
-          ),
-
-          # AI Analysis status section
-          if (ai_loading) {
+            )
+          )
+        } else if (!is.null(ai_result)) {
+          div(
+            class = "alert alert-success mt-3",
             div(
-              class = "alert alert-info mt-3",
+              class = "d-flex align-items-center justify-content-between",
               div(
                 class = "d-flex align-items-center",
-                div(class = "spinner-border spinner-border-sm text-primary me-3", role = "status"),
+                tags$i(class = "fas fa-check-circle text-success me-2"),
                 div(
-                  tags$strong("Detailed AI analysis in progress..."),
+                  tags$strong("AI analysis complete!"),
                   tags$br(),
-                  tags$small(
-                    class = "text-muted",
-                    str_glue("Generating {analysis_mode} analysis. Usually takes 5-15 seconds.")
-                  )
+                  tags$small(class = "text-muted", "Scroll down to see detailed AI insights.")
                 )
+              ),
+              tags$button(
+                class = "btn btn-sm btn-outline-success",
+                onclick = "document.querySelector('.analysis-content').scrollIntoView({behavior: 'smooth', block: 'start'});",
+                tags$i(class = "fas fa-arrow-down me-1"),
+                "View AI Analysis"
               )
             )
-          } else if (!is.null(ai_result)) {
-            div(
-              class = "alert alert-success mt-3",
-              div(
-                class = "d-flex align-items-center justify-content-between",
-                div(
-                  class = "d-flex align-items-center",
-                  tags$i(class = "fas fa-check-circle text-success me-2"),
-                  div(
-                    tags$strong("AI analysis complete!"),
-                    tags$br(),
-                    tags$small(class = "text-muted", "Scroll down to see detailed AI insights.")
-                  )
-                ),
-                tags$button(
-                  class = "btn btn-sm btn-outline-success",
-                  onclick = "document.querySelector('.analysis-content').scrollIntoView({behavior: 'smooth', block: 'start'});",
-                  tags$i(class = "fas fa-arrow-down me-1"),
-                  "View AI Analysis"
-                )
-              )
-            )
-          }
-        )
-      } else {
-        div(
-          class = "empty-state",
-          icon("search", class = "empty-icon"),
-          h4(class = "empty-title", "Select a player above"),
-          p(class = "empty-subtitle", "Choose from over 500 MLB players to get started")
-        )
-      }
-    )
+          )
+        }
+      )
+    } else {
+      div(
+        class = "empty-state",
+        icon("search", class = "empty-icon"),
+        h4(class = "empty-title", "Select a player above"),
+        p(class = "empty-subtitle", "Choose from over 500 MLB players to get started")
+      )
+    }
   }
   
   
@@ -706,7 +684,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
                  values$stat_line_data <- generate_player_stat_line(input$player_selection, baseball_data)
                  
                  
-                 if (!is.null(input$player_selection) && input$player_selection != "") {
+                 if (!is.null(input$player_selection) && nzchar(input$player_selection)) {
                    player_info <- get_player_info(input$player_selection, baseball_data)
                    
                    if (!is.null(player_info)) {
@@ -750,9 +728,6 @@ generate_player_stat_line <- function(player_id, baseball_data) {
                      values$ai_analysis_result <- NULL
                      values$ai_analysis_loading <- FALSE
                      
-                     # Force UI update immediately
-                     ui_update_trigger(ui_update_trigger() + 1)
-                     
                      cat("✅ INSTANT: Player info loaded for:", player_info$name, "\n")
                      
                      # IMMEDIATE LOGGING AND AI TRIGGER - Use default mode if none selected
@@ -774,7 +749,6 @@ generate_player_stat_line <- function(player_id, baseball_data) {
                    values$trends_plot <- NULL
                    values$ai_analysis_result <- NULL
                    values$ai_analysis_loading <- FALSE
-                   ui_update_trigger(ui_update_trigger() + 1)
                    cat("🗑️ Player selection cleared\n")
                  }
                },
@@ -791,9 +765,6 @@ generate_player_stat_line <- function(player_id, baseball_data) {
                    # Clear previous AI analysis when mode changes
                    values$ai_analysis_result <- NULL
                    values$ai_analysis_loading <- FALSE
-                   
-                   # Force UI update immediately
-                   ui_update_trigger(ui_update_trigger() + 1)
                    
                    # IMMEDIATE LOGGING: If player is already selected, log now
                    if (!is.null(values$selected_player_info)) {
@@ -824,7 +795,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       if (!is.null(selected_info) &&
           !is.null(analysis_mode) &&
           !is.null(player_selection) &&
-          player_selection != "") {
+          nzchar(player_selection)) {
         analysis_key <- paste(selected_info$name, analysis_mode, sep = "_")
         current_key <- isolate(values$current_analysis_key)
         
@@ -897,14 +868,9 @@ generate_player_stat_line <- function(player_id, baseball_data) {
   # UI OUTPUTS USING INTERNAL FUNCTIONS
   # ============================================================================
   
-  # Render Step 1: Player Selection (using internal function)
-  output$step_1_player_selection <- renderUI({
-    ui_update_trigger()
-    
-    player_selected <- !is.null(values$selected_player_info)
-    
-    generate_step_1_ui(
-      player_selected = player_selected,
+  # Render player preview section
+  output$player_preview <- renderUI({
+    generate_player_preview(
       player_info = values$selected_player_info,
       ai_loading = isTRUE(values$ai_analysis_loading),
       ai_result = values$ai_analysis_result,
@@ -912,27 +878,21 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       stat_line_data = values$stat_line_data
     )
   })
-  
-  
-  
+
   # Render Step 2: Analysis Style (using internal function)
   output$step_2_analysis_style <- renderUI({
-    ui_update_trigger()
-    
     player_selected <- !is.null(values$selected_player_info)
-    
+
     generate_step_2_ui(
-      player_selected = player_selected, 
+      player_selected = player_selected,
       current_mode = values$analysis_mode %||% "default"
     )
   })
-  
+
   # Render Step 3: Analysis Results (using internal function)
   output$step_3_analysis_results <- renderUI({
-    ui_update_trigger()
-    
     player_selected <- !is.null(values$selected_player_info)
-    
+
     generate_step_3_ui(
       player_selected = player_selected,
       analysis_mode = values$analysis_mode,
@@ -941,9 +901,9 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       trends_plot = values$trends_plot
     )
   })
-  
+
   # Force UI outputs to not suspend when hidden
-  outputOptions(output, "step_1_player_selection", suspendWhenHidden = FALSE)
+  outputOptions(output, "player_preview", suspendWhenHidden = FALSE)
   outputOptions(output, "step_2_analysis_style", suspendWhenHidden = FALSE)
   outputOptions(output, "step_3_analysis_results", suspendWhenHidden = FALSE)
 }
