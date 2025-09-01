@@ -141,12 +141,15 @@ generate_player_stat_line <- function(player_id, baseball_data) {
               }
             }
             if ("compound_id" %in% colnames(lookup)) {
-              setNames(lookup$compound_id, lookup$display_name)
+              ids <- lookup$compound_id
+              names <- lookup$display_name
             } else {
-              setNames(lookup$PlayerId, lookup$display_name)
+              ids <- lookup$PlayerId
+              names <- lookup$display_name
             }
+            setNames(c("", ids), c("", names))
           },
-          selected = isolate(input$player_selection),
+          selected = isolate(input$player_selection) %||% "",
           options = pickerOptions(
             liveSearch = TRUE,
             title = "Select a player..."
