@@ -101,6 +101,7 @@ call_openai_api <- function(prompt_text, analysis_mode) {
         "https://api.openai.com/v1/chat/completions",
         add_headers(Authorization = str_glue("Bearer {api_key}")),
         content_type_json(),
+        timeout(60),
         body = toJSON(list(
           model = "gpt-4.1",
           messages = list(
