@@ -4,21 +4,7 @@ server <- function(input, output, session) {
   # Generate user ID on session start
   user_id <- generate_user_id(session)
   
-  # Keep-alive ping handler
-  observeEvent(input$keepalive_ping,
-               {
-                 if (!is.null(input$keepalive_ping)) {
-                   timestamp <- as.POSIXct(input$keepalive_ping / 1000, origin = "1970-01-01")
-                   cat(
-                     "💓 Keep-alive ping received at:", format(timestamp, "%H:%M:%S"),
-                     "- User:", substr(user_id, 1, 8), "...\n"
-                   )
-                   session$userData$last_keepalive <- Sys.time()
-                 }
-               },
-               ignoreInit = TRUE,
-               ignoreNULL = TRUE
-  )
+  # Keep-alive ping handler temporarily disabled
   
   # Session ended handler
   session$onSessionEnded(function() {
