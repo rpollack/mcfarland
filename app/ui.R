@@ -65,6 +65,11 @@ ui <- page_navbar(
         background: rgba(255, 255, 255, 0.9);
       }
 
+      /* Hide default selectize dropdown arrow for pure typeahead */
+      .search-input-container .selectize-control.single .selectize-input:after {
+        display: none;
+      }
+
       .step-card {
         background: rgba(255, 255, 255, 0.95);
         backdrop-filter: blur(20px);
@@ -568,7 +573,8 @@ ui <- page_navbar(
           options = list(
             placeholder = "Type a player name",
             openOnFocus = FALSE,
-            closeAfterSelect = TRUE
+            closeAfterSelect = TRUE,
+            maxOptions = 5
           ),
           width = "100%"
         )
