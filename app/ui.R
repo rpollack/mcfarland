@@ -458,7 +458,8 @@ ui <- page_navbar(
 
     console.log('✅ Smart scroll interactions initialized');
   });
-"))
+")),
+    tags$script(HTML("\n      Shiny.addCustomMessageHandler('open-x-share', function(msg) {\n        var url = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(msg.text) + '&url=' + encodeURIComponent(msg.url);\n        window.open(url, '_blank');\n      });\n    "))
   ),
   nav_panel(
     title = "Analysis",
