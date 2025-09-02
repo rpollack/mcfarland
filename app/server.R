@@ -3,9 +3,9 @@
 server <- function(input, output, session) {
   # Generate user ID on session start
   user_id <- generate_user_id(session)
-  
+
   # Keep-alive ping handler temporarily disabled
-  
+
   # Session ended handler
   session$onSessionEnded(function() {
     cat("📤 Session ended for user:", substr(user_id, 1, 8), "...\n")
@@ -13,12 +13,17 @@ server <- function(input, output, session) {
   
   # Load data on startup
   baseball_data <- load_baseball_data_cached()
-  
+
+  # Parse initial shareable URL parameters for deep linking
+  initial_query <- parseQueryString(isolate(session$clientData$url_search))
+  initial_player <- initial_query$player
+  initial_vibe <- initial_query$vibe
+
   # Initialize reactive values with safe defaults
   values <- reactiveValues(
     selected_player_info = NULL,
-    analysis_mode = "default",
-    initial_mode_from_query = NULL,
+    analysis_mode = initial_vibe %||% "default",
+    initial_mode_from_query = initial_vibe,
     trends_plot = NULL,
     ai_analysis_result = NULL,
     ai_analysis_loading = FALSE,
@@ -41,21 +46,9 @@ server <- function(input, output, session) {
       session,
       "player_selection",
       choices = setNames(ids, names),
-      selected = "",
+      selected = initial_player %||% "",
       server = TRUE
     )
-  })
-
-  # Load player and vibe from shareable URL parameters
-  observe({
-    query <- parseQueryString(session$clientData$url_search)
-    if (!is.null(query$vibe)) {
-      values$analysis_mode <- query$vibe
-      values$initial_mode_from_query <- query$vibe
-    }
-    if (!is.null(query$player)) {
-      updateSelectizeInput(session, "player_selection", selected = query$player)
-    }
   })
 
   # ============================================================================
