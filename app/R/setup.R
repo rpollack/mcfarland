@@ -133,8 +133,8 @@ if (exists("init_analytics_db")) {
   init_analytics_db()
 }
 
-# Tidyverse-style analysis logger
-log_analysis <- function(player_name, analysis_mode, ...) {
+# Tidyverse-style console logger (no session)
+log_analysis_console <- function(player_name, analysis_mode, ...) {
   timestamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
 
   message_parts <- c(
