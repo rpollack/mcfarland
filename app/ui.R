@@ -57,7 +57,7 @@ ui <- page_navbar(
         margin-bottom: 2rem;
       }
 
-      .search-input-container .form-select {
+      .search-input-container .bootstrap-select > .dropdown-toggle {
         border: 2px solid rgba(46, 134, 171, 0.2);
         border-radius: 15px;
         padding: 1rem 1.5rem;
@@ -470,11 +470,8 @@ ui <- page_navbar(
         startKeepAlive();
         console.log('✅ Keep-alive system active');
       });
-    ")),
-
-    # // Add this JavaScript to your UI header section, after your existing keep-alive script
-
-    tags$script(HTML("
+    ")), 
+    tags$script(HTML(" 
   $(document).ready(function() {
     var lastAnalysisTime = 0;
     var userScrolledUp = false;
@@ -601,7 +598,34 @@ ui <- page_navbar(
     ),
 
     # Step 1: Player Selection
-    uiOutput("step_1_player_selection"),
+    div(
+      class = "step-card active",
+      div(
+        class = "step-header",
+        div(class = "step-number", "1"),
+        h3(class = "step-title", "Select a Player")
+      ),
+      div(
+        class = "search-input-container",
+        pickerInput(
+          inputId = "player_selection",
+          label = NULL,
+          choices = NULL,
+          options = pickerOptions(
+            liveSearch = TRUE,
+            title = "Select a player..."
+          ),
+          width = "100%"
+        )
+      ),
+      div(
+        class = "quick-filters",
+        span(class = "filter-chip active", "All Players"),
+        span(class = "filter-chip", "Hitters"),
+        span(class = "filter-chip", "Pitchers")
+      ),
+      uiOutput("player_preview")
+    ),
 
     # Step 2: Analysis Style
     uiOutput("step_2_analysis_style"),
