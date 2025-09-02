@@ -574,7 +574,8 @@ ui <- page_navbar(
             placeholder = "Type a player name",
             openOnFocus = FALSE,
             closeAfterSelect = TRUE,
-            maxOptions = 5
+            maxOptions = 5,
+            onDropdownOpen = I("function(dropdown) { if (!this.lastQuery.length) { this.close(); } }")
           ),
           width = "100%"
         )
