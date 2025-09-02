@@ -40,7 +40,7 @@ server <- function(input, output, session) {
     stat_line_data = NULL  # current stat line
   )
   
-  # Populate player picker on startup
+  # Populate player selector on startup
   observe({
     lookup <- baseball_data$lookup
     if ("compound_id" %in% colnames(lookup)) {
@@ -50,37 +50,10 @@ server <- function(input, output, session) {
       ids <- lookup$PlayerId
       names <- lookup$display_name
     }
-    updatePickerInput(session, "player_selection",
-                      choices = setNames(ids, names),
-                      selected = NULL)
-  })
-
-  observeEvent(input$player_filter, {
-    lookup <- baseball_data$lookup
-    if (!is.null(input$player_filter)) {
-      if (input$player_filter == "Hitters") {
-        lookup <- lookup %>% filter(player_type == "hitter")
-      } else if (input$player_filter == "Pitchers") {
-        lookup <- lookup %>% filter(player_type == "pitcher")
-      }
-    }
-    if ("compound_id" %in% colnames(lookup)) {
-      ids <- lookup$compound_id
-      names <- lookup$display_name
-    } else {
-      ids <- lookup$PlayerId
-      names <- lookup$display_name
-    }
-    selected <- isolate({
-      if (!is.null(input$player_selection) && input$player_selection %in% ids) {
-        input$player_selection
-      } else {
-        NULL
-      }
-    })
-    updatePickerInput(session, "player_selection",
-                      choices = setNames(ids, names),
-                      selected = selected)
+    updateSelectizeInput(session, "player_selection",
+                         choices = setNames(ids, names),
+                         selected = NULL,
+                         server = TRUE)
   })
 
   # ============================================================================
@@ -685,6 +658,8 @@ generate_player_stat_line <- function(player_id, baseball_data) {
                  
                  
                  if (!is.null(input$player_selection) && nzchar(input$player_selection)) {
+                   # Default to standard vibe whenever a new player is chosen
+                   values$analysis_mode <- "default"
                    player_info <- get_player_info(input$player_selection, baseball_data)
                    
                    if (!is.null(player_info)) {
