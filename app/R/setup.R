@@ -23,12 +23,12 @@ if (Sys.getenv("RENDER") == "true") {
   cat("✓ Development mode\n")
 }
 
-# Keep-alive options
-options(
-  shiny.disconnected.timeout = 300000, # 5 minutes in milliseconds
-  shiny.autoreload.interval = 500, # Check every 500ms
-  shiny.websocket.ping.interval = 25000 # 25 seconds
-)
+# Keep-alive options temporarily disabled
+# options(
+#   shiny.disconnected.timeout = 300000, # 5 minutes in milliseconds
+#   shiny.autoreload.interval = 500, # Check every 500ms
+#   shiny.websocket.ping.interval = 25000 # 25 seconds
+# )
 
 cat("=== CHECKING ENVIRONMENT ===\n")
 cat("RENDER env var:", Sys.getenv("RENDER"), "\n")
