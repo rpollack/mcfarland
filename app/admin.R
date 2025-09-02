@@ -18,3 +18,11 @@ log_if_not_admin <- function(session, player_name, analysis_mode) {
     cat("🔧 Admin usage - not logged\n")
   }
 }
+
+log_share_if_not_admin <- function(session, player_name, analysis_mode, event_type) {
+  if (!is_admin(session)) {
+    log_share_event(session, player_name, analysis_mode, event_type)
+  } else {
+    cat("🔧 Admin share - not logged\n")
+  }
+}

@@ -29,7 +29,8 @@ server <- function(input, output, session) {
     ai_analysis_loading = FALSE,
     current_analysis_key = "",
     last_logged_key = "",
-    stat_line_data = NULL  # current stat line
+    stat_line_data = NULL,  # current stat line
+    pending_share_run = !is.null(initial_player)
   )
   
   # Populate player selector on startup
@@ -727,6 +728,10 @@ generate_player_stat_line <- function(player_id, baseball_data) {
         analysis_key <- paste(player_info$name, current_mode, sep = "_")
         if (analysis_key != values$last_logged_key) {
           log_if_not_admin(session, player_info$name, current_mode)
+          if (isTRUE(values$pending_share_run)) {
+            log_share_if_not_admin(session, player_info$name, current_mode, "shared_run")
+            values$pending_share_run <- FALSE
+          }
           values$last_logged_key <- analysis_key
           cat("📊 IMMEDIATE LOG: Player selected, triggering analysis with mode:", current_mode, "\n")
         }
@@ -751,6 +756,10 @@ generate_player_stat_line <- function(player_id, baseball_data) {
                      analysis_key <- paste(values$selected_player_info$name, input$analysis_mode, sep = "_")
                      if (analysis_key != values$last_logged_key) {
                        log_if_not_admin(session, values$selected_player_info$name, input$analysis_mode)
+                       if (isTRUE(values$pending_share_run)) {
+                         log_share_if_not_admin(session, values$selected_player_info$name, input$analysis_mode, "shared_run")
+                         values$pending_share_run <- FALSE
+                       }
                        values$last_logged_key <- analysis_key
                        cat("📊 IMMEDIATE LOG: Vibe changed with existing player\n")
                      }
@@ -865,6 +874,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
     share_text <- stringr::str_trunc(share_text, 200)
 
     session$sendCustomMessage('open-x-share', list(text = share_text, url = share_url))
+    log_share_if_not_admin(session, values$selected_player_info$name, mode, "share_click")
   })
   
   # ============================================================================

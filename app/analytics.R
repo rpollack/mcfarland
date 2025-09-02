@@ -114,9 +114,9 @@ get_db_connection <- function() {
 init_analytics_db <- function() {
   con <- get_db_connection()
   on.exit(dbDisconnect(con))
-  
+
   tryCatch({
-    # ONE TABLE: just log every analysis
+    # Main analyses table
     dbExecute(con, "
       CREATE TABLE IF NOT EXISTS analyses (
         user_id TEXT,
@@ -125,22 +125,35 @@ init_analytics_db <- function() {
         analysis_mode TEXT
       )
     ")
-    
+
+    # Table for share-related events
+    dbExecute(con, "
+      CREATE TABLE IF NOT EXISTS share_events (
+        user_id TEXT,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        player_name TEXT,
+        analysis_mode TEXT,
+        event_type TEXT
+      )
+    ")
+
     # Simple index for date queries - use different syntax for SQLite vs PostgreSQL
     db_type <- class(con)[1]
     if (db_type == "SQLiteConnection") {
       dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_analyses_date ON analyses(date(timestamp))")
+      dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_share_events_date ON share_events(date(timestamp))")
     } else {
       # PostgreSQL
       tryCatch({
         dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_analyses_date ON analyses(DATE(timestamp))")
+        dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_share_events_date ON share_events(DATE(timestamp))")
       }, error = function(e) {
         # Index might already exist
         cat("📊 Index creation note:", e$message, "\n")
       })
     }
-    
-    cat("✓ Analytics table ready\n")
+
+    cat("✓ Analytics tables ready\n")
   }, error = function(e) {
     cat("⚠ Database setup error:", e$message, "\n")
   })
@@ -195,5 +208,41 @@ log_analysis <- function(session, player_name, analysis_mode) {
     cat("📊", player_name, "-", analysis_mode, "- User:", substr(user_id, 1, 8), "...\n")
   }, error = function(e) {
     cat("⚠ Logging error:", e$message, "\n")
+  })
+}
+
+# ==============================================================================
+# SHARE LOGGING
+# ==============================================================================
+
+log_share_event <- function(session, player_name, analysis_mode, event_type) {
+  user_id <- session$userData$user_id
+  if (is.null(user_id)) {
+    cat("⚠ No user ID available for share logging\n")
+    return()
+  }
+
+  con <- get_db_connection()
+  on.exit(dbDisconnect(con))
+
+  tryCatch({
+    db_type <- class(con)[1]
+
+    if (db_type == "PostgreSQLConnection") {
+      dbExecute(con, "
+        INSERT INTO share_events (user_id, player_name, analysis_mode, event_type)
+        VALUES ($1, $2, $3, $4)
+      ", params = list(user_id, player_name, analysis_mode, event_type))
+    } else {
+      dbExecute(con, "
+        INSERT INTO share_events (user_id, player_name, analysis_mode, event_type)
+        VALUES (?, ?, ?, ?)
+      ", params = list(user_id, player_name, analysis_mode, event_type))
+    }
+
+    cat("📣 Share event:", event_type, "-", player_name, "-", analysis_mode,
+        "- User:", substr(user_id, 1, 8), "...\n")
+  }, error = function(e) {
+    cat("⚠ Share logging error:", e$message, "\n")
   })
 }
