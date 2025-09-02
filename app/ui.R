@@ -57,7 +57,7 @@ ui <- page_navbar(
         margin-bottom: 2rem;
       }
 
-      .search-input-container .bootstrap-select > .dropdown-toggle {
+      .search-input-container .selectize-input {
         border: 2px solid rgba(46, 134, 171, 0.2);
         border-radius: 15px;
         padding: 1rem 1.5rem;
@@ -65,30 +65,9 @@ ui <- page_navbar(
         background: rgba(255, 255, 255, 0.9);
       }
 
-      .quick-filters {
-        display: flex;
-        gap: 0.5rem;
-        flex-wrap: wrap;
-        margin-top: 1rem;
-        margin-bottom: 1rem;
-      }
-
-      .filter-chip {
-        background: rgba(46, 134, 171, 0.1);
-        border: 1px solid rgba(46, 134, 171, 0.3);
-        border-radius: 25px;
-        padding: 0.5rem 1rem;
-        font-size: 0.9rem;
-        color: #2E86AB;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        text-decoration: none;
-      }
-
-      .filter-chip:hover, .filter-chip.active {
-        background: #2E86AB;
-        color: white;
-        transform: translateY(-1px);
+      /* Hide default selectize dropdown arrow for pure typeahead */
+      .search-input-container .selectize-control.single .selectize-input:after {
+        display: none;
       }
 
       .step-card {
@@ -506,16 +485,6 @@ ui <- page_navbar(
       console.log('🎨 Analysis mode changed to:', mode);
     });
 
-    // Filter chip interaction
-    $(document).on('click', '.filter-chip', function() {
-      $('.filter-chip').removeClass('active');
-      $(this).addClass('active');
-
-      var filterType = $(this).text().trim();
-      console.log('🏷️ Filter changed to:', filterType);
-      Shiny.setInputValue('player_filter', filterType, {priority: 'event'});
-    });
-
     // Smart scroll to analysis - only when analysis is newly generated
     var observer = new MutationObserver(function(mutations) {
       mutations.forEach(function(mutation) {
@@ -597,22 +566,19 @@ ui <- page_navbar(
       ),
       div(
         class = "search-input-container",
-        pickerInput(
+        selectizeInput(
           inputId = "player_selection",
           label = NULL,
           choices = NULL,
-          options = pickerOptions(
-            liveSearch = TRUE,
-            title = "Select a player..."
+          options = list(
+            placeholder = "Type a player name",
+            openOnFocus = FALSE,
+            closeAfterSelect = TRUE,
+            maxOptions = 5,
+            onDropdownOpen = I("function(dropdown) { if (!this.lastQuery.length) { this.close(); } }")
           ),
           width = "100%"
         )
-      ),
-      div(
-        class = "quick-filters",
-        span(class = "filter-chip active", "All Players"),
-        span(class = "filter-chip", "Hitters"),
-        span(class = "filter-chip", "Pitchers")
       ),
       uiOutput("player_preview")
     ),

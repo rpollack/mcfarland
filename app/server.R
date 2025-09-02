@@ -40,7 +40,7 @@ server <- function(input, output, session) {
     stat_line_data = NULL  # current stat line
   )
   
-  # Populate player picker on startup
+  # Populate player selector on startup
   observe({
     lookup <- baseball_data$lookup
     if ("compound_id" %in% colnames(lookup)) {
@@ -50,37 +50,13 @@ server <- function(input, output, session) {
       ids <- lookup$PlayerId
       names <- lookup$display_name
     }
-    updatePickerInput(session, "player_selection",
-                      choices = setNames(ids, names),
-                      selected = NULL)
-  })
-
-  observeEvent(input$player_filter, {
-    lookup <- baseball_data$lookup
-    if (!is.null(input$player_filter)) {
-      if (input$player_filter == "Hitters") {
-        lookup <- lookup %>% filter(player_type == "hitter")
-      } else if (input$player_filter == "Pitchers") {
-        lookup <- lookup %>% filter(player_type == "pitcher")
-      }
-    }
-    if ("compound_id" %in% colnames(lookup)) {
-      ids <- lookup$compound_id
-      names <- lookup$display_name
-    } else {
-      ids <- lookup$PlayerId
-      names <- lookup$display_name
-    }
-    selected <- isolate({
-      if (!is.null(input$player_selection) && input$player_selection %in% ids) {
-        input$player_selection
-      } else {
-        NULL
-      }
-    })
-    updatePickerInput(session, "player_selection",
-                      choices = setNames(ids, names),
-                      selected = selected)
+    updateSelectizeInput(
+      session,
+      "player_selection",
+      choices = setNames(ids, names),
+      selected = "",
+      server = TRUE
+    )
   })
 
   # ============================================================================
@@ -679,80 +655,83 @@ generate_player_stat_line <- function(player_id, baseball_data) {
   # ============================================================================
   
   # IMMEDIATE: React to player selection - UPDATE UI INSTANTLY
-  observeEvent(input$player_selection,
-               {
-                 values$stat_line_data <- generate_player_stat_line(input$player_selection, baseball_data)
-                 
-                 
-                 if (!is.null(input$player_selection) && nzchar(input$player_selection)) {
-                   player_info <- get_player_info(input$player_selection, baseball_data)
-                   
-                   if (!is.null(player_info)) {
-                     # Get player data for quick insight
-                     actual_player_id <- if ("compound_id" %in% colnames(baseball_data$lookup)) {
-                       extract_player_id(input$player_selection)
-                     } else {
-                       input$player_selection
-                     }
-                     
-                     if (player_info$type == "hitter" && nrow(baseball_data$hitters) > 0) {
-                       player_data <- baseball_data$hitters %>% filter(PlayerId == actual_player_id)
-                     } else if (player_info$type == "pitcher" && nrow(baseball_data$pitchers) > 0) {
-                       player_data <- baseball_data$pitchers %>% filter(PlayerId == actual_player_id)
-                     } else {
-                       player_data <- NULL
-                     }
-                     
-                     # Generate quick insight safely
-                     quick_insight <- if (!is.null(player_data) && nrow(player_data) > 0) {
-                       generate_quick_insight(player_data, player_info$type)
-                     } else {
-                       "Player data available for analysis."
-                     }
-                     
-                     # INSTANT UPDATE: Store player info + quick insight
-                     values$selected_player_info <- list(
-                       name = player_info$name,
-                       type = player_info$type,
-                       age = player_info$age,
-                       tbf = player_info$tbf,
-                       pa = player_info$pa,
-                       photo_url = get_player_photo_url(input$player_selection, baseball_data),
-                       quick_insight = quick_insight
-                     )
-                     
-                     # INSTANT: Generate and store trends plot (fast, no API needed)
-                     values$trends_plot <- create_player_trends_plot(input$player_selection, baseball_data)
-                     
-                     # Clear AI analysis state
-                     values$ai_analysis_result <- NULL
-                     values$ai_analysis_loading <- FALSE
-                     
-                     cat("✅ INSTANT: Player info loaded for:", player_info$name, "\n")
-                     
-                     # IMMEDIATE LOGGING AND AI TRIGGER - Use default mode if none selected
-                     current_mode <- if (is.null(values$analysis_mode) || values$analysis_mode == "") {
-                       "default"
-                     } else {
-                       values$analysis_mode
-                     }
-                     
-                     analysis_key <- paste(player_info$name, current_mode, sep = "_")
-                     if (analysis_key != values$last_logged_key) {
-                       log_if_not_admin(session, player_info$name, current_mode)
-                       values$last_logged_key <- analysis_key
-                       cat("📊 IMMEDIATE LOG: Player selected, triggering analysis with mode:", current_mode, "\n")
-                     }
-                   }
-                 } else {
-                   values$selected_player_info <- NULL
-                   values$trends_plot <- NULL
-                   values$ai_analysis_result <- NULL
-                   values$ai_analysis_loading <- FALSE
-                   cat("🗑️ Player selection cleared\n")
-                 }
-               },
-               ignoreInit = TRUE
+  observeEvent(
+    input$player_selection,
+    {
+      if (!isTruthy(input$player_selection)) {
+        values$selected_player_info <- NULL
+        values$trends_plot <- NULL
+        values$ai_analysis_result <- NULL
+        values$ai_analysis_loading <- FALSE
+        cat("🗑️ Player selection cleared\n")
+        return()
+      }
+
+      values$stat_line_data <- generate_player_stat_line(input$player_selection, baseball_data)
+
+      # Default to standard vibe whenever a new player is chosen
+      values$analysis_mode <- "default"
+      player_info <- get_player_info(input$player_selection, baseball_data)
+
+      if (!is.null(player_info)) {
+        # Get player data for quick insight
+        actual_player_id <- if ("compound_id" %in% colnames(baseball_data$lookup)) {
+          extract_player_id(input$player_selection)
+        } else {
+          input$player_selection
+        }
+
+        if (player_info$type == "hitter" && nrow(baseball_data$hitters) > 0) {
+          player_data <- baseball_data$hitters %>% filter(PlayerId == actual_player_id)
+        } else if (player_info$type == "pitcher" && nrow(baseball_data$pitchers) > 0) {
+          player_data <- baseball_data$pitchers %>% filter(PlayerId == actual_player_id)
+        } else {
+          player_data <- NULL
+        }
+
+        # Generate quick insight safely
+        quick_insight <- if (!is.null(player_data) && nrow(player_data) > 0) {
+          generate_quick_insight(player_data, player_info$type)
+        } else {
+          "Player data available for analysis."
+        }
+
+        # INSTANT UPDATE: Store player info + quick insight
+        values$selected_player_info <- list(
+          name = player_info$name,
+          type = player_info$type,
+          age = player_info$age,
+          tbf = player_info$tbf,
+          pa = player_info$pa,
+          photo_url = get_player_photo_url(input$player_selection, baseball_data),
+          quick_insight = quick_insight
+        )
+
+        # INSTANT: Generate and store trends plot (fast, no API needed)
+        values$trends_plot <- create_player_trends_plot(input$player_selection, baseball_data)
+
+        # Clear AI analysis state
+        values$ai_analysis_result <- NULL
+        values$ai_analysis_loading <- FALSE
+
+        cat("✅ INSTANT: Player info loaded for:", player_info$name, "\n")
+
+        # IMMEDIATE LOGGING AND AI TRIGGER - Use default mode if none selected
+        current_mode <- if (is.null(values$analysis_mode) || values$analysis_mode == "") {
+          "default"
+        } else {
+          values$analysis_mode
+        }
+
+        analysis_key <- paste(player_info$name, current_mode, sep = "_")
+        if (analysis_key != values$last_logged_key) {
+          log_if_not_admin(session, player_info$name, current_mode)
+          values$last_logged_key <- analysis_key
+          cat("📊 IMMEDIATE LOG: Player selected, triggering analysis with mode:", current_mode, "\n")
+        }
+      }
+    },
+    ignoreNULL = TRUE
   )
   
   # IMMEDIATE: React to analysis mode selection
