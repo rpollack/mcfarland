@@ -52,8 +52,7 @@ server <- function(input, output, session) {
     }
     updateSelectizeInput(session, "player_selection",
                          choices = setNames(ids, names),
-                         selected = NULL,
-                         server = TRUE)
+                         selected = NULL)
   })
 
   # ============================================================================

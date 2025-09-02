@@ -570,8 +570,7 @@ ui <- page_navbar(
             openOnFocus = FALSE,
             closeAfterSelect = TRUE
           ),
-          width = "100%",
-          server = TRUE
+          width = "100%"
         )
       ),
       uiOutput("player_preview")
