@@ -18,6 +18,7 @@ server <- function(input, output, session) {
   values <- reactiveValues(
     selected_player_info = NULL,
     analysis_mode = "default",
+    initial_mode_from_query = NULL,
     trends_plot = NULL,
     ai_analysis_result = NULL,
     ai_analysis_loading = FALSE,
@@ -43,6 +44,18 @@ server <- function(input, output, session) {
       selected = "",
       server = TRUE
     )
+  })
+
+  # Load player and vibe from shareable URL parameters
+  observe({
+    query <- parseQueryString(session$clientData$url_search)
+    if (!is.null(query$vibe)) {
+      values$analysis_mode <- query$vibe
+      values$initial_mode_from_query <- query$vibe
+    }
+    if (!is.null(query$player)) {
+      updateSelectizeInput(session, "player_selection", selected = query$player)
+    }
   })
 
   # ============================================================================
@@ -313,7 +326,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       if (both_selected) {
         # DYNAMIC: AI Analysis followed by trends plot
         if (!is.null(ai_result)) {
-          # COMPLETE: Show AI analysis with trends
+          # COMPLETE: Show AI analysis with trends and share button
           tagList(
             div(class = "analysis-content", ai_result),
             if (!is.null(trends_plot)) {
@@ -322,7 +335,11 @@ generate_player_stat_line <- function(player_id, baseball_data) {
                 h5("Performance Trends", style = "color: #2E86AB; margin-bottom: 1rem;"),
                 renderPlot(trends_plot, height = 300)
               )
-            }
+            },
+            div(
+              style = "margin-top: 1rem;",
+              actionButton("share_x", label = "Share on X", icon = icon("share"), class = "btn-primary")
+            )
           )
         } else if (ai_loading) {
           # LOADING: Show progress with context
@@ -655,8 +672,13 @@ generate_player_stat_line <- function(player_id, baseball_data) {
 
       values$stat_line_data <- generate_player_stat_line(input$player_selection, baseball_data)
 
-      # Default to standard vibe whenever a new player is chosen
-      values$analysis_mode <- "default"
+      # Default to standard vibe unless preset via shareable link
+      if (!is.null(values$initial_mode_from_query)) {
+        values$analysis_mode <- values$initial_mode_from_query
+        values$initial_mode_from_query <- NULL
+      } else {
+        values$analysis_mode <- "default"
+      }
       player_info <- get_player_info(input$player_selection, baseball_data)
 
       if (!is.null(player_info)) {
@@ -828,6 +850,29 @@ generate_player_stat_line <- function(player_id, baseball_data) {
     },
     ignoreInit = TRUE
   )
+
+  # Share analysis on X (Twitter)
+  observeEvent(input$share_x, {
+    req(values$selected_player_info)
+    player_id <- input$player_selection
+    mode <- values$analysis_mode
+
+    base_url <- paste0(
+      session$clientData$url_protocol, "//",
+      session$clientData$url_hostname,
+      if (nzchar(session$clientData$url_port) && !session$clientData$url_port %in% c("80", "443"))
+        paste0(":", session$clientData$url_port)
+      else "",
+      session$clientData$url_pathname
+    )
+    share_url <- paste0(base_url, "?player=", player_id, "&vibe=", mode)
+
+    insight <- values$selected_player_info$quick_insight %||% ""
+    share_text <- str_glue("{values$selected_player_info$name}: {insight} via McFARLAND")
+    share_text <- stringr::str_trunc(share_text, 200)
+
+    session$sendCustomMessage('open-x-share', list(text = share_text, url = share_url))
+  })
   
   # ============================================================================
   # UI OUTPUTS USING INTERNAL FUNCTIONS
