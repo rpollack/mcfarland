@@ -19,6 +19,10 @@ server <- function(input, output, session) {
   initial_player <- initial_query$player
   initial_vibe <- initial_query$vibe
 
+  if (!is.null(initial_player)) {
+    log_share_if_not_admin(session, initial_player, initial_vibe %||% "default", "share_entry")
+  }
+
   # Initialize reactive values with safe defaults
   values <- reactiveValues(
     selected_player_info = NULL,
@@ -332,7 +336,10 @@ generate_player_stat_line <- function(player_id, baseball_data) {
             },
             div(
               style = "margin-top: 1rem;",
-              actionButton("share_x", label = "Share on X", icon = icon("share"), class = "btn-primary")
+              actionButton("share_x", label = "Share on X", icon = icon("share"), class = "btn-primary"),
+              actionButton("copy_link", label = "Copy link", icon = icon("link"), class = "btn-secondary ms-2"),
+              actionButton("share_threads", label = "Share on Threads", icon = icon("share-nodes"), class = "btn-secondary ms-2"),
+              actionButton("share_email", label = "Share via Email", icon = icon("envelope"), class = "btn-secondary ms-2")
             )
           )
         } else if (ai_loading) {
@@ -660,6 +667,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
         values$trends_plot <- NULL
         values$ai_analysis_result <- NULL
         values$ai_analysis_loading <- FALSE
+        session$sendCustomMessage('update-querystring', list(player = NULL, vibe = NULL))
         cat("🗑️ Player selection cleared\n")
         return()
       }
@@ -735,6 +743,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
           values$last_logged_key <- analysis_key
           cat("📊 IMMEDIATE LOG: Player selected, triggering analysis with mode:", current_mode, "\n")
         }
+        session$sendCustomMessage('update-querystring', list(player = input$player_selection, vibe = current_mode))
       }
     },
     ignoreNULL = TRUE
@@ -743,9 +752,9 @@ generate_player_stat_line <- function(player_id, baseball_data) {
   # IMMEDIATE: React to analysis mode selection
   observeEvent(input$analysis_mode,
                {
-                 if (!is.null(input$analysis_mode)) {
-                   cat("🎨 Analysis mode changed to:", input$analysis_mode, "\n")
-                   values$analysis_mode <- input$analysis_mode
+               if (!is.null(input$analysis_mode)) {
+                 cat("🎨 Analysis mode changed to:", input$analysis_mode, "\n")
+                 values$analysis_mode <- input$analysis_mode
                    
                    # Clear previous AI analysis when mode changes
                    values$ai_analysis_result <- NULL
@@ -760,13 +769,14 @@ generate_player_stat_line <- function(player_id, baseball_data) {
                          log_share_if_not_admin(session, values$selected_player_info$name, input$analysis_mode, "shared_run")
                          values$pending_share_run <- FALSE
                        }
-                       values$last_logged_key <- analysis_key
-                       cat("📊 IMMEDIATE LOG: Vibe changed with existing player\n")
-                     }
+                     values$last_logged_key <- analysis_key
+                     cat("📊 IMMEDIATE LOG: Vibe changed with existing player\n")
                    }
                  }
-               },
-               ignoreInit = TRUE
+                  session$sendCustomMessage('update-querystring', list(player = input$player_selection, vibe = input$analysis_mode))
+                }
+              },
+              ignoreInit = TRUE
   )
   
   # SEPARATE ASYNC OBSERVER - AI Analysis Generation
@@ -853,12 +863,10 @@ generate_player_stat_line <- function(player_id, baseball_data) {
     ignoreInit = TRUE
   )
 
-  # Share analysis on X (Twitter)
-  observeEvent(input$share_x, {
+  build_share_content <- function() {
     req(values$selected_player_info)
     player_id <- input$player_selection
     mode <- values$analysis_mode
-
     base_url <- paste0(
       session$clientData$url_protocol, "//",
       session$clientData$url_hostname,
@@ -868,13 +876,38 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       session$clientData$url_pathname
     )
     share_url <- paste0(base_url, "?player=", player_id, "&vibe=", mode)
-
     insight <- values$selected_player_info$quick_insight %||% ""
     share_text <- str_glue("{values$selected_player_info$name}: {insight} via McFARLAND")
     share_text <- stringr::str_trunc(share_text, 200)
+    list(url = share_url, text = share_text, mode = mode)
+  }
 
-    session$sendCustomMessage('open-x-share', list(text = share_text, url = share_url))
-    log_share_if_not_admin(session, values$selected_player_info$name, mode, "share_click")
+  # Share analysis on X (Twitter)
+  observeEvent(input$share_x, {
+    content <- build_share_content()
+    session$sendCustomMessage('open-x-share', list(text = content$text, url = content$url))
+    log_share_if_not_admin(session, values$selected_player_info$name, content$mode, "share_click")
+  })
+
+  # Copy link to clipboard
+  observeEvent(input$copy_link, {
+    content <- build_share_content()
+    session$sendCustomMessage('copy-link', content$url)
+    log_share_if_not_admin(session, values$selected_player_info$name, content$mode, "share_copy_link")
+  })
+
+  # Share on Threads
+  observeEvent(input$share_threads, {
+    content <- build_share_content()
+    session$sendCustomMessage('open-threads-share', list(text = content$text, url = content$url))
+    log_share_if_not_admin(session, values$selected_player_info$name, content$mode, "share_click_threads")
+  })
+
+  # Share via Email
+  observeEvent(input$share_email, {
+    content <- build_share_content()
+    session$sendCustomMessage('open-email-share', list(text = content$text, url = content$url))
+    log_share_if_not_admin(session, values$selected_player_info$name, content$mode, "share_click_email")
   })
   
   # ============================================================================
