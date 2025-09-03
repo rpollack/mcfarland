@@ -43,7 +43,7 @@ server <- function(input, output, session) {
       session,
       "player_selection",
       choices = setNames(ids, names),
-      selected = NULL,
+      selected = character(0),
       server = TRUE
     )
   })
