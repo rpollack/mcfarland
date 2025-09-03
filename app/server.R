@@ -14,29 +14,20 @@ server <- function(input, output, session) {
   # Load data on startup
   baseball_data <- load_baseball_data_cached()
 
-  # Parse initial shareable URL parameters for deep linking
-  initial_query <- parseQueryString(isolate(session$clientData$url_search))
-  initial_player <- initial_query$player
-  initial_vibe <- initial_query$vibe
-
-  if (!is.null(initial_player)) {
-    log_share_if_not_admin(session, initial_player, initial_vibe %||% "default", "share_entry")
-  }
-
   # Initialize reactive values with safe defaults
   values <- reactiveValues(
     selected_player_info = NULL,
-    analysis_mode = initial_vibe %||% "default",
-    initial_mode_from_query = initial_vibe,
+    analysis_mode = "default",
+    initial_mode_from_query = NULL,
     trends_plot = NULL,
     ai_analysis_result = NULL,
     ai_analysis_loading = FALSE,
     current_analysis_key = "",
     last_logged_key = "",
     stat_line_data = NULL,  # current stat line
-    pending_share_run = !is.null(initial_player)
+    pending_share_run = FALSE
   )
-  
+
   # Populate player selector on startup
   observe({
     lookup <- baseball_data$lookup
@@ -51,10 +42,26 @@ server <- function(input, output, session) {
       session,
       "player_selection",
       choices = setNames(ids, names),
-      selected = initial_player %||% "",
       server = TRUE
     )
   })
+
+  # Parse query string once after session initializes
+  observeEvent(session$clientData$url_search, {
+    initial_query <- parseQueryString(session$clientData$url_search)
+    initial_player <- initial_query$player
+    initial_vibe <- initial_query$vibe
+
+    if (!is.null(initial_player)) {
+      updateSelectizeInput(session, "player_selection", selected = initial_player)
+      values$pending_share_run <- TRUE
+      log_share_if_not_admin(session, initial_player, initial_vibe %||% "default", "share_entry")
+    }
+
+    if (!is.null(initial_vibe)) {
+      values$initial_mode_from_query <- initial_vibe
+    }
+  }, once = TRUE)
 
   # ============================================================================
   # INTERNAL UI GENERATION FUNCTIONS (moved inside server for proper scoping)
