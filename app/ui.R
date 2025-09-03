@@ -478,11 +478,13 @@ ui <- page_navbar(
       role = "alert",
       HTML(
         "<div class='instruction-steps'>
-            <span>1. 🧢 Pick a player</span>
+            <span>🧢 Pick a player</span>
             <span>&rarr;</span>
-            <span>2. 🎧 Choose a vibe</span>
+            <span>🎧 Choose a vibe</span>
             <span>&rarr;</span>
-            <span>3. 📊 Read the analysis</span>
+            <span>📊 Read the analysis</span>
+            <span>&rarr;</span>
+            <span>🤝 Share with friends</span>
         </div>"
       ),
       tags$button(
