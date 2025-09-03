@@ -25,7 +25,8 @@ server <- function(input, output, session) {
     current_analysis_key = "",
     last_logged_key = "",
     stat_line_data = NULL,  # current stat line
-    pending_share_run = FALSE
+    pending_share_run = FALSE,
+    query_parsed = FALSE
   )
 
   # Populate player selector on startup
@@ -42,13 +43,15 @@ server <- function(input, output, session) {
       session,
       "player_selection",
       choices = setNames(ids, names),
-      selected = character(0),
+      selected = NULL,
       server = TRUE
     )
   })
 
   # Parse query string once after session initializes
-  observeEvent(session$clientData$url_search, {
+  observe({
+    if (isTRUE(values$query_parsed)) return()
+
     initial_query <- parseQueryString(session$clientData$url_search)
     initial_player <- initial_query$player
     initial_vibe <- initial_query$vibe
@@ -62,7 +65,9 @@ server <- function(input, output, session) {
     if (!is.null(initial_vibe)) {
       values$initial_mode_from_query <- initial_vibe
     }
-  }, once = TRUE)
+
+    values$query_parsed <- TRUE
+  })
 
   # ============================================================================
   # INTERNAL UI GENERATION FUNCTIONS (moved inside server for proper scoping)
