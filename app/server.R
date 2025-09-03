@@ -894,6 +894,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
     content <- build_share_content()
     session$sendCustomMessage('copy-link', content$url)
     log_share_if_not_admin(session, values$selected_player_info$name, content$mode, "share_copy_link")
+    showNotification("Link copied to clipboard", type = "message")
   })
 
   # Share on Threads
