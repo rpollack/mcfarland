@@ -263,80 +263,13 @@ ui <- page_navbar(
   line-height: 1.2;
 }
 
-/* Mobile: Compact vertical stack - Option A */
-.vibe-selector-mobile {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+/* Mobile: Dropdown selector */
+.vibe-dropdown-mobile {
   margin-top: 1rem;
 }
 
-.vibe-option-mobile {
-  background: rgba(255, 255, 255, 0.9);
-  border: 2px solid rgba(46, 134, 171, 0.2);
-  border-radius: 8px;
-  padding: 0.75rem 1rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  position: relative;
-}
-
-.vibe-option-mobile:hover {
-  border-color: #2E86AB;
-  background: rgba(46, 134, 171, 0.1);
-}
-
-.vibe-option-mobile.selected {
-  border-color: #2E86AB;
-  background: rgba(46, 134, 171, 0.15);
-  box-shadow: 0 2px 8px rgba(46, 134, 171, 0.3);
-}
-
-.vibe-option-mobile.selected::after {
-  content: '✓';
-  position: absolute;
-  top: 50%;
-  right: 1rem;
-  transform: translateY(-50%);
-  background: #2E86AB;
-  color: white;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.75rem;
-  font-weight: bold;
-}
-
-.vibe-option-icon {
-  font-size: 1.5rem;
-  flex-shrink: 0;
-}
-
-.vibe-option-text {
-  display: flex;
-  flex-direction: column;
-  flex-grow: 1;
-}
-
-.vibe-option-name {
-  font-weight: 600;
-  color: #2E86AB;
-  font-size: 0.9rem;
-  margin: 0;
-  line-height: 1.2;
-}
-
-.vibe-option-desc {
-  font-size: 0.75rem;
-  color: #6c757d;
-  margin: 0;
-  line-height: 1.2;
+.vibe-dropdown-mobile select {
+  font-size: 1rem;
 }
 
       .insight-summary {
