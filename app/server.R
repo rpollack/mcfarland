@@ -196,12 +196,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
         }
       )
     } else {
-      div(
-        class = "empty-state",
-        icon("search", class = "empty-icon"),
-        h4(class = "empty-title", "Select a player above"),
-        p(class = "empty-subtitle", "Choose from over 500 MLB players to get started")
-      )
+      NULL
     }
   }
   
