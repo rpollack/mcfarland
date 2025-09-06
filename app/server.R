@@ -1,10 +1,13 @@
 # Server
 # Complete Server Logic with Internal UI Functions and Trends in Step 1
 server <- function(input, output, session) {
+  session$allowReconnect(TRUE)
+
   # Generate user ID on session start
   user_id <- generate_user_id(session)
 
-  # Keep-alive ping handler temporarily disabled
+  # Visibility-aware keep-alive ping from JS
+  observeEvent(input$heartbeat, {}, ignoreNULL = TRUE)
 
   # Session ended handler
   session$onSessionEnded(function() {

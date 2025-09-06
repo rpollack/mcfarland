@@ -6,8 +6,35 @@ ui <- page_navbar(
   header = tagList(
     tags$meta(name = "viewport", content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover, shrink-to-fit=no"),
     tags$style(ui_styles), # Keep your existing styles
+    tags$script(HTML("
+      var heartbeatInterval;
+      function startHeartbeat() {
+        heartbeatInterval = setInterval(function() {
+          Shiny.setInputValue('heartbeat', Date.now(), {priority: 'event'});
+        }, 15000);
+      }
+      function stopHeartbeat() {
+        if (heartbeatInterval) {
+          clearInterval(heartbeatInterval);
+          heartbeatInterval = null;
+        }
+      }
+      document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible') {
+          startHeartbeat();
+        } else {
+          stopHeartbeat();
+        }
+      });
+      if (document.visibilityState === 'visible') {
+        startHeartbeat();
+      }
+      $(document).on('shiny:disconnected', function() {
+        setTimeout(function(){ location.reload(); }, 3000);
+      });
+    ")),    
     # Add new styles for the progressive flow
-    tags$style(HTML("
+    tags$style(HTML("       
       /* Progressive Flow Specific Styles */
       .hero-section {
         text-align: center;
