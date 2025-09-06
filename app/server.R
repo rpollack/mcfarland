@@ -263,35 +263,20 @@ generate_player_stat_line <- function(player_id, baseball_data) {
             )
           ),
           
-          # Mobile Option A: Compact vertical stack
+          # Mobile: Dropdown selector
           div(
-            class = "vibe-selector-mobile d-md-none",
-            map(vibe_options, ~ {
-              option_class <- if (.x$mode == current_mode) "vibe-option-mobile selected" else "vibe-option-mobile"
-              div(
-                class = option_class,
-                `data-mode` = .x$mode,
-                onclick = str_glue("Shiny.setInputValue('analysis_mode', '{.x$mode}', {{priority: 'event'}});"),
-                span(class = "vibe-option-icon", .x$icon),
-                div(
-                  class = "vibe-option-text",
-                  div(class = "vibe-option-name", .x$name),
-                  div(class = "vibe-option-desc", 
-                      case_when(
-                        .x$mode == "default" ~ "Clear, data-driven analysis",
-                        .x$mode == "analytics_dork" ~ "Modern stats, dismissive vibes",
-                        .x$mode == "old_coot" ~ "Grumpy old-school wisdom",
-                        .x$mode == "gen_z" ~ "Modern slang and trends",
-                        .x$mode == "seventies" ~ "Retro baseball perspective",
-                        .x$mode == "sensationalist" ~ "Dramatic sports journalism",
-                        .x$mode == "shakespeare" ~ "Iambic pentameter analysis",
-                        .x$mode == "rose_colored_glasses" ~ "Always positive",
-                        TRUE ~ ""
-                      )
-                  )
-                )
-              )
-            })
+            class = "vibe-dropdown-mobile d-md-none",
+            selectInput(
+              "analysis_mode",
+              label = NULL,
+              choices = setNames(
+                purrr::map_chr(vibe_options, "mode"),
+                purrr::map_chr(vibe_options, ~ paste0(.x$icon, " ", .x$name))
+              ),
+              selected = current_mode,
+              selectize = FALSE,
+              width = "100%"
+            )
           )
           
       
@@ -749,7 +734,8 @@ generate_player_stat_line <- function(player_id, baseball_data) {
                  if (!is.null(input$analysis_mode)) {
                    cat("🎨 Analysis mode changed to:", input$analysis_mode, "\n")
                    values$analysis_mode <- input$analysis_mode
-                   
+                   updateSelectInput(session, "analysis_mode", selected = input$analysis_mode)
+
                    # Clear previous AI analysis when mode changes
                    values$ai_analysis_result <- NULL
                    values$ai_analysis_loading <- FALSE
