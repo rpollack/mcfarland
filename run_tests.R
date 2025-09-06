@@ -14,6 +14,7 @@ suppressPackageStartupMessages({
   library(digest)
   library(tibble)
   library(rlang)
+  library(later)
 })
 
 # Minimal application environment -------------------------------------------

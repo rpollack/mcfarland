@@ -18,8 +18,8 @@ RUN R -e "install.packages(c('shiny', 'dplyr', 'readr', 'purrr', 'stringr'), rep
 # Install UI packages (cached layer)
 RUN R -e "install.packages(c('httr', 'jsonlite', 'bslib', 'ggplot2', 'htmltools'), repos='https://cran.rstudio.com/')"
 
-# Install utility packages (cached layer)  
-RUN R -e "install.packages(c('commonmark', 'shinybusy', 'digest', 'shinyWidgets'), repos='https://cran.rstudio.com/')"
+# Install utility packages (cached layer)
+RUN R -e "install.packages(c('commonmark', 'shinybusy', 'digest', 'shinyWidgets', 'later'), repos='https://cran.rstudio.com/')"
 
 # Install database packages (new layer)
 RUN R -e "install.packages(c('DBI', 'RSQLite', 'RPostgreSQL', 'uuid'), repos='https://cran.rstudio.com/')"
