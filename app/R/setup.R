@@ -62,7 +62,7 @@ tryCatch(
 # Load other essential packages
 for (pkg in c(
   "readr", "purrr", "stringr", "httr", "jsonlite",
-  "bslib", "commonmark", "shinybusy", "shinyWidgets", "ggplot2", "htmltools", "digest"
+  "bslib", "commonmark", "shinybusy", "shinyWidgets", "ggplot2", "htmltools", "digest", "later"
 )) {
   tryCatch(
     {
@@ -107,6 +107,7 @@ library(shinyWidgets) # Enhanced select inputs
 library(ggplot2) # Data visualization
 library(htmltools) # HTML utilities (HTML, htmlEscape)
 library(digest) # CACHE: Added for generating cache keys
+library(later) # Asynchronous task scheduling
 library(DBI) # Database interface
 library(RSQLite) # SQLite (for development)
 library(digest) # For hashing (if using PostgreSQL later)
