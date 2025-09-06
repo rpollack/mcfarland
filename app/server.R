@@ -724,34 +724,33 @@ generate_player_stat_line <- function(player_id, baseball_data) {
   )
   
   # IMMEDIATE: React to analysis mode selection
-  observeEvent(input$analysis_mode,
-               {
-                 if (!is.null(input$analysis_mode)) {
-                   cat("🎨 Analysis mode changed to:", input$analysis_mode, "\n")
-                   values$analysis_mode <- input$analysis_mode
-                   updateSelectInput(session, "analysis_mode", selected = input$analysis_mode)
+  observeEvent(input$analysis_mode, {
+    mode <- input$analysis_mode
+    if (is.null(mode) || mode == values$analysis_mode) {
+      return()
+    }
+    cat("🎨 Analysis mode changed to:", mode, "\n")
+    values$analysis_mode <- mode
+    updateSelectInput(session, "analysis_mode", selected = mode)
 
-                   # Clear previous AI analysis when mode changes
-                   values$ai_analysis_result <- NULL
-                   values$ai_analysis_loading <- FALSE
-                   
-                   # IMMEDIATE LOGGING: If player is already selected, log now
-                   if (!is.null(values$selected_player_info)) {
-                     analysis_key <- paste(values$selected_player_info$name, input$analysis_mode, sep = "_")
-                     if (analysis_key != values$last_logged_key) {
-                       log_if_not_admin(session, values$selected_player_info$name, input$analysis_mode)
-                       if (isTRUE(values$pending_share_run)) {
-                         log_share_if_not_admin(session, values$selected_player_info$name, input$analysis_mode, "shared_run")
-                         values$pending_share_run <- FALSE
-                       }
-                       values$last_logged_key <- analysis_key
-                       cat("📊 IMMEDIATE LOG: Vibe changed with existing player\n")
-                     }
-                   }
-                 }
-               },
-               ignoreInit = TRUE
-  )
+    # Clear previous AI analysis when mode changes
+    values$ai_analysis_result <- NULL
+    values$ai_analysis_loading <- FALSE
+
+    # IMMEDIATE LOGGING: If player is already selected, log now
+    if (!is.null(values$selected_player_info)) {
+      analysis_key <- paste(values$selected_player_info$name, mode, sep = "_")
+      if (analysis_key != values$last_logged_key) {
+        log_if_not_admin(session, values$selected_player_info$name, mode)
+        if (isTRUE(values$pending_share_run)) {
+          log_share_if_not_admin(session, values$selected_player_info$name, mode, "shared_run")
+          values$pending_share_run <- FALSE
+        }
+        values$last_logged_key <- analysis_key
+        cat("📊 IMMEDIATE LOG: Vibe changed with existing player\n")
+      }
+    }
+  }, ignoreInit = TRUE)
   
   # SEPARATE ASYNC OBSERVER - AI Analysis Generation
   observeEvent(
@@ -889,13 +888,17 @@ generate_player_stat_line <- function(player_id, baseball_data) {
   # Render Step 3: Analysis Results (using internal function)
   output$step_3_analysis_results <- renderUI({
     player_selected <- !is.null(values$selected_player_info)
+    analysis_mode <- values$analysis_mode
+    ai_loading <- isTRUE(values$ai_analysis_loading)
+    ai_result <- values$ai_analysis_result
+    trends_plot <- values$trends_plot
 
     generate_step_3_ui(
       player_selected = player_selected,
-      analysis_mode = values$analysis_mode,
-      ai_loading = isTRUE(values$ai_analysis_loading),
-      ai_result = values$ai_analysis_result,
-      trends_plot = values$trends_plot
+      analysis_mode = analysis_mode,
+      ai_loading = ai_loading,
+      ai_result = ai_result,
+      trends_plot = trends_plot
     )
   })
 
