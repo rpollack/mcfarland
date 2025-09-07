@@ -37,6 +37,7 @@ server <- function(input, output, session) {
     last_logged_key = "",
     stat_line_data = NULL,  # current stat line
     pending_share_run = !is.null(initial_player),
+    compare_results = NULL,
     compare_ai_result = NULL,
     compare_ai_loading = FALSE
   )
@@ -70,11 +71,16 @@ server <- function(input, output, session) {
     updateSelectizeInput(session, "compare_player3", choices = choices, selected = "", server = TRUE)
   }, ignoreNULL = FALSE)
 
-  # Render comparison results
-  output$compare_results <- renderUI({
+  observeEvent(input$compare_analyze, {
     ids <- c(input$compare_player1, input$compare_player2, input$compare_player3)
     ids <- ids[ids != ""]
-    if (length(ids) == 0) return(NULL)
+
+    if (length(ids) == 0) {
+      values$compare_results <- NULL
+      values$compare_ai_loading <- FALSE
+      values$compare_ai_result <- HTML("<div class='alert alert-warning'>Select players to analyze.</div>")
+      return(NULL)
+    }
 
     players <- purrr::map(ids, function(id) {
       list(
@@ -90,31 +96,21 @@ server <- function(input, output, session) {
     player_cards <- purrr::map(players, function(p) {
       stat_rows <- purrr::map(p$stats$stats, function(s) tags$tr(tags$th(s$label), tags$td(s$value)))
       tags$div(
-        class = "card mb-3",
-        img(src = p$photo, class = "card-img-top"),
+        class = "card mb-3 text-center",
         tags$div(
           class = "card-body",
+          img(src = p$photo, class = "compare-photo mb-2"),
           tags$h5(class = "card-title", p$info$name),
           tags$table(class = "table table-sm mb-0", stat_rows)
         )
       )
     })
 
-    tagList(
+    values$compare_results <- tagList(
       fluidRow(purrr::map(player_cards, function(card) column(4, card))),
       if (!is.null(rec_name))
         div(class = "alert alert-info mt-3", HTML(paste0("<strong>Recommendation:</strong> ", rec_name, " has the edge going forward.")))
     )
-  })
-
-  observeEvent(input$compare_analyze, {
-    ids <- c(input$compare_player1, input$compare_player2, input$compare_player3)
-    ids <- ids[ids != ""]
-
-    if (length(ids) == 0) {
-      values$compare_ai_result <- HTML("<div class='alert alert-warning'>Select players to analyze.</div>")
-      return(NULL)
-    }
 
     values$compare_ai_loading <- TRUE
     values$compare_ai_result <- NULL
@@ -129,15 +125,27 @@ server <- function(input, output, session) {
       )
 
       shiny::withReactiveDomain(session, {
-        values$compare_ai_result <- result
+        values$compare_ai_result <- div(class = "analysis-content", result)
         values$compare_ai_loading <- FALSE
       })
     }, delay = 0.1)
   })
 
+  output$compare_results <- renderUI(values$compare_results)
+
   output$compare_ai <- renderUI({
     if (isTRUE(values$compare_ai_loading)) {
-      div(class = "mt-3", "Analyzing...")
+      div(
+        class = "loading-state mt-3",
+        div(
+          class = "d-flex align-items-center",
+          div(class = "spinner-border text-primary me-3", role = "status"),
+          div(
+            h5("Analyzing with AI..."),
+            p(class = "text-muted mb-0", stringr::str_glue("Generating {values$analysis_mode} analysis. This typically takes 5-15 seconds."))
+          )
+        )
+      )
     } else {
       values$compare_ai_result
     }

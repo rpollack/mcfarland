@@ -533,9 +533,18 @@ ui <- page_navbar(
           )
         )
       ),
-      actionButton("compare_analyze", "Analyze", icon = icon("robot"), class = "btn-primary mb-3"),
-      uiOutput("compare_results"),
-      uiOutput("compare_ai")
+      actionButton(
+        "compare_analyze",
+        "Analyze",
+        icon = icon("robot"),
+        class = "btn-primary mb-3",
+        onclick = "document.getElementById('compare-results').scrollIntoView({behavior: 'smooth', block: 'start'});"
+      ),
+      div(
+        id = "compare-results",
+        uiOutput("compare_results"),
+        uiOutput("compare_ai")
+      )
     )
   ),
 

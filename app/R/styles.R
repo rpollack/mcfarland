@@ -190,6 +190,16 @@ ui_styles <- HTML("
     box-shadow: 0 8px 20px rgba(46, 134, 171, 0.3) !important;
   }
 
+  .compare-photo {
+    width: 80px !important;
+    height: 80px !important;
+    border-radius: 50% !important;
+    border: 3px solid #2E86AB !important;
+    object-fit: cover !important;
+    margin-bottom: 0.5rem !important;
+    box-shadow: 0 6px 15px rgba(46, 134, 171, 0.25) !important;
+  }
+
   .player-photo:hover {
     transform: scale(1.03);
     box-shadow: 0 10px 25px rgba(46, 134, 171, 0.4) !important;
@@ -308,6 +318,11 @@ ui_styles <- HTML("
     .player-photo {
       width: 100px !important;
       height: 100px !important;
+    }
+
+    .compare-photo {
+      width: 60px !important;
+      height: 60px !important;
     }
 
     .player-name {
