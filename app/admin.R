@@ -2,7 +2,8 @@
 
 # Check if session has admin privileges
 is_admin <- function(session) {
-  query <- parseQueryString(session$clientData$url_search)
+  # Access the URL query string without triggering reactivity
+  query <- parseQueryString(isolate(session$clientData$url_search))
   if (!is.null(query$admin) && query$admin == Sys.getenv("ADMIN_PASSWORD", "")) {
     session$userData$admin_mode <- TRUE
     return(TRUE)

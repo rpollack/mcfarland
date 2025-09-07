@@ -100,6 +100,7 @@ GitHub Actions pulls fresh stats every morning at 6 AM EST.
 1. Select a player from the dropdown
 2. Pick your preferred vibe
 3. Read an easy-to-digest breakdown with trends and context
+4. Share the analysis by copying the URL – it updates with the current player and vibe and runs automatically when opened
 
 ### Reading the output
 - Green trends indicate positive movement
