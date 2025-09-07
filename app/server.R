@@ -36,7 +36,9 @@ server <- function(input, output, session) {
     current_analysis_key = "",
     last_logged_key = "",
     stat_line_data = NULL,  # current stat line
-    pending_share_run = !is.null(initial_player)
+    pending_share_run = !is.null(initial_player),
+    compare_ai_result = NULL,
+    compare_ai_loading = FALSE
   )
   
   # Populate player selector on startup
@@ -103,6 +105,42 @@ server <- function(input, output, session) {
       if (!is.null(rec_name))
         div(class = "alert alert-info mt-3", HTML(paste0("<strong>Recommendation:</strong> ", rec_name, " has the edge going forward.")))
     )
+  })
+
+  observeEvent(input$compare_analyze, {
+    ids <- c(input$compare_player1, input$compare_player2, input$compare_player3)
+    ids <- ids[ids != ""]
+
+    if (length(ids) == 0) {
+      values$compare_ai_result <- HTML("<div class='alert alert-warning'>Select players to analyze.</div>")
+      return(NULL)
+    }
+
+    values$compare_ai_loading <- TRUE
+    values$compare_ai_result <- NULL
+
+    player_ids <- ids
+    analysis_mode <- values$analysis_mode
+
+    later::later(function() {
+      result <- tryCatch(
+        analyze_player_comparison(player_ids, baseball_data, analysis_mode),
+        error = function(e) htmltools::HTML(paste0("<div class='alert alert-danger'>Error: ", e$message, "</div>"))
+      )
+
+      shiny::withReactiveDomain(session, {
+        values$compare_ai_result <- result
+        values$compare_ai_loading <- FALSE
+      })
+    }, delay = 0.1)
+  })
+
+  output$compare_ai <- renderUI({
+    if (isTRUE(values$compare_ai_loading)) {
+      div(class = "mt-3", "Analyzing...")
+    } else {
+      values$compare_ai_result
+    }
   })
 
   # ============================================================================

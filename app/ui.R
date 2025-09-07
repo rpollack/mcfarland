@@ -533,7 +533,9 @@ ui <- page_navbar(
           )
         )
       ),
-      uiOutput("compare_results")
+      actionButton("compare_analyze", "Analyze", icon = icon("robot"), class = "btn-primary mb-3"),
+      uiOutput("compare_results"),
+      uiOutput("compare_ai")
     )
   ),
 

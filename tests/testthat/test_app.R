@@ -93,3 +93,12 @@ test_that("recommend_best_player chooses highest upside", {
   best_pitcher <- recommend_best_player(pitcher_ids, data)
   expect_equal(best_pitcher, pitcher_ids[2])
 })
+
+test_that("comparison prompt includes players and ranking request", {
+  data <- load_local_data()
+  ids <- data$hitters$PlayerId[1:2]
+  prompt <- build_comparison_prompt(ids, data)
+  expect_true(grepl(data$hitters$Name[1], prompt))
+  expect_true(grepl(data$hitters$Name[2], prompt))
+  expect_true(grepl("rank", prompt, ignore.case = TRUE))
+})
