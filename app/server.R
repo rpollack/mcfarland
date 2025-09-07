@@ -58,6 +58,53 @@ server <- function(input, output, session) {
     )
   })
 
+  # Populate compare selectors based on player type
+  observeEvent(input$compare_type, {
+    lookup <- baseball_data$lookup %>% dplyr::filter(player_type == input$compare_type)
+    ids <- if ("compound_id" %in% colnames(lookup)) lookup$compound_id else lookup$PlayerId
+    choices <- setNames(ids, lookup$display_name)
+    updateSelectizeInput(session, "compare_player1", choices = choices, selected = "", server = TRUE)
+    updateSelectizeInput(session, "compare_player2", choices = choices, selected = "", server = TRUE)
+    updateSelectizeInput(session, "compare_player3", choices = choices, selected = "", server = TRUE)
+  }, ignoreNULL = FALSE)
+
+  # Render comparison results
+  output$compare_results <- renderUI({
+    ids <- c(input$compare_player1, input$compare_player2, input$compare_player3)
+    ids <- ids[ids != ""]
+    if (length(ids) == 0) return(NULL)
+
+    players <- purrr::map(ids, function(id) {
+      list(
+        info = get_player_info(id, baseball_data),
+        stats = generate_player_stat_line(id, baseball_data),
+        photo = get_player_photo_url(id, baseball_data)
+      )
+    })
+
+    rec_id <- recommend_best_player(ids, baseball_data)
+    rec_name <- if (!is.null(rec_id)) get_player_info(rec_id, baseball_data)$name else NULL
+
+    player_cards <- purrr::map(players, function(p) {
+      stat_rows <- purrr::map(p$stats$stats, function(s) tags$tr(tags$th(s$label), tags$td(s$value)))
+      tags$div(
+        class = "card mb-3",
+        img(src = p$photo, class = "card-img-top"),
+        tags$div(
+          class = "card-body",
+          tags$h5(class = "card-title", p$info$name),
+          tags$table(class = "table table-sm mb-0", stat_rows)
+        )
+      )
+    })
+
+    tagList(
+      fluidRow(purrr::map(player_cards, function(card) column(4, card))),
+      if (!is.null(rec_name))
+        div(class = "alert alert-info mt-3", HTML(paste0("<strong>Recommendation:</strong> ", rec_name, " has the edge going forward.")))
+    )
+  })
+
   # ============================================================================
   # INTERNAL UI GENERATION FUNCTIONS (moved inside server for proper scoping)
   # ============================================================================

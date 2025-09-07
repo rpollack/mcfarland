@@ -490,6 +490,54 @@ ui <- page_navbar(
   ),
 
   nav_panel(
+    title = "Compare",
+    icon = icon("users"),
+    div(
+      class = "container mt-4",
+      h2("Compare Players"),
+      radioButtons(
+        "compare_type",
+        "Player Type",
+        choices = c("Hitters" = "hitter", "Pitchers" = "pitcher"),
+        inline = TRUE
+      ),
+      fluidRow(
+        column(
+          4,
+          selectizeInput(
+            "compare_player1",
+            "Player 1",
+            choices = NULL,
+            options = list(placeholder = "Select player"),
+            width = "100%"
+          )
+        ),
+        column(
+          4,
+          selectizeInput(
+            "compare_player2",
+            "Player 2",
+            choices = NULL,
+            options = list(placeholder = "Select player"),
+            width = "100%"
+          )
+        ),
+        column(
+          4,
+          selectizeInput(
+            "compare_player3",
+            "Player 3",
+            choices = NULL,
+            options = list(placeholder = "Select player"),
+            width = "100%"
+          )
+        )
+      ),
+      uiOutput("compare_results")
+    )
+  ),
+
+  nav_panel(
     title = "About",
     icon = icon("info-circle"),
     
