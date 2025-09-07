@@ -262,12 +262,11 @@ ui_styles <- HTML("
   .analysis-content {
     line-height: 1.5 !important;
     font-size: 0.95rem !important;
-    color: #f8f9fa !important;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    color: #212529 !important;
   }
 
   .analysis-content h1, .analysis-content h2, .analysis-content h3 {
-    color: #ffffff !important;
+    color: #212529 !important;
     font-weight: 700 !important;
     margin-top: 1.2rem !important;
     margin-bottom: 0.8rem !important;
@@ -276,7 +275,7 @@ ui_styles <- HTML("
 
   .analysis-content p {
     margin-bottom: 0.8rem !important;
-    color: #f8f9fa !important;
+    color: #212529 !important;
   }
 
   /* Mobile-specific optimizations */
@@ -335,12 +334,12 @@ ui_styles <- HTML("
 
     .analysis-content {
       font-size: 0.9rem !important;
-      color: #f8f9fa !important;
+      color: #212529 !important;
     }
 
     .analysis-content h1, .analysis-content h2, .analysis-content h3 {
       font-size: 1rem !important;
-      color: #ffffff !important;
+      color: #212529 !important;
     }
 
     /* Ensure columns stack properly on mobile */
