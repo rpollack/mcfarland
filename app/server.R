@@ -838,6 +838,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
     params <- list()
     if (!is.null(player_id) && nzchar(player_id)) params$player <- player_id
     if (!is.null(mode) && nzchar(mode)) params$vibe <- mode
+    if (is_admin(session)) params$admin <- Sys.getenv("ADMIN_PASSWORD", "")
     query <- paste(names(params), params, sep = "=", collapse = "&")
     updateQueryString(paste0("?", query), mode = "replace", session = session)
   }, ignoreNULL = TRUE)
