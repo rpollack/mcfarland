@@ -33,7 +33,8 @@ server <- function(input, output, session) {
     current_analysis_key = "",
     last_logged_key = "",
     stat_line_data = NULL,  # current stat line
-    pending_share_run = !is.null(initial_player)
+    pending_share_run = !is.null(initial_player),
+    compare_players = character()
   )
   
   # Populate player selector on startup
@@ -119,10 +120,30 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       ))
     }
   }
-  
+
   return(NULL)
 }
-  
+
+generate_comparison_table <- function(player_ids, baseball_data) {
+  rows <- list()
+  names <- c()
+  for (pid in player_ids) {
+    info <- get_player_info(pid, baseball_data)
+    stat_line <- generate_player_stat_line(pid, baseball_data)
+    if (is.null(info) || is.null(stat_line)) next
+    stats <- setNames(
+      sapply(stat_line$stats, `[[`, "value"),
+      sapply(stat_line$stats, `[[`, "label")
+    )
+    rows[[length(rows) + 1]] <- stats
+    names <- c(names, info$name)
+  }
+  if (length(rows) == 0) return(NULL)
+  df <- as.data.frame(do.call(cbind, rows), stringsAsFactors = FALSE)
+  colnames(df) <- names
+  cbind(Stat = rownames(df), df, row.names = NULL, check.names = FALSE)
+}
+
   generate_player_preview <- function(player_info = NULL, ai_loading = FALSE,
                                       ai_result = NULL, analysis_mode = "default",
                                       stat_line_data = NULL) {
@@ -155,6 +176,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
             })
           }
         ),
+        actionButton("add_to_compare", "Add to Compare", class = "btn btn-primary mt-2"),
         if (ai_loading) {
           div(
             class = "alert alert-info mt-3",
@@ -859,6 +881,47 @@ generate_player_stat_line <- function(player_id, baseball_data) {
     session$sendCustomMessage('open-x-share', list(text = share_text, url = share_url))
     log_share_if_not_admin(session, values$selected_player_info$name, mode, "share_click")
   })
+
+  observeEvent(input$add_to_compare, {
+    pid <- input$player_selection
+    if (is.null(pid) || pid == "") return()
+    if (!(pid %in% values$compare_players) && length(values$compare_players) < 3) {
+      values$compare_players <- c(values$compare_players, pid)
+    }
+  })
+
+  observeEvent(input$clear_compare, {
+    values$compare_players <- character()
+  })
+
+  observeEvent(input$open_compare_modal, {
+    showModal(modalDialog(
+      title = "Player Comparison",
+      size = "l",
+      tableOutput("comparison_table"),
+      easyClose = TRUE
+    ))
+  })
+
+  output$comparison_table <- renderTable({
+    generate_comparison_table(values$compare_players, baseball_data)
+  }, striped = TRUE, bordered = TRUE, spacing = "s")
+
+  output$compare_tray <- renderUI({
+    if (length(values$compare_players) == 0) return(NULL)
+    players <- lapply(values$compare_players, function(pid) {
+      info <- get_player_info(pid, baseball_data)
+      span(info$name, class = "compare-player")
+    })
+    tagList(
+      div(
+        class = "compare-tray",
+        do.call(tagList, players),
+        if (length(values$compare_players) >= 2) actionButton("open_compare_modal", "Compare", class = "btn btn-primary btn-sm"),
+        actionButton("clear_compare", "Clear", class = "btn btn-link btn-sm")
+      )
+    )
+  })
   
   # ============================================================================
   # UI OUTPUTS USING INTERNAL FUNCTIONS
@@ -906,4 +969,5 @@ generate_player_stat_line <- function(player_id, baseball_data) {
   outputOptions(output, "player_preview", suspendWhenHidden = FALSE)
   outputOptions(output, "step_2_analysis_style", suspendWhenHidden = FALSE)
   outputOptions(output, "step_3_analysis_results", suspendWhenHidden = FALSE)
+  outputOptions(output, "compare_tray", suspendWhenHidden = FALSE)
 }

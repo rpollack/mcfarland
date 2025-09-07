@@ -1,9 +1,10 @@
 # UI Definition -------------------------------------------------------------
 
 # UI Definition - Redesigned with Progressive Flow
-ui <- page_navbar(
-  title = "McFARLAND",
-  header = tagList(
+ui <- tagList(
+  page_navbar(
+    title = "McFARLAND",
+    header = tagList(
     tags$meta(name = "viewport", content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover, shrink-to-fit=no"),
     tags$style(ui_styles), # Keep your existing styles
     tags$script(HTML("
@@ -187,6 +188,28 @@ ui <- page_navbar(
       .player-preview-info p {
         margin: 0;
         color: #6c757d;
+        font-size: 0.9rem;
+      }
+
+      .compare-tray {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: rgba(255,255,255,0.95);
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        padding: 0.5rem 1rem;
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        z-index: 1040;
+      }
+
+      .compare-tray .compare-player {
+        background: #2E86AB;
+        color: #fff;
+        border-radius: 15px;
+        padding: 0.25rem 0.75rem;
         font-size: 0.9rem;
       }
 
@@ -847,7 +870,7 @@ ui <- page_navbar(
       )
     )
   )
-  
-  
+  ),
+  uiOutput("compare_tray")
 )
 
