@@ -15,10 +15,10 @@ Choose how the story is told. Nine styles range from straight-laced to Shakespea
 
 - 1970s Fan
 - Analytics Dork
-- Fantasy Expert
 - Gen Z
 - Old Coot
 - Rose-colored
+- Rotisserie Expert
 - Sensationalist
 - Shakespeare
 - Straightforward (default)
