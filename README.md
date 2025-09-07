@@ -11,7 +11,7 @@ McFARLAND is a friendly baseball analytics companion that turns deep stats into 
 - **Future peeks**: offers rest-of-season outlooks based on recent trends
 
 ## Pick your vibe
-Choose how the story is told. Seven styles range from straight-laced to Shakespearean:
+Choose how the story is told. Nine styles range from straight-laced to Shakespearean:
 
 - Straightforward (default)
 - Analytics Dork
@@ -20,6 +20,8 @@ Choose how the story is told. Seven styles range from straight-laced to Shakespe
 - 1970s Fan
 - Sensationalist
 - Shakespeare
+- Rose-colored
+- Fantasy Expert
 
 ## Eye candy
 - Player trend charts for quick comparisons
