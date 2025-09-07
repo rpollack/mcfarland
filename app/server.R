@@ -210,6 +210,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
     vibe_options <- list(
       list(mode = "seventies", icon = "🥸", name = "1970s Fan"),
       list(mode = "analytics_dork", icon = "🤓", name = "Analytics Dork"),
+      list(mode = "fantasy_expert", icon = "🧢", name = "Fantasy Expert"),
       list(mode = "gen_z", icon = "🔥", name = "Gen Z"),
       list(mode = "old_coot", icon = "👴", name = "Old Coot"),
       list(mode = "rose_colored_glasses", icon = "🌹", name = "Rose-colored"),
@@ -241,7 +242,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
                     div(
                       class = card_class,
                       `data-mode` = .x$mode,
-                      onclick = str_glue("Shiny.setInputValue('analysis_mode', '{.x$mode}', {priority: 'event'});"),
+                      onclick = sprintf("Shiny.setInputValue('analysis_mode', '%s', {priority: 'event'});", .x$mode),
                       div(class = "vibe-icon-compact", .x$icon),
                       div(class = "vibe-name-compact", .x$name)
                     )
