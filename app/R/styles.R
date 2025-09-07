@@ -190,6 +190,16 @@ ui_styles <- HTML("
     box-shadow: 0 8px 20px rgba(46, 134, 171, 0.3) !important;
   }
 
+  .compare-photo {
+    width: 80px !important;
+    height: 80px !important;
+    border-radius: 50% !important;
+    border: 3px solid #2E86AB !important;
+    object-fit: cover !important;
+    margin-bottom: 0.5rem !important;
+    box-shadow: 0 6px 15px rgba(46, 134, 171, 0.25) !important;
+  }
+
   .player-photo:hover {
     transform: scale(1.03);
     box-shadow: 0 10px 25px rgba(46, 134, 171, 0.4) !important;
@@ -252,10 +262,11 @@ ui_styles <- HTML("
   .analysis-content {
     line-height: 1.5 !important;
     font-size: 0.95rem !important;
+    color: #212529 !important;
   }
 
   .analysis-content h1, .analysis-content h2, .analysis-content h3 {
-    color: #2E86AB !important;
+    color: #212529 !important;
     font-weight: 700 !important;
     margin-top: 1.2rem !important;
     margin-bottom: 0.8rem !important;
@@ -264,7 +275,7 @@ ui_styles <- HTML("
 
   .analysis-content p {
     margin-bottom: 0.8rem !important;
-    color: #495057 !important;
+    color: #212529 !important;
   }
 
   /* Mobile-specific optimizations */
@@ -308,6 +319,11 @@ ui_styles <- HTML("
       height: 100px !important;
     }
 
+    .compare-photo {
+      width: 60px !important;
+      height: 60px !important;
+    }
+
     .player-name {
       font-size: 1.1rem !important;
     }
@@ -318,10 +334,12 @@ ui_styles <- HTML("
 
     .analysis-content {
       font-size: 0.9rem !important;
+      color: #212529 !important;
     }
 
     .analysis-content h1, .analysis-content h2, .analysis-content h3 {
       font-size: 1rem !important;
+      color: #212529 !important;
     }
 
     /* Ensure columns stack properly on mobile */

@@ -28,6 +28,7 @@ source("app/R/data.R")
 source("app/R/analysis.R")
 source("app/R/photos.R")
 source("app/R/player_info.R")
+source("app/R/compare.R")
 
 # Core configuration used by tests
 GITHUB_DATA_URL <<- "./"

@@ -36,7 +36,10 @@ server <- function(input, output, session) {
     current_analysis_key = "",
     last_logged_key = "",
     stat_line_data = NULL,  # current stat line
-    pending_share_run = !is.null(initial_player)
+    pending_share_run = !is.null(initial_player),
+    compare_results = NULL,
+    compare_ai_result = NULL,
+    compare_ai_loading = FALSE
   )
   
   # Populate player selector on startup
@@ -56,6 +59,96 @@ server <- function(input, output, session) {
       selected = initial_player %||% "",
       server = TRUE
     )
+  })
+
+  # Populate compare selectors based on player type
+  observeEvent(input$compare_type, {
+    lookup <- baseball_data$lookup %>% dplyr::filter(player_type == input$compare_type)
+    ids <- if ("compound_id" %in% colnames(lookup)) lookup$compound_id else lookup$PlayerId
+    choices <- setNames(ids, lookup$display_name)
+    updateSelectizeInput(session, "compare_player1", choices = choices, selected = "", server = TRUE)
+    updateSelectizeInput(session, "compare_player2", choices = choices, selected = "", server = TRUE)
+    updateSelectizeInput(session, "compare_player3", choices = choices, selected = "", server = TRUE)
+  }, ignoreNULL = FALSE)
+
+  observeEvent(input$compare_analyze, {
+    ids <- c(input$compare_player1, input$compare_player2, input$compare_player3)
+    ids <- ids[ids != ""]
+
+    if (length(ids) == 0) {
+      values$compare_results <- NULL
+      values$compare_ai_loading <- FALSE
+      values$compare_ai_result <- HTML("<div class='alert alert-warning'>Select players to analyze.</div>")
+      return(NULL)
+    }
+
+    players <- purrr::map(ids, function(id) {
+      list(
+        info = get_player_info(id, baseball_data),
+        stats = generate_player_stat_line(id, baseball_data),
+        photo = get_player_photo_url(id, baseball_data)
+      )
+    })
+
+    rec_id <- recommend_best_player(ids, baseball_data)
+    rec_name <- if (!is.null(rec_id)) get_player_info(rec_id, baseball_data)$name else NULL
+
+    player_cards <- purrr::map(players, function(p) {
+      stat_rows <- purrr::map(p$stats$stats, function(s) tags$tr(tags$th(s$label), tags$td(s$value)))
+      tags$div(
+        class = "card mb-3 text-center",
+        tags$div(
+          class = "card-body",
+          img(src = p$photo, class = "compare-photo mb-2"),
+          tags$h5(class = "card-title", p$info$name),
+          tags$table(class = "table table-sm mb-0", stat_rows)
+        )
+      )
+    })
+
+    values$compare_results <- tagList(
+      fluidRow(purrr::map(player_cards, function(card) column(4, card))),
+      if (!is.null(rec_name))
+        div(class = "alert alert-info mt-3", HTML(paste0("<strong>Recommendation:</strong> ", rec_name, " has the edge going forward.")))
+    )
+
+    values$compare_ai_loading <- TRUE
+    values$compare_ai_result <- NULL
+
+    player_ids <- ids
+    analysis_mode <- values$analysis_mode
+
+    later::later(function() {
+      result <- tryCatch(
+        analyze_player_comparison(player_ids, baseball_data, analysis_mode),
+        error = function(e) htmltools::HTML(paste0("<div class='alert alert-danger'>Error: ", e$message, "</div>"))
+      )
+
+      shiny::withReactiveDomain(session, {
+        values$compare_ai_result <- div(class = "analysis-content", result)
+        values$compare_ai_loading <- FALSE
+      })
+    }, delay = 0.1)
+  })
+
+  output$compare_results <- renderUI(values$compare_results)
+
+  output$compare_ai <- renderUI({
+    if (isTRUE(values$compare_ai_loading)) {
+      div(
+        class = "loading-state mt-3",
+        div(
+          class = "d-flex align-items-center",
+          div(class = "spinner-border text-primary me-3", role = "status"),
+          div(
+            h5("Analyzing with AI..."),
+            p(class = "text-muted mb-0", stringr::str_glue("Generating {values$analysis_mode} analysis. This typically takes 5-15 seconds."))
+          )
+        )
+      )
+    } else {
+      values$compare_ai_result
+    }
   })
 
   # ============================================================================

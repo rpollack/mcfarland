@@ -76,3 +76,29 @@ test_that("photo and player info helpers work", {
   info <- get_player_info(player_id, data)
   expect_equal(info$name, data$lookup$Name[1])
 })
+
+test_that("recommend_best_player chooses highest upside", {
+  data <- load_local_data()
+  hitter_ids <- data$hitters$PlayerId[1:3]
+  data$hitters$xwOBA_cur[data$hitters$PlayerId == hitter_ids[1]] <- 0.300
+  data$hitters$xwOBA_cur[data$hitters$PlayerId == hitter_ids[2]] <- 0.450
+  data$hitters$xwOBA_cur[data$hitters$PlayerId == hitter_ids[3]] <- 0.350
+  best_hitter <- recommend_best_player(hitter_ids, data)
+  expect_equal(best_hitter, hitter_ids[2])
+
+  pitcher_ids <- data$pitchers$PlayerId[1:3]
+  data$pitchers$xera_cur[data$pitchers$PlayerId == pitcher_ids[1]] <- 4.00
+  data$pitchers$xera_cur[data$pitchers$PlayerId == pitcher_ids[2]] <- 3.20
+  data$pitchers$xera_cur[data$pitchers$PlayerId == pitcher_ids[3]] <- 5.10
+  best_pitcher <- recommend_best_player(pitcher_ids, data)
+  expect_equal(best_pitcher, pitcher_ids[2])
+})
+
+test_that("comparison prompt includes players and ranking request", {
+  data <- load_local_data()
+  ids <- data$hitters$PlayerId[1:2]
+  prompt <- build_comparison_prompt(ids, data)
+  expect_true(grepl(data$hitters$Name[1], prompt))
+  expect_true(grepl(data$hitters$Name[2], prompt))
+  expect_true(grepl("rank", prompt, ignore.case = TRUE))
+})
