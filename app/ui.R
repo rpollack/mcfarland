@@ -494,56 +494,71 @@ ui <- page_navbar(
     icon = icon("users"),
     div(
       class = "container mt-4",
-      h2("Compare Players"),
-      radioButtons(
-        "compare_type",
-        "Player Type",
-        choices = c("Hitters" = "hitter", "Pitchers" = "pitcher"),
-        inline = TRUE
-      ),
-      fluidRow(
-        column(
-          4,
-          selectizeInput(
-            "compare_player1",
-            "Player 1",
-            choices = NULL,
-            options = list(placeholder = "Select player"),
-            width = "100%"
-          )
+      div(
+        class = "step-card active",
+        div(
+          class = "step-header",
+          div(class = "step-number", "1"),
+          h3(class = "step-title", "Select Players")
         ),
-        column(
-          4,
-          selectizeInput(
-            "compare_player2",
-            "Player 2",
-            choices = NULL,
-            options = list(placeholder = "Select player"),
-            width = "100%"
-          )
+        radioButtons(
+          "compare_type",
+          "Player Type",
+          choices = c("Hitters" = "hitter", "Pitchers" = "pitcher"),
+          inline = TRUE
         ),
-        column(
-          4,
-          selectizeInput(
-            "compare_player3",
-            "Player 3",
-            choices = NULL,
-            options = list(placeholder = "Select player"),
-            width = "100%"
+        fluidRow(
+          column(
+            4,
+            selectizeInput(
+              "compare_player1",
+              "Player 1",
+              choices = NULL,
+              options = list(placeholder = "Select player"),
+              width = "100%"
+            )
+          ),
+          column(
+            4,
+            selectizeInput(
+              "compare_player2",
+              "Player 2",
+              choices = NULL,
+              options = list(placeholder = "Select player"),
+              width = "100%"
+            )
+          ),
+          column(
+            4,
+            selectizeInput(
+              "compare_player3",
+              "Player 3",
+              choices = NULL,
+              options = list(placeholder = "Select player"),
+              width = "100%"
+            )
           )
         )
       ),
-      actionButton(
-        "compare_analyze",
-        "Analyze",
-        icon = icon("robot"),
-        class = "btn-primary mb-3",
-        onclick = "document.getElementById('compare-results').scrollIntoView({behavior: 'smooth', block: 'start'});"
-      ),
       div(
-        id = "compare-results",
-        uiOutput("compare_results"),
-        uiOutput("compare_ai")
+        class = "step-card active",
+        div(
+          class = "step-header",
+          div(class = "step-number", "2"),
+          h3(class = "step-title", "Analysis")
+        ),
+        actionButton(
+          "compare_analyze",
+          "Analyze",
+          icon = icon("robot"),
+          class = "btn-primary mb-3",
+          onclick = "document.getElementById('compare-results').scrollIntoView({behavior: 'smooth', block: 'start'});"
+        ),
+        div(
+          id = "compare-results",
+          uiOutput("compare_results"),
+          uiOutput("compare_ai")
+        )
       )
     )
   ),
