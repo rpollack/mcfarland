@@ -22,6 +22,9 @@ server <- function(input, output, session) {
   initial_player <- initial_query$player
   initial_vibe <- initial_query$vibe
 
+  # Initialize admin mode if admin password is provided
+  is_admin(session)
+
   # Initialize reactive values with safe defaults
   values <- reactiveValues(
     selected_player_info = NULL,
@@ -829,6 +832,16 @@ generate_player_stat_line <- function(player_id, baseball_data) {
     ignoreInit = TRUE
   )
 
+  observeEvent(values$current_analysis_key, {
+    player_id <- isolate(input$player_selection)
+    mode <- isolate(values$analysis_mode)
+    params <- list()
+    if (!is.null(player_id) && nzchar(player_id)) params$player <- player_id
+    if (!is.null(mode) && nzchar(mode)) params$vibe <- mode
+    query <- paste(names(params), params, sep = "=", collapse = "&")
+    updateQueryString(paste0("?", query), mode = "replace", session = session)
+  }, ignoreNULL = TRUE)
+
   # Share analysis on X (Twitter)
   observeEvent(input$share_x, {
     req(values$selected_player_info)
@@ -844,7 +857,6 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       session$clientData$url_pathname
     )
     share_url <- paste0(base_url, "?player=", player_id, "&vibe=", mode)
-
     insight <- values$selected_player_info$quick_insight %||% ""
     share_text <- str_glue("{values$selected_player_info$name}: {insight} via McFARLAND")
     share_text <- stringr::str_trunc(share_text, 200)
