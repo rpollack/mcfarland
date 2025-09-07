@@ -208,15 +208,15 @@ generate_player_stat_line <- function(player_id, baseball_data) {
     title_class <- if (player_selected) "step-title" else "step-title inactive"
     
     vibe_options <- list(
-      list(mode = "default", icon = "📊", name = "Straightforward"),
-      list(mode = "analytics_dork", icon = "🤓", name = "Analytics Dork"),
-      list(mode = "old_coot", icon = "👴", name = "Old Coot"),
-      list(mode = "gen_z", icon = "🔥", name = "Gen Z"),
       list(mode = "seventies", icon = "🥸", name = "1970s Fan"),
+      list(mode = "analytics_dork", icon = "🤓", name = "Analytics Dork"),
+      list(mode = "fantasy_expert", icon = "🧠", name = "Fantasy Expert"),
+      list(mode = "gen_z", icon = "🔥", name = "Gen Z"),
+      list(mode = "old_coot", icon = "👴", name = "Old Coot"),
+      list(mode = "rose_colored_glasses", icon = "🌹", name = "Rose-colored"),
       list(mode = "sensationalist", icon = "📰", name = "Sensationalist"),
       list(mode = "shakespeare", icon = "🎭", name = "Shakespeare"),
-      list(mode = "rose_colored_glasses", icon = "🌹", name = "Rose-colored"),
-      list(mode = "fantasy_expert", icon = "🧠", name = "Fantasy Expert")
+      list(mode = "default", icon = "📊", name = "Straightforward (default)")
     )
     
     div(
