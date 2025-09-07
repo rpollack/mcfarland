@@ -11,11 +11,10 @@ McFARLAND is a friendly baseball analytics companion that turns deep stats into 
 - **Future peeks**: offers rest-of-season outlooks based on recent trends
 
 ## Pick your vibe
-Choose how the story is told. Ten styles range from straight-laced to Shakespearean. The Straightforward vibe is the default, so you can always switch back to it:
+Choose how the story is told. Nine styles range from straight-laced to Shakespearean. The Straightforward vibe is the default, so you can always switch back to it:
 
 - 1970s Fan
 - Analytics Dork
-- Fantasy Expert
 - Gen Z
 - Old Coot
 - Rose-colored
