@@ -558,7 +558,7 @@ ui <- page_navbar(
               class = "feature-item",
               icon("palette", class = "feature-icon"),
               h5("Your Style"),
-              p("Choose from 8 analysis personalities - from Shakespeare to Gen Z to Old School wisdom.")
+              p("Choose from 9 analysis personalities (Straightforward is the default) - from Shakespeare to Gen Z to Old School wisdom.")
             )
           )
         )

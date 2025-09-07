@@ -208,14 +208,15 @@ generate_player_stat_line <- function(player_id, baseball_data) {
     title_class <- if (player_selected) "step-title" else "step-title inactive"
     
     vibe_options <- list(
-      list(mode = "default", icon = "📊", name = "Straightforward"),
-      list(mode = "analytics_dork", icon = "🤓", name = "Analytics Dork"),
-      list(mode = "old_coot", icon = "👴", name = "Old Coot"),
-      list(mode = "gen_z", icon = "🔥", name = "Gen Z"),
       list(mode = "seventies", icon = "🥸", name = "1970s Fan"),
+      list(mode = "analytics_dork", icon = "🤓", name = "Analytics Dork"),
+      list(mode = "gen_z", icon = "🔥", name = "Gen Z"),
+      list(mode = "old_coot", icon = "👴", name = "Old Coot"),
+      list(mode = "rose_colored_glasses", icon = "🌹", name = "Rose-colored"),
+      list(mode = "rotisserie_expert", icon = "🧠", name = "Rotisserie Expert"),
       list(mode = "sensationalist", icon = "📰", name = "Sensationalist"),
       list(mode = "shakespeare", icon = "🎭", name = "Shakespeare"),
-      list(mode = "rose_colored_glasses", icon = "🌹", name = "Rose-colored")
+      list(mode = "default", icon = "📊", name = "Straightforward (default)")
     )
     
     div(
@@ -227,35 +228,27 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       ),
       if (player_selected) {
         tagList(
-          # Desktop/Tablet: Compact 2x4 grid
+          # Desktop/Tablet: Compact grid in rows of up to 4
           div(
             class = "vibe-selector d-none d-md-flex",
-            div(
-              class = "vibe-row",
-              map(vibe_options[1:4], ~ {
-                card_class <- if (.x$mode == current_mode) "vibe-card-compact selected" else "vibe-card-compact"
+            {
+              vibe_rows <- split(vibe_options, ceiling(seq_along(vibe_options) / 4))
+              purrr::map(vibe_rows, ~ {
                 div(
-                  class = card_class,
-                  `data-mode` = .x$mode,
-                  onclick = str_glue("Shiny.setInputValue('analysis_mode', '{.x$mode}', {{priority: 'event'}});"),
-                  div(class = "vibe-icon-compact", .x$icon),
-                  div(class = "vibe-name-compact", .x$name)
+                  class = "vibe-row",
+                  map(.x, ~ {
+                    card_class <- if (.x$mode == current_mode) "vibe-card-compact selected" else "vibe-card-compact"
+                    div(
+                      class = card_class,
+                      `data-mode` = .x$mode,
+                      onclick = sprintf("Shiny.setInputValue('analysis_mode', '%s', {priority: 'event'});", .x$mode),
+                      div(class = "vibe-icon-compact", .x$icon),
+                      div(class = "vibe-name-compact", .x$name)
+                    )
+                  })
                 )
               })
-            ),
-            div(
-              class = "vibe-row",
-              map(vibe_options[5:8], ~ {
-                card_class <- if (.x$mode == current_mode) "vibe-card-compact selected" else "vibe-card-compact"
-                div(
-                  class = card_class,
-                  `data-mode` = .x$mode,
-                  onclick = str_glue("Shiny.setInputValue('analysis_mode', '{.x$mode}', {{priority: 'event'}});"),
-                  div(class = "vibe-icon-compact", .x$icon),
-                  div(class = "vibe-name-compact", .x$name)
-                )
-              })
-            )
+            }
           ),
           
           # Mobile: Dropdown selector

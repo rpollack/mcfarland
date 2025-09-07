@@ -43,6 +43,7 @@ test_that("formatting helpers work as expected", {
 test_that("personas and default persona work", {
   expect_true(grepl("Gen Z", get_analysis_persona("gen_z"), ignore.case = TRUE))
   expect_true(startsWith(get_analysis_persona("unknown"), "Keep it simple"))
+  expect_true(grepl("rotisserie", get_analysis_persona("rotisserie_expert"), ignore.case = TRUE))
 })
 
 test_that("call_openai_api handles missing API key", {
