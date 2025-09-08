@@ -90,6 +90,10 @@ server <- function(input, output, session) {
       )
     })
 
+    player_names <- purrr::map_chr(players, function(p) p$info$name)
+    analysis_mode <- values$analysis_mode
+    log_if_not_admin(session, paste(player_names, collapse = " vs "), analysis_mode)
+
     rec_id <- recommend_best_player(ids, baseball_data)
     rec_name <- if (!is.null(rec_id)) get_player_info(rec_id, baseball_data)$name else NULL
 
@@ -116,7 +120,6 @@ server <- function(input, output, session) {
     values$compare_ai_result <- NULL
 
     player_ids <- ids
-    analysis_mode <- values$analysis_mode
 
     later::later(function() {
       result <- tryCatch(
