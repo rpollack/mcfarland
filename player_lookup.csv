@@ -215,7 +215,7 @@ Cade Gibson,31815,27,pitcher,806188,31815_pitcher,Cade Gibson,RP,RP
 Cade Horton,31872,23,pitcher,690990,31872_pitcher,Cade Horton,SP,SP
 Cade Povich,30055,25,pitcher,700249,30055_pitcher,Cade Povich,SP,SP
 Cade Smith,27867,26,pitcher,671922,27867_pitcher,Cade Smith,RP,RP
-Caden Dana,31508,21,pitcher,702674,31508_pitcher,Caden Dana,RP,RP
+Caden Dana,31508,21,pitcher,702674,31508_pitcher,Caden Dana,SP,SP
 Cal Quantrill,19312,30,pitcher,615698,19312_pitcher,Cal Quantrill,SP,SP
 Cal Raleigh,21534,28,hitter,663728,21534_hitter,Cal Raleigh,Hitter,NA
 Cal Stevenson,22411,28,hitter,670276,22411_hitter,Cal Stevenson,Hitter,NA
@@ -937,7 +937,8 @@ Luisangel Acuna,26548,23,hitter,682668,26548_hitter,Luisangel Acuna,Hitter,NA
 Luke Jackson,11752,33,pitcher,592426,11752_pitcher,Luke Jackson,RP,RP
 Luke Keaschall,33321,22,hitter,807712,33321_hitter,Luke Keaschall,Hitter,NA
 Luke Little,28036,24,pitcher,681432,28036_pitcher,Luke Little,RP,RP
-Luke Maile,13355,34,hitter,571912,13355_hitter,Luke Maile,Hitter,NA
+Luke Maile,13355,34,hitter,571912,13355_hitter,Luke Maile (Hitter),Hitter,NA
+Luke Maile,13355,34,pitcher,571912,13355_pitcher,Luke Maile (RP),RP,RP
 Luke Raley,19354,30,hitter,670042,19354_hitter,Luke Raley,Hitter,NA
 Luke Weaver,16918,31,pitcher,596133,16918_pitcher,Luke Weaver,RP,RP
 Luke Williams,19931,28,hitter,663897,19931_hitter,Luke Williams (Hitter),Hitter,NA
@@ -1084,6 +1085,7 @@ Nick Martini,12005,35,hitter,605361,12005_hitter,Nick Martini,Hitter,NA
 Nick Maton,21635,28,hitter,665155,21635_hitter,Nick Maton,Hitter,NA
 Nick Mears,25376,28,pitcher,683232,25376_pitcher,Nick Mears,RP,RP
 Nick Pivetta,15454,32,pitcher,601713,15454_pitcher,Nick Pivetta,SP,SP
+Nick Raquet,20333,29,pitcher,675919,20333_pitcher,Nick Raquet,RP,RP
 Nick Sandlin,20517,28,pitcher,680704,20517_pitcher,Nick Sandlin,RP,RP
 Nick Sogard,25483,27,hitter,686765,25483_hitter,Nick Sogard,Hitter,NA
 Nick Solak,19294,30,hitter,669256,19294_hitter,Nick Solak,Hitter,NA
@@ -1245,6 +1247,7 @@ Sam Huff,22209,27,hitter,669087,22209_hitter,Sam Huff,Hitter,NA
 Sam Long,25379,29,pitcher,669674,25379_pitcher,Sam Long,RP,RP
 Sam Moll,14874,33,pitcher,594580,14874_pitcher,Sam Moll,RP,RP
 Samad Taylor,22274,26,hitter,669392,22274_hitter,Samad Taylor,Hitter,NA
+Sammy Peralta,25589,27,pitcher,671111,25589_pitcher,Sammy Peralta,RP,RP
 Samuel Aldegheri,26443,23,pitcher,691951,26443_pitcher,Samuel Aldegheri,RP,RP
 Samuel Basallo,28824,20,hitter,694212,28824_hitter,Samuel Basallo,Hitter,NA
 Sandy Alcantara,18684,29,pitcher,645261,18684_pitcher,Sandy Alcantara,SP,SP
@@ -1267,6 +1270,7 @@ Sean Manaea,15873,33,pitcher,640455,15873_pitcher,Sean Manaea,SP,SP
 Sean Murphy,19352,30,hitter,669221,19352_hitter,Sean Murphy,Hitter,NA
 Sean Newcomb,16943,32,pitcher,656794,16943_pitcher,Sean Newcomb,RP,RP
 Sean Reynolds,22253,27,pitcher,669308,22253_pitcher,Sean Reynolds,RP,RP
+Sebastian  Rivero,21735,26,hitter,665861,21735_hitter,Sebastian  Rivero,Hitter,NA
 Seiya Suzuki,30116,30,hitter,673548,30116_hitter,Seiya Suzuki,Hitter,NA
 Seranthony Dominguez,19249,30,pitcher,622554,19249_pitcher,Seranthony Dominguez,RP,RP
 Sergio Alcantara,16417,28,hitter,642727,16417_hitter,Sergio Alcantara,Hitter,NA
