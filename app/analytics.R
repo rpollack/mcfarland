@@ -137,16 +137,26 @@ init_analytics_db <- function() {
       )
     ")
 
+    # Table for session start events
+    dbExecute(con, "
+      CREATE TABLE IF NOT EXISTS sessions (
+        user_id TEXT,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    ")
+
     # Simple index for date queries - use different syntax for SQLite vs PostgreSQL
     db_type <- class(con)[1]
     if (db_type == "SQLiteConnection") {
       dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_analyses_date ON analyses(date(timestamp))")
       dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_share_events_date ON share_events(date(timestamp))")
+      dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_sessions_date ON sessions(date(timestamp))")
     } else {
       # PostgreSQL
       tryCatch({
         dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_analyses_date ON analyses(DATE(timestamp))")
         dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_share_events_date ON share_events(DATE(timestamp))")
+        dbExecute(con, "CREATE INDEX IF NOT EXISTS idx_sessions_date ON sessions(DATE(timestamp))")
       }, error = function(e) {
         # Index might already exist
         cat("📊 Index creation note:", e$message, "\n")
@@ -171,6 +181,41 @@ generate_user_id <- function(session) {
     cat("👤 New user ID generated:", substr(user_id, 1, 8), "...\n")
   }
   return(user_id)
+}
+
+# ==============================================================================
+# SESSION LOGGING
+# ==============================================================================
+
+log_session_start <- function(session) {
+  user_id <- session$userData$user_id
+  if (is.null(user_id)) {
+    cat("⚠ No user ID available for session logging\n")
+    return()
+  }
+
+  con <- get_db_connection()
+  on.exit(dbDisconnect(con))
+
+  tryCatch({
+    db_type <- class(con)[1]
+
+    if (db_type == "PostgreSQLConnection") {
+      dbExecute(con, "
+        INSERT INTO sessions (user_id)
+        VALUES ($1)
+      ", params = list(user_id))
+    } else {
+      dbExecute(con, "
+        INSERT INTO sessions (user_id)
+        VALUES (?)
+      ", params = list(user_id))
+    }
+
+    cat("📝 Session started - User:", substr(user_id, 1, 8), "...\n")
+  }, error = function(e) {
+    cat("⚠ Session logging error:", e$message, "\n")
+  })
 }
 
 # ==============================================================================
