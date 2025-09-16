@@ -122,7 +122,9 @@ tryCatch(
   error = function(e) {
     # Create dummy functions if analytics fails
     is_admin <- function(session) FALSE
-    log_if_not_admin <- function(session, log_function, ...) {}
+    log_analysis_if_not_admin <- function(session, player_name, analysis_mode) {}
+    log_share_if_not_admin <- function(session, player_name, analysis_mode, event_type) {}
+    log_session_if_not_admin <- function(session) {}
     init_analytics_db <- function() {}
     generate_user_id <- function(session) "dummy"
     track_user <- function(...) {}

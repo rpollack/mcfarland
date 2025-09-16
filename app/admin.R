@@ -12,7 +12,7 @@ is_admin <- function(session) {
 }
 
 # Log analysis unless user is admin
-log_if_not_admin <- function(session, player_name, analysis_mode) {
+log_analysis_if_not_admin <- function(session, player_name, analysis_mode) {
   if (!is_admin(session)) {
     log_analysis(session, player_name, analysis_mode)
   } else {
@@ -27,3 +27,12 @@ log_share_if_not_admin <- function(session, player_name, analysis_mode, event_ty
     cat("🔧 Admin share - not logged\n")
   }
 }
+
+log_session_if_not_admin <- function(session) {
+  if (!is_admin(session)) {
+    log_session_start(session)
+  } else {
+    cat("🔧 Admin session - not logged\n")
+  }
+}
+

@@ -5,6 +5,7 @@ server <- function(input, output, session) {
 
   # Generate user ID on session start
   user_id <- generate_user_id(session)
+  log_session_if_not_admin(session)
 
   # Visibility-aware keep-alive ping from JS
   observeEvent(input$heartbeat, {}, ignoreNULL = TRUE)
@@ -92,7 +93,7 @@ server <- function(input, output, session) {
 
     player_names <- purrr::map_chr(players, function(p) p$info$name)
     analysis_mode <- values$analysis_mode
-    log_if_not_admin(session, paste(player_names, collapse = " vs "), analysis_mode)
+    log_analysis_if_not_admin(session, paste(player_names, collapse = " vs "), analysis_mode)
 
     rec_id <- recommend_best_player(ids, baseball_data)
     rec_name <- if (!is.null(rec_id)) get_player_info(rec_id, baseball_data)$name else NULL
@@ -802,7 +803,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
 
         analysis_key <- paste(player_info$name, current_mode, sep = "_")
         if (analysis_key != values$last_logged_key) {
-          log_if_not_admin(session, player_info$name, current_mode)
+          log_analysis_if_not_admin(session, player_info$name, current_mode)
           if (isTRUE(values$pending_share_run)) {
             log_share_if_not_admin(session, player_info$name, current_mode, "shared_run")
             values$pending_share_run <- FALSE
@@ -833,7 +834,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
     if (!is.null(values$selected_player_info)) {
       analysis_key <- paste(values$selected_player_info$name, mode, sep = "_")
       if (analysis_key != values$last_logged_key) {
-        log_if_not_admin(session, values$selected_player_info$name, mode)
+        log_analysis_if_not_admin(session, values$selected_player_info$name, mode)
         if (isTRUE(values$pending_share_run)) {
           log_share_if_not_admin(session, values$selected_player_info$name, mode, "shared_run")
           values$pending_share_run <- FALSE
@@ -1009,3 +1010,4 @@ generate_player_stat_line <- function(player_id, baseball_data) {
   outputOptions(output, "step_2_analysis_style", suspendWhenHidden = FALSE)
   outputOptions(output, "step_3_analysis_results", suspendWhenHidden = FALSE)
 }
+
