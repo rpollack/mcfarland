@@ -22,6 +22,13 @@ server <- function(input, output, session) {
   initial_query <- parseQueryString(isolate(session$clientData$url_search))
   initial_player <- initial_query$player
   initial_vibe <- initial_query$vibe
+  initial_view <- initial_query$view %||% if (!is.null(initial_query$players)) "compare" else "single"
+  initial_compare_players <- if (!is.null(initial_query$players)) {
+    trimws(strsplit(initial_query$players, ",")[[1]])
+  } else {
+    NULL
+  }
+  initial_compare_type <- initial_query$type
 
   # Initialize admin mode if admin password is provided
   is_admin(session)
@@ -30,6 +37,7 @@ server <- function(input, output, session) {
   values <- reactiveValues(
     selected_player_info = NULL,
     analysis_mode = initial_vibe %||% "default",
+    analysis_view = initial_view,
     initial_mode_from_query = initial_vibe,
     trends_plot = NULL,
     ai_analysis_result = NULL,
@@ -38,9 +46,13 @@ server <- function(input, output, session) {
     last_logged_key = "",
     stat_line_data = NULL,  # current stat line
     pending_share_run = !is.null(initial_player),
+    pending_compare_run = !is.null(initial_compare_players) && length(initial_compare_players) > 0,
     compare_results = NULL,
     compare_ai_result = NULL,
-    compare_ai_loading = FALSE
+    compare_ai_loading = FALSE,
+    initial_compare_players = initial_compare_players,
+    initial_compare_type = initial_compare_type,
+    last_query_string = NULL
   )
   
   # Populate player selector on startup
@@ -62,17 +74,47 @@ server <- function(input, output, session) {
     )
   })
 
+  observe({
+    updateRadioButtons(
+      session,
+      "analysis_view",
+      selected = values$analysis_view %||% "single"
+    )
+  }, once = TRUE)
+
+  observe({
+    default_type <- values$initial_compare_type %||% "hitter"
+    updateRadioButtons(session, "compare_type", selected = default_type)
+  }, once = TRUE)
+
+  observeEvent(input$analysis_view, {
+    if (!is.null(input$analysis_view)) {
+      values$analysis_view <- input$analysis_view
+    }
+  }, ignoreNULL = TRUE)
+
   # Populate compare selectors based on player type
   observeEvent(input$compare_type, {
+    req(input$compare_type)
     lookup <- baseball_data$lookup %>% dplyr::filter(player_type == input$compare_type)
     ids <- if ("compound_id" %in% colnames(lookup)) lookup$compound_id else lookup$PlayerId
     choices <- setNames(ids, lookup$display_name)
-    updateSelectizeInput(session, "compare_player1", choices = choices, selected = "", server = TRUE)
-    updateSelectizeInput(session, "compare_player2", choices = choices, selected = "", server = TRUE)
-    updateSelectizeInput(session, "compare_player3", choices = choices, selected = "", server = TRUE)
+
+    initial_players <- values$initial_compare_players
+    if (!is.null(initial_players) && length(initial_players) > 0) {
+      player_vals <- c(initial_players, rep("", 3))[1:3]
+      updateSelectizeInput(session, "compare_player1", choices = choices, selected = player_vals[[1]], server = TRUE)
+      updateSelectizeInput(session, "compare_player2", choices = choices, selected = player_vals[[2]], server = TRUE)
+      updateSelectizeInput(session, "compare_player3", choices = choices, selected = player_vals[[3]], server = TRUE)
+      values$initial_compare_players <- NULL
+    } else {
+      updateSelectizeInput(session, "compare_player1", choices = choices, selected = "", server = TRUE)
+      updateSelectizeInput(session, "compare_player2", choices = choices, selected = "", server = TRUE)
+      updateSelectizeInput(session, "compare_player3", choices = choices, selected = "", server = TRUE)
+    }
   }, ignoreNULL = FALSE)
 
-  observeEvent(input$compare_analyze, {
+  run_compare_analysis <- function() {
     ids <- c(input$compare_player1, input$compare_player2, input$compare_player3)
     ids <- ids[ids != ""]
 
@@ -92,7 +134,7 @@ server <- function(input, output, session) {
     })
 
     player_names <- purrr::map_chr(players, function(p) p$info$name)
-    analysis_mode <- values$analysis_mode
+    analysis_mode <- values$analysis_mode %||% "default"
     log_analysis_if_not_admin(session, paste(player_names, collapse = " vs "), analysis_mode)
 
     rec_id <- recommend_best_player(ids, baseball_data)
@@ -133,25 +175,20 @@ server <- function(input, output, session) {
         values$compare_ai_loading <- FALSE
       })
     }, delay = 0.1)
+  }
+
+  observeEvent(input$compare_analyze, {
+    run_compare_analysis()
   })
 
-  output$compare_results <- renderUI(values$compare_results)
-
-  output$compare_ai <- renderUI({
-    if (isTRUE(values$compare_ai_loading)) {
-      div(
-        class = "loading-state mt-3",
-        div(
-          class = "d-flex align-items-center",
-          div(class = "spinner-border text-primary me-3", role = "status"),
-          div(
-            h5("Analyzing with AI..."),
-            p(class = "text-muted mb-0", stringr::str_glue("Generating {values$analysis_mode} analysis. This typically takes 5-15 seconds."))
-          )
-        )
-      )
-    } else {
-      values$compare_ai_result
+  observe({
+    if (isTRUE(values$pending_compare_run)) {
+      players <- c(input$compare_player1, input$compare_player2, input$compare_player3)
+      players <- players[players != ""]
+      if (length(players) > 0) {
+        values$pending_compare_run <- FALSE
+        run_compare_analysis()
+      }
     }
   })
 
@@ -446,6 +483,73 @@ generate_player_stat_line <- function(player_id, baseball_data) {
           icon("robot", class = "empty-icon"),
           h4(class = "empty-title", "AI analysis will appear here"),
           p(class = "empty-subtitle", "Complete the steps above to get started")
+        )
+      }
+    )
+  }
+
+  generate_compare_step_ui <- function(players_selected = 0,
+                                       compare_results = NULL,
+                                       ai_loading = FALSE,
+                                       ai_result = NULL,
+                                       analysis_mode = "default") {
+    has_players <- players_selected > 0
+    div(
+      class = if (has_players) "step-card active" else "step-card inactive",
+      div(
+        class = "step-header",
+        div(class = if (has_players) "step-number" else "step-number inactive", "3"),
+        h3(class = if (has_players) "step-title" else "step-title inactive", "Compare Players")
+      ),
+      if (has_players) {
+        tagList(
+          actionButton(
+            "compare_analyze",
+            "Analyze",
+            icon = icon("robot"),
+            class = "btn-primary mb-3",
+            onclick = "document.getElementById('compare-results').scrollIntoView({behavior: 'smooth', block: 'start'});"
+          ),
+          div(
+            id = "compare-results",
+            if (!is.null(compare_results)) {
+              compare_results
+            } else {
+              div(
+                class = "empty-state",
+                icon("users", class = "empty-icon"),
+                h4(class = "empty-title", "Ready to compare"),
+                p(class = "empty-subtitle", "Click Analyze to build the side-by-side breakdown.")
+              )
+            },
+            if (isTRUE(ai_loading)) {
+              div(
+                class = "loading-state mt-3",
+                div(
+                  class = "d-flex align-items-center",
+                  div(class = "spinner-border text-primary me-3", role = "status"),
+                  div(
+                    h5("Analyzing with AI..."),
+                    p(
+                      class = "text-muted mb-0",
+                      stringr::str_glue(
+                        "Generating {analysis_mode} analysis. This typically takes 5-15 seconds."
+                      )
+                    )
+                  )
+                )
+              )
+            } else if (!is.null(ai_result)) {
+              ai_result
+            }
+          )
+        )
+      } else {
+        div(
+          class = "empty-state",
+          icon("users", class = "empty-icon"),
+          h4(class = "empty-title", "Add players to compare"),
+          p(class = "empty-subtitle", "Pick at least one player above to unlock comparison analysis.")
         )
       }
     )
@@ -929,23 +1033,71 @@ generate_player_stat_line <- function(player_id, baseball_data) {
     ignoreInit = TRUE
   )
 
-  observeEvent(values$current_analysis_key, {
-    player_id <- isolate(input$player_selection)
-    mode <- isolate(values$analysis_mode)
-    params <- list()
-    if (!is.null(player_id) && nzchar(player_id)) params$player <- player_id
-    if (!is.null(mode) && nzchar(mode)) params$vibe <- mode
+  build_query_values <- function(view_override = NULL) {
+    view <- view_override %||% input$analysis_view %||% values$analysis_view %||% "single"
+    params <- list(view = view)
+
+    mode <- values$analysis_mode
+    include_mode <- FALSE
+
+    if (identical(view, "compare")) {
+      type <- input$compare_type
+      players <- c(input$compare_player1, input$compare_player2, input$compare_player3)
+      players <- players[players != ""]
+      if (!is.null(type) && nzchar(type)) params$type <- type
+      if (length(players) > 0) {
+        params$players <- paste(players, collapse = ",")
+        include_mode <- TRUE
+      }
+    } else {
+      player_id <- input$player_selection
+      if (!is.null(player_id) && nzchar(player_id)) {
+        params$player <- player_id
+        include_mode <- TRUE
+      }
+    }
+
+    if (include_mode && !is.null(mode) && nzchar(mode)) params$vibe <- mode
     if (is_admin(session)) params$admin <- Sys.getenv("ADMIN_PASSWORD", "")
-    query <- paste(names(params), params, sep = "=", collapse = "&")
-    updateQueryString(paste0("?", query), mode = "replace", session = session)
-  }, ignoreNULL = TRUE)
+
+    params <- params[!vapply(params, function(x) is.null(x) || identical(x, ""), logical(1))]
+    if (identical(params, list(view = "single"))) {
+      return(character())
+    }
+    if (length(params) == 0) {
+      return(character())
+    }
+
+    encoded <- vapply(
+      params,
+      function(x) utils::URLencode(as.character(x), reserved = TRUE),
+      character(1)
+    )
+    names(encoded) <- names(params)
+    encoded
+  }
+
+  build_query_string <- function(view_override = NULL) {
+    query_values <- build_query_values(view_override)
+    if (length(query_values) == 0) {
+      ""
+    } else {
+      paste(names(query_values), query_values, sep = "=", collapse = "&")
+    }
+  }
+
+  observe({
+    query <- build_query_string()
+    if (!identical(query, values$last_query_string)) {
+      new_query <- if (nzchar(query)) paste0("?", query) else ""
+      updateQueryString(new_query, mode = "replace", session = session)
+      values$last_query_string <- query
+    }
+  })
 
   # Share analysis on X (Twitter)
   observeEvent(input$share_x, {
     req(values$selected_player_info)
-    player_id <- input$player_selection
-    mode <- values$analysis_mode
-
     base_url <- paste0(
       session$clientData$url_protocol, "//",
       session$clientData$url_hostname,
@@ -954,7 +1106,8 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       else "",
       session$clientData$url_pathname
     )
-    share_url <- paste0(base_url, "?player=", player_id, "&vibe=", mode)
+    query <- build_query_string("single")
+    share_url <- paste0(base_url, if (nzchar(query)) paste0("?", query) else "")
     insight <- values$selected_player_info$quick_insight %||% ""
     share_text <- str_glue("{values$selected_player_info$name}: {insight} via McFARLAND")
     share_text <- stringr::str_trunc(share_text, 200)
@@ -980,7 +1133,13 @@ generate_player_stat_line <- function(player_id, baseball_data) {
 
   # Render Step 2: Analysis Style (using internal function)
   output$step_2_analysis_style <- renderUI({
-    player_selected <- !is.null(values$selected_player_info)
+    view <- input$analysis_view %||% values$analysis_view %||% "single"
+    player_selected <- if (view == "compare") {
+      compare_players <- c(input$compare_player1, input$compare_player2, input$compare_player3)
+      any(compare_players != "")
+    } else {
+      !is.null(values$selected_player_info)
+    }
 
     generate_step_2_ui(
       player_selected = player_selected,
@@ -990,19 +1149,33 @@ generate_player_stat_line <- function(player_id, baseball_data) {
 
   # Render Step 3: Analysis Results (using internal function)
   output$step_3_analysis_results <- renderUI({
-    player_selected <- !is.null(values$selected_player_info)
-    analysis_mode <- values$analysis_mode
-    ai_loading <- isTRUE(values$ai_analysis_loading)
-    ai_result <- values$ai_analysis_result
-    trends_plot <- values$trends_plot
+    view <- input$analysis_view %||% values$analysis_view %||% "single"
+    analysis_mode <- values$analysis_mode %||% "default"
 
-    generate_step_3_ui(
-      player_selected = player_selected,
-      analysis_mode = analysis_mode,
-      ai_loading = ai_loading,
-      ai_result = ai_result,
-      trends_plot = trends_plot
-    )
+    if (view == "compare") {
+      compare_players <- c(input$compare_player1, input$compare_player2, input$compare_player3)
+      players_selected <- sum(compare_players != "")
+      generate_compare_step_ui(
+        players_selected = players_selected,
+        compare_results = values$compare_results,
+        ai_loading = isTRUE(values$compare_ai_loading),
+        ai_result = values$compare_ai_result,
+        analysis_mode = analysis_mode
+      )
+    } else {
+      player_selected <- !is.null(values$selected_player_info)
+      ai_loading <- isTRUE(values$ai_analysis_loading)
+      ai_result <- values$ai_analysis_result
+      trends_plot <- values$trends_plot
+
+      generate_step_3_ui(
+        player_selected = player_selected,
+        analysis_mode = analysis_mode,
+        ai_loading = ai_loading,
+        ai_result = ai_result,
+        trends_plot = trends_plot
+      )
+    }
   })
 
   # Force UI outputs to not suspend when hidden
