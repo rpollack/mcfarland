@@ -24,7 +24,8 @@ server <- function(input, output, session) {
   initial_vibe <- initial_query$vibe
   initial_view <- initial_query$view %||% if (!is.null(initial_query$players)) "compare" else "single"
   initial_compare_players <- if (!is.null(initial_query$players)) {
-    trimws(strsplit(initial_query$players, ",")[[1]])
+    players <- trimws(strsplit(initial_query$players, ",")[[1]])
+    players[nzchar(players)]
   } else {
     NULL
   }
@@ -59,6 +60,7 @@ server <- function(input, output, session) {
     stat_line_data = NULL,  # current stat line
     pending_share_run = !is.null(initial_player),
     pending_compare_run = !is.null(initial_compare_players) && length(initial_compare_players) > 0,
+    pending_compare_expected = if (!is.null(initial_compare_players)) length(initial_compare_players) else 0,
     compare_results = NULL,
     compare_ai_result = NULL,
     compare_ai_loading = FALSE,
@@ -217,8 +219,10 @@ server <- function(input, output, session) {
     if (isTRUE(values$pending_compare_run)) {
       players <- c(input$compare_player1, input$compare_player2, input$compare_player3)
       players <- players[players != ""]
-      if (length(players) > 0) {
+      expected <- values$pending_compare_expected %||% 0
+      if (length(players) >= max(1, expected)) {
         values$pending_compare_run <- FALSE
+        values$pending_compare_expected <- 0
         run_compare_analysis()
       }
     }
