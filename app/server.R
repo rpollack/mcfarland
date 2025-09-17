@@ -74,7 +74,7 @@ server <- function(input, output, session) {
     )
   })
 
-  observe({
+  observeEvent(TRUE, {
     updateRadioButtons(
       session,
       "analysis_view",
@@ -82,7 +82,7 @@ server <- function(input, output, session) {
     )
   }, once = TRUE)
 
-  observe({
+  observeEvent(TRUE, {
     default_type <- values$initial_compare_type %||% "hitter"
     updateRadioButtons(session, "compare_type", selected = default_type)
   }, once = TRUE)
