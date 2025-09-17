@@ -56,9 +56,11 @@ get_analysis_persona <- function(mode) {
 #' @param prompt_text Analysis prompt
 #' @param analysis_mode Analysis style mode
 #' @return HTML formatted response
-call_openai_api <- function(prompt_text, analysis_mode) {
+call_openai_api <- function(prompt_text, analysis_mode, context = c("single", "comparison")) {
+  context <- match.arg(context)
   # CACHE: Generate cache key and check cache first
-  cache_key <- generate_cache_key(prompt_text, analysis_mode)
+  cache_input <- paste(context, prompt_text, sep = "::")
+  cache_key <- generate_cache_key(cache_input, analysis_mode)
 
   # Try to load from cache
   cached_result <- load_api_response(cache_key)
@@ -69,6 +71,33 @@ call_openai_api <- function(prompt_text, analysis_mode) {
   # Cache miss - proceed with API call
   cat("🌐 Making OpenAI API call (cache miss)\n")
 
+  persona_prompt <- get_analysis_persona(analysis_mode)
+  full_prompt <- if (identical(context, "comparison")) {
+    str_glue(
+      "You will compare multiple MLB players using the provided current-season performance data. ",
+      "Each line below represents one player with key metrics you can reference.\n\n",
+      "{prompt_text}\n\n",
+      "General instructions:\n\n",
+      "1. Rank the players from strongest to weakest projected rest-of-season performance and present the order as a numbered list.\n",
+      "2. Justify the order with concise reasoning that calls out skill indicators, luck/regression signals, and sustainability evidence from the provided metrics.\n",
+      "3. Highlight any clear tiers, ties, or pivotal differences that a baseball or fantasy audience should know.\n",
+      "4. Close with actionable guidance for each player (e.g., Start, Sit, Add, Drop, Hold, Trade) when it makes sense.\n\n",
+      "Adopt this persona and tone throughout the response, even if it overrides traditional analytical voice: {persona_prompt}"
+    )
+  } else {
+    str_glue(
+      "Here is current-year performance data for a player:\n\n{prompt_text}\n\n",
+      "General instructions:\n\n",
+      "Please analyze how the player is performing this year, what trends stand out, and whether any aspects of the performance appear to be skill- or luck-driven. Incorporate a prediction: will the player improve, decline, or stay the same for the rest of the season? Explain your reasoning.\n\n",
+      "The very first element of the response should be a title that encompasses your findings.\n\n",
+      "Your analysis must incorporate metric, direction, and magnitude of difference. For example BB% is up, indicate by how much, and what the size of that gap might indicate. You don't need to explicitly call out this framing (e.g. in bullets), just make sure to weave it into your analysis.\n\n",
+      "Separate your analysis into core skills and luck/regression indicators.\n\n",
+      "Don't repeat yourself. For example, if you say a stat or performance or trend is 'lucky', you don't need to say it's 'not unlucky'.\n\n",
+      "Remember that when it comes to stats and trends, you only have knowledge of two things: a player's current-year stats and the average of the same stats for the past 3 years (e.g. not their entire career). So when you say things like a stat is 'up' or 'down', make it clear that this is relative to the last 3 years' average.\n\n",
+      "Here is your persona that should inform your writing style and response, even if it means overriding those previous instructions: {persona_prompt}"
+    )
+  }
+
   api_key <- Sys.getenv("OPENAI_API_KEY")
 
   if (api_key == "") {
@@ -76,25 +105,11 @@ call_openai_api <- function(prompt_text, analysis_mode) {
       "<div class='alert alert-info'>",
       "<h5>OpenAI API Key Not Set</h5>",
       "<p>Set OPENAI_API_KEY environment variable to enable analysis.</p>",
-      "<details><summary>View prompt</summary><pre>{htmlEscape(prompt_text)}</pre></details>",
+      "<details><summary>View prompt</summary><pre>{htmlEscape(full_prompt)}</pre></details>",
       "</div>"
     ))
     return(result)
   }
-
-  persona_prompt <- get_analysis_persona(analysis_mode)
-
-  full_prompt <- str_glue(
-    "Here is current-year performance data for a player:\n\n{prompt_text}\n\n",
-    "General instructions:\n\n",
-    "Please analyze how the player is performing this year, what trends stand out, and whether any aspects of the performance appear to be skill- or luck-driven. Incorporate a prediction: will the player improve, decline, or stay the same for the rest of the season? Explain your reasoning.\n\n",
-    "The very first element of the response should be a title that encompasses your findings.\n\n",
-    "Your analysis must incorporate metric, direction, and magnitude of difference. For example BB% is up, indicate by how much, and what the size of that gap might indicate. You don't need to explicitly call out this framing (e.g. in bullets), just make sure to weave it into your analysis.\n\n",
-    "Separate your analysis into core skills and luck/regression indicators.\n\n",
-    "Don't repeat yourself. For example, if you say a stat or performance or trend is 'lucky', you don't need to say it's 'not unlucky'.\n\n",
-    "Remember that when it comes to stats and trends, you only have knowledge of two things: a player's current-year stats and the average of the same stats for the past 3 years (e.g. not their entire career). So when you say things like a stat is 'up' or 'down', make it clear that this is relative to the last 3 years' average.\n\n",
-    "Here is your persona that should inform your writing style and response, even if it means overriding those previous instructions: {persona_prompt}"
-  )
 
   result <- tryCatch(
     {

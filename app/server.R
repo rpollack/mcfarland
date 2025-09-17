@@ -43,6 +43,7 @@ server <- function(input, output, session) {
     ai_analysis_result = NULL,
     ai_analysis_loading = FALSE,
     current_analysis_key = "",
+    current_compare_key = "",
     last_logged_key = "",
     stat_line_data = NULL,  # current stat line
     pending_share_run = !is.null(initial_player),
@@ -122,6 +123,7 @@ server <- function(input, output, session) {
       values$compare_results <- NULL
       values$compare_ai_loading <- FALSE
       values$compare_ai_result <- HTML("<div class='alert alert-warning'>Select players to analyze.</div>")
+      values$current_compare_key <- ""
       return(NULL)
     }
 
@@ -135,6 +137,8 @@ server <- function(input, output, session) {
 
     player_names <- purrr::map_chr(players, function(p) p$info$name)
     analysis_mode <- values$analysis_mode %||% "default"
+    compare_type <- input$compare_type %||% "hitter"
+    compare_key <- paste(c(compare_type, sort(ids), analysis_mode), collapse = "_")
     log_analysis_if_not_admin(session, paste(player_names, collapse = " vs "), analysis_mode)
 
     rec_id <- recommend_best_player(ids, baseball_data)
@@ -161,16 +165,24 @@ server <- function(input, output, session) {
 
     values$compare_ai_loading <- TRUE
     values$compare_ai_result <- NULL
+    values$current_compare_key <- compare_key
 
     player_ids <- ids
+    analysis_mode_local <- analysis_mode
+    compare_key_local <- compare_key
 
     later::later(function() {
       result <- tryCatch(
-        analyze_player_comparison(player_ids, baseball_data, analysis_mode),
+        analyze_player_comparison(player_ids, baseball_data, analysis_mode_local),
         error = function(e) htmltools::HTML(paste0("<div class='alert alert-danger'>Error: ", e$message, "</div>"))
       )
 
       shiny::withReactiveDomain(session, {
+        if (!identical(values$current_compare_key, compare_key_local)) {
+          cat("⏭️ Ignoring stale comparison analysis for:", compare_key_local, "\n")
+          return()
+        }
+
         values$compare_ai_result <- div(class = "analysis-content", result)
         values$compare_ai_loading <- FALSE
       })
@@ -933,6 +945,17 @@ generate_player_stat_line <- function(player_id, baseball_data) {
     # Clear previous AI analysis when mode changes
     values$ai_analysis_result <- NULL
     values$ai_analysis_loading <- FALSE
+
+    current_view <- input$analysis_view %||% values$analysis_view %||% "single"
+    if (identical(current_view, "compare")) {
+      compare_players <- c(input$compare_player1, input$compare_player2, input$compare_player3)
+      selected_ids <- compare_players[compare_players != ""]
+      if (length(selected_ids) > 0) {
+        cat("🔁 Re-running comparison analysis for new vibe\n")
+        values$pending_compare_run <- FALSE
+        run_compare_analysis()
+      }
+    }
 
     # IMMEDIATE LOGGING: If player is already selected, log now
     if (!is.null(values$selected_player_info)) {
