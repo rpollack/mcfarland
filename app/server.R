@@ -29,6 +29,16 @@ server <- function(input, output, session) {
     NULL
   }
   initial_compare_type <- initial_query$type
+  initial_single_mode <- if (!is.null(initial_vibe) && !identical(initial_view, "compare")) {
+    initial_vibe
+  } else {
+    "default"
+  }
+  initial_compare_mode <- if (!is.null(initial_vibe) && identical(initial_view, "compare")) {
+    initial_vibe
+  } else {
+    "default"
+  }
 
   # Initialize admin mode if admin password is provided
   is_admin(session)
@@ -36,9 +46,10 @@ server <- function(input, output, session) {
   # Initialize reactive values with safe defaults
   values <- reactiveValues(
     selected_player_info = NULL,
-    analysis_mode = initial_vibe %||% "default",
+    single_analysis_mode = initial_single_mode,
+    compare_analysis_mode = initial_compare_mode,
     analysis_view = initial_view,
-    initial_mode_from_query = initial_vibe,
+    initial_single_mode_from_query = if (!is.null(initial_vibe) && !identical(initial_view, "compare")) initial_vibe else NULL,
     trends_plot = NULL,
     ai_analysis_result = NULL,
     ai_analysis_loading = FALSE,
@@ -91,6 +102,14 @@ server <- function(input, output, session) {
   observeEvent(input$analysis_view, {
     if (!is.null(input$analysis_view)) {
       values$analysis_view <- input$analysis_view
+      new_mode <- if (identical(input$analysis_view, "compare")) {
+        values$compare_analysis_mode %||% "default"
+      } else {
+        values$single_analysis_mode %||% "default"
+      }
+      if (!is.null(input$analysis_mode)) {
+        updateSelectInput(session, "analysis_mode", selected = new_mode)
+      }
     }
   }, ignoreNULL = TRUE)
 
@@ -136,7 +155,7 @@ server <- function(input, output, session) {
     })
 
     player_names <- purrr::map_chr(players, function(p) p$info$name)
-    analysis_mode <- values$analysis_mode %||% "default"
+    analysis_mode <- values$compare_analysis_mode %||% "default"
     compare_type <- input$compare_type %||% "hitter"
     compare_key <- paste(c(compare_type, sort(ids), analysis_mode), collapse = "_")
     log_analysis_if_not_admin(session, paste(player_names, collapse = " vs "), analysis_mode)
@@ -860,11 +879,16 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       values$stat_line_data <- generate_player_stat_line(input$player_selection, baseball_data)
 
       # Default to standard vibe unless preset via shareable link
-      if (!is.null(values$initial_mode_from_query)) {
-        values$analysis_mode <- values$initial_mode_from_query
-        values$initial_mode_from_query <- NULL
+      if (!is.null(values$initial_single_mode_from_query)) {
+        values$single_analysis_mode <- values$initial_single_mode_from_query
+        values$initial_single_mode_from_query <- NULL
       } else {
-        values$analysis_mode <- "default"
+        values$single_analysis_mode <- "default"
+      }
+
+      current_view <- input$analysis_view %||% values$analysis_view %||% "single"
+      if (!identical(current_view, "compare") && !is.null(input$analysis_mode)) {
+        updateSelectInput(session, "analysis_mode", selected = values$single_analysis_mode)
       }
       player_info <- get_player_info(input$player_selection, baseball_data)
 
@@ -912,10 +936,10 @@ generate_player_stat_line <- function(player_id, baseball_data) {
         cat("✅ INSTANT: Player info loaded for:", player_info$name, "\n")
 
         # IMMEDIATE LOGGING AND AI TRIGGER - Use default mode if none selected
-        current_mode <- if (is.null(values$analysis_mode) || values$analysis_mode == "") {
+        current_mode <- if (is.null(values$single_analysis_mode) || values$single_analysis_mode == "") {
           "default"
         } else {
-          values$analysis_mode
+          values$single_analysis_mode
         }
 
         analysis_key <- paste(player_info$name, current_mode, sep = "_")
@@ -936,19 +960,20 @@ generate_player_stat_line <- function(player_id, baseball_data) {
   # IMMEDIATE: React to analysis mode selection
   observeEvent(input$analysis_mode, {
     mode <- input$analysis_mode
-    if (is.null(mode) || mode == values$analysis_mode) {
+    if (is.null(mode)) {
       return()
     }
-    cat("🎨 Analysis mode changed to:", mode, "\n")
-    values$analysis_mode <- mode
-    updateSelectInput(session, "analysis_mode", selected = mode)
-
-    # Clear previous AI analysis when mode changes
-    values$ai_analysis_result <- NULL
-    values$ai_analysis_loading <- FALSE
 
     current_view <- input$analysis_view %||% values$analysis_view %||% "single"
+
     if (identical(current_view, "compare")) {
+      if (identical(mode, values$compare_analysis_mode)) {
+        return()
+      }
+      cat("🎨 Comparison analysis mode changed to:", mode, "\n")
+      values$compare_analysis_mode <- mode
+      updateSelectInput(session, "analysis_mode", selected = mode)
+
       compare_players <- c(input$compare_player1, input$compare_player2, input$compare_player3)
       selected_ids <- compare_players[compare_players != ""]
       if (length(selected_ids) > 0) {
@@ -956,7 +981,20 @@ generate_player_stat_line <- function(player_id, baseball_data) {
         values$pending_compare_run <- FALSE
         run_compare_analysis()
       }
+      return()
     }
+
+    if (identical(mode, values$single_analysis_mode)) {
+      return()
+    }
+
+    cat("🎨 Analysis mode changed to:", mode, "\n")
+    values$single_analysis_mode <- mode
+    updateSelectInput(session, "analysis_mode", selected = mode)
+
+    # Clear previous AI analysis when single-player mode changes
+    values$ai_analysis_result <- NULL
+    values$ai_analysis_loading <- FALSE
 
     # IMMEDIATE LOGGING: If player is already selected, log now
     if (!is.null(values$selected_player_info)) {
@@ -976,12 +1014,12 @@ generate_player_stat_line <- function(player_id, baseball_data) {
   # SEPARATE ASYNC OBSERVER - AI Analysis Generation
   observeEvent(
     {
-      list(values$selected_player_info, values$analysis_mode)
+      list(values$selected_player_info, values$single_analysis_mode)
     },
     {
       # Use isolate() to prevent this from blocking other reactive updates
       selected_info <- isolate(values$selected_player_info)
-      analysis_mode <- isolate(values$analysis_mode)
+      analysis_mode <- isolate(values$single_analysis_mode)
       player_selection <- isolate(input$player_selection)
       
       # Allow default mode to trigger AI analysis
@@ -1061,7 +1099,11 @@ generate_player_stat_line <- function(player_id, baseball_data) {
     view <- view_override %||% input$analysis_view %||% values$analysis_view %||% "single"
     params <- list(view = view)
 
-    mode <- values$analysis_mode
+    mode <- if (identical(view, "compare")) {
+      values$compare_analysis_mode
+    } else {
+      values$single_analysis_mode
+    }
     include_mode <- FALSE
 
     if (identical(view, "compare")) {
@@ -1124,7 +1166,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
     req(values$selected_player_info)
     req(input$player_selection)
 
-    mode <- values$analysis_mode %||% "default"
+    mode <- values$single_analysis_mode %||% "default"
     base_url <- paste0(
       session$clientData$url_protocol, "//",
       session$clientData$url_hostname,
@@ -1153,7 +1195,7 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       player_info = values$selected_player_info,
       ai_loading = isTRUE(values$ai_analysis_loading),
       ai_result = values$ai_analysis_result,
-      analysis_mode = values$analysis_mode %||% "default",
+      analysis_mode = values$single_analysis_mode %||% "default",
       stat_line_data = values$stat_line_data
     )
   })
@@ -1168,16 +1210,26 @@ generate_player_stat_line <- function(player_id, baseball_data) {
       !is.null(values$selected_player_info)
     }
 
+    current_mode <- if (view == "compare") {
+      values$compare_analysis_mode %||% "default"
+    } else {
+      values$single_analysis_mode %||% "default"
+    }
+
     generate_step_2_ui(
       player_selected = player_selected,
-      current_mode = values$analysis_mode %||% "default"
+      current_mode = current_mode
     )
   })
 
   # Render Step 3: Analysis Results (using internal function)
   output$step_3_analysis_results <- renderUI({
     view <- input$analysis_view %||% values$analysis_view %||% "single"
-    analysis_mode <- values$analysis_mode %||% "default"
+    analysis_mode <- if (view == "compare") {
+      values$compare_analysis_mode %||% "default"
+    } else {
+      values$single_analysis_mode %||% "default"
+    }
 
     if (view == "compare") {
       compare_players <- c(input$compare_player1, input$compare_player2, input$compare_player3)
