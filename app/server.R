@@ -178,7 +178,8 @@ server <- function(input, output, session) {
       )
 
       shiny::withReactiveDomain(session, {
-        if (!identical(values$current_compare_key, compare_key_local)) {
+        current_key <- shiny::isolate(values$current_compare_key)
+        if (!identical(current_key, compare_key_local)) {
           cat("⏭️ Ignoring stale comparison analysis for:", compare_key_local, "\n")
           return()
         }
