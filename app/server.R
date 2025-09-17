@@ -1121,6 +1121,9 @@ generate_player_stat_line <- function(player_id, baseball_data) {
   # Share analysis on X (Twitter)
   observeEvent(input$share_x, {
     req(values$selected_player_info)
+    req(input$player_selection)
+
+    mode <- values$analysis_mode %||% "default"
     base_url <- paste0(
       session$clientData$url_protocol, "//",
       session$clientData$url_hostname,
