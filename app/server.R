@@ -30,6 +30,17 @@ server <- function(input, output, session) {
     NULL
   }
   initial_compare_type <- initial_query$type
+  if (is.null(initial_compare_type) && !is.null(initial_compare_players) &&
+      length(initial_compare_players) > 0) {
+    first_id <- initial_compare_players[[1]]
+    if (is.character(first_id) && grepl("_pitcher$", first_id)) {
+      initial_compare_type <- "pitcher"
+    } else if (is.character(first_id) && grepl("_hitter$", first_id)) {
+      initial_compare_type <- "hitter"
+    }
+  }
+  has_initial_player <- !is.null(initial_player) && nzchar(initial_player)
+  has_initial_compare <- !is.null(initial_compare_players) && length(initial_compare_players) > 0
   initial_single_mode <- if (!is.null(initial_vibe) && !identical(initial_view, "compare")) {
     initial_vibe
   } else {
@@ -66,7 +77,8 @@ server <- function(input, output, session) {
     compare_ai_loading = FALSE,
     initial_compare_players = initial_compare_players,
     initial_compare_type = initial_compare_type,
-    last_query_string = NULL
+    last_query_string = NULL,
+    query_updates_enabled = !(has_initial_player || has_initial_compare)
   )
   
   # Populate player selector on startup
@@ -123,12 +135,18 @@ server <- function(input, output, session) {
     choices <- setNames(ids, lookup$display_name)
 
     initial_players <- values$initial_compare_players
-    if (!is.null(initial_players) && length(initial_players) > 0) {
+    initial_type <- values$initial_compare_type
+
+    use_initial_players <- !is.null(initial_players) && length(initial_players) > 0 &&
+      (is.null(initial_type) || identical(input$compare_type, initial_type))
+
+    if (use_initial_players) {
       player_vals <- c(initial_players, rep("", 3))[1:3]
       updateSelectizeInput(session, "compare_player1", choices = choices, selected = player_vals[[1]], server = TRUE)
       updateSelectizeInput(session, "compare_player2", choices = choices, selected = player_vals[[2]], server = TRUE)
       updateSelectizeInput(session, "compare_player3", choices = choices, selected = player_vals[[3]], server = TRUE)
       values$initial_compare_players <- NULL
+      values$initial_compare_type <- NULL
     } else {
       updateSelectizeInput(session, "compare_player1", choices = choices, selected = "", server = TRUE)
       updateSelectizeInput(session, "compare_player2", choices = choices, selected = "", server = TRUE)
@@ -221,6 +239,9 @@ server <- function(input, output, session) {
       players <- players[players != ""]
       expected <- values$pending_compare_expected %||% 0
       if (length(players) >= max(1, expected)) {
+        if (!isTRUE(values$query_updates_enabled)) {
+          values$query_updates_enabled <- TRUE
+        }
         values$pending_compare_run <- FALSE
         values$pending_compare_expected <- 0
         run_compare_analysis()
@@ -956,6 +977,11 @@ generate_player_stat_line <- function(player_id, baseball_data) {
           values$last_logged_key <- analysis_key
           cat("📊 IMMEDIATE LOG: Player selected, triggering analysis with mode:", current_mode, "\n")
         }
+
+        if (!isTRUE(values$query_updates_enabled) && has_initial_player &&
+            identical(input$player_selection, initial_player)) {
+          values$query_updates_enabled <- TRUE
+        }
       }
     },
     ignoreNULL = TRUE
@@ -1157,6 +1183,10 @@ generate_player_stat_line <- function(player_id, baseball_data) {
   }
 
   observe({
+    if (!isTRUE(values$query_updates_enabled)) {
+      return()
+    }
+
     query <- build_query_string()
     if (!identical(query, values$last_query_string)) {
       new_query <- if (nzchar(query)) paste0("?", query) else ""
