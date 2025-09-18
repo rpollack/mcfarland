@@ -687,22 +687,55 @@ ui <- page_navbar(
               div(
                 class = "version-marker current",
                 span(class = "version-dot"),
-                span(class = "version-number", "v1.0")
+                span(class = "version-number", "v1.2")
               ),
               div(
                 class = "version-content",
                 div(
                   class = "version-header",
-                  h4("Complete Experience Redesign", class = "version-title"),
+                  h4("Player Comparison Mode", class = "version-title"),
                   span(class = "version-badge new", "LATEST")
                 ),
-                p(class = "version-description",
+                p(
+                  class = "version-description",
+                  "Stack up to three hitters or pitchers at once, get side-by-side stat cards, see our recommendation, and read AI breakdowns tailored to your vibe."
+                )
+              )
+            ),
+
+            # Recent Updates
+            div(
+              class = "version-item",
+              div(
+                class = "version-marker",
+                span(class = "version-dot"),
+                span(class = "version-number", "v1.1")
+              ),
+              div(
+                class = "version-content",
+                h5("Shareable Insights & Deep Links"),
+                p(
+                  "One-click Share on X builds deep links with your selected players, view, and vibe so friends load the same analysis instantly."
+                )
+              )
+            ),
+
+            div(
+              class = "version-item",
+              div(
+                class = "version-marker",
+                span(class = "version-dot"),
+                span(class = "version-number", "v1.0")
+              ),
+              div(
+                class = "version-content",
+                h5("Complete Experience Redesign"),
+                p(
                   "We rebuilt the entire app with a guided, step-by-step experience. Now you get instant player insights, smooth interactions, and a much more intuitive flow from player selection to AI analysis."
                 )
               )
             ),
-            
-            # Recent Updates
+
             div(
               class = "version-item",
               div(
