@@ -488,7 +488,6 @@ ui <- page_navbar(
               maxOptions = 5,
               onDropdownOpen = I("function(dropdown) { if (!this.lastQuery.length) { this.close(); } }")
             ),
-            server = TRUE,
             width = "100%"
           )
         ),
@@ -511,7 +510,6 @@ ui <- page_navbar(
                 "Player 1",
                 choices = NULL,
                 options = list(placeholder = "Select player"),
-                server = TRUE,
                 width = "100%"
               )
             ),
@@ -522,7 +520,6 @@ ui <- page_navbar(
                 "Player 2",
                 choices = NULL,
                 options = list(placeholder = "Select player"),
-                server = TRUE,
                 width = "100%"
               )
             ),
@@ -533,7 +530,6 @@ ui <- page_navbar(
                 "Player 3",
                 choices = NULL,
                 options = list(placeholder = "Select player"),
-                server = TRUE,
                 width = "100%"
               )
             )
