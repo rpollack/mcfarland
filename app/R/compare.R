@@ -100,6 +100,6 @@ analyze_player_comparison <- function(player_ids, baseball_data, analysis_mode) 
   if (is.null(prompt)) {
     return(htmltools::HTML("<div class='alert alert-warning'>No players to analyze.</div>"))
   }
-  call_openai_api(prompt, analysis_mode)
+  call_openai_api(prompt, analysis_mode, context = "comparison")
 }
 
