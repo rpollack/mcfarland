@@ -513,81 +513,25 @@ ui <- page_navbar(
       div(
         class = "step-header",
         div(class = "step-number", "1"),
-        h3(class = "step-title", "Choose Players")
+        h3(class = "step-title", "Select a Player")
       ),
       div(
-        class = "mb-3",
-        radioButtons(
-          "analysis_view",
+        class = "search-input-container",
+        selectizeInput(
+          inputId = "player_selection",
           label = NULL,
-          choices = c("Single Player" = "single", "Compare Players" = "compare"),
-          selected = "single",
-          inline = TRUE
-        )
-      ),
-      conditionalPanel(
-        condition = "input.analysis_view === 'single'",
-        div(
-          class = "search-input-container",
-          selectizeInput(
-            inputId = "player_selection",
-            label = NULL,
-            choices = NULL,
-            options = list(
-              placeholder = "Type a player name",
-              openOnFocus = FALSE,
-              closeAfterSelect = TRUE,
-              maxOptions = 5,
-              onDropdownOpen = I("function(dropdown) { var query = this.lastQuery || ''; if (!query.length) { this.close(); } }")
-            ),
-            width = "100%"
-          )
-        ),
-        uiOutput("player_preview")
-      ),
-      conditionalPanel(
-        condition = "input.analysis_view === 'compare'",
-        tagList(
-          radioButtons(
-            "compare_type",
-            "Player Type",
-            choices = c("Hitters" = "hitter", "Pitchers" = "pitcher"),
-            inline = TRUE
+          choices = NULL,
+          options = list(
+            placeholder = "Type a player name",
+            openOnFocus = FALSE,
+            closeAfterSelect = TRUE,
+            maxOptions = 5,
+            onDropdownOpen = I("function(dropdown) { if (!this.lastQuery.length) { this.close(); } }")
           ),
-          fluidRow(
-            column(
-              4,
-              selectizeInput(
-                "compare_player1",
-                "Player 1",
-                choices = NULL,
-                options = list(placeholder = "Select player"),
-                width = "100%"
-              )
-            ),
-            column(
-              4,
-              selectizeInput(
-                "compare_player2",
-                "Player 2",
-                choices = NULL,
-                options = list(placeholder = "Select player"),
-                width = "100%"
-              )
-            ),
-            column(
-              4,
-              selectizeInput(
-                "compare_player3",
-                "Player 3",
-                choices = NULL,
-                options = list(placeholder = "Select player"),
-                width = "100%"
-              )
-            )
-          )
+          width = "100%"
         )
-      )
+      ),
+      uiOutput("player_preview")
     ),
 
     # Step 2: Analysis Style
@@ -597,6 +541,79 @@ ui <- page_navbar(
     uiOutput("step_3_analysis_results")
   ),
 
+  nav_panel(
+    title = "Compare",
+    icon = icon("users"),
+    div(
+      class = "container mt-4",
+      div(
+        class = "step-card active",
+        div(
+          class = "step-header",
+          div(class = "step-number", "1"),
+          h3(class = "step-title", "Select Players")
+        ),
+        radioButtons(
+          "compare_type",
+          "Player Type",
+          choices = c("Hitters" = "hitter", "Pitchers" = "pitcher"),
+          inline = TRUE
+        ),
+        fluidRow(
+          column(
+            4,
+            selectizeInput(
+              "compare_player1",
+              "Player 1",
+              choices = NULL,
+              options = list(placeholder = "Select player"),
+              width = "100%"
+            )
+          ),
+          column(
+            4,
+            selectizeInput(
+              "compare_player2",
+              "Player 2",
+              choices = NULL,
+              options = list(placeholder = "Select player"),
+              width = "100%"
+            )
+          ),
+          column(
+            4,
+            selectizeInput(
+              "compare_player3",
+              "Player 3",
+              choices = NULL,
+              options = list(placeholder = "Select player"),
+              width = "100%"
+            )
+          )
+        )
+      ),
+      div(
+        class = "step-card active",
+        div(
+          class = "step-header",
+          div(class = "step-number", "2"),
+          h3(class = "step-title", "Analysis")
+        ),
+        actionButton(
+          "compare_analyze",
+          "Analyze",
+          icon = icon("robot"),
+          class = "btn-primary mb-3",
+          onclick = "document.getElementById('compare-results').scrollIntoView({behavior: 'smooth', block: 'start'});"
+        ),
+        div(
+          id = "compare-results",
+          uiOutput("compare_results"),
+          uiOutput("compare_ai")
+        )
+      )
+    )
+  ),
 
   nav_panel(
     title = "About",
