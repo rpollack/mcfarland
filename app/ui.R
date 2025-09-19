@@ -522,7 +522,7 @@ ui <- page_navbar(
               openOnFocus = FALSE,
               closeAfterSelect = TRUE,
               maxOptions = 5,
-              onDropdownOpen = I("function(dropdown) { if (!this.lastQuery.length) { this.close(); } }")
+              onDropdownOpen = I("function(dropdown) { var query = this.lastQuery || ''; if (!query.length) { this.close(); } }")
             ),
             width = "100%"
           )
