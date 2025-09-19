@@ -81,24 +81,60 @@ server <- function(input, output, session) {
     query_updates_enabled = !(has_initial_player || has_initial_compare)
   )
   
-  # Populate player selector on startup
-  observe({
+  populate_player_selector <- function() {
     lookup <- baseball_data$lookup
-    if ("compound_id" %in% colnames(lookup)) {
-      ids <- lookup$compound_id
-      names <- lookup$display_name
-    } else {
-      ids <- lookup$PlayerId
-      names <- lookup$display_name
+
+    if (is.null(lookup) || nrow(lookup) == 0) {
+      updateSelectizeInput(
+        session,
+        "player_selection",
+        choices = list(),
+        selected = "",
+        server = TRUE
+      )
+      return()
     }
+
+    ids <- if ("compound_id" %in% colnames(lookup)) {
+      lookup$compound_id
+    } else {
+      lookup$PlayerId
+    }
+
+    ids <- as.character(ids)
+
+    display_names <- if ("display_name" %in% colnames(lookup)) {
+      lookup$display_name
+    } else if ("Name" %in% colnames(lookup)) {
+      lookup$Name
+    } else {
+      ids
+    }
+
+    display_names <- as.character(display_names)
+
+    selected_initial <- if (!is.null(initial_player) && initial_player %in% ids) {
+      initial_player
+    } else {
+      ""
+    }
+
     updateSelectizeInput(
       session,
       "player_selection",
-      choices = setNames(ids, names),
-      selected = initial_player %||% "",
+      choices = setNames(ids, display_names),
+      selected = selected_initial,
       server = TRUE
     )
-  })
+
+    cat("✓ Player selector initialized with", length(ids), "choices\n")
+  }
+
+  # Defer player list population until the UI has finished rendering to avoid
+  # mobile browsers missing the initial updateSelectizeInput payload.
+  session$onFlushed(function() {
+    populate_player_selector()
+  }, once = TRUE)
 
   observeEvent(TRUE, {
     updateRadioButtons(

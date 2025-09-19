@@ -32,9 +32,34 @@ ui <- page_navbar(
       $(document).on('shiny:disconnected', function() {
         setTimeout(function(){ location.reload(); }, 3000);
       });
-    ")),    
+    ")), 
+    tags$script(HTML("
+      (function() {
+        function flagIosSafari() {
+          var ua = window.navigator.userAgent || '';
+          var isIOS = /iP(hone|ad|od)/.test(ua);
+          var isWebKit = /WebKit/.test(ua);
+          var isCriOS = /CriOS/.test(ua);
+          var isFxiOS = /FxiOS/.test(ua);
+          if (!(isIOS && isWebKit && !isCriOS && !isFxiOS)) {
+            return;
+          }
+          if (!document.body) {
+            document.addEventListener('DOMContentLoaded', flagIosSafari);
+            return;
+          }
+          document.documentElement.classList.add('ios-safari');
+          document.body.classList.add('ios-safari');
+        }
+        if (document.readyState !== 'loading') {
+          flagIosSafari();
+        } else {
+          document.addEventListener('DOMContentLoaded', flagIosSafari);
+        }
+      })();
+    ")), 
     # Add new styles for the progressive flow
-    tags$style(HTML("       
+    tags$style(HTML("
       /* Progressive Flow Specific Styles */
       .hero-section {
         text-align: center;
