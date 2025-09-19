@@ -8,10 +8,17 @@ ui <- page_navbar(
     tags$style(ui_styles), # Keep your existing styles
     tags$script(HTML("
       var heartbeatInterval;
-      function startHeartbeat() {
-        heartbeatInterval = setInterval(function() {
+      function sendHeartbeat() {
+        if (window.Shiny && typeof Shiny.setInputValue === 'function') {
           Shiny.setInputValue('heartbeat', Date.now(), {priority: 'event'});
-        }, 15000);
+        }
+      }
+      function startHeartbeat() {
+        if (heartbeatInterval) {
+          clearInterval(heartbeatInterval);
+        }
+        sendHeartbeat();
+        heartbeatInterval = setInterval(sendHeartbeat, 10000);
       }
       function stopHeartbeat() {
         if (heartbeatInterval) {
@@ -19,20 +26,29 @@ ui <- page_navbar(
           heartbeatInterval = null;
         }
       }
+      function heartbeatShouldRun() {
+        return document.visibilityState === 'visible';
+      }
       document.addEventListener('visibilitychange', function() {
-        if (document.visibilityState === 'visible') {
+        if (heartbeatShouldRun()) {
           startHeartbeat();
         } else {
           stopHeartbeat();
         }
       });
-      if (document.visibilityState === 'visible') {
-        startHeartbeat();
-      }
+      $(document).on('shiny:connected shiny:reconnected', function() {
+        if (heartbeatShouldRun()) {
+          startHeartbeat();
+        }
+      });
       $(document).on('shiny:disconnected', function() {
+        stopHeartbeat();
         setTimeout(function(){ location.reload(); }, 3000);
       });
-    ")), 
+      if (heartbeatShouldRun()) {
+        startHeartbeat();
+      }
+    ")),
     tags$script(HTML("
       (function() {
         function detectIOSSafari() {
