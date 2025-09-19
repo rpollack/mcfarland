@@ -14,21 +14,24 @@ cat("R version:", R.version.string, "\n")
 # RENDER.COM COMPATIBILITY CONFIGURATION
 if (Sys.getenv("RENDER") == "true") {
   # Running on Render - options are set by the CMD in Dockerfile
-  options(shiny.sanitize.errors = FALSE)
-  options(shiny.trace = TRUE) # Enable tracing to see errors
+  options(
+    shiny.sanitize.errors = FALSE,
+    shiny.trace = TRUE, # Enable tracing to see errors
+    shiny.websocket.ping.interval = 10000,
+    shiny.disconnected.timeout = 300000
+  )
   cat("✓ Render config applied (host/port set by CMD)\n")
+  cat("✓ Render keep-alive enabled (10s ping / 5m timeout)\n")
 } else {
   # Local development
-  options(shiny.autoreload = TRUE)
+  options(
+    shiny.autoreload = TRUE,
+    shiny.websocket.ping.interval = 10000,
+    shiny.disconnected.timeout = 300000
+  )
   cat("✓ Development mode\n")
+  cat("✓ Keep-alive enabled for local sessions (10s ping)\n")
 }
-
-# Keep-alive options temporarily disabled
-# options(
-#   shiny.disconnected.timeout = 300000, # 5 minutes in milliseconds
-#   shiny.autoreload.interval = 500, # Check every 500ms
-#   shiny.websocket.ping.interval = 25000 # 25 seconds
-# )
 
 cat("=== CHECKING ENVIRONMENT ===\n")
 cat("RENDER env var:", Sys.getenv("RENDER"), "\n")
