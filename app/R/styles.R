@@ -23,6 +23,48 @@ ui_styles <- HTML("
     height: 100vh !important;
     overflow-x: hidden !important;
     overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* iOS Safari performance fixes */
+  body.ios-safari .navbar,
+  body.ios-safari .card,
+  body.ios-safari .player-info-card,
+  body.ios-safari .search-card,
+  body.ios-safari .step-card,
+  body.ios-safari .instruction-alert,
+  body.ios-safari .alert,
+  body.ios-safari .about-hero,
+  body.ios-safari .about-footer {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  body.ios-safari .card,
+  body.ios-safari .player-info-card,
+  body.ios-safari .search-card,
+  body.ios-safari .step-card,
+  body.ios-safari .instruction-alert,
+  body.ios-safari .about-hero,
+  body.ios-safari .about-footer {
+    background: rgba(255, 255, 255, 0.95) !important;
+  }
+
+  body.ios-safari .instruction-alert {
+    color: #2E86AB !important;
+    border: 1px solid rgba(46, 134, 171, 0.2) !important;
+  }
+
+  body.ios-safari .about-hero,
+  body.ios-safari .about-footer {
+    border: 1px solid rgba(46, 134, 171, 0.18) !important;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12) !important;
+  }
+
+  body.ios-safari .about-hero .hero-text-container,
+  body.ios-safari .about-footer .connect-note {
+    background: rgba(255, 255, 255, 0.98) !important;
+    border: 1px solid rgba(46, 134, 171, 0.15) !important;
   }
 
   /* Navbar styling with responsive brand */
