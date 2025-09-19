@@ -25,6 +25,24 @@ ui_styles <- HTML("
     overflow-y: auto !important;
   }
 
+  html.ios-safari #shiny-ui {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ios-safari .navbar,
+  .ios-safari .card,
+  .ios-safari .player-info-card,
+  .ios-safari .compare-card,
+  .ios-safari .comparison-card,
+  .ios-safari .cache-status,
+  .ios-safari .alert,
+  .ios-safari .modal-content {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(255, 255, 255, 0.94) !important;
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08) !important;
+  }
+
   /* Navbar styling with responsive brand */
   .navbar {
     background: rgba(255, 255, 255, 0.95) !important;

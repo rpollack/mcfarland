@@ -32,7 +32,34 @@ ui <- page_navbar(
       $(document).on('shiny:disconnected', function() {
         setTimeout(function(){ location.reload(); }, 3000);
       });
-    ")),    
+    ")), 
+    tags$script(HTML("
+      (function() {
+        function detectIOSSafari() {
+          var ua = window.navigator.userAgent;
+          var platform = window.navigator.platform;
+          var macTouch = platform === 'MacIntel' && window.navigator.maxTouchPoints > 1;
+          var iOS = /iPad|iPhone|iPod/.test(ua) || macTouch;
+          var webkit = /WebKit/.test(ua);
+          var isCriOS = /CriOS/.test(ua);
+          if (iOS && webkit && !isCriOS) {
+            document.documentElement.classList.add('ios-safari');
+            if (document.body) {
+              document.body.classList.add('ios-safari');
+            } else {
+              document.addEventListener('DOMContentLoaded', function() {
+                document.body.classList.add('ios-safari');
+              });
+            }
+          }
+        }
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', detectIOSSafari);
+        } else {
+          detectIOSSafari();
+        }
+      })();
+    ")), 
     # Add new styles for the progressive flow
     tags$style(HTML("       
       /* Progressive Flow Specific Styles */
@@ -117,6 +144,15 @@ ui <- page_navbar(
       .step-card.inactive {
         opacity: 0.6;
         border-left-color: #dee2e6;
+      }
+
+      .ios-safari .search-card,
+      .ios-safari .step-card,
+      .ios-safari .instruction-alert {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        background: rgba(255, 255, 255, 0.92);
+        box-shadow: 0 10px 22px rgba(0, 0, 0, 0.08);
       }
 
       .step-header {
@@ -687,55 +723,22 @@ ui <- page_navbar(
               div(
                 class = "version-marker current",
                 span(class = "version-dot"),
-                span(class = "version-number", "v1.2")
+                span(class = "version-number", "v1.0")
               ),
               div(
                 class = "version-content",
                 div(
                   class = "version-header",
-                  h4("Player Comparison Mode", class = "version-title"),
+                  h4("Complete Experience Redesign", class = "version-title"),
                   span(class = "version-badge new", "LATEST")
                 ),
-                p(
-                  class = "version-description",
-                  "Stack up to three hitters or pitchers at once, get side-by-side stat cards, see our recommendation, and read AI breakdowns tailored to your vibe."
-                )
-              )
-            ),
-
-            # Recent Updates
-            div(
-              class = "version-item",
-              div(
-                class = "version-marker",
-                span(class = "version-dot"),
-                span(class = "version-number", "v1.1")
-              ),
-              div(
-                class = "version-content",
-                h5("Shareable Insights & Deep Links"),
-                p(
-                  "One-click Share on X builds deep links with your selected players, view, and vibe so friends load the same analysis instantly."
-                )
-              )
-            ),
-
-            div(
-              class = "version-item",
-              div(
-                class = "version-marker",
-                span(class = "version-dot"),
-                span(class = "version-number", "v1.0")
-              ),
-              div(
-                class = "version-content",
-                h5("Complete Experience Redesign"),
-                p(
+                p(class = "version-description",
                   "We rebuilt the entire app with a guided, step-by-step experience. Now you get instant player insights, smooth interactions, and a much more intuitive flow from player selection to AI analysis."
                 )
               )
             ),
-
+            
+            # Recent Updates
             div(
               class = "version-item",
               div(
