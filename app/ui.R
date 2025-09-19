@@ -61,7 +61,7 @@ ui <- page_navbar(
       })();
     ")), 
     # Add new styles for the progressive flow
-    tags$style(HTML("       
+    tags$style(HTML("
       /* Progressive Flow Specific Styles */
       .hero-section {
         text-align: center;
