@@ -15,11 +15,19 @@ server <- function(input, output, session) {
     cat("📤 Session ended for user:", substr(user_id, 1, 8), "...\n")
   })
   
+  safe_client_value <- function(value, default = "") {
+    if (is.null(value) || length(value) == 0 || all(is.na(value))) {
+      default
+    } else {
+      as.character(value[[1]])
+    }
+  }
+
   # Load data on startup
   baseball_data <- load_baseball_data_cached()
 
   # Parse initial shareable URL parameters for deep linking
-  initial_query <- parseQueryString(isolate(session$clientData$url_search))
+  initial_query <- parseQueryString(safe_client_value(isolate(session$clientData$url_search)))
   initial_player <- initial_query$player
   initial_vibe <- initial_query$vibe
   initial_view <- initial_query$view %||% if (!is.null(initial_query$players)) "compare" else "single"
@@ -1237,14 +1245,14 @@ generate_player_stat_line <- function(player_id, baseball_data) {
     req(input$player_selection)
 
     mode <- values$single_analysis_mode %||% "default"
-    base_url <- paste0(
-      session$clientData$url_protocol, "//",
-      session$clientData$url_hostname,
-      if (nzchar(session$clientData$url_port) && !session$clientData$url_port %in% c("80", "443"))
-        paste0(":", session$clientData$url_port)
-      else "",
-      session$clientData$url_pathname
-    )
+    protocol <- safe_client_value(session$clientData$url_protocol, "https:")
+    hostname <- safe_client_value(session$clientData$url_hostname, safe_client_value(session$request$HTTP_HOST))
+    port <- safe_client_value(session$clientData$url_port)
+    pathname <- safe_client_value(session$clientData$url_pathname, "/")
+
+    port_fragment <- if (nzchar(port) && !port %in% c("80", "443")) paste0(":", port) else ""
+
+    base_url <- paste0(protocol, "//", hostname, port_fragment, pathname)
     query <- build_query_string("single")
     share_url <- paste0(base_url, if (nzchar(query)) paste0("?", query) else "")
     insight <- values$selected_player_info$quick_insight %||% ""
