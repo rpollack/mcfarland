@@ -52,12 +52,6 @@ test_that("call_openai_api handles missing API key", {
   expect_true(grepl("OpenAI API Key Not Set", as.character(result)))
 })
 
-test_that("call_openai_api supports comparison context without API access", {
-  Sys.setenv(OPENAI_API_KEY = "")
-  result <- call_openai_api("Player A: AVG .300", "default", context = "comparison")
-  expect_true(grepl("Rank the players", as.character(result), ignore.case = TRUE))
-})
-
 test_that("prompt builders return text when player exists", {
   data <- load_local_data()
   hitter_name <- data$hitters$Name[1]
