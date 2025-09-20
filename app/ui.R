@@ -149,12 +149,31 @@ ui <- page_navbar(
         font-weight: 500;
         text-align: center;
         line-height: 1.4;
+        position: relative;
+      }
+
+      .ios-disclaimer .btn-close {
+        position: absolute;
+        top: 50%;
+        right: 1rem;
+        transform: translateY(-50%);
+        filter: invert(1);
+        opacity: 0.85;
+      }
+
+      .ios-disclaimer .btn-close:focus {
+        box-shadow: none;
       }
 
       .ios-safari .ios-disclaimer {
         background: rgba(46, 134, 171, 0.12);
         color: #1b4965;
         border-color: rgba(27, 73, 101, 0.25);
+      }
+
+      .ios-safari .ios-disclaimer .btn-close {
+        filter: none;
+        opacity: 0.6;
       }
 
       .instruction-alert {
@@ -543,8 +562,15 @@ ui <- page_navbar(
     ),
 
     div(
-      class = "ios-disclaimer",
-      "There is a known issue with iOS 26. We are working to fix it. Stay tuned!"
+      class = "alert alert-dismissible fade show ios-disclaimer",
+      role = "alert",
+      "There is a known issue with Safari on iOS 26. We are working to fix it. Stay tuned!",
+      tags$button(
+        type = "button",
+        class = "btn-close",
+        `data-bs-dismiss` = "alert",
+        `aria-label` = "Close"
+      )
     ),
 
     # Quick Instructional Alert
