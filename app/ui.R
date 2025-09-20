@@ -152,8 +152,9 @@ ui <- page_navbar(
       }
 
       .ios-disclaimer .btn-close {
-        filter: invert(1);
-        opacity: 0.85;
+        filter: none;
+        color: #000;
+        --bs-btn-close-color: #000;
       }
 
       .ios-disclaimer .btn-close:focus {
@@ -168,7 +169,8 @@ ui <- page_navbar(
 
       .ios-safari .ios-disclaimer .btn-close {
         filter: none;
-        opacity: 0.6;
+        color: #000;
+        --bs-btn-close-color: #000;
       }
 
       .instruction-alert {
