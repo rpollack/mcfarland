@@ -8,6 +8,7 @@ ui <- page_navbar(
     tags$style(ui_styles), # Keep your existing styles
     tags$script(HTML("
       var heartbeatInterval;
+      var reloadTimeout;
       function sendHeartbeat() {
         if (window.Shiny && typeof Shiny.setInputValue === 'function') {
           Shiny.setInputValue('heartbeat', Date.now(), {priority: 'event'});
@@ -26,6 +27,21 @@ ui <- page_navbar(
           heartbeatInterval = null;
         }
       }
+      function clearReloadTimeout() {
+        if (reloadTimeout) {
+          clearTimeout(reloadTimeout);
+          reloadTimeout = null;
+        }
+      }
+      function scheduleReload(delay) {
+        clearReloadTimeout();
+        var timeoutDelay = delay || 45000;
+        reloadTimeout = setTimeout(function() {
+          if (document.visibilityState === 'visible') {
+            location.reload();
+          }
+        }, timeoutDelay);
+      }
       function heartbeatShouldRun() {
         return document.visibilityState === 'visible';
       }
@@ -37,18 +53,26 @@ ui <- page_navbar(
         }
       });
       $(document).on('shiny:connected shiny:reconnected', function() {
+        clearReloadTimeout();
         if (heartbeatShouldRun()) {
           startHeartbeat();
         }
       });
       $(document).on('shiny:disconnected', function() {
         stopHeartbeat();
-        setTimeout(function(){ location.reload(); }, 3000);
+        scheduleReload(45000);
+      });
+      $(document).on('shiny:reconnecting', function() {
+        scheduleReload(45000);
+      });
+      window.addEventListener('pagehide', function() {
+        stopHeartbeat();
+        clearReloadTimeout();
       });
       if (heartbeatShouldRun()) {
         startHeartbeat();
       }
-    ")),
+    ")), 
     tags$script(HTML("
       (function() {
         function detectIOSSafari() {
