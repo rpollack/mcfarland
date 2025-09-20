@@ -139,8 +139,7 @@ ui <- page_navbar(
       }
 
       .ios-disclaimer {
-        max-width: 720px;
-        margin: 0.5rem auto 0.75rem;
+        margin: 0 1rem 1rem;
         padding: 0.85rem 3rem 0.85rem 1.5rem;
         background: rgba(255, 255, 255, 0.2);
         color: #fff;
@@ -153,10 +152,6 @@ ui <- page_navbar(
       }
 
       .ios-disclaimer .btn-close {
-        position: absolute;
-        top: 0.75rem;
-        right: 0.75rem;
-        transform: none;
         filter: invert(1);
         opacity: 0.85;
       }
