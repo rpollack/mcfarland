@@ -9,6 +9,7 @@ ui <- page_navbar(
     tags$script(HTML("
       var heartbeatInterval;
       var reloadTimeout;
+      var lastPageHidePersisted = false;
       function sendHeartbeat() {
         if (window.Shiny && typeof Shiny.setInputValue === 'function') {
           Shiny.setInputValue('heartbeat', Date.now(), {priority: 'event'});
@@ -65,9 +66,23 @@ ui <- page_navbar(
       $(document).on('shiny:reconnecting', function() {
         scheduleReload(45000);
       });
-      window.addEventListener('pagehide', function() {
-        stopHeartbeat();
+      window.addEventListener('pagehide', function(event) {
+        lastPageHidePersisted = event.persisted;
+        if (event.persisted) {
+          stopHeartbeat();
+        }
         clearReloadTimeout();
+      });
+      window.addEventListener('pageshow', function(event) {
+        clearReloadTimeout();
+        if (event.persisted || lastPageHidePersisted) {
+          lastPageHidePersisted = false;
+          if (heartbeatShouldRun()) {
+            startHeartbeat();
+          }
+        } else if (!heartbeatInterval && heartbeatShouldRun()) {
+          startHeartbeat();
+        }
       });
       if (heartbeatShouldRun()) {
         startHeartbeat();
@@ -121,6 +136,25 @@ ui <- page_navbar(
         font-size: 1.1rem;
         opacity: 0.9;
         margin-bottom: 0;
+      }
+
+      .ios-disclaimer {
+        max-width: 720px;
+        margin: 0.5rem auto 1.5rem;
+        padding: 0.85rem 1.5rem;
+        background: rgba(255, 255, 255, 0.2);
+        color: #fff;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        font-weight: 500;
+        text-align: center;
+        line-height: 1.4;
+      }
+
+      .ios-safari .ios-disclaimer {
+        background: rgba(46, 134, 171, 0.12);
+        color: #1b4965;
+        border-color: rgba(27, 73, 101, 0.25);
       }
 
       .instruction-alert {
@@ -506,6 +540,11 @@ ui <- page_navbar(
       class = "hero-section",
       h1(class = "hero-title", "⚾ McFARLAND ⚾"),
       p(class = "hero-subtitle", "Advanced baseball analysis. Plain English.")
+    ),
+
+    div(
+      class = "ios-disclaimer",
+      "There is a known issue with iOS 26. We are working to fix it. Stay tuned!"
     ),
 
     # Quick Instructional Alert
