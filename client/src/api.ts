@@ -11,10 +11,21 @@ import {
   Vibe,
 } from "./types";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ??
+  (typeof window !== "undefined" ? "" : "http://localhost:3000");
+
+function buildUrl(path: string): string {
+  if (!API_BASE_URL) {
+    return path;
+  }
+
+  const base = API_BASE_URL.endsWith("/") ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+  return `${base}${path}`;
+}
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(buildUrl(path), {
     headers: {
       "Content-Type": "application/json",
     },
