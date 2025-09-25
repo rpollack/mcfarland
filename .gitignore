@@ -31,3 +31,8 @@ app/.Renviron
 *.jpg
 *.numbers
 .DS_Store
+
+# Node/Next build artifacts
+web/node_modules
+web/.next
+web/out

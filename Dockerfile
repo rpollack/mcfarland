@@ -1,9 +1,9 @@
-# Performance-optimized Dockerfile with better caching + Database support
+# McFARLAND API Dockerfile
+# Builds an R environment for the Plumber service that powers the Next.js front end.
 
 FROM rocker/r-base:4.3.2
 
-# Install system dependencies (cached layer - rarely changes)
-# Added postgresql-dev for RPostgreSQL package
+# Install system dependencies required by various R packages
 RUN apt-get update && apt-get install -y \
     libcurl4-openssl-dev \
     libssl-dev \
@@ -12,23 +12,21 @@ RUN apt-get update && apt-get install -y \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-# Install core packages first (cached layer)
-RUN R -e "install.packages(c('shiny', 'dplyr', 'readr', 'purrr', 'stringr'), repos='https://cran.rstudio.com/')"
-
-# Install UI packages (cached layer)
+# Install R package dependencies. Split across layers to improve build caching.
+RUN R -e "install.packages(c('plumber', 'shiny', 'dplyr', 'readr', 'purrr', 'stringr'), repos='https://cran.rstudio.com/')"
 RUN R -e "install.packages(c('httr', 'jsonlite', 'bslib', 'ggplot2', 'htmltools'), repos='https://cran.rstudio.com/')"
-
-# Install utility packages (cached layer)
 RUN R -e "install.packages(c('commonmark', 'shinybusy', 'digest', 'shinyWidgets', 'later'), repos='https://cran.rstudio.com/')"
-
-# Install database packages (new layer)
 RUN R -e "install.packages(c('DBI', 'RSQLite', 'RPostgreSQL', 'uuid'), repos='https://cran.rstudio.com/')"
-
-# Install heavy packages last (most likely to change/fail)
 RUN R -e "install.packages(c('tidyverse', 'baseballr', 'stringi', 'janitor'), repos='https://cran.rstudio.com/')"
 
-WORKDIR /app
-COPY app/ /app/
+WORKDIR /srv/mcfarland
 
-EXPOSE 3838
-CMD ["R", "-e", "shiny::runApp('/app/app.R', host='0.0.0.0', port=3838)"]
+# Copy the entire repository so cached CSVs and R modules are available to the API.
+COPY . .
+
+# Default port for local development. Render will override PORT automatically.
+ENV PORT=8000
+
+EXPOSE 8000
+
+CMD ["R", "-e", "pr <- plumber::pr('services/api/plumber.R'); pr$run(host = '0.0.0.0', port = as.numeric(Sys.getenv('PORT', '8000')))"]

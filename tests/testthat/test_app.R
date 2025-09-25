@@ -102,3 +102,47 @@ test_that("comparison prompt includes players and ranking request", {
   expect_true(grepl(data$hitters$Name[2], prompt))
   expect_true(grepl("rank", prompt, ignore.case = TRUE))
 })
+
+test_that("build_statline_payload returns hitter metrics", {
+  data <- load_local_data()
+  hitter_lookup <- data$lookup %>% dplyr::filter(player_type == "hitter") %>% dplyr::slice_head(n = 1)
+  player_id <- hitter_lookup$compound_id %||% hitter_lookup$PlayerId
+
+  payload <- build_statline_payload(player_id, data)
+  expect_type(payload, "list")
+  expect_equal(payload$player$type, "hitter")
+  expect_equal(payload$player$sample$label, "PA")
+  expect_gt(length(payload$metrics), 0)
+  expect_true(all(purrr::map_lgl(payload$metrics, ~ !is.null(.x$display$current))))
+})
+
+test_that("build_statline_payload returns pitcher metrics", {
+  data <- load_local_data()
+  pitcher_lookup <- data$lookup %>% dplyr::filter(player_type == "pitcher") %>% dplyr::slice_head(n = 1)
+  player_id <- pitcher_lookup$compound_id %||% pitcher_lookup$PlayerId
+
+  payload <- build_statline_payload(player_id, data)
+  expect_equal(payload$player$type, "pitcher")
+  expect_equal(payload$player$sample$label, "TBF")
+  expect_gt(length(payload$metrics), 0)
+  expect_true(all(purrr::map_lgl(payload$metrics, ~ "display" %in% names(.x))))
+})
+
+test_that("build_players_index filters and searches", {
+  data <- load_local_data()
+  pitchers <- build_players_index(data, type = "pitcher")
+  expect_true(length(pitchers) > 0)
+  expect_true(all(purrr::map_chr(pitchers, "type") == "pitcher"))
+
+  name_fragment <- substr(pitchers[[1]]$displayName, 1, 3)
+  filtered <- build_players_index(data, search = name_fragment)
+  expect_true(any(purrr::map_chr(filtered, "displayName") %in% purrr::map_chr(pitchers, "displayName")))
+})
+
+test_that("build_recommended_player returns lookup summary", {
+  data <- load_local_data()
+  player_id <- data$lookup$PlayerId[1]
+  summary <- build_recommended_player(player_id, data)
+  expect_equal(summary$playerId, player_id)
+  expect_true(summary$name %in% data$lookup$Name)
+})

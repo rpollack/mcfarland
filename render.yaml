@@ -1,25 +1,34 @@
 services:
   - type: web
-    name: mcfarland-baseball
+    name: mcfarland-api
     env: docker
     dockerfilePath: ./Dockerfile
     plan: free
     region: oregon
-    branch: master
-    healthCheckPath: /
+    healthCheckPath: /health
+    autoDeploy: true
     envVars:
       - key: OPENAI_API_KEY
         sync: false
-      - key: RENDER
-        value: "true"
-      - key: DATABASE_URL
+      - key: MCFARLAND_DATA_URL
         sync: false
-      - key: ADMIN_PASSWORD
+      - key: MCFARLAND_CORS_ORIGIN
         sync: false
-    autoDeploy: true
-
-databases:
-  - name: mcfarlandpostgres
-    databaseName: mcfarland_analytics
+  - type: web
+    name: mcfarland-web
+    env: node
+    rootDir: web
     plan: free
     region: oregon
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      - key: NEXT_PUBLIC_API_BASE_URL
+        fromService:
+          type: web
+          name: mcfarland-api
+          property: url
+      - key: NODE_VERSION
+        value: 20
