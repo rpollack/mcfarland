@@ -1,4 +1,5 @@
 import "dotenv/config";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
@@ -20,8 +21,8 @@ export function createServer() {
 
   app.use(router);
 
-  if (process.env.NODE_ENV === "production") {
-    const clientDistPath = path.resolve(currentDir, "..", "..", "client", "dist");
+  const clientDistPath = path.resolve(currentDir, "..", "..", "client", "dist");
+  if (fs.existsSync(clientDistPath)) {
     app.use(express.static(clientDistPath));
     app.get("*", (_req, res) => {
       res.sendFile(path.join(clientDistPath, "index.html"));
