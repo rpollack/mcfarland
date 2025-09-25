@@ -1,5 +1,6 @@
-import fs from "fs";
-import path from "path";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { parse } from "csv-parse/sync";
 import { HitterRecord, PitcherRecord, PlayerLookupRecord, PlayerSummary, PlayerType } from "./types.js";
 import { safeNumber } from "./utils.js";
@@ -11,7 +12,8 @@ interface BaseballDataStore {
   summaries: PlayerSummary[];
 }
 
-const DATA_ROOT = path.resolve(__dirname, "..", "..");
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const DATA_ROOT = path.resolve(currentDir, "..", "..");
 
 function readCsv<T>(filename: string): T[] {
   const filePath = path.resolve(DATA_ROOT, filename);

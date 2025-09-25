@@ -1,9 +1,12 @@
 import "dotenv/config";
-import path from "path";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import express from "express";
 import helmet from "helmet";
 import cors from "cors";
 import router from "./routes.js";
+
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
 export function createServer() {
   const app = express();
@@ -18,7 +21,7 @@ export function createServer() {
   app.use(router);
 
   if (process.env.NODE_ENV === "production") {
-    const clientDistPath = path.resolve(__dirname, "..", "..", "client", "dist");
+    const clientDistPath = path.resolve(currentDir, "..", "..", "client", "dist");
     app.use(express.static(clientDistPath));
     app.get("*", (_req, res) => {
       res.sendFile(path.join(clientDistPath, "index.html"));
