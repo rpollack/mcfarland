@@ -1,0 +1,22 @@
+{
+  "name": "mcfarland",
+  "version": "2.0.0",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server",
+    "tests/e2e"
+  ],
+  "scripts": {
+    "build": "npm run --workspaces --if-present build",
+    "dev": "concurrently \"npm run dev --workspace server\" \"npm run dev --workspace client\"",
+    "start": "npm run build && npm run start --workspace server",
+    "test": "npm run --workspaces --if-present test",
+    "test:unit": "npm run test --workspace server && npm run test --workspace client",
+    "test:e2e": "npm run test --workspace tests/e2e",
+    "lint": "npm run --workspaces --if-present lint"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

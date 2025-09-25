@@ -1,0 +1,31 @@
+.layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.placeholder {
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 1rem;
+  border: 1px dashed rgba(148, 163, 184, 0.4);
+  padding: 2rem;
+  color: rgba(226, 232, 240, 0.75);
+}
+
+.placeholder h2 {
+  margin-top: 0;
+  color: #e0f2fe;
+}
+
+@media (max-width: 1024px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
