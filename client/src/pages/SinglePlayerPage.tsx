@@ -69,7 +69,7 @@ function SinglePlayerPage() {
             <AnalysisPanel
               quickInsight={detailQuery.data.quickInsight}
               onAnalyze={() => analysisMutation.mutate()}
-              isAnalyzing={analysisMutation.isLoading}
+              isAnalyzing={analysisMutation.isPending}
               analysis={analysisMutation.data?.analysis}
               persona={analysisMutation.data?.persona}
               disabled={!selectedId || detailQuery.isLoading}

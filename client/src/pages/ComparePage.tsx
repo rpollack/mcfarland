@@ -107,7 +107,7 @@ function ComparePage() {
             <AnalysisPanel
               quickInsight={recommendedPlayerId ? `${comparisonQuery.data.players.find((p) => p.PlayerId === recommendedPlayerId)?.Name} projects best right now.` : "No clear winner yet."}
               onAnalyze={() => analysisMutation.mutate()}
-              isAnalyzing={analysisMutation.isLoading}
+              isAnalyzing={analysisMutation.isPending}
               analysis={analysisMutation.data?.analysis}
               persona={analysisMutation.data?.persona}
               disabled={!playerA || !playerB || comparisonQuery.isLoading}
