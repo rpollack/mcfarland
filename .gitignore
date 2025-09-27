@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 node_modules
 client/dist
 server/dist
@@ -7,3 +8,39 @@ playwright-report
 .test-results
 .vscode
 .DS_Store
+=======
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+# Ignore CSV files by default
+*.csv
+
+# KEEP source files (needed for GitHub Actions)
+!fangraphs-leaderboards-2022.csv
+!fangraphs-leaderboards-2023.csv
+!fangraphs-leaderboards-2024.csv
+!pitcher-stats-2022.csv
+!pitcher-stats-2023.csv
+!pitcher-stats-2024.csv
+
+# ALLOW generated files in remote repo (GitHub Actions needs to commit these)
+!full_stats_hitters.csv
+!full_stats_pitchers.csv
+!player_lookup.csv
+
+# Keep other files
+*.Rproj
+app/.Renviron
+*.png
+!tjmcfarland.png
+!app/www/baseball.png
+!app/www/tjmcfarland.png
+*.txt
+*.html
+*.jpg
+*.numbers
+.DS_Store
+node_modules
+>>>>>>> Stashed changes

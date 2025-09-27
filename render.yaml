@@ -2,24 +2,18 @@ services:
   - type: web
     name: mcfarland-baseball
     env: docker
-    dockerfilePath: ./Dockerfile
     plan: free
     region: oregon
     branch: master
-    healthCheckPath: /
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
     envVars:
       - key: OPENAI_API_KEY
         sync: false
-      - key: RENDER
-        value: "true"
       - key: DATABASE_URL
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
-    autoDeploy: true
-
-databases:
-  - name: mcfarlandpostgres
-    databaseName: mcfarland_analytics
-    plan: free
-    region: oregon
+      - key: RENDER
+        value: "true"

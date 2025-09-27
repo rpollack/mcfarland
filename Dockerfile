@@ -1,34 +1,30 @@
-# Performance-optimized Dockerfile with better caching + Database support
+# Build & runtime image for the McFarland Node/React application
 
-FROM rocker/r-base:4.3.2
-
-# Install system dependencies (cached layer - rarely changes)
-# Added postgresql-dev for RPostgreSQL package
-RUN apt-get update && apt-get install -y \
-    libcurl4-openssl-dev \
-    libssl-dev \
-    libxml2-dev \
-    libpq-dev \
-    postgresql-client \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install core packages first (cached layer)
-RUN R -e "install.packages(c('shiny', 'dplyr', 'readr', 'purrr', 'stringr'), repos='https://cran.rstudio.com/')"
-
-# Install UI packages (cached layer)
-RUN R -e "install.packages(c('httr', 'jsonlite', 'bslib', 'ggplot2', 'htmltools'), repos='https://cran.rstudio.com/')"
-
-# Install utility packages (cached layer)
-RUN R -e "install.packages(c('commonmark', 'shinybusy', 'digest', 'shinyWidgets', 'later'), repos='https://cran.rstudio.com/')"
-
-# Install database packages (new layer)
-RUN R -e "install.packages(c('DBI', 'RSQLite', 'RPostgreSQL', 'uuid'), repos='https://cran.rstudio.com/')"
-
-# Install heavy packages last (most likely to change/fail)
-RUN R -e "install.packages(c('tidyverse', 'baseballr', 'stringi', 'janitor'), repos='https://cran.rstudio.com/')"
-
+FROM node:20-bookworm-slim AS builder
 WORKDIR /app
-COPY app/ /app/
 
-EXPOSE 3838
-CMD ["R", "-e", "shiny::runApp('/app/app.R', host='0.0.0.0', port=3838)"]
+# Install workspace dependencies (with hoisted node_modules)
+COPY package.json package-lock.json ./
+COPY client/package.json client/
+COPY server/package.json server/
+COPY tests/e2e/package.json tests/e2e/
+RUN npm ci
+
+# Copy the remainder of the repository and build
+COPY . .
+RUN npm run build
+
+# Prune devDependencies to slim the runtime layer
+RUN npm prune --omit=dev
+
+FROM node:20-bookworm-slim AS runner
+ENV NODE_ENV=production
+WORKDIR /app
+
+# Copy the built application (including pruned node_modules)
+COPY --from=builder /app ./
+
+# Ensure Render/other platforms know which port we listen on
+EXPOSE 3000
+
+CMD ["node", "server/dist/index.js"]
