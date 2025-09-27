@@ -102,7 +102,6 @@ export async function initializeAnalytics(): Promise<void> {
     initializationPromise = (async () => {
       await pool.query(`CREATE TABLE IF NOT EXISTS sessions (
           user_id TEXT PRIMARY KEY,
-          referer TEXT,
           timestamp TIMESTAMPTZ DEFAULT NOW()
         )`);
 
@@ -183,12 +182,10 @@ export async function logSessionStart(sessionId: string, referer?: string | null
   }
 
   const driver = await getDriver();
-  const truncatedReferer = truncate(referer, 512);
 
   if (driver.type !== "postgres") {
-    simulateLogging("sessions", ["user_id", "referer", "timestamp"], {
+    simulateLogging("sessions", ["user_id", "timestamp"], {
       user_id: sessionId,
-      referer: truncatedReferer,
       timestamp: new Date().toISOString(),
     });
     return;
@@ -197,8 +194,8 @@ export async function logSessionStart(sessionId: string, referer?: string | null
   try {
     await initializeAnalytics();
     await driver.pool.query(
-      `INSERT INTO sessions (user_id, referer) VALUES ($1, $2) ON CONFLICT (user_id) DO NOTHING`,
-      [sessionId, truncatedReferer]
+      `INSERT INTO sessions (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
+      [sessionId]
     );
     console.info("[analytics] session started", { sessionId });
   } catch (error) {
