@@ -15,7 +15,7 @@ function App() {
         <header className={styles.hero}>
           <div>
             <h1 className={styles.title}>McFarland</h1>
-            <p className={styles.tagline}>Modern baseball intelligence</p>
+            <p className={styles.tagline}>Advanced baseball analysis. Plain English.</p>
           </div>
         </header>
 
