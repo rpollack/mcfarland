@@ -53,13 +53,17 @@ async function createSqliteDriver(): Promise<DatabaseDriver> {
   sqlite3.verbose();
 
   const db = await new Promise<sqlite3.Database>((resolve, reject) => {
-    const instance = new sqlite3.Database(dbPath, (error: Error | null) => {
-      if (error) {
+    try {
+      const instance = new sqlite3.Database(dbPath);
+      instance.once("error", (error) => {
         reject(error);
-      } else {
+      });
+      instance.once("open", () => {
         resolve(instance);
-      }
-    });
+      });
+    } catch (error) {
+      reject(error as Error);
+    }
   });
 
   console.info(`[analytics] using SQLite database at ${dbPath}`);
