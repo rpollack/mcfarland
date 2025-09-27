@@ -4,7 +4,7 @@ import { z } from "zod";
 import { buildAboutContent, buildAnalysisPrompt, buildComparisonPrompt, generateQuickInsight, recommendBestPlayer } from "./analysis.js";
 import { callOpenAiChat } from "./openai.js";
 import { getPlayerById, getPlayerSummaries } from "./dataStore.js";
-import { logSessionStart } from "./analytics.js";
+import { logAnalysisEvent, logSessionStart, logShareEvent } from "./analytics.js";
 import { AnalysisMode, ANALYSIS_VIBES, DEFAULT_ANALYSIS_MODE } from "./vibes.js";
 
 const analyzeLimiter = rateLimit({
@@ -32,7 +32,7 @@ router.post("/api/sessions", async (req, res) => {
     return res.status(400).json({ error: "Invalid request body" });
   }
 
-  await logSessionStart(parseResult.data.sessionId);
+  await logSessionStart(parseResult.data.sessionId, req.get("referer"));
   res.status(204).end();
 });
 
@@ -98,6 +98,15 @@ router.post("/api/analyze", analyzeLimiter, async (req, res) => {
   const persona = ANALYSIS_VIBES[mode];
 
   const response = await callOpenAiChat(prompt, persona, mode);
+  const sessionId = req.get("x-session-id") ?? "";
+  await logAnalysisEvent({
+    sessionId,
+    playerName: player.Name,
+    analysisMode: mode,
+    playerType,
+    eventType: "single",
+    referer: req.get("referer"),
+  });
   res.json(response);
 });
 
@@ -148,7 +157,46 @@ router.post("/api/compare/analyze", analyzeLimiter, async (req, res) => {
   const persona = ANALYSIS_VIBES[mode];
   const response = await callOpenAiChat(prompt, persona, mode);
 
+  const sessionId = req.get("x-session-id") ?? "";
+  const playerName = players.map((entry) => entry.Name).filter(Boolean).join(" vs ");
+  await logAnalysisEvent({
+    sessionId,
+    playerName: playerName || players.map((entry) => entry.PlayerId).join(" vs "),
+    analysisMode: mode,
+    playerType,
+    eventType: "compare",
+    referer: req.get("referer"),
+  });
+
   res.json(response);
+});
+
+router.post("/api/share-events", async (req, res) => {
+  const schema = z.object({
+    sessionId: z.string().min(1).max(128),
+    playerName: z.string().min(1).max(256),
+    analysisMode: z.string().min(1).max(64),
+    eventType: z.string().min(1).max(64),
+    playerType: playerTypeSchema.optional(),
+    shareUrl: z.string().max(2048).optional(),
+  });
+
+  const parseResult = schema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res.status(400).json({ error: "Invalid request body" });
+  }
+
+  await logShareEvent({
+    sessionId: parseResult.data.sessionId,
+    playerName: parseResult.data.playerName,
+    analysisMode: parseResult.data.analysisMode,
+    eventType: parseResult.data.eventType,
+    playerType: parseResult.data.playerType,
+    shareUrl: parseResult.data.shareUrl,
+    referer: req.get("referer"),
+  });
+
+  res.status(204).end();
 });
 
 router.get("/api/vibes", (_req, res) => {

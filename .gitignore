@@ -1,6 +1,7 @@
 node_modules
 client/dist
 server/dist
+analytics*.db
 .env
 coverage
 playwright-report
@@ -36,4 +37,3 @@ app/.Renviron
 *.jpg
 *.numbers
 .DS_Store
-node_modules
