@@ -35,12 +35,12 @@ export async function callOpenAiChat(prompt: string, persona: string, mode: Anal
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "gpt-4.1",
+      model: "gpt-4.1-mini",
       messages: [
         {
           role: "system",
           content:
-            "You are a sabermetric baseball analyst translating advanced statistics into actionable scouting insights for a broad audience.",
+            "You are an expert in not only advances baseball statistics, but also in translating these stats for casual fans and making them more accessible for the lay audience.",
         },
         { role: "user", content: prompt },
       ],

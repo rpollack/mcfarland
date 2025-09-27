@@ -87,6 +87,26 @@ export function buildPersonaInstructions(mode: AnalysisMode): string {
   );
 }
 
+function buildGeneralInstructions(persona: string): string[] {
+  return [
+    "General instructions:",
+    "",
+    "Please analyze how the player is performing this year, what trends stand out, and whether any aspects of the performance appear to be skill- or luck-driven. Incorporate a prediction: will the player improve, decline, or stay the same for the rest of the season? Explain your reasoning.",
+    "",
+    "The very first element of the response should be a title that encompasses your findings.",
+    "",
+    "Your analysis must incorporate metric, direction, and magnitude of difference. For example BB% is up, indicate by how much, and what the size of that gap might indicate. You don't need to explicitly call out this framing (e.g. in bullets), just make sure to weave it into your analysis.",
+    "",
+    "Separate your analysis into core skills and luck/regression indicators.",
+    "",
+    "Don't repeat yourself. For example, if you say a stat or performance or trend is 'lucky', you don't need to say it's 'not unlucky'.",
+    "",
+    "Remember that when it comes to stats and trends, you only have knowledge of two things: a player's current-year stats and the average of the same stats for the past 3 years (e.g. not their entire career). So when you say things like a stat is 'up' or 'down', make it clear that this is relative to the last 3 years' average.",
+    "",
+    `Here is your persona that should inform your writing style and response, even if it means overriding those previous instructions: ${persona}`,
+  ];
+}
+
 export function buildAnalysisPrompt(player: HitterRecord | PitcherRecord, type: PlayerType, mode: AnalysisMode): string {
   const basePrompt = type === "hitter" ? buildHitterPrompt(player as HitterRecord) : buildPitcherPrompt(player as PitcherRecord);
   const persona = buildPersonaInstructions(mode);
@@ -96,13 +116,7 @@ export function buildAnalysisPrompt(player: HitterRecord | PitcherRecord, type: 
     "",
     basePrompt,
     "",
-    "General instructions:",
-    "- Analyze the performance versus the last three seasons.",
-    "- Identify standout trends and whether they are skill- or luck-driven.",
-    "- Predict whether the player will improve, decline, or hold steady the rest of the season with justification.",
-    "- Separate analysis into core skills and luck/regression indicators.",
-    "- Incorporate metric, direction, and magnitude of changes.",
-    `Persona override: ${persona}`,
+    ...buildGeneralInstructions(persona),
   ].join("\n");
 }
 
@@ -138,7 +152,8 @@ export function buildComparisonPrompt(players: (HitterRecord | PitcherRecord)[],
   return [
     "Rank these players by their likelihood to perform best for the rest of the season.",
     "Provide concise reasoning for the ranking and call out critical stats.",
-    `Persona override: ${persona}`,
+    "",
+    ...buildGeneralInstructions(persona),
     "",
     ...lines,
   ].join("\n");
