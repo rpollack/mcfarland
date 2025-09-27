@@ -9,16 +9,17 @@ label {
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: rgba(148, 163, 184, 0.9);
+  color: #64748b;
 }
 
 select {
-  background-color: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(148, 163, 184, 0.4);
-  color: #f8fafc;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
+  background-color: rgba(248, 250, 255, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #1f2937;
+  padding: 0.55rem 0.85rem;
+  border-radius: 0.65rem;
   font-size: 0.95rem;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
 }
 
 select:disabled {
@@ -27,7 +28,7 @@ select:disabled {
 
 .helper {
   font-size: 0.75rem;
-  color: rgba(148, 163, 184, 0.9);
+  color: #475569;
   margin: 0;
   max-width: 320px;
 }

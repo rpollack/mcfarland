@@ -1,9 +1,10 @@
 .container {
   margin-top: 1.5rem;
-  background: rgba(15, 23, 42, 0.75);
-  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 1.25rem;
   border: 1px solid rgba(148, 163, 184, 0.16);
   overflow-x: auto;
+  box-shadow: 0 18px 35px rgba(15, 23, 42, 0.07);
 }
 
 .table {
@@ -14,24 +15,25 @@
 
 th,
 td {
-  padding: 0.75rem 1rem;
+  padding: 0.85rem 1.1rem;
   text-align: left;
   border-bottom: 1px solid rgba(148, 163, 184, 0.12);
 }
 
 th {
   font-weight: 600;
-  color: rgba(226, 232, 240, 0.85);
+  color: #334155;
+  background: rgba(248, 250, 255, 0.8);
 }
 
 td {
-  color: rgba(226, 232, 240, 0.78);
+  color: #1e293b;
   font-family: "JetBrains Mono", "Fira Code", monospace;
 }
 
 .highlight {
-  color: #f8fafc;
-  background: rgba(56, 189, 248, 0.1);
+  color: #1d4ed8;
+  background: rgba(99, 102, 241, 0.08);
 }
 
 .badge {
@@ -39,8 +41,8 @@ td {
   margin-left: 0.5rem;
   padding: 0.2rem 0.45rem;
   border-radius: 999px;
-  background: rgba(56, 189, 248, 0.2);
-  color: #38bdf8;
+  background: rgba(99, 102, 241, 0.15);
+  color: #4338ca;
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
