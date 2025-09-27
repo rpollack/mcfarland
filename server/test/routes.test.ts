@@ -61,4 +61,17 @@ describe("McFarland API", () => {
     expect(response.body.vibes).toHaveLength(9);
     expect(response.body.defaultMode).toBe("straightforward");
   });
+
+  it("accepts share analytics events", async () => {
+    const response = await request(app)
+      .post("/api/share-events")
+      .send({
+        sessionId: "test-session",
+        playerName: "Test Player",
+        analysisMode: "default",
+        eventType: "share_click",
+      });
+
+    expect(response.status).toBe(204);
+  });
 });

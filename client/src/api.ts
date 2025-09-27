@@ -25,11 +25,22 @@ function buildUrl(path: string): string {
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const sessionId = getOrCreateSessionId();
+  const headers = new Headers({ "Content-Type": "application/json" });
+
+  if (sessionId) {
+    headers.set("X-Session-Id", sessionId);
+  }
+
+  if (options?.headers) {
+    new Headers(options.headers).forEach((value, key) => {
+      headers.set(key, value);
+    });
+  }
+
   const response = await fetch(buildUrl(path), {
-    headers: {
-      "Content-Type": "application/json",
-    },
     ...options,
+    headers,
   });
 
   if (!response.ok) {
@@ -126,5 +137,43 @@ export async function registerSession(): Promise<void> {
     });
   } catch (error) {
     console.warn("Failed to register analytics session", error);
+  }
+}
+
+export async function logShareAnalyticsEvent({
+  playerName,
+  analysisMode,
+  eventType,
+  playerType,
+  shareUrl,
+}: {
+  playerName: string;
+  analysisMode: string;
+  eventType: string;
+  playerType?: PlayerType;
+  shareUrl?: string;
+}): Promise<void> {
+  const sessionId = getOrCreateSessionId();
+  if (!sessionId) {
+    return;
+  }
+
+  try {
+    await fetch(buildUrl("/api/share-events"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        sessionId,
+        playerName,
+        analysisMode,
+        eventType,
+        playerType,
+        shareUrl,
+      }),
+    });
+  } catch (error) {
+    console.warn("Failed to log share analytics event", error);
   }
 }

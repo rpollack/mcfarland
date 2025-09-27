@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import SinglePlayerPage from "./pages/SinglePlayerPage";
 import ComparePage from "./pages/ComparePage";
 import AboutPage from "./pages/AboutPage";
 import { VibeProvider } from "./contexts/VibeContext";
 import styles from "./styles/App.module.css";
+import { registerSession } from "./api";
 
 type ExperienceMode = "single" | "compare";
 type View = "experience" | "about";
@@ -11,6 +12,10 @@ type View = "experience" | "about";
 function App() {
   const [mode, setMode] = useState<ExperienceMode>("single");
   const [view, setView] = useState<View>("experience");
+
+  useEffect(() => {
+    void registerSession();
+  }, []);
 
   return (
     <VibeProvider>

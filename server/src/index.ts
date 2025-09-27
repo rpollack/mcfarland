@@ -6,11 +6,14 @@ import express from "express";
 import helmet from "helmet";
 import cors from "cors";
 import router from "./routes.js";
+import { initializeAnalytics } from "./analytics.js";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
 export function createServer() {
   const app = express();
+
+  void initializeAnalytics();
 
   // Allow Express to respect proxy headers (Render/Heroku set X-Forwarded-For)
   const trustProxy = process.env.TRUST_PROXY ?? "1";
