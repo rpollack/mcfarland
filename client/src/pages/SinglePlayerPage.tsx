@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import PlayerPicker from "../components/PlayerPicker";
 import AnalysisPanel from "../components/AnalysisPanel";
@@ -8,11 +8,28 @@ import { analyzePlayer, fetchPlayerDetail, fetchPlayers } from "../api";
 import type { PlayerType } from "../types";
 import styles from "../styles/SingleExperience.module.css";
 
-function SinglePlayerExperience() {
+interface Props {
+  initialPlayerType: PlayerType;
+  initialPlayerId?: string;
+  onStateChange: (state: { playerType: PlayerType; playerId?: string }) => void;
+}
+
+function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateChange }: Props) {
   const { mode, vibes } = useVibe();
-  const [playerType, setPlayerType] = useState<PlayerType>("hitter");
+  const [playerType, setPlayerType] = useState<PlayerType>(initialPlayerType);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedId, setSelectedId] = useState<string | undefined>();
+  const [selectedId, setSelectedId] = useState<string | undefined>(initialPlayerId);
+
+  useEffect(() => {
+    setPlayerType(initialPlayerType);
+  }, [initialPlayerType]);
+
+  useEffect(() => {
+    setSelectedId(initialPlayerId);
+    if (initialPlayerId) {
+      setSearchTerm("");
+    }
+  }, [initialPlayerId]);
 
   const playersQuery = useQuery({
     queryKey: ["players", playerType, searchTerm],
@@ -39,6 +56,10 @@ function SinglePlayerExperience() {
   const hasSelectedPlayer = Boolean(selectedId);
   const hasPlayerProfile = Boolean(detailQuery.data);
   const analysisReady = Boolean(analysisQuery.data?.analysis);
+
+  useEffect(() => {
+    onStateChange({ playerType, playerId: selectedId });
+  }, [playerType, selectedId, onStateChange]);
 
   return (
     <div className={styles.container}>

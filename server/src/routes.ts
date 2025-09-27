@@ -102,19 +102,24 @@ router.post("/api/analyze", analyzeLimiter, async (req, res) => {
   const prompt = buildAnalysisPrompt(player, playerType, mode);
   const persona = ANALYSIS_VIBES[mode];
 
-  const response = await callOpenAiChat(prompt, persona, mode);
-  const sessionId = req.get("x-session-id") ?? "";
-  if (!isAdminModeRequest(req)) {
-    await logAnalysisEvent({
-      sessionId,
-      playerName: player.Name,
-      analysisMode: mode,
-      playerType,
-      eventType: "single",
-      referer: req.get("referer"),
-    });
+  try {
+    const response = await callOpenAiChat(prompt, persona, mode);
+    const sessionId = req.get("x-session-id") ?? "";
+    if (!isAdminModeRequest(req)) {
+      await logAnalysisEvent({
+        sessionId,
+        playerName: player.Name,
+        analysisMode: mode,
+        playerType,
+        eventType: "single",
+        referer: req.get("referer"),
+      });
+    }
+    res.json(response);
+  } catch (error) {
+    console.error("[api/analyze] OpenAI request failed", error);
+    res.status(502).json({ error: "Analysis service temporarily unavailable" });
   }
-  res.json(response);
 });
 
 router.post("/api/compare", (req, res) => {
@@ -162,22 +167,28 @@ router.post("/api/compare/analyze", analyzeLimiter, async (req, res) => {
   const mode = (analysisMode in ANALYSIS_VIBES ? analysisMode : DEFAULT_ANALYSIS_MODE) as AnalysisMode;
   const prompt = buildComparisonPrompt(players, playerType, mode);
   const persona = ANALYSIS_VIBES[mode];
-  const response = await callOpenAiChat(prompt, persona, mode);
 
-  const sessionId = req.get("x-session-id") ?? "";
-  const playerName = players.map((entry) => entry.Name).filter(Boolean).join(" vs ");
-  if (!isAdminModeRequest(req)) {
-    await logAnalysisEvent({
-      sessionId,
-      playerName: playerName || players.map((entry) => entry.PlayerId).join(" vs "),
-      analysisMode: mode,
-      playerType,
-      eventType: "compare",
-      referer: req.get("referer"),
-    });
+  try {
+    const response = await callOpenAiChat(prompt, persona, mode);
+
+    const sessionId = req.get("x-session-id") ?? "";
+    const playerName = players.map((entry) => entry.Name).filter(Boolean).join(" vs ");
+    if (!isAdminModeRequest(req)) {
+      await logAnalysisEvent({
+        sessionId,
+        playerName: playerName || players.map((entry) => entry.PlayerId).join(" vs "),
+        analysisMode: mode,
+        playerType,
+        eventType: "compare",
+        referer: req.get("referer"),
+      });
+    }
+
+    res.json(response);
+  } catch (error) {
+    console.error("[api/compare/analyze] OpenAI request failed", error);
+    res.status(502).json({ error: "Analysis service temporarily unavailable" });
   }
-
-  res.json(response);
 });
 
 router.post("/api/share-events", async (req, res) => {
