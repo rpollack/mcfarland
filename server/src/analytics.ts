@@ -110,9 +110,6 @@ export async function initializeAnalytics(): Promise<void> {
           user_id TEXT,
           player_name TEXT,
           analysis_mode TEXT,
-          event_type TEXT,
-          player_type TEXT,
-          referer TEXT,
           timestamp TIMESTAMPTZ DEFAULT NOW()
         )`);
 
@@ -218,35 +215,28 @@ export async function logAnalysisEvent(event: AnalysisLogEvent): Promise<void> {
   }
 
   const driver = await getDriver();
-  const values = {
+  const insertValues = {
     user_id: event.sessionId,
     player_name: truncate(event.playerName, 256),
     analysis_mode: truncate(event.analysisMode, 64),
-    event_type: event.eventType,
-    player_type: event.playerType,
-    referer: truncate(event.referer, 512),
-    timestamp: new Date().toISOString(),
   };
+  const timestamp = new Date().toISOString();
 
   if (driver.type !== "postgres") {
-    simulateLogging("analyses", Object.keys(values), values);
+    simulateLogging("analyses", ["user_id", "player_name", "analysis_mode", "timestamp"], {
+      ...insertValues,
+      timestamp,
+    });
     return;
   }
 
   try {
     await initializeAnalytics();
-    await driver.pool.query(
-      `INSERT INTO analyses (user_id, player_name, analysis_mode, event_type, player_type, referer)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [
-        values.user_id,
-        values.player_name,
-        values.analysis_mode,
-        values.event_type,
-        values.player_type,
-        values.referer,
-      ]
-    );
+    await driver.pool.query(`INSERT INTO analyses (user_id, player_name, analysis_mode) VALUES ($1, $2, $3)`, [
+      insertValues.user_id,
+      insertValues.player_name,
+      insertValues.analysis_mode,
+    ]);
     console.info("[analytics] analysis logged", {
       sessionId: event.sessionId,
       playerName: event.playerName,
