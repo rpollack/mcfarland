@@ -58,7 +58,7 @@ describe("McFarland API", () => {
   it("returns persona metadata", async () => {
     const response = await request(app).get("/api/vibes");
     expect(response.status).toBe(200);
-    expect(response.body.vibes).toHaveLength(8);
-    expect(response.body.defaultMode).toBe("analytics_dork");
+    expect(response.body.vibes).toHaveLength(9);
+    expect(response.body.defaultMode).toBe("straightforward");
   });
 });

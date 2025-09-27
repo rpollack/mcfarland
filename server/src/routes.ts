@@ -104,7 +104,7 @@ router.post("/api/analyze", analyzeLimiter, async (req, res) => {
 router.post("/api/compare", (req, res) => {
   const schema = z.object({
     playerType: playerTypeSchema,
-    playerIds: z.array(z.string()).min(2).max(4),
+    playerIds: z.array(z.string()).min(2).max(3),
   });
 
   const parseResult = schema.safeParse(req.body);
@@ -125,7 +125,7 @@ router.post("/api/compare", (req, res) => {
 router.post("/api/compare/analyze", analyzeLimiter, async (req, res) => {
   const schema = z.object({
     playerType: playerTypeSchema,
-    playerIds: z.array(z.string()).min(2).max(4),
+    playerIds: z.array(z.string()).min(2).max(3),
     analysisMode: z.string().default(DEFAULT_ANALYSIS_MODE),
   });
 
@@ -152,14 +152,18 @@ router.post("/api/compare/analyze", analyzeLimiter, async (req, res) => {
 });
 
 router.get("/api/vibes", (_req, res) => {
-  const vibes = Object.entries(ANALYSIS_VIBES).map(([id, description]) => ({
-    id,
-    label: id
+  const vibes = Object.entries(ANALYSIS_VIBES).map(([id, description]) => {
+    const readable = id
       .split("_")
       .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-      .join(" "),
-    description,
-  }));
+      .join(" ");
+
+    return {
+      id,
+      label: id === DEFAULT_ANALYSIS_MODE ? `${readable} (Default)` : readable,
+      description,
+    };
+  });
 
   res.json({ vibes, defaultMode: DEFAULT_ANALYSIS_MODE });
 });

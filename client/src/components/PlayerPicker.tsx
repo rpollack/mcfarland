@@ -8,7 +8,7 @@ interface Props {
   onSearchTermChange: (value: string) => void;
   players: PlayerSummary[];
   selectedId?: string;
-  onSelect: (playerId: string) => void;
+  onSelect: (playerId: string | undefined) => void;
   isLoading: boolean;
 }
 
@@ -58,14 +58,15 @@ function PlayerPicker({
       <select
         id="player-select"
         value={selectedId ?? ""}
-        onChange={(event) => onSelect(event.target.value)}
+        onChange={(event) => onSelect(event.target.value || undefined)}
         className={styles.select}
-        size={Math.min(8, Math.max(players.length, 3))}
+        size={Math.min(8, Math.max(players.length || 3, 3))}
       >
+        <option value="">Select a player</option>
         {isLoading ? (
-          <option>Loading players...</option>
+          <option disabled>Loading players...</option>
         ) : players.length === 0 ? (
-          <option>No players found</option>
+          <option disabled>No players found</option>
         ) : (
           players.map((player) => (
             <option key={player.id} value={player.id}>
