@@ -3,11 +3,24 @@
   color-scheme: light;
 }
 
+html,
+body {
+  height: 100%;
+}
+
 body {
   margin: 0;
-  min-height: 100vh;
+  height: 100dvh;
+  min-height: 100dvh;
   background: radial-gradient(circle at top left, #ffffff 0%, #f4f6ff 45%, #e6f6ff 100%);
   color: #15213b;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+#root {
+  height: 100%;
 }
 
 a {
