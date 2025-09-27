@@ -1,19 +1,20 @@
 .card {
-  background: rgba(15, 23, 42, 0.8);
+  background: rgba(255, 255, 255, 0.96);
   border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 1rem;
-  padding: 1.5rem;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.45);
+  border-radius: 1.25rem;
+  padding: 1.75rem;
+  box-shadow: 0 22px 40px rgba(15, 23, 42, 0.08);
 }
 
 .header h2 {
   margin: 0;
   font-size: 1.8rem;
+  color: #1f2937;
 }
 
 .header p {
   margin: 0.25rem 0 1.5rem;
-  color: rgba(226, 232, 240, 0.75);
+  color: #475569;
 }
 
 .metricsGrid {
@@ -27,18 +28,18 @@
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: rgba(148, 163, 184, 0.9);
+  color: #64748b;
 }
 
 .metricLabel {
   font-weight: 600;
-  color: rgba(226, 232, 240, 0.85);
+  color: #1f2937;
 }
 
 .metricValue {
   font-family: "JetBrains Mono", "Fira Code", monospace;
   font-size: 0.95rem;
-  color: rgba(226, 232, 240, 0.85);
+  color: #1e293b;
 }
 
 @media (max-width: 900px) {
@@ -48,7 +49,7 @@
 
   .metricHeader:nth-child(n + 3),
   .metricValue:nth-child(odd) {
-    border-top: 1px solid rgba(148, 163, 184, 0.1);
+    border-top: 1px solid rgba(148, 163, 184, 0.2);
     padding-top: 0.5rem;
     margin-top: 0.5rem;
   }
