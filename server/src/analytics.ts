@@ -165,7 +165,11 @@ export async function logSessionStart(sessionId: string, referer?: string | null
   try {
     await initializeAnalytics();
     await driver.pool.query(
-      `INSERT INTO sessions (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
+      `INSERT INTO sessions (user_id)
+       SELECT $1
+       WHERE NOT EXISTS (
+         SELECT 1 FROM sessions WHERE user_id = $1
+       )`,
       [sessionId]
     );
     console.info("[analytics] session started", { sessionId });
