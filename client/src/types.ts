@@ -4,12 +4,14 @@ export interface PlayerSummary {
   id: string;
   name: string;
   type: PlayerType;
+  mlbamid?: string | null;
 }
 
 export interface HitterRecord {
   Name: string;
   PlayerId: string;
   Age: number | null;
+  mlbamid?: string | null;
   AVG_cur: number | null;
   OBP_cur: number | null;
   SLG_cur: number | null;
@@ -46,6 +48,7 @@ export interface HitterRecord {
 
 export interface PitcherRecord {
   PlayerId: string;
+  mlbamid?: string | null;
   Name: string;
   Age: number | null;
   position?: string | null;

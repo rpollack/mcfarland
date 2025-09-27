@@ -57,8 +57,18 @@ function buildDataStore(): BaseballDataStore {
   });
 
   const summaries: PlayerSummary[] = [
-    ...hitters.map((hitter) => ({ id: String(hitter.PlayerId), name: hitter.Name, type: "hitter" as PlayerType })),
-    ...pitchers.map((pitcher) => ({ id: String(pitcher.PlayerId), name: pitcher.Name, type: "pitcher" as PlayerType })),
+    ...hitters.map((hitter) => ({
+      id: String(hitter.PlayerId),
+      name: hitter.Name,
+      type: "hitter" as PlayerType,
+      mlbamid: hitter.mlbamid ?? null,
+    })),
+    ...pitchers.map((pitcher) => ({
+      id: String(pitcher.PlayerId),
+      name: pitcher.Name,
+      type: "pitcher" as PlayerType,
+      mlbamid: pitcher.mlbamid ?? null,
+    })),
   ];
 
   return {

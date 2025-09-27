@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import PlayerPicker from "../components/PlayerPicker";
 import AnalysisPanel from "../components/AnalysisPanel";
 import VibeSelector from "../components/VibeSelector";
+import PlayerHeadshot from "../components/PlayerHeadshot";
 import { useVibe } from "../contexts/VibeContext";
 import { analyzePlayer, fetchPlayerDetail, fetchPlayers } from "../api";
 import type { PlayerType } from "../types";
@@ -92,8 +93,18 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
           ) : (
             <>
               <header className={styles.playerHeader}>
-                <h2>{detailQuery.data.player.Name}</h2>
-                <p>Latest {playerType === "hitter" ? "hitter" : "pitcher"} outlook from McFarland AI.</p>
+                <div className={styles.playerHeaderContent}>
+                  <PlayerHeadshot
+                    name={detailQuery.data.player.Name}
+                    playerId={detailQuery.data.player.PlayerId}
+                    mlbamid={detailQuery.data.player.mlbamid}
+                    size={72}
+                  />
+                  <div className={styles.playerMeta}>
+                    <h2>{detailQuery.data.player.Name}</h2>
+                    <p>Latest {playerType === "hitter" ? "hitter" : "pitcher"} outlook from McFarland AI.</p>
+                  </div>
+                </div>
               </header>
               <AnalysisPanel
                 quickInsight={detailQuery.data.quickInsight}

@@ -23,7 +23,16 @@ export function createServer() {
   const allowedOrigins = process.env.CLIENT_ORIGIN?.split(",").map((origin) => origin.trim()).filter(Boolean);
   const corsOptions = allowedOrigins && allowedOrigins.length > 0 ? { origin: allowedOrigins } : undefined;
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        useDefaults: true,
+        directives: {
+          "img-src": ["'self'", "data:", "https://img.mlbstatic.com"],
+        },
+      },
+    })
+  );
   app.use(cors(corsOptions));
   app.use(express.json({ limit: "1mb" }));
   app.use(adminModeMiddleware);
