@@ -8,7 +8,6 @@ playwright-report
 .vscode
 .DS_Store
 
-
 # Ignore CSV files by default
 *.csv
 
@@ -38,4 +37,3 @@ app/.Renviron
 *.numbers
 .DS_Store
 node_modules
->>>>>>> Stashed changes
