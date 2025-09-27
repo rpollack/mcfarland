@@ -50,10 +50,10 @@ async function createSqliteDriver(): Promise<DatabaseDriver> {
   const isRender = process.env.RENDER === "true";
   const dbName = isRender ? SQLITE_FALLBACK_DB_NAME : SQLITE_DB_NAME;
   const dbPath = path.resolve(process.cwd(), dbName);
-  const sqlite = sqlite3.verbose();
+  sqlite3.verbose();
 
   const db = await new Promise<sqlite3.Database>((resolve, reject) => {
-    const instance = new sqlite.Database(dbPath, (error) => {
+    const instance = new sqlite3.Database(dbPath, (error: Error | null) => {
       if (error) {
         reject(error);
       } else {
