@@ -12,16 +12,17 @@
 }
 
 .placeholder {
-  background: rgba(15, 23, 42, 0.6);
-  border-radius: 1rem;
-  border: 1px dashed rgba(148, 163, 184, 0.4);
-  padding: 2rem;
-  color: rgba(226, 232, 240, 0.75);
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 1.25rem;
+  border: 1px dashed rgba(148, 163, 184, 0.6);
+  padding: 2.25rem;
+  color: #475569;
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.08);
 }
 
 .placeholder h2 {
   margin-top: 0;
-  color: #e0f2fe;
+  color: #1d4ed8;
 }
 
 @media (max-width: 1024px) {

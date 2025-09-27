@@ -1,12 +1,13 @@
 .panel {
   margin-top: 2rem;
-  background: rgba(15, 23, 42, 0.85);
-  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 1.25rem;
   border: 1px solid rgba(148, 163, 184, 0.18);
-  padding: 1.5rem;
+  padding: 1.75rem;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.5rem;
+  box-shadow: 0 25px 40px rgba(15, 23, 42, 0.08);
 }
 
 .header {
@@ -19,21 +20,29 @@
 .header h3 {
   margin: 0;
   font-size: 1.2rem;
+  color: #1f2937;
 }
 
 .header p {
   margin: 0.35rem 0 0;
-  color: rgba(226, 232, 240, 0.8);
+  color: #475569;
 }
 
 .button {
-  background: linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%);
+  background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%);
   border: none;
-  border-radius: 0.75rem;
-  padding: 0.65rem 1.25rem;
-  color: #0f172a;
+  border-radius: 0.85rem;
+  padding: 0.7rem 1.5rem;
+  color: #ffffff;
   font-weight: 600;
   cursor: pointer;
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 24px rgba(37, 99, 235, 0.25);
 }
 
 .button:disabled {
@@ -42,17 +51,18 @@
 }
 
 .analysis {
-  background: rgba(15, 23, 42, 0.6);
-  border-radius: 0.75rem;
-  padding: 1rem 1.25rem;
-  line-height: 1.6;
-  color: rgba(226, 232, 240, 0.9);
+  background: rgba(248, 250, 255, 0.9);
+  border-radius: 0.85rem;
+  padding: 1.25rem 1.5rem;
+  line-height: 1.7;
+  color: #1e293b;
+  border: 1px solid rgba(148, 163, 184, 0.18);
 }
 
 .persona {
   margin-top: 0;
   font-size: 0.85rem;
-  color: rgba(148, 163, 184, 0.9);
+  color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -60,7 +70,7 @@
 .analysis h1,
 .analysis h2,
 .analysis h3 {
-  color: #38bdf8;
+  color: #2563eb;
 }
 
 .analysis ul {

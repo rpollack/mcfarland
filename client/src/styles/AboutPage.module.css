@@ -1,17 +1,18 @@
 .article {
-  background: rgba(15, 23, 42, 0.7);
-  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 1.5rem;
   border: 1px solid rgba(148, 163, 184, 0.16);
-  padding: 2rem;
-  color: rgba(226, 232, 240, 0.88);
+  padding: 2.5rem;
+  color: #1e293b;
   max-width: 900px;
   margin: 0 auto;
+  box-shadow: 0 24px 40px rgba(15, 23, 42, 0.08);
 }
 
 .article h2 {
   margin-top: 0;
   font-size: 2rem;
-  color: #e0f2fe;
+  color: #1d4ed8;
 }
 
 .section {
@@ -20,7 +21,7 @@
 
 .section h3 {
   margin-bottom: 0.75rem;
-  color: #38bdf8;
+  color: #2563eb;
 }
 
 .section ul {
@@ -29,5 +30,5 @@
 }
 
 .message {
-  color: rgba(226, 232, 240, 0.8);
+  color: #475569;
 }

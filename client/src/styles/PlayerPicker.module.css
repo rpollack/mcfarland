@@ -1,12 +1,13 @@
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  background: rgba(15, 23, 42, 0.65);
-  padding: 1.25rem;
-  border-radius: 1rem;
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  gap: 0.85rem;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 1.5rem;
+  border-radius: 1.25rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
   min-width: 280px;
+  box-shadow: 0 20px 32px rgba(15, 23, 42, 0.08);
 }
 
 .typeToggle {
@@ -17,41 +18,44 @@
 
 .typeButton,
 .activeType {
-  border-radius: 0.75rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  background: transparent;
-  color: rgba(226, 232, 240, 0.8);
+  border-radius: 0.85rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(248, 250, 255, 0.8);
+  color: #1f2937;
   cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
 }
 
 .activeType {
-  background: rgba(56, 189, 248, 0.15);
-  border-color: rgba(56, 189, 248, 0.6);
-  color: #e0f2fe;
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.2), rgba(37, 99, 235, 0.28));
+  border-color: rgba(37, 99, 235, 0.55);
+  color: #1d4ed8;
+  box-shadow: 0 12px 22px rgba(37, 99, 235, 0.12);
 }
 
 .label {
   font-size: 0.8rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: rgba(148, 163, 184, 0.9);
+  color: #64748b;
 }
 
 .search {
-  border-radius: 0.75rem;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  padding: 0.55rem 0.85rem;
-  background: rgba(15, 23, 42, 0.9);
-  color: #f9fafb;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  padding: 0.6rem 0.95rem;
+  background: rgba(248, 250, 255, 0.85);
+  color: #1f2937;
 }
 
 .select {
-  border-radius: 0.75rem;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  background: rgba(15, 23, 42, 0.9);
-  color: #f9fafb;
-  padding: 0.5rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  background: rgba(248, 250, 255, 0.85);
+  color: #1f2937;
+  padding: 0.55rem;
 }
 
 .select option {
