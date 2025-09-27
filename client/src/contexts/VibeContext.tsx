@@ -19,14 +19,13 @@ export function VibeProvider({ children }: { children: React.ReactNode }) {
     queryFn: fetchVibes,
   });
 
-  const defaultMode = data?.defaultMode ?? "analytics_dork";
+  const fallbackMode = "straightforward";
+  const defaultMode = data?.defaultMode ?? fallbackMode;
   const [mode, setMode] = useState<string>(defaultMode);
 
   useEffect(() => {
-    if (data?.defaultMode) {
-      setMode((current) => (current === "analytics_dork" ? data.defaultMode : current));
-    }
-  }, [data?.defaultMode]);
+    setMode((current) => (current === fallbackMode ? defaultMode : current));
+  }, [defaultMode]);
 
   const value = useMemo(
     () => ({

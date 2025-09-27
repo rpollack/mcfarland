@@ -2,31 +2,62 @@ import ReactMarkdown from "react-markdown";
 import styles from "../styles/AnalysisPanel.module.css";
 
 interface Props {
-  quickInsight: string;
-  onAnalyze: () => void;
-  isAnalyzing: boolean;
+  quickInsight?: string;
+  onAnalyze?: () => void;
+  actionLabel?: string;
+  isAnalyzing?: boolean;
   analysis?: string;
   persona?: string;
   disabled?: boolean;
-  modeLabel: string;
+  modeLabel?: string;
 }
 
-function AnalysisPanel({ quickInsight, onAnalyze, isAnalyzing, analysis, persona, disabled, modeLabel }: Props) {
+function AnalysisPanel({
+  quickInsight,
+  onAnalyze,
+  actionLabel,
+  isAnalyzing = false,
+  analysis,
+  persona,
+  disabled,
+  modeLabel,
+}: Props) {
+  const showAnalysisBody = Boolean(isAnalyzing || analysis);
+
   return (
     <section className={styles.panel} aria-label="AI analysis">
-      <header className={styles.header}>
-        <div>
-          <h3>Quick Insight</h3>
+      {quickInsight && (
+        <div className={styles.quickInsight}>
+          <h3>Quick insight</h3>
           <p>{quickInsight}</p>
         </div>
-        <button onClick={onAnalyze} disabled={disabled || isAnalyzing} className={styles.button}>
-          {isAnalyzing ? "Analyzing..." : `Run ${modeLabel} analysis`}
+      )}
+
+      {onAnalyze && (
+        <button
+          type="button"
+          onClick={onAnalyze}
+          disabled={disabled || isAnalyzing}
+          className={styles.button}
+        >
+          {isAnalyzing ? "Analyzing…" : actionLabel ?? `Run ${modeLabel ?? "AI"} analysis`}
         </button>
-      </header>
-      {analysis && (
-        <article className={styles.analysis}>
-          {persona && <p className={styles.persona}>Persona: {persona}</p>}
-          <ReactMarkdown>{analysis}</ReactMarkdown>
+      )}
+
+      {showAnalysisBody && (
+        <article className={styles.analysis} aria-live="polite">
+          <header className={styles.analysisHeader}>
+            <h4>
+              AI analysis
+              {modeLabel ? ` — ${modeLabel}` : ""}
+            </h4>
+            {persona && <span className={styles.persona}>Persona: {persona}</span>}
+          </header>
+          {isAnalyzing ? (
+            <p className={styles.loading}>Generating the latest scouting notes…</p>
+          ) : (
+            analysis && <ReactMarkdown>{analysis}</ReactMarkdown>
+          )}
         </article>
       )}
     </section>

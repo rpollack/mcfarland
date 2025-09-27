@@ -5,50 +5,106 @@ import { useVibe } from "../contexts/VibeContext";
 import type { PlayerSummary, PlayerType } from "../types";
 import ComparisonTable from "../components/ComparisonTable";
 import AnalysisPanel from "../components/AnalysisPanel";
-import styles from "../styles/ComparePage.module.css";
+import VibeSelector from "../components/VibeSelector";
+import styles from "../styles/CompareExperience.module.css";
 
-function ComparePage() {
+type ActiveComparison = {
+  type: PlayerType;
+  ids: string[];
+};
+
+function CompareExperience() {
   const { mode, vibes } = useVibe();
   const [playerType, setPlayerType] = useState<PlayerType>("hitter");
-  const [searchA, setSearchA] = useState("");
-  const [searchB, setSearchB] = useState("");
-  const [playerA, setPlayerA] = useState<string | undefined>(undefined);
-  const [playerB, setPlayerB] = useState<string | undefined>(undefined);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedPlayers, setSelectedPlayers] = useState<PlayerSummary[]>([]);
+  const [activeComparison, setActiveComparison] = useState<ActiveComparison | null>(null);
 
-  const playersQueryA = useQuery({
-    queryKey: ["compare-players", playerType, "A", searchA],
-    queryFn: () => fetchPlayers(playerType, searchA),
+  const playersQuery = useQuery({
+    queryKey: ["compare-players", playerType, searchTerm],
+    queryFn: () => fetchPlayers(playerType, searchTerm),
   });
 
-  const playersQueryB = useQuery({
-    queryKey: ["compare-players", playerType, "B", searchB],
-    queryFn: () => fetchPlayers(playerType, searchB),
+  const compareMutation = useMutation({
+    mutationFn: ({ type, ids }: ActiveComparison) => comparePlayers(type, ids),
   });
 
-  const comparisonQuery = useQuery({
-    queryKey: ["comparison", playerType, playerA, playerB],
-    queryFn: () => comparePlayers(playerType, [playerA!, playerB!]),
-    enabled: Boolean(playerA && playerB),
+  const {
+    mutate: runAnalysis,
+    reset: resetAnalysis,
+    data: analysisData,
+    isPending: isAnalysisPending,
+  } = useMutation({
+    mutationFn: ({ type, ids, vibe }: ActiveComparison & { vibe: string }) =>
+      analyzeComparison(type, ids, vibe),
   });
 
-  const analysisMutation = useMutation({
-    mutationFn: () => analyzeComparison(playerType, [playerA!, playerB!], mode),
-  });
+  const vibeLabel = useMemo(
+    () => vibes.find((vibe) => vibe.id === mode)?.label ?? "AI",
+    [mode, vibes]
+  );
+
+  const handleAddPlayer = (player: PlayerSummary) => {
+    if (compareMutation.data) {
+      compareMutation.reset();
+      resetAnalysis();
+      setActiveComparison(null);
+    }
+
+    setSelectedPlayers((current) => {
+      if (current.some((entry) => entry.id === player.id) || current.length >= 3) {
+        return current;
+      }
+      return [...current, player];
+    });
+    setSearchTerm("");
+  };
+
+  const handleRemovePlayer = (id: string) => {
+    if (compareMutation.data) {
+      compareMutation.reset();
+      resetAnalysis();
+      setActiveComparison(null);
+    }
+
+    setSelectedPlayers((current) => current.filter((player) => player.id !== id));
+  };
+
+  const handleCompare = async () => {
+    const ids = selectedPlayers.map((player) => player.id);
+    if (ids.length < 2) {
+      return;
+    }
+
+    const payload: ActiveComparison = { type: playerType, ids };
+    const result = await compareMutation.mutateAsync(payload);
+    setActiveComparison(payload);
+    runAnalysis({ ...payload, vibe: mode });
+    return result;
+  };
 
   useEffect(() => {
-    analysisMutation.reset();
-  }, [playerA, playerB, playerType, mode]);
+    if (!activeComparison || activeComparison.ids.length < 2) {
+      return;
+    }
 
-  const selectedVibe = useMemo(() => vibes.find((vibe) => vibe.id === mode)?.label ?? "AI", [mode, vibes]);
+    if (isAnalysisPending) {
+      return;
+    }
 
-  const players: PlayerSummary[] = playersQueryA.data ?? [];
-  const opponentPlayers: PlayerSummary[] = playersQueryB.data ?? [];
+    runAnalysis({ ...activeComparison, vibe: mode });
+  }, [mode, activeComparison, runAnalysis, isAnalysisPending]);
 
-  const recommendedPlayerId = comparisonQuery.data?.recommendedPlayerId ?? null;
+  const comparisonResult = compareMutation.data;
+  const analysisReady = Boolean(analysisData?.analysis);
+  const recommendedPlayerId = comparisonResult?.recommendedPlayerId ?? null;
+
+  const availablePlayers = playersQuery.data ?? [];
+  const canAddMore = selectedPlayers.length < 3;
 
   return (
-    <div className={styles.layout}>
-      <section className={styles.selectorPanel} aria-label="Comparison setup">
+    <div className={styles.container}>
+      <section className={styles.searchPanel} aria-label="Comparison search">
         <div className={styles.typeToggle} role="group" aria-label="Player type selector">
           {(["hitter", "pitcher"] as PlayerType[]).map((type) => (
             <button
@@ -56,10 +112,11 @@ function ComparePage() {
               type="button"
               onClick={() => {
                 setPlayerType(type);
-                setPlayerA(undefined);
-                setPlayerB(undefined);
-                setSearchA("");
-                setSearchB("");
+                setSelectedPlayers([]);
+                setActiveComparison(null);
+                setSearchTerm("");
+                compareMutation.reset();
+                resetAnalysis();
               }}
               className={type === playerType ? styles.activeType : styles.typeButton}
             >
@@ -68,105 +125,95 @@ function ComparePage() {
           ))}
         </div>
 
-        <PlayerSelect
-          id="player-a"
-          label="Player A"
-          players={players}
-          isLoading={playersQueryA.isLoading}
-          search={searchA}
-          onSearch={setSearchA}
-          selectedId={playerA}
-          onSelect={setPlayerA}
+        <label htmlFor="compare-search" className={styles.label}>
+          Search players
+        </label>
+        <input
+          id="compare-search"
+          type="search"
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+          className={styles.search}
+          placeholder={`Find ${playerType === "hitter" ? "hitters" : "pitchers"}`}
         />
 
-        <PlayerSelect
-          id="player-b"
-          label="Player B"
-          players={opponentPlayers}
-          isLoading={playersQueryB.isLoading}
-          search={searchB}
-          onSearch={setSearchB}
-          selectedId={playerB}
-          onSelect={setPlayerB}
-        />
+        <ul className={styles.searchResults} aria-live="polite">
+          {playersQuery.isLoading && <li className={styles.helper}>Loading players…</li>}
+          {!playersQuery.isLoading && searchTerm && availablePlayers.length === 0 && (
+            <li className={styles.helper}>No matches found.</li>
+          )}
+          {!playersQuery.isLoading &&
+            availablePlayers.slice(0, 6).map((player) => (
+              <li key={player.id}>
+                <button
+                  type="button"
+                  onClick={() => handleAddPlayer(player)}
+                  className={styles.resultButton}
+                  disabled={!canAddMore || selectedPlayers.some((entry) => entry.id === player.id)}
+                >
+                  {player.name}
+                </button>
+              </li>
+            ))}
+        </ul>
+
+        {selectedPlayers.length > 0 && (
+          <div className={styles.selectedChips}>
+            {selectedPlayers.map((player) => (
+              <button
+                key={player.id}
+                type="button"
+                onClick={() => handleRemovePlayer(player.id)}
+                className={styles.chip}
+              >
+                {player.name}
+                <span aria-hidden="true">×</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <button
+          type="button"
+          className={styles.compareButton}
+          onClick={handleCompare}
+          disabled={selectedPlayers.length < 2 || compareMutation.isPending}
+        >
+          {compareMutation.isPending ? "Comparing…" : "Compare"}
+        </button>
       </section>
 
-      <div className={styles.content}>
-        {!comparisonQuery.data ? (
-          <div className={styles.placeholder}>
-            <h2>Select two {playerType === "hitter" ? "hitters" : "pitchers"}</h2>
-            <p>We will highlight the stronger profile based on expected production (xwOBA for hitters, xERA for pitchers).</p>
-          </div>
-        ) : (
-          <>
-            <ComparisonTable
-              type={playerType}
-              players={comparisonQuery.data.players}
-              recommendedPlayerId={recommendedPlayerId}
-            />
-            <AnalysisPanel
-              quickInsight={recommendedPlayerId ? `${comparisonQuery.data.players.find((p) => p.PlayerId === recommendedPlayerId)?.Name} projects best right now.` : "No clear winner yet."}
-              onAnalyze={() => analysisMutation.mutate()}
-              isAnalyzing={analysisMutation.isPending}
-              analysis={analysisMutation.data?.analysis}
-              persona={analysisMutation.data?.persona}
-              disabled={!playerA || !playerB || comparisonQuery.isLoading}
-              modeLabel={selectedVibe}
-            />
-          </>
-        )}
-      </div>
+      {comparisonResult && (
+        <div className={styles.results}>
+          <ComparisonTable
+            type={activeComparison?.type ?? playerType}
+            players={comparisonResult.players}
+            recommendedPlayerId={recommendedPlayerId}
+          />
+          <AnalysisPanel
+            quickInsight={
+              recommendedPlayerId
+                ? `${
+                    comparisonResult.players.find((player) => player.PlayerId === recommendedPlayerId)?.Name ??
+                    "One player"
+                  } projects best right now.`
+                : "No clear winner yet."
+            }
+            isAnalyzing={isAnalysisPending}
+            analysis={analysisData?.analysis}
+            persona={analysisData?.persona}
+            modeLabel={vibeLabel}
+          />
+          {analysisReady && (
+            <div className={styles.vibeSection}>
+              <span className={styles.vibeLabel}>Adjust the vibe</span>
+              <VibeSelector />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-interface PlayerSelectProps {
-  id: string;
-  label: string;
-  players: PlayerSummary[];
-  isLoading: boolean;
-  search: string;
-  onSearch: (term: string) => void;
-  selectedId?: string;
-  onSelect: (playerId: string | undefined) => void;
-}
-
-function PlayerSelect({ id, label, players, isLoading, search, onSearch, selectedId, onSelect }: PlayerSelectProps) {
-  return (
-    <div className={styles.playerSelect}>
-      <label htmlFor={`${id}-search`} className={styles.label}>
-        {label} search
-      </label>
-      <input
-        id={`${id}-search`}
-        type="search"
-        value={search}
-        onChange={(event) => onSearch(event.target.value)}
-        className={styles.search}
-        placeholder={`Search for ${label.toLowerCase()}`}
-      />
-      <label htmlFor={`${id}-select`} className={styles.label}>
-        {label}
-      </label>
-      <select
-        id={`${id}-select`}
-        value={selectedId ?? ""}
-        onChange={(event) => onSelect(event.target.value || undefined)}
-        className={styles.select}
-      >
-        <option value="">Select a player</option>
-        {isLoading ? (
-          <option>Loading...</option>
-        ) : (
-          players.map((player) => (
-            <option key={player.id} value={player.id}>
-              {player.name}
-            </option>
-          ))
-        )}
-      </select>
-    </div>
-  );
-}
-
-export default ComparePage;
+export default CompareExperience;
