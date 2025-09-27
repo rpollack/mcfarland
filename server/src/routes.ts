@@ -6,6 +6,7 @@ import { callOpenAiChat } from "./openai.js";
 import { getPlayerById, getPlayerSummaries } from "./dataStore.js";
 import { logAnalysisEvent, logSessionStart, logShareEvent } from "./analytics.js";
 import { AnalysisMode, ANALYSIS_VIBES, DEFAULT_ANALYSIS_MODE } from "./vibes.js";
+import { isAdminModeRequest } from "./admin.js";
 
 const analyzeLimiter = rateLimit({
   windowMs: 60_000,
@@ -30,6 +31,10 @@ router.post("/api/sessions", async (req, res) => {
   const parseResult = schema.safeParse(req.body);
   if (!parseResult.success) {
     return res.status(400).json({ error: "Invalid request body" });
+  }
+
+  if (isAdminModeRequest(req)) {
+    return res.status(204).end();
   }
 
   await logSessionStart(parseResult.data.sessionId, req.get("referer"));
@@ -99,14 +104,16 @@ router.post("/api/analyze", analyzeLimiter, async (req, res) => {
 
   const response = await callOpenAiChat(prompt, persona, mode);
   const sessionId = req.get("x-session-id") ?? "";
-  await logAnalysisEvent({
-    sessionId,
-    playerName: player.Name,
-    analysisMode: mode,
-    playerType,
-    eventType: "single",
-    referer: req.get("referer"),
-  });
+  if (!isAdminModeRequest(req)) {
+    await logAnalysisEvent({
+      sessionId,
+      playerName: player.Name,
+      analysisMode: mode,
+      playerType,
+      eventType: "single",
+      referer: req.get("referer"),
+    });
+  }
   res.json(response);
 });
 
@@ -159,14 +166,16 @@ router.post("/api/compare/analyze", analyzeLimiter, async (req, res) => {
 
   const sessionId = req.get("x-session-id") ?? "";
   const playerName = players.map((entry) => entry.Name).filter(Boolean).join(" vs ");
-  await logAnalysisEvent({
-    sessionId,
-    playerName: playerName || players.map((entry) => entry.PlayerId).join(" vs "),
-    analysisMode: mode,
-    playerType,
-    eventType: "compare",
-    referer: req.get("referer"),
-  });
+  if (!isAdminModeRequest(req)) {
+    await logAnalysisEvent({
+      sessionId,
+      playerName: playerName || players.map((entry) => entry.PlayerId).join(" vs "),
+      analysisMode: mode,
+      playerType,
+      eventType: "compare",
+      referer: req.get("referer"),
+    });
+  }
 
   res.json(response);
 });

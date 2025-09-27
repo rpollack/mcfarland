@@ -1,39 +1,10 @@
 import { Pool } from "pg";
+import { containsAdminSecret } from "./admin.js";
 
 type DatabaseDriver = { type: "postgres"; pool: Pool } | { type: "simulated" };
 
 let driverPromise: Promise<DatabaseDriver> | null = null;
 let initializationPromise: Promise<void> | null = null;
-
-function getAdminPassword(): string | undefined {
-  const password = process.env.ADMIN_PASSWORD;
-  if (!password || password.trim().length === 0) {
-    return undefined;
-  }
-  return password;
-}
-
-function containsAdminSecret(value: string | null | undefined): boolean {
-  const adminPassword = getAdminPassword();
-  if (!adminPassword) {
-    return false;
-  }
-  if (!value) {
-    return false;
-  }
-
-  const encoded = encodeURIComponent(adminPassword);
-  if (value.includes(`admin=${adminPassword}`) || value.includes(`admin=${encoded}`)) {
-    return true;
-  }
-
-  try {
-    const decoded = decodeURIComponent(value);
-    return decoded.includes(`admin=${adminPassword}`);
-  } catch (_error) {
-    return false;
-  }
-}
 
 function shouldSkipLogging(...sources: Array<string | null | undefined>): boolean {
   return sources.some((source) => containsAdminSecret(source));
