@@ -1,8 +1,10 @@
 .layout {
   display: grid;
-  grid-template-columns: 320px 1fr;
-  gap: 2rem;
+  grid-template-columns: minmax(0, clamp(280px, 32vw, 320px)) minmax(0, 1fr);
+  gap: clamp(1.5rem, 4vw, 2.5rem);
   align-items: start;
+  width: min(100%, var(--shell-max));
+  margin: 0 auto;
 }
 
 .selectorPanel {
@@ -14,6 +16,8 @@
   border-radius: 1.25rem;
   border: 1px solid rgba(148, 163, 184, 0.18);
   box-shadow: 0 22px 36px rgba(15, 23, 42, 0.08);
+  width: min(100%, clamp(280px, 32vw, 320px));
+  margin: 0 auto;
 }
 
 .typeToggle {
@@ -66,7 +70,9 @@
 .content {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: clamp(1.25rem, 3vw, 2rem);
+  width: min(100%, var(--surface-max));
+  margin: 0 auto;
 }
 
 .placeholder {
@@ -86,5 +92,16 @@
 @media (max-width: 1024px) {
   .layout {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .layout {
+    gap: clamp(1.25rem, 5vw, 2rem);
+  }
+
+  .selectorPanel {
+    width: 100%;
+    max-width: var(--surface-max);
   }
 }
