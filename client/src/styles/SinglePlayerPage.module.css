@@ -1,14 +1,18 @@
 .layout {
   display: grid;
-  grid-template-columns: 320px 1fr;
-  gap: 2rem;
+  grid-template-columns: minmax(0, clamp(280px, 32vw, 320px)) minmax(0, 1fr);
+  gap: clamp(1.5rem, 4vw, 2.5rem);
   align-items: start;
+  width: min(100%, var(--shell-max));
+  margin: 0 auto;
 }
 
 .content {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: clamp(1.25rem, 3vw, 2rem);
+  width: min(100%, var(--surface-max));
+  margin: 0 auto;
 }
 
 .placeholder {
@@ -28,5 +32,12 @@
 @media (max-width: 1024px) {
   .layout {
     grid-template-columns: 1fr;
+    gap: clamp(1.5rem, 5vw, 2.25rem);
+  }
+}
+
+@media (max-width: 600px) {
+  .layout {
+    gap: 1.4rem;
   }
 }

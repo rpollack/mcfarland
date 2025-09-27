@@ -4,6 +4,8 @@
   border-radius: 1.25rem;
   padding: 1.75rem;
   box-shadow: 0 22px 40px rgba(15, 23, 42, 0.08);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .header h2 {
@@ -22,6 +24,7 @@
   grid-template-columns: 1.5fr repeat(3, 1fr);
   gap: 0.75rem 1rem;
   align-items: center;
+  width: 100%;
 }
 
 .metricHeader {

@@ -2,9 +2,10 @@
   background: rgba(255, 255, 255, 0.96);
   border-radius: 1.5rem;
   border: 1px solid rgba(148, 163, 184, 0.16);
-  padding: 2.5rem;
+  padding: clamp(2rem, 6vw, 2.75rem) clamp(1.5rem, 6vw, 2.5rem);
   color: #1e293b;
-  max-width: 900px;
+  width: min(100%, var(--surface-max));
+  max-width: var(--surface-max);
   margin: 0 auto;
   box-shadow: 0 24px 40px rgba(15, 23, 42, 0.08);
 }

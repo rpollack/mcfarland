@@ -8,6 +8,8 @@
   flex-direction: column;
   gap: 1.5rem;
   box-shadow: 0 25px 40px rgba(15, 23, 42, 0.08);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .header {
@@ -85,5 +87,12 @@
 
   .button {
     width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .panel {
+    padding: 1.4rem;
+    margin-top: 1.5rem;
   }
 }
