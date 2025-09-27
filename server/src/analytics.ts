@@ -55,11 +55,12 @@ async function createSqliteDriver(): Promise<DatabaseDriver> {
   const db = await new Promise<sqlite3.Database>((resolve, reject) => {
     try {
       const instance = new sqlite3.Database(dbPath);
-      instance.once("error", (error) => {
-        reject(error);
-      });
-      instance.once("open", () => {
-        resolve(instance);
+      instance.get("SELECT 1", (error) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(instance);
+        }
       });
     } catch (error) {
       reject(error as Error);
