@@ -7,6 +7,7 @@ import helmet from "helmet";
 import cors from "cors";
 import router from "./routes.js";
 import { initializeAnalytics } from "./analytics.js";
+import { adminModeMiddleware } from "./admin.js";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -25,6 +26,7 @@ export function createServer() {
   app.use(helmet());
   app.use(cors(corsOptions));
   app.use(express.json({ limit: "1mb" }));
+  app.use(adminModeMiddleware);
 
   app.use(router);
 
