@@ -50,16 +50,28 @@ async function createSqliteDriver(): Promise<DatabaseDriver> {
   const isRender = process.env.RENDER === "true";
   const dbName = isRender ? SQLITE_FALLBACK_DB_NAME : SQLITE_DB_NAME;
   const dbPath = path.resolve(process.cwd(), dbName);
-  sqlite3.verbose();
+  const sqlite = sqlite3.verbose();
 
   const db = await new Promise<sqlite3.Database>((resolve, reject) => {
-    const instance = new sqlite3.Database(dbPath, (error: Error | null) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(instance);
-      }
-    });
+    const instance = new sqlite.Database(dbPath);
+
+    const handleOpen = () => {
+      cleanup();
+      resolve(instance);
+    };
+
+    const handleError = (error: Error) => {
+      cleanup();
+      reject(error);
+    };
+
+    const cleanup = () => {
+      instance.removeListener("open", handleOpen);
+      instance.removeListener("error", handleError);
+    };
+
+    instance.once("open", handleOpen);
+    instance.once("error", handleError);
   });
 
   console.info(`[analytics] using SQLite database at ${dbPath}`);
