@@ -193,7 +193,10 @@ function CompareExperience() {
           <AnalysisPanel
             quickInsight={
               recommendedPlayerId
-                ? `${comparisonResult.players.find((player) => player.PlayerId === recommendedPlayerId)?.Name ?? "One player"} projects best right now.`
+                ? `${
+                    comparisonResult.players.find((player) => player.PlayerId === recommendedPlayerId)?.Name ??
+                    "One player"
+                  } projects best right now.`
                 : "No clear winner yet."
             }
             isAnalyzing={isAnalysisPending}
