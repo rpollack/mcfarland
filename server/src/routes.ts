@@ -101,7 +101,7 @@ router.post("/api/analyze", analyzeLimiter, async (req, res) => {
   const sessionId = req.get("x-session-id") ?? "";
   await logAnalysisEvent({
     sessionId,
-    playerLabel: player.Name,
+    playerName: player.Name,
     analysisMode: mode,
     playerType,
     eventType: "single",
@@ -158,10 +158,10 @@ router.post("/api/compare/analyze", analyzeLimiter, async (req, res) => {
   const response = await callOpenAiChat(prompt, persona, mode);
 
   const sessionId = req.get("x-session-id") ?? "";
-  const playerLabel = players.map((entry) => entry.Name).filter(Boolean).join(" vs ");
+  const playerName = players.map((entry) => entry.Name).filter(Boolean).join(" vs ");
   await logAnalysisEvent({
     sessionId,
-    playerLabel: playerLabel || players.map((entry) => entry.PlayerId).join(" vs "),
+    playerName: playerName || players.map((entry) => entry.PlayerId).join(" vs "),
     analysisMode: mode,
     playerType,
     eventType: "compare",
@@ -188,7 +188,7 @@ router.post("/api/share-events", async (req, res) => {
 
   await logShareEvent({
     sessionId: parseResult.data.sessionId,
-    playerLabel: parseResult.data.playerName,
+    playerName: parseResult.data.playerName,
     analysisMode: parseResult.data.analysisMode,
     eventType: parseResult.data.eventType,
     playerType: parseResult.data.playerType,
