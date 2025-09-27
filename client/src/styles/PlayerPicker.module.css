@@ -6,7 +6,8 @@
   padding: 1.5rem;
   border-radius: 1.25rem;
   border: 1px solid rgba(148, 163, 184, 0.18);
-  min-width: 280px;
+  width: min(100%, 320px);
+  min-width: 0;
   box-shadow: 0 20px 32px rgba(15, 23, 42, 0.08);
 }
 
@@ -60,4 +61,15 @@
 
 .select option {
   padding: 0.35rem 0.5rem;
+}
+
+@media (max-width: 480px) {
+  .panel {
+    padding: 1.25rem;
+  }
+
+  .search,
+  .select {
+    font-size: 1rem;
+  }
 }

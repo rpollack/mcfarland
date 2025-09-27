@@ -1,8 +1,9 @@
 .layout {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
   gap: 2rem;
   align-items: start;
+  width: 100%;
 }
 
 .content {
@@ -28,5 +29,12 @@
 @media (max-width: 1024px) {
   .layout {
     grid-template-columns: 1fr;
+    gap: 1.75rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .layout {
+    gap: 1.5rem;
   }
 }

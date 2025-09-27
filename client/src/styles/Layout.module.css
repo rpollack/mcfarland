@@ -1,17 +1,19 @@
 .appContainer {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   grid-template-rows: auto auto 1fr auto;
   background: transparent;
   color: #15213b;
+  width: min(100%, 100vw);
+  margin: 0 auto;
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.5rem 2rem 1rem;
-  margin: 1.5rem 2rem 1rem;
+  padding: clamp(1rem, 4vw, 1.5rem) clamp(1.1rem, 4.8vw, 2rem) clamp(0.9rem, 3vw, 1.1rem);
+  margin: clamp(1rem, 4vw, 1.5rem) clamp(1rem, 5vw, 2rem) clamp(0.75rem, 3vw, 1rem);
   background: rgba(255, 255, 255, 0.92);
   border-radius: 1.25rem;
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
@@ -30,7 +32,7 @@
 }
 
 .navWrapper {
-  padding: 0 2rem 1.5rem;
+  padding: 0 clamp(1rem, 5vw, 2rem) clamp(1rem, 4vw, 1.5rem);
   display: flex;
   justify-content: center;
   width: 100%;
@@ -43,7 +45,7 @@
   justify-content: center;
   width: 100%;
   max-width: 640px;
-  padding: 0.5rem;
+  padding: clamp(0.4rem, 1.2vw, 0.6rem);
   margin: 0 auto;
   background: rgba(255, 255, 255, 0.95);
   border-radius: 999px;
@@ -83,7 +85,7 @@
 }
 
 .main {
-  padding: 2rem;
+  padding: clamp(1.25rem, 5vw, 2rem);
   display: flex;
   flex-direction: column;
   gap: 2rem;
@@ -93,7 +95,7 @@
 }
 
 .footer {
-  padding: 1.5rem 2rem 2.5rem;
+  padding: clamp(1.1rem, 4vw, 1.5rem) clamp(1rem, 5vw, 2rem) clamp(1.75rem, 6vw, 2.5rem);
   font-size: 0.9rem;
   color: #475569;
   text-align: center;
@@ -104,11 +106,10 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 1rem;
-    margin: 1.5rem 1.25rem 1rem;
   }
 
   .navWrapper {
-    padding: 0 1.25rem 1rem;
+    padding: 0 clamp(0.85rem, 5vw, 1.25rem) clamp(0.85rem, 4vw, 1.1rem);
   }
 
   .nav {
@@ -121,5 +122,15 @@
   .link {
     flex: 1 1 calc(50% - 0.5rem);
     padding: 0.6rem 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .main {
+    gap: 1.5rem;
+  }
+
+  .link {
+    flex: 1 1 100%;
   }
 }
