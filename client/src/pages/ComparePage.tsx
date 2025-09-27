@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { analyzeComparison, comparePlayers, fetchPlayers } from "../api";
 import { useVibe } from "../contexts/VibeContext";
 import type { PlayerSummary, PlayerType } from "../types";
-import ComparisonTable from "../components/ComparisonTable";
 import AnalysisPanel from "../components/AnalysisPanel";
 import VibeSelector from "../components/VibeSelector";
 import styles from "../styles/CompareExperience.module.css";
@@ -19,6 +18,7 @@ function CompareExperience() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPlayers, setSelectedPlayers] = useState<PlayerSummary[]>([]);
   const [activeComparison, setActiveComparison] = useState<ActiveComparison | null>(null);
+  const lastAnalysisKeyRef = useRef<string | null>(null);
 
   const playersQuery = useQuery({
     queryKey: ["compare-players", playerType, searchTerm],
@@ -44,11 +44,28 @@ function CompareExperience() {
     [mode, vibes]
   );
 
+  const makeAnalysisKey = (payload: ActiveComparison & { vibe: string }) =>
+    `${payload.type}|${payload.ids.join(",")}|${payload.vibe}`;
+
+  const triggerAnalysis = useCallback((payload: ActiveComparison & { vibe: string }) => {
+    const key = makeAnalysisKey(payload);
+    if (lastAnalysisKeyRef.current === key) {
+      return;
+    }
+    lastAnalysisKeyRef.current = key;
+    runAnalysis(payload);
+  }, [runAnalysis]);
+
+  const clearAnalysisState = () => {
+    lastAnalysisKeyRef.current = null;
+    compareMutation.reset();
+    resetAnalysis();
+    setActiveComparison(null);
+  };
+
   const handleAddPlayer = (player: PlayerSummary) => {
     if (compareMutation.data) {
-      compareMutation.reset();
-      resetAnalysis();
-      setActiveComparison(null);
+      clearAnalysisState();
     }
 
     setSelectedPlayers((current) => {
@@ -58,16 +75,16 @@ function CompareExperience() {
       return [...current, player];
     });
     setSearchTerm("");
+    lastAnalysisKeyRef.current = null;
   };
 
   const handleRemovePlayer = (id: string) => {
     if (compareMutation.data) {
-      compareMutation.reset();
-      resetAnalysis();
-      setActiveComparison(null);
+      clearAnalysisState();
     }
 
     setSelectedPlayers((current) => current.filter((player) => player.id !== id));
+    lastAnalysisKeyRef.current = null;
   };
 
   const handleCompare = async () => {
@@ -79,7 +96,8 @@ function CompareExperience() {
     const payload: ActiveComparison = { type: playerType, ids };
     const result = await compareMutation.mutateAsync(payload);
     setActiveComparison(payload);
-    runAnalysis({ ...payload, vibe: mode });
+    lastAnalysisKeyRef.current = null;
+    triggerAnalysis({ ...payload, vibe: mode });
     return result;
   };
 
@@ -92,15 +110,25 @@ function CompareExperience() {
       return;
     }
 
-    runAnalysis({ ...activeComparison, vibe: mode });
-  }, [mode, activeComparison, runAnalysis, isAnalysisPending]);
+    triggerAnalysis({ ...activeComparison, vibe: mode });
+  }, [mode, activeComparison, isAnalysisPending, triggerAnalysis]);
 
   const comparisonResult = compareMutation.data;
   const analysisReady = Boolean(analysisData?.analysis);
   const recommendedPlayerId = comparisonResult?.recommendedPlayerId ?? null;
 
   const availablePlayers = playersQuery.data ?? [];
+  const trimmedSearch = searchTerm.trim();
   const canAddMore = selectedPlayers.length < 3;
+  const hasSelection = selectedPlayers.length > 0;
+  const helperMessage = !trimmedSearch
+    ? hasSelection
+      ? "Search again to add or swap players."
+      : "Start typing to add players."
+    : null;
+  const recommendedPlayerName = recommendedPlayerId
+    ? comparisonResult?.players.find((player) => player.PlayerId === recommendedPlayerId)?.Name ?? null
+    : null;
 
   return (
     <div className={styles.container}>
@@ -113,10 +141,8 @@ function CompareExperience() {
               onClick={() => {
                 setPlayerType(type);
                 setSelectedPlayers([]);
-                setActiveComparison(null);
+                clearAnalysisState();
                 setSearchTerm("");
-                compareMutation.reset();
-                resetAnalysis();
               }}
               className={type === playerType ? styles.activeType : styles.typeButton}
             >
@@ -138,12 +164,14 @@ function CompareExperience() {
         />
 
         <ul className={styles.searchResults} aria-live="polite">
-          {playersQuery.isLoading && <li className={styles.helper}>Loading players…</li>}
-          {!playersQuery.isLoading && searchTerm && availablePlayers.length === 0 && (
+          {helperMessage && <li className={styles.helper}>{helperMessage}</li>}
+          {playersQuery.isLoading && trimmedSearch && <li className={styles.helper}>Loading players…</li>}
+          {!playersQuery.isLoading && trimmedSearch && availablePlayers.length === 0 && (
             <li className={styles.helper}>No matches found.</li>
           )}
           {!playersQuery.isLoading &&
-            availablePlayers.slice(0, 6).map((player) => (
+            trimmedSearch &&
+            availablePlayers.slice(0, 8).map((player) => (
               <li key={player.id}>
                 <button
                   type="button"
@@ -155,9 +183,12 @@ function CompareExperience() {
                 </button>
               </li>
             ))}
+          {!canAddMore && selectedPlayers.length === 3 && (
+            <li className={styles.helper}>You can compare up to three players.</li>
+          )}
         </ul>
 
-        {selectedPlayers.length > 0 && (
+        {hasSelection && (
           <div className={styles.selectedChips}>
             {selectedPlayers.map((player) => (
               <button
@@ -185,18 +216,32 @@ function CompareExperience() {
 
       {comparisonResult && (
         <div className={styles.results}>
-          <ComparisonTable
-            type={activeComparison?.type ?? playerType}
-            players={comparisonResult.players}
-            recommendedPlayerId={recommendedPlayerId}
-          />
+          <section className={styles.summaryCard} aria-label="Selected players">
+            <header>
+              <h2>Comparison lineup</h2>
+              <p>Head-to-head outlook for your {playerType === "hitter" ? "hitters" : "pitchers"}.</p>
+            </header>
+            <ul className={styles.playerList}>
+              {comparisonResult.players.map((player) => {
+                const isRecommended = player.PlayerId === recommendedPlayerId;
+                return (
+                  <li key={player.PlayerId} className={isRecommended ? styles.recommended : undefined}>
+                    <span className={styles.playerName}>{player.Name}</span>
+                    {isRecommended && <span className={styles.badge}>Recommended</span>}
+                  </li>
+                );
+              })}
+            </ul>
+            <p className={styles.recommendationCopy}>
+              {recommendedPlayerName
+                ? `${recommendedPlayerName} is McFarland's current pick.`
+                : "No clear standout yet—check the AI notes below."}
+            </p>
+          </section>
           <AnalysisPanel
             quickInsight={
-              recommendedPlayerId
-                ? `${
-                    comparisonResult.players.find((player) => player.PlayerId === recommendedPlayerId)?.Name ??
-                    "One player"
-                  } projects best right now.`
+              recommendedPlayerName
+                ? `${recommendedPlayerName} projects best right now.`
                 : "No clear winner yet."
             }
             isAnalyzing={isAnalysisPending}
