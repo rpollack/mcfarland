@@ -4,6 +4,7 @@ import { z } from "zod";
 import { buildAboutContent, buildAnalysisPrompt, buildComparisonPrompt, generateQuickInsight, recommendBestPlayer } from "./analysis.js";
 import { callOpenAiChat } from "./openai.js";
 import { getPlayerById, getPlayerSummaries } from "./dataStore.js";
+import { logSessionStart } from "./analytics.js";
 import { AnalysisMode, ANALYSIS_VIBES, DEFAULT_ANALYSIS_MODE } from "./vibes.js";
 
 const analyzeLimiter = rateLimit({
@@ -19,6 +20,20 @@ const playerTypeSchema = z.enum(["hitter", "pitcher"]);
 
 router.get("/health", (_req, res) => {
   res.json({ status: "ok" });
+});
+
+router.post("/api/sessions", async (req, res) => {
+  const schema = z.object({
+    sessionId: z.string().min(1).max(128),
+  });
+
+  const parseResult = schema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res.status(400).json({ error: "Invalid request body" });
+  }
+
+  await logSessionStart(parseResult.data.sessionId);
+  res.status(204).end();
 });
 
 router.get("/api/players", (req, res) => {

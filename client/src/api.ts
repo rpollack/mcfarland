@@ -85,3 +85,46 @@ export async function fetchAbout(): Promise<AboutContent> {
 }
 
 export type { HitterRecord, PitcherRecord };
+
+const SESSION_STORAGE_KEY = "mcfarland-session-id";
+
+function getOrCreateSessionId(): string | null {
+  if (typeof window === "undefined" || !window.localStorage) {
+    return null;
+  }
+
+  try {
+    let sessionId = window.localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!sessionId) {
+      if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+        sessionId = crypto.randomUUID();
+      } else {
+        sessionId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      }
+      window.localStorage.setItem(SESSION_STORAGE_KEY, sessionId);
+    }
+    return sessionId;
+  } catch (error) {
+    console.warn("Unable to access localStorage for session tracking", error);
+    return null;
+  }
+}
+
+export async function registerSession(): Promise<void> {
+  const sessionId = getOrCreateSessionId();
+  if (!sessionId) {
+    return;
+  }
+
+  try {
+    await fetch(buildUrl("/api/sessions"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ sessionId }),
+    });
+  } catch (error) {
+    console.warn("Failed to register analytics session", error);
+  }
+}
