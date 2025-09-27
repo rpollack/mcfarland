@@ -1,13 +1,6 @@
-import path from "node:path";
-import sqlite3 from "sqlite3";
 import { Pool } from "pg";
 
-const SQLITE_DB_NAME = "analytics.db";
-const SQLITE_FALLBACK_DB_NAME = "analytics_fallback.db";
-
-type DatabaseDriver =
-  | { type: "postgres"; pool: Pool }
-  | { type: "sqlite"; db: sqlite3.Database };
+type DatabaseDriver = { type: "postgres"; pool: Pool } | { type: "simulated" };
 
 let driverPromise: Promise<DatabaseDriver> | null = null;
 let initializationPromise: Promise<void> | null = null;
@@ -46,31 +39,6 @@ function shouldSkipLogging(...sources: Array<string | null | undefined>): boolea
   return sources.some((source) => containsAdminSecret(source));
 }
 
-async function createSqliteDriver(): Promise<DatabaseDriver> {
-  const isRender = process.env.RENDER === "true";
-  const dbName = isRender ? SQLITE_FALLBACK_DB_NAME : SQLITE_DB_NAME;
-  const dbPath = path.resolve(process.cwd(), dbName);
-  sqlite3.verbose();
-
-  const db = await new Promise<sqlite3.Database>((resolve, reject) => {
-    try {
-      const instance = new sqlite3.Database(dbPath);
-      instance.get("SELECT 1", (error) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve(instance);
-        }
-      });
-    } catch (error) {
-      reject(error as Error);
-    }
-  });
-
-  console.info(`[analytics] using SQLite database at ${dbPath}`);
-  return { type: "sqlite", db };
-}
-
 async function createPostgresDriver(databaseUrl: string): Promise<DatabaseDriver> {
   const pool = new Pool({
     connectionString: databaseUrl,
@@ -99,39 +67,18 @@ async function getDriver(): Promise<DatabaseDriver> {
             console.error("[analytics] unable to connect to PostgreSQL in production", error);
             throw error;
           }
-          console.warn("[analytics] failed to connect to PostgreSQL, falling back to SQLite", error);
+          console.warn("[analytics] failed to connect to PostgreSQL, using simulated logging", error);
         }
       } else if (isProduction) {
         throw new Error("DATABASE_URL must be configured in production");
       }
 
-      return createSqliteDriver();
+      console.info("[analytics] using simulated logging (no DATABASE_URL configured)");
+      return { type: "simulated" };
     })();
   }
 
   return driverPromise;
-}
-
-function runSqlite(db: sqlite3.Database, sql: string, params: unknown[] = []): Promise<void> {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function (error) {
-      if (error) {
-        reject(error);
-      } else {
-        resolve();
-      }
-    });
-  });
-}
-
-async function runStatement(sqliteSql: string, postgresSql: string, params: unknown[] = []): Promise<void> {
-  const driver = await getDriver();
-
-  if (driver.type === "postgres") {
-    await driver.pool.query(postgresSql, params);
-  } else {
-    await runSqlite(driver.db, sqliteSql, params);
-  }
 }
 
 function truncate(value: string | null | undefined, maxLength: number): string | null {
@@ -145,32 +92,21 @@ function truncate(value: string | null | undefined, maxLength: number): string |
 }
 
 export async function initializeAnalytics(): Promise<void> {
+  const driver = await getDriver();
+  if (driver.type !== "postgres") {
+    return;
+  }
+
   if (!initializationPromise) {
+    const pool = driver.pool;
     initializationPromise = (async () => {
-      await runStatement(
-        `CREATE TABLE IF NOT EXISTS sessions (
-          user_id TEXT PRIMARY KEY,
-          referer TEXT,
-          timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS sessions (
+      await pool.query(`CREATE TABLE IF NOT EXISTS sessions (
           user_id TEXT PRIMARY KEY,
           referer TEXT,
           timestamp TIMESTAMPTZ DEFAULT NOW()
-        )`
-      );
+        )`);
 
-      await runStatement(
-        `CREATE TABLE IF NOT EXISTS analyses (
-          user_id TEXT,
-          player_name TEXT,
-          analysis_mode TEXT,
-          event_type TEXT,
-          player_type TEXT,
-          referer TEXT,
-          timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS analyses (
+      await pool.query(`CREATE TABLE IF NOT EXISTS analyses (
           user_id TEXT,
           player_name TEXT,
           analysis_mode TEXT,
@@ -178,21 +114,9 @@ export async function initializeAnalytics(): Promise<void> {
           player_type TEXT,
           referer TEXT,
           timestamp TIMESTAMPTZ DEFAULT NOW()
-        )`
-      );
+        )`);
 
-      await runStatement(
-        `CREATE TABLE IF NOT EXISTS share_events (
-          user_id TEXT,
-          player_name TEXT,
-          analysis_mode TEXT,
-          event_type TEXT,
-          player_type TEXT,
-          share_url TEXT,
-          referer TEXT,
-          timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )`,
-        `CREATE TABLE IF NOT EXISTS share_events (
+      await pool.query(`CREATE TABLE IF NOT EXISTS share_events (
           user_id TEXT,
           player_name TEXT,
           analysis_mode TEXT,
@@ -201,33 +125,37 @@ export async function initializeAnalytics(): Promise<void> {
           share_url TEXT,
           referer TEXT,
           timestamp TIMESTAMPTZ DEFAULT NOW()
-        )`
-      );
+        )`);
 
-      await runStatement(
-        `CREATE INDEX IF NOT EXISTS idx_sessions_timestamp ON sessions(date(timestamp))`,
+      await pool.query(
         `CREATE INDEX IF NOT EXISTS idx_sessions_timestamp ON sessions((timestamp::date))`
       );
-
-      await runStatement(
-        `CREATE INDEX IF NOT EXISTS idx_analyses_timestamp ON analyses(date(timestamp))`,
+      await pool.query(
         `CREATE INDEX IF NOT EXISTS idx_analyses_timestamp ON analyses((timestamp::date))`
       );
-
-      await runStatement(
-        `CREATE INDEX IF NOT EXISTS idx_share_events_timestamp ON share_events(date(timestamp))`,
+      await pool.query(
         `CREATE INDEX IF NOT EXISTS idx_share_events_timestamp ON share_events((timestamp::date))`
       );
-    })().catch((error) => {
-      console.warn("[analytics] failed to initialize analytics storage", error);
-    });
+    })();
   }
 
   try {
     await initializationPromise;
-  } catch (_error) {
-    // Initialization failure already logged; continue without blocking requests.
+  } catch (error) {
+    console.warn("[analytics] failed to initialize analytics storage", error);
   }
+}
+
+function simulateLogging(
+  table: "sessions" | "analyses" | "share_events",
+  columns: string[],
+  values: Record<string, unknown>
+): void {
+  console.info(
+    `Simulated logging: database=PostgreSQL table=${table} columns=[${columns.join(", ")}] values=${JSON.stringify(
+      values
+    )}`
+  );
 }
 
 type AnalysisLogEvent = {
@@ -257,12 +185,23 @@ export async function logSessionStart(sessionId: string, referer?: string | null
     return;
   }
 
+  const driver = await getDriver();
+  const truncatedReferer = truncate(referer, 512);
+
+  if (driver.type !== "postgres") {
+    simulateLogging("sessions", ["user_id", "referer", "timestamp"], {
+      user_id: sessionId,
+      referer: truncatedReferer,
+      timestamp: new Date().toISOString(),
+    });
+    return;
+  }
+
   try {
     await initializeAnalytics();
-    await runStatement(
-      `INSERT OR IGNORE INTO sessions (user_id, referer) VALUES (?, ?)`,
+    await driver.pool.query(
       `INSERT INTO sessions (user_id, referer) VALUES ($1, $2) ON CONFLICT (user_id) DO NOTHING`,
-      [sessionId, truncate(referer, 512)]
+      [sessionId, truncatedReferer]
     );
     console.info("[analytics] session started", { sessionId });
   } catch (error) {
@@ -278,20 +217,34 @@ export async function logAnalysisEvent(event: AnalysisLogEvent): Promise<void> {
     return;
   }
 
+  const driver = await getDriver();
+  const values = {
+    user_id: event.sessionId,
+    player_name: truncate(event.playerName, 256),
+    analysis_mode: truncate(event.analysisMode, 64),
+    event_type: event.eventType,
+    player_type: event.playerType,
+    referer: truncate(event.referer, 512),
+    timestamp: new Date().toISOString(),
+  };
+
+  if (driver.type !== "postgres") {
+    simulateLogging("analyses", Object.keys(values), values);
+    return;
+  }
+
   try {
     await initializeAnalytics();
-    await runStatement(
+    await driver.pool.query(
       `INSERT INTO analyses (user_id, player_name, analysis_mode, event_type, player_type, referer)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      `INSERT INTO analyses (user_id, player_name, analysis_mode, event_type, player_type, referer)
-       VALUES ($1, $2, $3, $4, $5, $6)` ,
+       VALUES ($1, $2, $3, $4, $5, $6)`,
       [
-        event.sessionId,
-        truncate(event.playerName, 256),
-        truncate(event.analysisMode, 64),
-        event.eventType,
-        event.playerType,
-        truncate(event.referer, 512),
+        values.user_id,
+        values.player_name,
+        values.analysis_mode,
+        values.event_type,
+        values.player_type,
+        values.referer,
       ]
     );
     console.info("[analytics] analysis logged", {
@@ -313,21 +266,36 @@ export async function logShareEvent(event: ShareLogEvent): Promise<void> {
     return;
   }
 
+  const driver = await getDriver();
+  const values = {
+    user_id: event.sessionId,
+    player_name: truncate(event.playerName, 256),
+    analysis_mode: truncate(event.analysisMode, 64),
+    event_type: truncate(event.eventType, 64),
+    player_type: event.playerType ?? null,
+    share_url: truncate(event.shareUrl ?? null, 1024),
+    referer: truncate(event.referer, 512),
+    timestamp: new Date().toISOString(),
+  };
+
+  if (driver.type !== "postgres") {
+    simulateLogging("share_events", Object.keys(values), values);
+    return;
+  }
+
   try {
     await initializeAnalytics();
-    await runStatement(
+    await driver.pool.query(
       `INSERT INTO share_events (user_id, player_name, analysis_mode, event_type, player_type, share_url, referer)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      `INSERT INTO share_events (user_id, player_name, analysis_mode, event_type, player_type, share_url, referer)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)` ,
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [
-        event.sessionId,
-        truncate(event.playerName, 256),
-        truncate(event.analysisMode, 64),
-        truncate(event.eventType, 64),
-        event.playerType ?? null,
-        truncate(event.shareUrl ?? null, 1024),
-        truncate(event.referer, 512),
+        values.user_id,
+        values.player_name,
+        values.analysis_mode,
+        values.event_type,
+        values.player_type,
+        values.share_url,
+        values.referer,
       ]
     );
     console.info("[analytics] share event logged", {
