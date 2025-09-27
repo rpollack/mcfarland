@@ -12,6 +12,10 @@ const currentDir = path.dirname(fileURLToPath(import.meta.url));
 export function createServer() {
   const app = express();
 
+  // Allow Express to respect proxy headers (Render/Heroku set X-Forwarded-For)
+  const trustProxy = process.env.TRUST_PROXY ?? "1";
+  app.set("trust proxy", trustProxy);
+
   const allowedOrigins = process.env.CLIENT_ORIGIN?.split(",").map((origin) => origin.trim()).filter(Boolean);
   const corsOptions = allowedOrigins && allowedOrigins.length > 0 ? { origin: allowedOrigins } : undefined;
 
