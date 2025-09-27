@@ -27,6 +27,11 @@ function PlayerPicker({
   onSelect,
   isLoading,
 }: Props) {
+  const handlePlayerSelect = (player: PlayerSummary) => {
+    onSelect(player.id);
+    onSearchTermChange("");
+  };
+
   return (
     <section className={styles.panel} aria-label="Player search">
       <div className={styles.typeToggle} role="group" aria-label="Player type selector">
@@ -52,29 +57,33 @@ function PlayerPicker({
         placeholder={`Find ${playerTypeLabels[playerType].toLowerCase()}`}
         className={styles.search}
       />
-      <label htmlFor="player-select" className={styles.label}>
-        Select player
-      </label>
-      <select
-        id="player-select"
-        value={selectedId ?? ""}
-        onChange={(event) => onSelect(event.target.value || undefined)}
-        className={styles.select}
-        size={Math.min(8, Math.max(players.length || 3, 3))}
-      >
-        <option value="">Select a player</option>
-        {isLoading ? (
-          <option disabled>Loading players...</option>
-        ) : players.length === 0 ? (
-          <option disabled>No players found</option>
-        ) : (
-          players.map((player) => (
-            <option key={player.id} value={player.id}>
-              {player.name}
-            </option>
-          ))
+      <ul className={styles.results} aria-live="polite">
+        {searchTerm.trim().length === 0 && !isLoading && !selectedId && (
+          <li className={styles.helper}>Start typing to pick a player.</li>
         )}
-      </select>
+        {isLoading && <li className={styles.helper}>Loading players…</li>}
+        {!isLoading && searchTerm && players.length === 0 && (
+          <li className={styles.helper}>No players found.</li>
+        )}
+        {!isLoading &&
+          searchTerm.trim() &&
+          players.slice(0, 8).map((player) => (
+            <li key={player.id}>
+              <button
+                type="button"
+                onClick={() => handlePlayerSelect(player)}
+                className={
+                  player.id === selectedId ? styles.selectedResult : styles.resultButton
+                }
+              >
+                {player.name}
+              </button>
+            </li>
+          ))}
+        {selectedId && !searchTerm && !isLoading && (
+          <li className={styles.helper}>Search again to switch players.</li>
+        )}
+      </ul>
     </section>
   );
 }

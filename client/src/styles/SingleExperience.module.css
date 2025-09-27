@@ -13,6 +13,26 @@
   width: min(100%, var(--surface-max));
 }
 
+.playerHeader {
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: 1.25rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  padding: clamp(1.25rem, 2.5vw, 1.75rem);
+  box-shadow: 0 18px 32px rgba(15, 23, 42, 0.07);
+}
+
+.playerHeader h2 {
+  margin: 0;
+  font-size: clamp(1.35rem, 2.6vw, 1.8rem);
+  color: #0f172a;
+}
+
+.playerHeader p {
+  margin: 0.35rem 0 0;
+  color: #475569;
+  font-weight: 500;
+}
+
 .loadingCard {
   background: rgba(255, 255, 255, 0.92);
   border-radius: 1.25rem;

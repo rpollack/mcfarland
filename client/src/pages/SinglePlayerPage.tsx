@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import PlayerPicker from "../components/PlayerPicker";
-import PlayerStatsCard from "../components/PlayerStatsCard";
 import AnalysisPanel from "../components/AnalysisPanel";
 import VibeSelector from "../components/VibeSelector";
 import { useVibe } from "../contexts/VibeContext";
@@ -53,7 +52,9 @@ function SinglePlayerExperience() {
         searchTerm={searchTerm}
         onSearchTermChange={(value) => {
           setSearchTerm(value);
-          setSelectedId(undefined);
+          if (value.trim().length > 0) {
+            setSelectedId(undefined);
+          }
         }}
         players={playersQuery.data ?? []}
         selectedId={selectedId}
@@ -69,7 +70,10 @@ function SinglePlayerExperience() {
             </div>
           ) : (
             <>
-              <PlayerStatsCard type={playerType} player={detailQuery.data.player} />
+              <header className={styles.playerHeader}>
+                <h2>{detailQuery.data.player.Name}</h2>
+                <p>Latest {playerType === "hitter" ? "hitter" : "pitcher"} outlook from McFarland AI.</p>
+              </header>
               <AnalysisPanel
                 quickInsight={detailQuery.data.quickInsight}
                 isAnalyzing={analysisQuery.isFetching}
