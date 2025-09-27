@@ -21,13 +21,19 @@
   box-shadow: 0 18px 28px rgba(15, 23, 42, 0.07);
 }
 
-.playerHeader h2 {
+.playerHeaderContent {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.85rem, 2vw, 1.25rem);
+}
+
+.playerMeta h2 {
   margin: 0;
   font-size: clamp(1.35rem, 2.6vw, 1.8rem);
   color: #0f172a;
 }
 
-.playerHeader p {
+.playerMeta p {
   margin: 0.35rem 0 0;
   color: #475569;
   font-weight: 500;

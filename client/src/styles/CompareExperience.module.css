@@ -174,19 +174,27 @@
 }
 
 .playerList li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
   padding: 0.65rem 0.9rem;
   border-radius: 0.95rem;
   border: 1px solid rgba(148, 163, 184, 0.16);
   background: rgba(248, 250, 255, 0.85);
 }
 
+.playerListItem {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 .playerName {
   font-weight: 600;
   color: #0f172a;
+}
+
+.playerText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
 }
 
 .badge {
@@ -200,6 +208,7 @@
   font-weight: 600;
   font-size: 0.8rem;
   letter-spacing: 0.02em;
+  margin-left: auto;
 }
 
 .recommended {

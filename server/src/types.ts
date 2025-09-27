@@ -101,6 +101,7 @@ export interface PlayerSummary {
   id: string;
   name: string;
   type: PlayerType;
+  mlbamid?: string | null;
 }
 
 export interface PlayerDetail<T> {

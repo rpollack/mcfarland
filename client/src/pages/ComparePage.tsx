@@ -5,6 +5,7 @@ import { useVibe } from "../contexts/VibeContext";
 import type { PlayerSummary, PlayerType } from "../types";
 import AnalysisPanel from "../components/AnalysisPanel";
 import VibeSelector from "../components/VibeSelector";
+import PlayerHeadshot from "../components/PlayerHeadshot";
 import styles from "../styles/CompareExperience.module.css";
 
 type ActiveComparison = {
@@ -33,13 +34,13 @@ function hydrateSelectedPlayers(
   current: PlayerSummary[],
   ids: string[],
   playerType: PlayerType,
-  nameFallback?: Map<string, string>
+  fallback?: Map<string, { name: string; mlbamid?: string | null }>
 ): PlayerSummary[] {
-  const existingNames = new Map(current.map((player) => [player.id, player.name]));
-  const lookup = nameFallback ?? existingNames;
+  const existingSummaries = new Map(current.map((player) => [player.id, player]));
   return ids.map((id) => ({
     id,
-    name: lookup.get(id) ?? existingNames.get(id) ?? id,
+    name: fallback?.get(id)?.name ?? existingSummaries.get(id)?.name ?? id,
+    mlbamid: fallback?.get(id)?.mlbamid ?? existingSummaries.get(id)?.mlbamid,
     type: playerType,
   }));
 }
@@ -132,8 +133,10 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
       lastAnalysisKeyRef.current = null;
       triggerAnalysis({ ...payload, vibe: vibeMode });
       if (options?.updateSelection !== false) {
-        const nameMap = new Map(result.players.map((player) => [player.PlayerId, player.Name]));
-        setSelectedPlayers((current) => hydrateSelectedPlayers(current, ids, typeToUse, nameMap));
+        const detailsMap = new Map(
+          result.players.map((player) => [player.PlayerId, { name: player.Name, mlbamid: player.mlbamid ?? null }])
+        );
+        setSelectedPlayers((current) => hydrateSelectedPlayers(current, ids, typeToUse, detailsMap));
       }
       return result;
     },
@@ -346,8 +349,18 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
                 const isRecommended = player.PlayerId === recommendedPlayerId;
                 return (
                   <li key={player.PlayerId} className={isRecommended ? styles.recommended : undefined}>
-                    <span className={styles.playerName}>{player.Name}</span>
-                    {isRecommended && <span className={styles.badge}>Recommended</span>}
+                    <div className={styles.playerListItem}>
+                      <PlayerHeadshot
+                        name={player.Name}
+                        playerId={player.PlayerId}
+                        mlbamid={player.mlbamid}
+                        size={56}
+                      />
+                      <div className={styles.playerText}>
+                        <span className={styles.playerName}>{player.Name}</span>
+                      </div>
+                      {isRecommended && <span className={styles.badge}>Recommended</span>}
+                    </div>
                   </li>
                 );
               })}
