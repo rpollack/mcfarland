@@ -10,13 +10,13 @@ body {
 
 body {
   margin: 0;
-  height: 100dvh;
   min-height: 100dvh;
   background: radial-gradient(circle at top left, #ffffff 0%, #f4f6ff 45%, #e6f6ff 100%);
   color: #15213b;
-  overflow: hidden;
-  overscroll-behavior: none;
-  touch-action: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
 }
 
 #root {
