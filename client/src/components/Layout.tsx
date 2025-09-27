@@ -12,17 +12,35 @@ function Layout({ children }: { children: React.ReactNode }) {
         </div>
         <VibeSelector />
       </header>
-      <nav className={styles.nav}>
-        <NavLink to="/" className={({ isActive }) => (isActive ? styles.activeLink : styles.link)} end>
+      <div className={styles.navWrapper}>
+        <nav className={styles.nav}>
+          <NavLink
+            to="/"
+            className={({ isActive }) =>
+              isActive ? `${styles.link} ${styles.linkActive}` : styles.link
+            }
+            end
+          >
           Single Player
-        </NavLink>
-        <NavLink to="/compare" className={({ isActive }) => (isActive ? styles.activeLink : styles.link)}>
+          </NavLink>
+          <NavLink
+            to="/compare"
+            className={({ isActive }) =>
+              isActive ? `${styles.link} ${styles.linkActive}` : styles.link
+            }
+          >
           Compare Players
-        </NavLink>
-        <NavLink to="/about" className={({ isActive }) => (isActive ? styles.activeLink : styles.link)}>
+          </NavLink>
+          <NavLink
+            to="/about"
+            className={({ isActive }) =>
+              isActive ? `${styles.link} ${styles.linkActive}` : styles.link
+            }
+          >
           About
-        </NavLink>
-      </nav>
+          </NavLink>
+        </nav>
+      </div>
       <main className={styles.main}>{children}</main>
       <footer className={styles.footer}>
         Data auto-refreshes via GitHub Actions. Built with React + Node.js.
