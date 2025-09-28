@@ -46,21 +46,15 @@ function PlayerPicker({
           </button>
         ))}
       </div>
-      <label htmlFor="player-search" className={styles.label}>
-        Search by player name
-      </label>
       <input
         id="player-search"
         type="search"
         value={searchTerm}
         onChange={(event) => onSearchTermChange(event.target.value)}
-        placeholder={`Find ${playerTypeLabels[playerType].toLowerCase()}`}
+        placeholder={`Find ${playerTypeLabels[playerType].toLowerCase()}...`}
         className={styles.search}
       />
       <ul className={styles.results} aria-live="polite">
-        {searchTerm.trim().length === 0 && !isLoading && !selectedId && (
-          <li className={styles.helper}>Start typing to pick a player.</li>
-        )}
         {isLoading && <li className={styles.helper}>Loading players…</li>}
         {!isLoading && searchTerm && players.length === 0 && (
           <li className={styles.helper}>No players found.</li>

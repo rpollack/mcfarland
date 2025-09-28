@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import SinglePlayerPage from "./pages/SinglePlayerPage";
 import ComparePage from "./pages/ComparePage";
@@ -20,6 +20,7 @@ const VIBE_PARAM = "vibe";
 function AppShell() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { mode: vibeMode, setMode: setVibeMode, vibes } = useVibe();
+  const lastUrlVibeRef = useRef<string | null>(searchParams.get(VIBE_PARAM));
 
   const urlMode = searchParams.get(EXPERIENCE_PARAM) === "compare" ? "compare" : "single";
   const [experienceMode, setExperienceMode] = useState<ExperienceMode>(urlMode);
@@ -53,9 +54,10 @@ function AppShell() {
 
   useEffect(() => {
     const param = searchParams.get(VIBE_PARAM);
-    if (!param) {
+    if (!param || param === lastUrlVibeRef.current) {
       return;
     }
+    lastUrlVibeRef.current = param;
     if (param !== vibeMode && (vibes.length === 0 || vibes.some((vibe) => vibe.id === param))) {
       setVibeMode(param);
     }
@@ -66,6 +68,7 @@ function AppShell() {
       return;
     }
     if (searchParams.get(VIBE_PARAM) !== vibeMode) {
+      lastUrlVibeRef.current = vibeMode;
       applySearchParams({ [VIBE_PARAM]: vibeMode });
     }
   }, [vibeMode, searchParams, applySearchParams]);
