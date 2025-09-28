@@ -46,13 +46,6 @@ function AnalysisPanel({
 
       {showAnalysisBody && (
         <article className={styles.analysis} aria-live="polite">
-          <header className={styles.analysisHeader}>
-            <h4>
-              AI analysis
-              {modeLabel ? ` — ${modeLabel}` : ""}
-            </h4>
-            {persona && <span className={styles.persona}>Persona: {persona}</span>}
-          </header>
           {isAnalyzing ? (
             <p className={styles.loading}>Generating the latest scouting notes…</p>
           ) : (

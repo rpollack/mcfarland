@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import PlayerPicker from "../components/PlayerPicker";
 import AnalysisPanel from "../components/AnalysisPanel";
 import VibeSelector from "../components/VibeSelector";
@@ -43,10 +43,18 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
     enabled: Boolean(selectedId),
   });
 
-  const analysisQuery = useQuery({
-    queryKey: ["analysis", "single", playerType, selectedId, mode],
-    queryFn: () => analyzePlayer(selectedId!, playerType, mode),
-    enabled: Boolean(selectedId),
+  const lastAnalysisKeyRef = useRef<string | null>(null);
+  const {
+    mutate: runAnalysis,
+    data: analysisData,
+    isPending: isAnalysisPending,
+  } = useMutation({
+    mutationFn: ({ playerId, playerType: type, analysisMode }: { playerId: string; playerType: PlayerType; analysisMode: string }) =>
+      analyzePlayer(playerId, type, analysisMode),
+    onError: () => {
+      lastAnalysisKeyRef.current = null;
+    },
+    retry: false,
   });
 
   const vibeLabel = useMemo(
@@ -56,7 +64,21 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
 
   const hasSelectedPlayer = Boolean(selectedId);
   const hasPlayerProfile = Boolean(detailQuery.data);
-  const analysisReady = Boolean(analysisQuery.data?.analysis);
+  const analysisReady = Boolean(analysisData?.analysis);
+
+  useEffect(() => {
+    if (!selectedId) {
+      lastAnalysisKeyRef.current = null;
+      return;
+    }
+
+    const key = `${playerType}|${selectedId}|${mode}`;
+    if (lastAnalysisKeyRef.current === key) {
+      return;
+    }
+    lastAnalysisKeyRef.current = key;
+    runAnalysis({ playerId: selectedId, playerType, analysisMode: mode });
+  }, [playerType, selectedId, mode, runAnalysis]);
 
   useEffect(() => {
     onStateChange({ playerType, playerId: selectedId });
@@ -108,9 +130,9 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
               </header>
               <AnalysisPanel
                 quickInsight={detailQuery.data.quickInsight}
-                isAnalyzing={analysisQuery.isFetching}
-                analysis={analysisQuery.data?.analysis}
-                persona={analysisQuery.data?.persona}
+                isAnalyzing={isAnalysisPending}
+                analysis={analysisData?.analysis}
+                persona={analysisData?.persona}
                 modeLabel={vibeLabel}
               />
               {analysisReady && (

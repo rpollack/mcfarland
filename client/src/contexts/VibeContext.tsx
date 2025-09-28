@@ -26,32 +26,31 @@ export function VibeProvider({
   });
 
   const fallbackMode = "straightforward";
-  const initialModeRef = useRef(initialMode ?? undefined);
   const defaultMode = data?.defaultMode ?? fallbackMode;
-  const [mode, setMode] = useState<string>(initialModeRef.current ?? defaultMode);
+  const [mode, setModeState] = useState<string>(() => initialMode ?? defaultMode);
+  const prevInitialModeRef = useRef<string | null>(initialMode ?? null);
 
   useEffect(() => {
-    if (!initialModeRef.current && mode === fallbackMode && defaultMode !== mode) {
-      setMode(defaultMode);
+    if (!initialMode && mode === fallbackMode && defaultMode !== fallbackMode) {
+      setModeState(defaultMode);
     }
-  }, [defaultMode, fallbackMode, mode]);
+  }, [defaultMode, fallbackMode, initialMode, mode]);
 
   useEffect(() => {
+    if (initialMode === prevInitialModeRef.current) {
+      return;
+    }
+    prevInitialModeRef.current = initialMode ?? null;
     if (initialMode && initialMode !== mode) {
-      initialModeRef.current = initialMode;
-      setMode(initialMode);
+      setModeState(initialMode);
     }
   }, [initialMode, mode]);
-
-  useEffect(() => {
-    setMode((current) => (current === fallbackMode ? defaultMode : current));
-  }, [defaultMode, fallbackMode]);
 
   const value = useMemo(
     () => ({
       vibes: data?.vibes ?? [],
       mode,
-      setMode,
+      setMode: setModeState,
       isLoading,
       defaultMode,
     }),

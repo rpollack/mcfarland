@@ -10,7 +10,7 @@ import { isAdminModeRequest } from "./admin.js";
 
 const analyzeLimiter = rateLimit({
   windowMs: 60_000,
-  max: 20,
+  max: 120,
   standardHeaders: true,
   legacyHeaders: false,
 });

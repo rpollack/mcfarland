@@ -1,16 +1,4 @@
-.container {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  min-width: 240px;
-}
 
-label {
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #64748b;
-}
 
 select {
   background-color: rgba(248, 250, 255, 0.85);
@@ -30,5 +18,9 @@ select:disabled {
   font-size: 0.75rem;
   color: #475569;
   margin: 0;
-  max-width: 320px;
+  line-height: 1.5;
+  width: 100%;
+  max-width: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }

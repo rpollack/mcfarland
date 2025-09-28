@@ -185,7 +185,6 @@ export async function logAnalysisEvent(event: AnalysisLogEvent): Promise<void> {
   if (shouldSkipLogging(event.referer)) {
     return;
   }
-
   const driver = await getDriver();
   const insertValues = {
     user_id: event.sessionId,

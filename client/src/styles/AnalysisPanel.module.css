@@ -55,29 +55,6 @@
   line-height: 1.65;
 }
 
-.analysisHeader {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.6rem;
-  margin-bottom: 0.75rem;
-}
-
-.analysisHeader h4 {
-  margin: 0;
-  font-size: 1rem;
-  color: #1d4ed8;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.persona {
-  font-size: 0.75rem;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
 
 .loading {
   margin: 0;

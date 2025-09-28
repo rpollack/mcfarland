@@ -84,6 +84,7 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
   } = useMutation({
     mutationFn: ({ type, ids, vibe }: ActiveComparison & { vibe: string }) =>
       analyzeComparison(type, ids, vibe),
+    retry: false,
   });
 
   const vibeLabel = useMemo(
@@ -272,20 +273,16 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
           ))}
         </div>
 
-        <label htmlFor="compare-search" className={styles.label}>
-          Search players
-        </label>
         <input
           id="compare-search"
           type="search"
           value={searchTerm}
           onChange={(event) => setSearchTerm(event.target.value)}
           className={styles.search}
-          placeholder={`Find ${playerType === "hitter" ? "hitters" : "pitchers"}`}
+          placeholder={`Find ${playerType === "hitter" ? "hitters" : "pitchers"}...`}
         />
 
         <ul className={styles.searchResults} aria-live="polite">
-          {helperMessage && <li className={styles.helper}>{helperMessage}</li>}
           {playersQuery.isLoading && trimmedSearch && <li className={styles.helper}>Loading players…</li>}
           {!playersQuery.isLoading && trimmedSearch && availablePlayers.length === 0 && (
             <li className={styles.helper}>No matches found.</li>

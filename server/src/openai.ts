@@ -44,7 +44,7 @@ export async function callOpenAiChat(prompt: string, persona: string, mode: Anal
         },
         { role: "user", content: prompt },
       ],
-      temperature: 0.7,
+      temperature: 0.4,
     }),
   });
 
