@@ -118,6 +118,21 @@ function AppShell() {
     [applySearchParams]
   );
 
+  useEffect(() => {
+    if (view !== "about") {
+      return;
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setView("experience");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [view]);
+
   return (
     <div className={styles.shell}>
       <header className={styles.hero}>
@@ -172,14 +187,13 @@ function AppShell() {
           className={styles.linkButton}
           onClick={() => setView(view === "experience" ? "about" : "experience")}
         >
-          {view === "experience" ? "About McFarland" : "← Back to analysis"}
+          {view === "experience" ? "About McFARLAND" : "← Back to analysis"}
         </button>
-        <p className={styles.footerTagline}>A modern baseball co-pilot by TJ McFarland.</p>
       </footer>
 
       {view === "about" && (
         <div className={styles.aboutOverlay}>
-          <div className={styles.aboutDialog} role="dialog" aria-modal="true" aria-label="About McFarland">
+          <div className={styles.aboutDialog} role="dialog" aria-modal="true" aria-label="About McFARLAND">
             <button
               type="button"
               className={styles.closeButton}
