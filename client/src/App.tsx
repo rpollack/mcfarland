@@ -122,19 +122,8 @@ function AppShell() {
     <div className={styles.shell}>
       <header className={styles.hero}>
         <div>
-          <h1 className={styles.title}>McFarland</h1>
+          <h1 className={styles.title}>McFARLAND</h1>
           <p className={styles.tagline}>Advanced baseball analysis. Plain English.</p>
-        </div>
-        <div className={styles.heroActions}>
-          {view === "experience" ? (
-            <button type="button" className={styles.linkButton} onClick={() => setView("about")}>
-              About McFarland
-            </button>
-          ) : (
-            <button type="button" className={styles.linkButton} onClick={() => setView("experience")}>
-              ← Back to analysis
-            </button>
-          )}
         </div>
       </header>
 
@@ -162,9 +151,7 @@ function AppShell() {
       )}
 
       <main className={styles.main}>
-        {view === "about" ? (
-          <AboutPage />
-        ) : experienceMode === "single" ? (
+        {experienceMode === "single" ? (
           <SinglePlayerPage
             initialPlayerType={playerTypeParam}
             initialPlayerId={singlePlayerId}
@@ -178,6 +165,33 @@ function AppShell() {
           />
         )}
       </main>
+
+      <footer className={styles.footer}>
+        <button
+          type="button"
+          className={styles.linkButton}
+          onClick={() => setView(view === "experience" ? "about" : "experience")}
+        >
+          {view === "experience" ? "About McFarland" : "← Back to analysis"}
+        </button>
+        <p className={styles.footerTagline}>A modern baseball co-pilot by TJ McFarland.</p>
+      </footer>
+
+      {view === "about" && (
+        <div className={styles.aboutOverlay}>
+          <div className={styles.aboutDialog} role="dialog" aria-modal="true" aria-label="About McFarland">
+            <button
+              type="button"
+              className={styles.closeButton}
+              onClick={() => setView("experience")}
+            >
+              <span aria-hidden="true">×</span>
+              <span className={styles.srOnly}>Close about panel</span>
+            </button>
+            <AboutPage />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

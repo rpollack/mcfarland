@@ -225,11 +225,11 @@ export function assessRegression(player: HitterRecord | PitcherRecord, type: Pla
 
 export function buildAboutContent(): { heading: string; paragraphs: string[] } {
   return {
-    heading: "McFarland: Modern Baseball Intelligence",
+    heading: "McFARLAND: Modern Baseball Intelligence",
     paragraphs: [
-      "McFarland blends advanced stats, historical baselines, and AI-assisted narrative reporting to help you understand player performance in seconds.",
+      "McFARLAND blends advanced stats, historical baselines, and AI-assisted narrative reporting to help you understand player performance in seconds.",
       "Analyze a single player, compare hitters or pitchers head-to-head, and switch analysis vibes to match your audience.",
-      "All data refreshes automatically from the GitHub Actions pipeline (refresh_data.R) so you always see the latest season context.",
+      "Player information refreshes daily during the season, right after the previous night's games wrap up, so you're never arguing from stale numbers.",
     ],
   };
 }

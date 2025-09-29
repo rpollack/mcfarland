@@ -54,6 +54,6 @@ if (process.argv[1] === new URL(import.meta.url).pathname) {
   const port = Number(process.env.PORT ?? 3000);
   const app = createServer();
   app.listen(port, () => {
-    console.log(`McFarland API listening on http://localhost:${port}`);
+    console.log(`McFARLAND API listening on http://localhost:${port}`);
   });
 }

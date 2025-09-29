@@ -4,7 +4,7 @@ import { createServer } from "../src/index.js";
 
 const app = createServer();
 
-describe("McFarland API", () => {
+describe("McFARLAND API", () => {
   beforeAll(() => {
     process.env.OPENAI_API_KEY = ""; // ensure offline tests do not call the API
   });
