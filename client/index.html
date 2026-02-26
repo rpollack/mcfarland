@@ -11,6 +11,12 @@
   </head>
   <body>
     <div id="root"></div>
+    <script src="https://cdn.amplitude.com/libs/analytics-browser-2.11.1-min.js.gz"></script>
+    <script>
+      window.amplitude.init("f7a70fb74292a0b7b9f5dced71f2931", {
+        autocapture: { elementInteractions: true },
+      });
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

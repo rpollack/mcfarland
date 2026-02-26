@@ -5,6 +5,8 @@ type DatabaseDriver = { type: "postgres"; pool: Pool } | { type: "simulated" };
 
 let driverPromise: Promise<DatabaseDriver> | null = null;
 let initializationPromise: Promise<void> | null = null;
+const DEFAULT_AMPLITUDE_API_KEY = "f7a70fb74292a0b7b9f5dced71f2931";
+const AMPLITUDE_HTTP_API = "https://api2.amplitude.com/2/httpapi";
 
 function shouldSkipLogging(...sources: Array<string | null | undefined>): boolean {
   return sources.some((source) => containsAdminSecret(source));
@@ -60,6 +62,45 @@ function truncate(value: string | null | undefined, maxLength: number): string |
     return value;
   }
   return value.slice(0, maxLength);
+}
+
+type AmplitudeEvent = {
+  event_type: string;
+  user_id: string;
+  time?: number;
+  event_properties?: Record<string, unknown>;
+};
+
+async function sendAmplitudeEvent(event: AmplitudeEvent): Promise<void> {
+  const apiKey = (process.env.AMPLITUDE_API_KEY ?? DEFAULT_AMPLITUDE_API_KEY).trim();
+  if (!apiKey) {
+    return;
+  }
+
+  try {
+    const response = await fetch(AMPLITUDE_HTTP_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: apiKey,
+        events: [event],
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      console.warn("[analytics] failed to forward event to Amplitude", {
+        eventType: event.event_type,
+        status: response.status,
+        body: body.slice(0, 500),
+      });
+    }
+  } catch (error) {
+    console.warn("[analytics] failed to reach Amplitude", {
+      eventType: event.event_type,
+      error,
+    });
+  }
 }
 
 export async function initializeAnalytics(): Promise<void> {
@@ -159,12 +200,21 @@ export async function logSessionStart(sessionId: string, referer?: string | null
       user_id: sessionId,
       timestamp: new Date().toISOString(),
     });
+    await sendAmplitudeEvent({
+      event_type: "session_started",
+      user_id: sessionId,
+      time: Date.now(),
+      event_properties: {
+        table: "sessions",
+        referer: truncate(referer, 512),
+      },
+    });
     return;
   }
 
   try {
     await initializeAnalytics();
-    await driver.pool.query(
+    const result = await driver.pool.query(
       `INSERT INTO sessions (user_id)
        SELECT $1
        WHERE NOT EXISTS (
@@ -172,6 +222,17 @@ export async function logSessionStart(sessionId: string, referer?: string | null
        )`,
       [sessionId]
     );
+    if (result.rowCount && result.rowCount > 0) {
+      await sendAmplitudeEvent({
+        event_type: "session_started",
+        user_id: sessionId,
+        time: Date.now(),
+        event_properties: {
+          table: "sessions",
+          referer: truncate(referer, 512),
+        },
+      });
+    }
     console.info("[analytics] session started", { sessionId });
   } catch (error) {
     console.warn("[analytics] failed to log session start", error);
@@ -198,6 +259,19 @@ export async function logAnalysisEvent(event: AnalysisLogEvent): Promise<void> {
       ...insertValues,
       timestamp,
     });
+    await sendAmplitudeEvent({
+      event_type: "analysis_logged",
+      user_id: event.sessionId,
+      time: Date.now(),
+      event_properties: {
+        table: "analyses",
+        player_name: insertValues.player_name,
+        analysis_mode: insertValues.analysis_mode,
+        player_type: event.playerType,
+        event_type: event.eventType,
+        referer: truncate(event.referer, 512),
+      },
+    });
     return;
   }
 
@@ -208,6 +282,19 @@ export async function logAnalysisEvent(event: AnalysisLogEvent): Promise<void> {
       insertValues.player_name,
       insertValues.analysis_mode,
     ]);
+    await sendAmplitudeEvent({
+      event_type: "analysis_logged",
+      user_id: event.sessionId,
+      time: Date.now(),
+      event_properties: {
+        table: "analyses",
+        player_name: insertValues.player_name,
+        analysis_mode: insertValues.analysis_mode,
+        player_type: event.playerType,
+        event_type: event.eventType,
+        referer: truncate(event.referer, 512),
+      },
+    });
     console.info("[analytics] analysis logged", {
       sessionId: event.sessionId,
       playerName: event.playerName,
@@ -241,6 +328,20 @@ export async function logShareEvent(event: ShareLogEvent): Promise<void> {
 
   if (driver.type !== "postgres") {
     simulateLogging("share_events", Object.keys(values), values);
+    await sendAmplitudeEvent({
+      event_type: "share_event_logged",
+      user_id: event.sessionId,
+      time: Date.now(),
+      event_properties: {
+        table: "share_events",
+        player_name: values.player_name,
+        analysis_mode: values.analysis_mode,
+        event_type: values.event_type,
+        player_type: values.player_type,
+        share_url: values.share_url,
+        referer: values.referer,
+      },
+    });
     return;
   }
 
@@ -259,6 +360,20 @@ export async function logShareEvent(event: ShareLogEvent): Promise<void> {
         values.referer,
       ]
     );
+    await sendAmplitudeEvent({
+      event_type: "share_event_logged",
+      user_id: event.sessionId,
+      time: Date.now(),
+      event_properties: {
+        table: "share_events",
+        player_name: values.player_name,
+        analysis_mode: values.analysis_mode,
+        event_type: values.event_type,
+        player_type: values.player_type,
+        share_url: values.share_url,
+        referer: values.referer,
+      },
+    });
     console.info("[analytics] share event logged", {
       sessionId: event.sessionId,
       eventType: event.eventType,
