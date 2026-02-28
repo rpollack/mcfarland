@@ -6,17 +6,6 @@ import "./styles/global.css";
 import { BrowserRouter, useLocation } from "react-router-dom";
 import { getOrCreateSessionId } from "./api";
 
-type AmplitudeClient = {
-  track: (eventName: string, eventProperties?: Record<string, string>) => void;
-  setUserId?: (userId: string) => void;
-};
-
-declare global {
-  interface Window {
-    amplitude?: AmplitudeClient;
-  }
-}
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -47,7 +36,7 @@ function AmplitudePageTracker() {
       return;
     }
     lastTrackedPathRef.current = path;
-    const eventProperties: Record<string, string> = { path };
+    const eventProperties: Record<string, unknown> = { path };
     if (sessionIdRef.current) {
       eventProperties.session_id = sessionIdRef.current;
     }
