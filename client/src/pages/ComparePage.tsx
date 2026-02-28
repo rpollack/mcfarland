@@ -236,6 +236,15 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
     if (!shouldAutoRunFromUrl && matchesSelection && hasHydratedFromUrl.current) {
       return;
     }
+    if (shouldAutoRunFromUrl) {
+      void logShareAnalyticsEvent({
+        playerName: sanitized.join(" vs "),
+        analysisMode: vibeMode,
+        eventType: "share_link_opened",
+        playerType: initialPlayerType,
+        shareUrl: typeof window !== "undefined" ? window.location.href : undefined,
+      });
+    }
     hasHydratedFromUrl.current = true;
     void handleCompare({ ids: sanitized, type: initialPlayerType });
   }, [
@@ -245,6 +254,7 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
     activeComparison,
     playerType,
     selectedPlayers,
+    vibeMode,
   ]);
 
   const comparisonResult = compareMutation.data;
