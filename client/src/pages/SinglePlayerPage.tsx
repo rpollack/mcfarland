@@ -7,6 +7,7 @@ import PlayerHeadshot from "../components/PlayerHeadshot";
 import { useVibe } from "../contexts/VibeContext";
 import { analyzePlayer, fetchPlayerDetail, fetchPlayers, logShareAnalyticsEvent } from "../api";
 import type { PlayerType } from "../types";
+import { buildSharePreviewUrl } from "../utils/share";
 import styles from "../styles/SingleExperience.module.css";
 
 interface Props {
@@ -102,7 +103,7 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
     }
 
     try {
-      const url = window.location.href;
+      const url = buildSharePreviewUrl(window.location.href);
       await navigator.clipboard.writeText(url);
       setShareStatus("success");
       void logShareAnalyticsEvent({

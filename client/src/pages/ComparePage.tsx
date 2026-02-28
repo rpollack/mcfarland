@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { analyzeComparison, comparePlayers, fetchPlayers, logShareAnalyticsEvent } from "../api";
 import { useVibe } from "../contexts/VibeContext";
 import type { PlayerSummary, PlayerType } from "../types";
+import { buildSharePreviewUrl } from "../utils/share";
 import AnalysisPanel from "../components/AnalysisPanel";
 import VibeSelector from "../components/VibeSelector";
 import PlayerHeadshot from "../components/PlayerHeadshot";
@@ -280,7 +281,7 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
     }
 
     try {
-      const url = window.location.href;
+      const url = buildSharePreviewUrl(window.location.href);
       await navigator.clipboard.writeText(url);
       setShareStatus("success");
       void logShareAnalyticsEvent({
