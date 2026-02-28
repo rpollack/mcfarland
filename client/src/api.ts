@@ -99,7 +99,7 @@ export type { HitterRecord, PitcherRecord };
 
 const SESSION_STORAGE_KEY = "mcfarland-session-id";
 
-function getOrCreateSessionId(): string | null {
+export function getOrCreateSessionId(): string | null {
   if (typeof window === "undefined" || !window.localStorage) {
     return null;
   }
@@ -153,6 +153,8 @@ export async function logShareAnalyticsEvent({
   playerType?: PlayerType;
   shareUrl?: string;
 }): Promise<void> {
+  window.amplitude?.track("ShareEvent");
+
   const sessionId = getOrCreateSessionId();
   if (!sessionId) {
     return;

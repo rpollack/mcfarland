@@ -1,6 +1,7 @@
 declare module "pg" {
   export interface QueryResult<Row = unknown> {
     rows: Row[];
+    rowCount: number;
   }
 
   export interface PoolConfig {

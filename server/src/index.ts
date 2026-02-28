@@ -221,6 +221,8 @@ export function createServer() {
         useDefaults: true,
         directives: {
           "img-src": ["'self'", "data:", "https://img.mlbstatic.com"],
+          "script-src": ["'self'", "'unsafe-inline'", "https://cdn.amplitude.com"],
+          "connect-src": ["'self'", "https://api2.amplitude.com", "https://api.amplitude.com"],
         },
       },
     })

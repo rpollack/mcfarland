@@ -11,6 +11,7 @@
     "build": "npm run --workspaces --if-present build",
     "dev": "concurrently \"npm run dev --workspace server\" \"npm run dev --workspace client\"",
     "start": "npm run build && npm run start --workspace server",
+    "start:server": "npm run start --workspace server",
     "test": "npm run --workspaces --if-present test",
     "test:unit": "npm run test --workspace server && npm run test --workspace client",
     "test:e2e": "npm run test --workspace tests/e2e",
