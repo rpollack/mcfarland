@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { analyzeComparison, comparePlayers, fetchPlayers } from "../api";
+import { analyzeComparison, comparePlayers, fetchPlayers, logShareAnalyticsEvent } from "../api";
 import { useVibe } from "../contexts/VibeContext";
 import type { PlayerSummary, PlayerType } from "../types";
 import AnalysisPanel from "../components/AnalysisPanel";
@@ -52,6 +52,7 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
   const [selectedPlayers, setSelectedPlayers] = useState<PlayerSummary[]>(() =>
     hydrateSelectedPlayers([], initialPlayerIds.slice(0, MAX_PLAYERS), initialPlayerType)
   );
+  const [shareStatus, setShareStatus] = useState<"idle" | "success" | "error">("idle");
   const [activeComparison, setActiveComparison] = useState<ActiveComparison | null>(null);
   const lastAnalysisKeyRef = useRef<string | null>(null);
   const hasHydratedFromUrl = useRef(false);
@@ -194,6 +195,17 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
   }, [playerType, selectedPlayers, onStateChange]);
 
   useEffect(() => {
+    if (shareStatus === "idle") {
+      return;
+    }
+
+    const timer = window.setTimeout(() => setShareStatus("idle"), 2200);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [shareStatus]);
+
+  useEffect(() => {
     const sanitized = initialPlayerIds.slice(0, MAX_PLAYERS);
     if (sanitized.length < 2) {
       hasHydratedFromUrl.current = sanitized.length > 0;
@@ -251,6 +263,28 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
   const recommendedPlayerName = recommendedPlayerId
     ? comparisonResult?.players.find((player) => player.PlayerId === recommendedPlayerId)?.Name ?? null
     : null;
+
+  const handleShare = useCallback(async () => {
+    if (!comparisonResult) {
+      return;
+    }
+
+    try {
+      const url = window.location.href;
+      await navigator.clipboard.writeText(url);
+      setShareStatus("success");
+      void logShareAnalyticsEvent({
+        playerName: comparisonResult.players.map((player) => player.Name).join(" vs "),
+        analysisMode: vibeMode,
+        eventType: "share_link_copied",
+        playerType,
+        shareUrl: url,
+      });
+    } catch (error) {
+      console.warn("Failed to copy share link", error);
+      setShareStatus("error");
+    }
+  }, [comparisonResult, playerType, vibeMode]);
 
   return (
     <div className={styles.container}>
@@ -379,6 +413,15 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
             persona={analysisData?.persona}
             modeLabel={vibeLabel}
           />
+          {analysisReady && (
+            <div className={styles.shareSection}>
+              <button type="button" className={styles.shareButton} onClick={() => void handleShare()}>
+                Share this analysis
+              </button>
+              {shareStatus === "success" && <span className={styles.shareStatus}>Link copied.</span>}
+              {shareStatus === "error" && <span className={styles.shareStatus}>Couldn't copy link.</span>}
+            </div>
+          )}
           {analysisReady && (
             <div className={styles.vibeSection}>
               <span className={styles.vibeLabel}>Adjust the vibe</span>

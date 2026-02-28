@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import PlayerPicker from "../components/PlayerPicker";
 import AnalysisPanel from "../components/AnalysisPanel";
 import VibeSelector from "../components/VibeSelector";
 import PlayerHeadshot from "../components/PlayerHeadshot";
 import { useVibe } from "../contexts/VibeContext";
-import { analyzePlayer, fetchPlayerDetail, fetchPlayers } from "../api";
+import { analyzePlayer, fetchPlayerDetail, fetchPlayers, logShareAnalyticsEvent } from "../api";
 import type { PlayerType } from "../types";
 import styles from "../styles/SingleExperience.module.css";
 
@@ -20,6 +20,7 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
   const [playerType, setPlayerType] = useState<PlayerType>(initialPlayerType);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedId, setSelectedId] = useState<string | undefined>(initialPlayerId);
+  const [shareStatus, setShareStatus] = useState<"idle" | "success" | "error">("idle");
 
   useEffect(() => {
     setPlayerType(initialPlayerType);
@@ -84,6 +85,39 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
     onStateChange({ playerType, playerId: selectedId });
   }, [playerType, selectedId, onStateChange]);
 
+  useEffect(() => {
+    if (shareStatus === "idle") {
+      return;
+    }
+
+    const timer = window.setTimeout(() => setShareStatus("idle"), 2200);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [shareStatus]);
+
+  const handleShare = useCallback(async () => {
+    if (!detailQuery.data) {
+      return;
+    }
+
+    try {
+      const url = window.location.href;
+      await navigator.clipboard.writeText(url);
+      setShareStatus("success");
+      void logShareAnalyticsEvent({
+        playerName: detailQuery.data.player.Name,
+        analysisMode: mode,
+        eventType: "share_link_copied",
+        playerType,
+        shareUrl: url,
+      });
+    } catch (error) {
+      console.warn("Failed to copy share link", error);
+      setShareStatus("error");
+    }
+  }, [detailQuery.data, mode, playerType]);
+
   return (
     <div className={styles.container}>
       <PlayerPicker
@@ -135,6 +169,15 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                 persona={analysisData?.persona}
                 modeLabel={vibeLabel}
               />
+              {analysisReady && (
+                <div className={styles.shareSection}>
+                  <button type="button" className={styles.shareButton} onClick={() => void handleShare()}>
+                    Share this analysis
+                  </button>
+                  {shareStatus === "success" && <span className={styles.shareStatus}>Link copied.</span>}
+                  {shareStatus === "error" && <span className={styles.shareStatus}>Couldn't copy link.</span>}
+                </div>
+              )}
               {analysisReady && (
                 <div className={styles.vibeSection}>
                   <span className={styles.vibeLabel}>Adjust the vibe</span>
