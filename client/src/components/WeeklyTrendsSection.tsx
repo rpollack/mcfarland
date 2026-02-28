@@ -1,38 +1,46 @@
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import clsx from "clsx";
 import { fetchWeeklyTrends } from "../api";
 import type { TrendPlayer, PlayerType } from "../types";
 import PlayerHeadshot from "./PlayerHeadshot";
 import styles from "../styles/WeeklyTrendsSection.module.css";
 
 type Props = {
-  onSelectPlayer: (player: { playerType: PlayerType; playerId: string }) => void;
+  playerType: PlayerType;
+  onSelectPlayer: (playerId: string) => void;
+  embedded?: boolean;
 };
 
 function TrendGroup({
   title,
+  emoji,
   players,
   onSelectPlayer,
 }: {
   title: string;
+  emoji: string;
   players: TrendPlayer[];
-  onSelectPlayer: (player: { playerType: PlayerType; playerId: string }) => void;
+  onSelectPlayer: (playerId: string) => void;
 }) {
   return (
-    <section className={styles.group} aria-label={title}>
-      <h4 className={styles.groupTitle}>{title}</h4>
-      <div className={styles.buttonList}>
+    <section className={styles.row} aria-label={title}>
+      <h4 className={styles.rowTitle}>
+        <span aria-hidden="true">{emoji}</span> {title}
+      </h4>
+      <div className={styles.chipList}>
         {players.map((player) => (
           <button
             key={`${title}-${player.id}`}
             type="button"
-            className={styles.playerButton}
-            onClick={() => onSelectPlayer({ playerType: player.type, playerId: player.id })}
+            className={styles.chipButton}
+            onClick={() => onSelectPlayer(player.id)}
           >
             <PlayerHeadshot
               name={player.name}
               playerId={player.id}
               mlbamid={player.mlbamid}
-              size={24}
+              size={20}
             />
             <span>{player.name}</span>
           </button>
@@ -42,7 +50,16 @@ function TrendGroup({
   );
 }
 
-export default function WeeklyTrendsSection({ onSelectPlayer }: Props) {
+export default function WeeklyTrendsSection({ playerType, onSelectPlayer, embedded = false }: Props) {
+  const [collapsedOnMobile, setCollapsedOnMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    setCollapsedOnMobile(window.innerWidth < 640);
+  }, []);
+
   const trendsQuery = useQuery({
     queryKey: ["weekly-trends"],
     queryFn: fetchWeeklyTrends,
@@ -51,9 +68,10 @@ export default function WeeklyTrendsSection({ onSelectPlayer }: Props) {
 
   if (trendsQuery.isLoading) {
     return (
-      <section className={styles.wrapper} aria-label="Weekly risers and fallers">
-        <h3 className={styles.title}>Monday Analysis Starter Pack</h3>
-        <p className={styles.subhead}>Loading this week&apos;s risers and fallers…</p>
+      <section className={clsx(styles.wrapper, embedded && styles.embedded)} aria-label="Weekly risers and fallers">
+        <p className={styles.eyebrow}>Quick starts</p>
+        <h3 className={styles.title}>Or jump right in</h3>
+        <p className={styles.subhead}>Loading…</p>
       </section>
     );
   }
@@ -62,43 +80,37 @@ export default function WeeklyTrendsSection({ onSelectPlayer }: Props) {
     return null;
   }
 
+  const trendBucket = playerType === "hitter" ? trendsQuery.data.hitters : trendsQuery.data.pitchers;
+  const onFirePlayers = trendBucket.risers;
+  const iceColdPlayers = trendBucket.fallers;
+
   return (
-    <section className={styles.wrapper} aria-label="Weekly risers and fallers">
-      <h3 className={styles.title}>Monday Analysis Starter Pack</h3>
-      <p className={styles.subhead}>
-        Quick picks from last week vs. the week before. Click any player to run a full analysis.
-      </p>
+    <section className={clsx(styles.wrapper, embedded && styles.embedded)} aria-label="Weekly risers and fallers">
+      <p className={styles.eyebrow}>Quick starts</p>
+      <h3 className={styles.title}>Or jump right in</h3>
+      <button
+        type="button"
+        className={styles.mobileToggle}
+        aria-expanded={!collapsedOnMobile}
+        onClick={() => setCollapsedOnMobile((value) => !value)}
+      >
+        {collapsedOnMobile ? "Show quick links" : "Hide quick links"}
+      </button>
 
-      <div className={styles.columns}>
-        <div className={styles.column}>
-          <h3 className={styles.columnTitle}>Hitters</h3>
-          <TrendGroup
-            title="Risers"
-            players={trendsQuery.data.hitters.risers}
-            onSelectPlayer={onSelectPlayer}
-          />
-          <TrendGroup
-            title="Fallers"
-            players={trendsQuery.data.hitters.fallers}
-            onSelectPlayer={onSelectPlayer}
-          />
-        </div>
-
-        <div className={styles.column}>
-          <h3 className={styles.columnTitle}>Pitchers</h3>
-          <TrendGroup
-            title="Risers"
-            players={trendsQuery.data.pitchers.risers}
-            onSelectPlayer={onSelectPlayer}
-          />
-          <TrendGroup
-            title="Fallers"
-            players={trendsQuery.data.pitchers.fallers}
-            onSelectPlayer={onSelectPlayer}
-          />
-        </div>
+      <div className={clsx(styles.rows, collapsedOnMobile && styles.rowsCollapsed)}>
+        <TrendGroup
+          title="On Fire"
+          emoji="🔥"
+          players={onFirePlayers}
+          onSelectPlayer={onSelectPlayer}
+        />
+        <TrendGroup
+          title="Ice Cold"
+          emoji="🥶"
+          players={iceColdPlayers}
+          onSelectPlayer={onSelectPlayer}
+        />
       </div>
     </section>
   );
 }
-

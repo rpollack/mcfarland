@@ -1,7 +1,9 @@
 import ReactMarkdown from "react-markdown";
+import type { ReactNode } from "react";
 import styles from "../styles/AnalysisPanel.module.css";
 
 interface Props {
+  header?: ReactNode;
   quickInsight?: string;
   onAnalyze?: () => void;
   actionLabel?: string;
@@ -13,6 +15,7 @@ interface Props {
 }
 
 function AnalysisPanel({
+  header,
   quickInsight,
   onAnalyze,
   actionLabel,
@@ -26,6 +29,7 @@ function AnalysisPanel({
 
   return (
     <section className={styles.panel} aria-label="AI analysis">
+      {header}
       {quickInsight && (
         <div className={styles.quickInsight}>
           <h3>Quick insight</h3>

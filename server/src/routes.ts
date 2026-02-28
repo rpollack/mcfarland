@@ -306,39 +306,37 @@ router.get("/api/about", (_req, res) => {
 });
 
 router.get("/api/trends/weekly", (_req, res) => {
-  const hitterEntries = listPlayers("hitter")
+  const hitterEntries: ScoredTrendPlayer[] = listPlayers("hitter")
     .map((entry) => entry as HitterRecord)
-    .map((player) => {
+    .flatMap((player) => {
       const score = scoreHitterTrend(player);
       if (score === null) {
-        return null;
+        return [];
       }
-      return {
+      return [{
         id: player.PlayerId,
         name: player.Name,
         type: "hitter" as const,
         mlbamid: player.mlbamid ?? null,
         score,
-      };
-    })
-    .filter((entry): entry is ScoredTrendPlayer => Boolean(entry));
+      }];
+    });
 
-  const pitcherEntries = listPlayers("pitcher")
+  const pitcherEntries: ScoredTrendPlayer[] = listPlayers("pitcher")
     .map((entry) => entry as PitcherRecord)
-    .map((player) => {
+    .flatMap((player) => {
       const score = scorePitcherTrend(player);
       if (score === null) {
-        return null;
+        return [];
       }
-      return {
+      return [{
         id: player.PlayerId,
         name: player.Name,
         type: "pitcher" as const,
         mlbamid: player.mlbamid ?? null,
         score,
-      };
-    })
-    .filter((entry): entry is ScoredTrendPlayer => Boolean(entry));
+      }];
+    });
 
   const hitters = getTopRisersAndFallers(hitterEntries);
   const pitchers = getTopRisersAndFallers(pitcherEntries);
