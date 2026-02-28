@@ -11,6 +11,16 @@ import {
   Vibe,
 } from "./types";
 
+type AmplitudeClient = {
+  track: (eventName: string, eventProperties?: Record<string, unknown>) => void;
+};
+
+declare global {
+  interface Window {
+    amplitude?: AmplitudeClient;
+  }
+}
+
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ??
   (typeof window !== "undefined" ? "" : "http://localhost:3000");
@@ -153,6 +163,14 @@ export async function logShareAnalyticsEvent({
   playerType?: PlayerType;
   shareUrl?: string;
 }): Promise<void> {
+  window.amplitude?.track("ShareEvent", {
+    playerName,
+    analysisMode,
+    eventType,
+    playerType,
+    shareUrl,
+  });
+
   const sessionId = getOrCreateSessionId();
   if (!sessionId) {
     return;
