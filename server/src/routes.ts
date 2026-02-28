@@ -3,10 +3,11 @@ import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { buildAboutContent, buildAnalysisPrompt, buildComparisonPrompt, generateQuickInsight, recommendBestPlayer } from "./analysis.js";
 import { callOpenAiChat } from "./openai.js";
-import { getPlayerById, getPlayerSummaries } from "./dataStore.js";
+import { getPlayerById, getPlayerSummaries, listPlayers } from "./dataStore.js";
 import { logAnalysisEvent, logSessionStart, logShareEvent } from "./analytics.js";
 import { AnalysisMode, ANALYSIS_VIBES, DEFAULT_ANALYSIS_MODE } from "./vibes.js";
 import { isAdminModeRequest } from "./admin.js";
+import { HitterRecord, PitcherRecord } from "./types.js";
 
 const analyzeLimiter = rateLimit({
   windowMs: 60_000,
@@ -18,6 +19,70 @@ const analyzeLimiter = rateLimit({
 const router = express.Router();
 
 const playerTypeSchema = z.enum(["hitter", "pitcher"]);
+
+type TrendPlayer = {
+  id: string;
+  name: string;
+  type: "hitter" | "pitcher";
+  mlbamid?: string | null;
+};
+
+type ScoredTrendPlayer = TrendPlayer & {
+  score: number;
+};
+
+function toFinite(value: number | null | undefined): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function scoreHitterTrend(player: HitterRecord): number | null {
+  if ((player.PA_cur ?? 0) < 15) {
+    return null;
+  }
+
+  return (
+    toFinite(player.wOBA_diff) * 520 +
+    toFinite(player.xwOBA_diff) * 340 +
+    toFinite(player.SLG_diff) * 170 +
+    toFinite(player.OBP_diff) * 140 +
+    toFinite(player.AVG_diff) * 230 +
+    toFinite(player.Barrel_pct_diff) * 3.4 +
+    toFinite(player.BB_pct_diff) * 1.8 -
+    toFinite(player.K_pct_diff) * 1.6
+  );
+}
+
+function scorePitcherTrend(player: PitcherRecord): number | null {
+  if ((player.tbf ?? 0) < 20) {
+    return null;
+  }
+
+  return (
+    -toFinite(player.era_diff) * 17 +
+    -toFinite(player.xera_diff) * 12 +
+    toFinite(player.k_minus_bb_percent_diff) * 1.9 +
+    toFinite(player.k_percent_diff) * 1.1 -
+    toFinite(player.bb_percent_diff) * 1.2 -
+    toFinite(player.barrel_percent_diff) * 1.4 +
+    toFinite(player.csw_percent_diff) * 0.9 -
+    toFinite(player.babip_diff) * 14
+  );
+}
+
+function getTopRisersAndFallers(entries: ScoredTrendPlayer[]): { risers: TrendPlayer[]; fallers: TrendPlayer[] } {
+  const risers = [...entries]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map(({ score: _score, ...player }) => player);
+  const riserIds = new Set(risers.map((player) => player.id));
+  const fallers = [...entries]
+    .sort((a, b) => a.score - b.score)
+    .filter((player) => !riserIds.has(player.id))
+    .slice(0, 3)
+    .map(({ score: _score, ...player }) => player);
+
+  return { risers, fallers };
+}
 
 router.get("/health", (_req, res) => {
   res.json({ status: "ok" });
@@ -238,6 +303,51 @@ router.get("/api/vibes", (_req, res) => {
 
 router.get("/api/about", (_req, res) => {
   res.json(buildAboutContent());
+});
+
+router.get("/api/trends/weekly", (_req, res) => {
+  const hitterEntries = listPlayers("hitter")
+    .map((entry) => entry as HitterRecord)
+    .map((player) => {
+      const score = scoreHitterTrend(player);
+      if (score === null) {
+        return null;
+      }
+      return {
+        id: player.PlayerId,
+        name: player.Name,
+        type: "hitter" as const,
+        mlbamid: player.mlbamid ?? null,
+        score,
+      };
+    })
+    .filter((entry): entry is ScoredTrendPlayer => Boolean(entry));
+
+  const pitcherEntries = listPlayers("pitcher")
+    .map((entry) => entry as PitcherRecord)
+    .map((player) => {
+      const score = scorePitcherTrend(player);
+      if (score === null) {
+        return null;
+      }
+      return {
+        id: player.PlayerId,
+        name: player.Name,
+        type: "pitcher" as const,
+        mlbamid: player.mlbamid ?? null,
+        score,
+      };
+    })
+    .filter((entry): entry is ScoredTrendPlayer => Boolean(entry));
+
+  const hitters = getTopRisersAndFallers(hitterEntries);
+  const pitchers = getTopRisersAndFallers(pitcherEntries);
+
+  res.json({
+    generatedAt: new Date().toISOString(),
+    hitters,
+    pitchers,
+  });
 });
 
 export default router;

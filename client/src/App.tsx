@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import SinglePlayerPage from "./pages/SinglePlayerPage";
 import ComparePage from "./pages/ComparePage";
 import AboutPage from "./pages/AboutPage";
+import WeeklyTrendsSection from "./components/WeeklyTrendsSection";
 import { VibeProvider, useVibe } from "./contexts/VibeContext";
 import styles from "./styles/App.module.css";
 import { registerSession } from "./api";
@@ -118,6 +119,20 @@ function AppShell() {
     [applySearchParams]
   );
 
+  const handleTrendPlayerSelect = useCallback(
+    ({ playerType, playerId }: { playerType: PlayerType; playerId: string }) => {
+      setView("experience");
+      setExperienceMode("single");
+      applySearchParams({
+        [EXPERIENCE_PARAM]: "single",
+        [PLAYER_TYPE_PARAM]: playerType,
+        [PLAYER_ID_PARAM]: playerId,
+        [PLAYER_IDS_PARAM]: null,
+      });
+    },
+    [applySearchParams]
+  );
+
   useEffect(() => {
     if (view !== "about") {
       return;
@@ -180,6 +195,12 @@ function AppShell() {
           />
         )}
       </main>
+
+      {view === "experience" && (
+        <div className={styles.discoverySection}>
+          <WeeklyTrendsSection onSelectPlayer={handleTrendPlayerSelect} />
+        </div>
+      )}
 
       <footer className={styles.footer}>
         <button

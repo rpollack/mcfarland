@@ -114,3 +114,22 @@ export interface AboutContent {
   heading: string;
   paragraphs: string[];
 }
+
+export interface TrendPlayer {
+  id: string;
+  name: string;
+  type: PlayerType;
+  mlbamid?: string | null;
+}
+
+export interface WeeklyTrendsResponse {
+  generatedAt: string;
+  hitters: {
+    risers: TrendPlayer[];
+    fallers: TrendPlayer[];
+  };
+  pitchers: {
+    risers: TrendPlayer[];
+    fallers: TrendPlayer[];
+  };
+}

@@ -1,0 +1,89 @@
+.wrapper {
+  width: min(100%, var(--shell-max));
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 1.5rem;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  box-shadow: 0 24px 44px rgba(15, 23, 42, 0.08);
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.1rem, 2.4vw, 1.35rem);
+  color: #0f172a;
+}
+
+.subhead {
+  margin: 0.45rem 0 1rem;
+  color: #475569;
+  font-size: 0.95rem;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.column {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.columnTitle {
+  margin: 0;
+  color: #1e293b;
+  font-size: 1rem;
+}
+
+.group {
+  background: rgba(248, 250, 252, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 1rem;
+  padding: 0.7rem;
+}
+
+.groupTitle {
+  margin: 0 0 0.5rem;
+  color: #334155;
+  font-size: 0.85rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.buttonList {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.playerButton {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 0.75rem;
+  background: #ffffff;
+  color: #0f172a;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.55rem;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.playerButton:hover,
+.playerButton:focus-visible {
+  border-color: rgba(37, 99, 235, 0.55);
+  box-shadow: 0 10px 18px rgba(37, 99, 235, 0.18);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+@media (max-width: 840px) {
+  .columns {
+    grid-template-columns: 1fr;
+  }
+}
+

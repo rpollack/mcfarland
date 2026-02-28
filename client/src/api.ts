@@ -9,6 +9,7 @@ import {
   PlayerSummary,
   PlayerType,
   Vibe,
+  WeeklyTrendsResponse,
 } from "./types";
 
 const API_BASE_URL =
@@ -93,6 +94,10 @@ export async function fetchVibes(): Promise<{ vibes: Vibe[]; defaultMode: string
 
 export async function fetchAbout(): Promise<AboutContent> {
   return request<AboutContent>(`/api/about`);
+}
+
+export async function fetchWeeklyTrends(): Promise<WeeklyTrendsResponse> {
+  return request<WeeklyTrendsResponse>(`/api/trends/weekly`);
 }
 
 export type { HitterRecord, PitcherRecord };

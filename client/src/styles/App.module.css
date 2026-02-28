@@ -94,6 +94,10 @@
   justify-content: center;
 }
 
+.discoverySection {
+  width: min(100%, var(--shell-max));
+}
+
 .footer {
   margin-top: clamp(1.5rem, 4vw, 2.5rem);
   width: min(100%, var(--shell-max));
