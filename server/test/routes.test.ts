@@ -74,4 +74,34 @@ describe("McFARLAND API", () => {
 
     expect(response.status).toBe(204);
   });
+
+  it("serves dynamic social preview HTML for share links", async () => {
+    const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
+    const hitter = listBody.players[0];
+
+    const response = await request(app)
+      .get("/share")
+      .query({ mode: "single", playerType: "hitter", playerId: hitter.id, vibe: "gen_z" });
+
+    expect(response.status).toBe(200);
+    expect(response.headers["content-type"]).toContain("text/html");
+    expect(response.text).toContain("og:title");
+    expect(response.text).toContain("twitter:title");
+    expect(response.text).toContain("Judge");
+    expect(response.text).toContain("/?mode=single");
+  });
+
+  it("injects OG tags into SPA HTML responses", async () => {
+    const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter" });
+    const players = listBody.players.slice(0, 2);
+    const response = await request(app)
+      .get("/")
+      .query({ mode: "compare", playerType: "hitter", playerIds: players.map((p: any) => p.id).join(",") });
+
+    expect(response.status).toBe(200);
+    expect(response.headers["content-type"]).toContain("text/html");
+    expect(response.text).toContain("og:title");
+    expect(response.text).toContain("twitter:image");
+    expect(response.text).toContain("Comparison");
+  });
 });
