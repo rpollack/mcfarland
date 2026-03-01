@@ -76,6 +76,11 @@
   margin: 0 0 0.75rem;
 }
 
+.actions {
+  border-top: 1px solid rgba(148, 163, 184, 0.22);
+  padding-top: 0.95rem;
+}
+
 @media (max-width: 768px) {
   .button {
     width: 100%;

@@ -7,6 +7,7 @@ interface Props {
   quickInsight?: string;
   onAnalyze?: () => void;
   actionLabel?: string;
+  actions?: ReactNode;
   isAnalyzing?: boolean;
   analysis?: string;
   persona?: string;
@@ -19,6 +20,7 @@ function AnalysisPanel({
   quickInsight,
   onAnalyze,
   actionLabel,
+  actions,
   isAnalyzing = false,
   analysis,
   persona,
@@ -57,6 +59,8 @@ function AnalysisPanel({
           )}
         </article>
       )}
+
+      {actions && <div className={styles.actions}>{actions}</div>}
     </section>
   );
 }
