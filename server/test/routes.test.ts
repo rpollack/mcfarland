@@ -75,6 +75,19 @@ describe("McFARLAND API", () => {
     expect(response.status).toBe(204);
   });
 
+  it("returns weekly hitter and pitcher risers/fallers", async () => {
+    const response = await request(app).get("/api/trends/weekly");
+
+    expect(response.status).toBe(200);
+    expect(response.body.weekStart).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(response.body.hitters?.risers).toHaveLength(3);
+    expect(response.body.hitters?.fallers).toHaveLength(3);
+    expect(response.body.pitchers?.risers).toHaveLength(3);
+    expect(response.body.pitchers?.fallers).toHaveLength(3);
+    expect(response.body.hitters.risers[0].type).toBe("hitter");
+    expect(response.body.pitchers.risers[0].type).toBe("pitcher");
+  });
+
   it("serves dynamic social preview HTML for share links", async () => {
     const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
     const hitter = listBody.players[0];

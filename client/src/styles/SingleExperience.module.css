@@ -6,6 +6,17 @@
   width: 100%;
 }
 
+.selectionCluster {
+  width: min(100%, var(--surface-max));
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.95);
+  padding: clamp(1.35rem, 2.6vw, 1.75rem);
+  border-radius: 1.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 24px 36px rgba(15, 23, 42, 0.08);
+}
+
 .results {
   display: flex;
   flex-direction: column;
@@ -13,18 +24,16 @@
   width: min(100%, var(--surface-max));
 }
 
-.playerHeader {
-  background: rgba(255, 255, 255, 0.94);
-  border-radius: 1.25rem;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  padding: clamp(1rem, 2.2vw, 1.45rem);
-  box-shadow: 0 18px 28px rgba(15, 23, 42, 0.07);
-}
-
 .playerHeaderContent {
   display: flex;
   align-items: center;
   gap: clamp(0.85rem, 2vw, 1.25rem);
+}
+
+.analysisIdentity {
+  margin: -0.1rem -0.1rem 0.2rem;
+  padding: 0 0 clamp(0.9rem, 2vw, 1.1rem);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
 }
 
 .playerMeta h2 {

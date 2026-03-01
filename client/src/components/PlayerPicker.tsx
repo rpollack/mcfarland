@@ -10,6 +10,7 @@ interface Props {
   selectedId?: string;
   onSelect: (playerId: string | undefined) => void;
   isLoading: boolean;
+  embedded?: boolean;
 }
 
 const playerTypeLabels: Record<PlayerType, string> = {
@@ -26,6 +27,7 @@ function PlayerPicker({
   selectedId,
   onSelect,
   isLoading,
+  embedded = false,
 }: Props) {
   const handlePlayerSelect = (player: PlayerSummary) => {
     onSelect(player.id);
@@ -33,7 +35,7 @@ function PlayerPicker({
   };
 
   return (
-    <section className={styles.panel} aria-label="Player search">
+    <section className={embedded ? styles.panelEmbedded : styles.panel} aria-label="Player search">
       <div className={styles.typeToggle} role="group" aria-label="Player type selector">
         {(Object.keys(playerTypeLabels) as PlayerType[]).map((type) => (
           <button
@@ -53,6 +55,7 @@ function PlayerPicker({
         onChange={(event) => onSearchTermChange(event.target.value)}
         placeholder={`Find ${playerTypeLabels[playerType].toLowerCase()}...`}
         className={styles.search}
+        autoFocus
       />
       <ul className={styles.results} aria-live="polite">
         {isLoading && <li className={styles.helper}>Loading players…</li>}

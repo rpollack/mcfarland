@@ -40,6 +40,9 @@ function AppShell() {
           next.set(key, value);
         }
       });
+      if (next.toString() === searchParams.toString()) {
+        return;
+      }
       setSearchParams(next, { replace: true });
     },
     [searchParams, setSearchParams]

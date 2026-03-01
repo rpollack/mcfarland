@@ -7,6 +7,7 @@ import { getPlayerById, getPlayerSummaries } from "./dataStore.js";
 import { logAnalysisEvent, logSessionStart, logShareEvent } from "./analytics.js";
 import { AnalysisMode, ANALYSIS_VIBES, DEFAULT_ANALYSIS_MODE } from "./vibes.js";
 import { isAdminModeRequest } from "./admin.js";
+import { getWeeklyTrends } from "./weeklyTrends.js";
 
 const analyzeLimiter = rateLimit({
   windowMs: 60_000,
@@ -238,6 +239,16 @@ router.get("/api/vibes", (_req, res) => {
 
 router.get("/api/about", (_req, res) => {
   res.json(buildAboutContent());
+});
+
+router.get("/api/trends/weekly", async (_req, res) => {
+  try {
+    const trends = await getWeeklyTrends();
+    res.json(trends);
+  } catch (error) {
+    console.error("[api/trends/weekly] failed to generate weekly trends", error);
+    res.status(500).json({ error: "Unable to generate weekly trends" });
+  }
 });
 
 export default router;

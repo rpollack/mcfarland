@@ -4,6 +4,7 @@ import PlayerPicker from "../components/PlayerPicker";
 import AnalysisPanel from "../components/AnalysisPanel";
 import VibeSelector from "../components/VibeSelector";
 import PlayerHeadshot from "../components/PlayerHeadshot";
+import WeeklyTrendsSection from "../components/WeeklyTrendsSection";
 import { useVibe } from "../contexts/VibeContext";
 import { analyzePlayer, fetchPlayerDetail, fetchPlayers, logShareAnalyticsEvent } from "../api";
 import type { PlayerType } from "../types";
@@ -22,17 +23,16 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedId, setSelectedId] = useState<string | undefined>(initialPlayerId);
   const [shareStatus, setShareStatus] = useState<"idle" | "success" | "error">("idle");
+  const syncingFromPropsRef = useRef(false);
 
   useEffect(() => {
+    syncingFromPropsRef.current = true;
     setPlayerType(initialPlayerType);
-  }, [initialPlayerType]);
-
-  useEffect(() => {
     setSelectedId(initialPlayerId);
     if (initialPlayerId) {
       setSearchTerm("");
     }
-  }, [initialPlayerId]);
+  }, [initialPlayerType, initialPlayerId]);
 
   const playersQuery = useQuery({
     queryKey: ["players", playerType, searchTerm],
@@ -83,6 +83,10 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
   }, [playerType, selectedId, mode, runAnalysis]);
 
   useEffect(() => {
+    if (syncingFromPropsRef.current) {
+      syncingFromPropsRef.current = false;
+      return;
+    }
     onStateChange({ playerType, playerId: selectedId });
   }, [playerType, selectedId, onStateChange]);
 
@@ -121,25 +125,36 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
 
   return (
     <div className={styles.container}>
-      <PlayerPicker
-        playerType={playerType}
-        onTypeChange={(nextType) => {
-          setPlayerType(nextType);
-          setSelectedId(undefined);
-          setSearchTerm("");
-        }}
-        searchTerm={searchTerm}
-        onSearchTermChange={(value) => {
-          setSearchTerm(value);
-          if (value.trim().length > 0) {
+      <div className={styles.selectionCluster}>
+        <PlayerPicker
+          embedded
+          playerType={playerType}
+          onTypeChange={(nextType) => {
+            setPlayerType(nextType);
             setSelectedId(undefined);
-          }
-        }}
-        players={playersQuery.data ?? []}
-        selectedId={selectedId}
-        onSelect={setSelectedId}
-        isLoading={playersQuery.isLoading}
-      />
+            setSearchTerm("");
+          }}
+          searchTerm={searchTerm}
+          onSearchTermChange={(value) => {
+            setSearchTerm(value);
+            if (value.trim().length > 0) {
+              setSelectedId(undefined);
+            }
+          }}
+          players={playersQuery.data ?? []}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          isLoading={playersQuery.isLoading}
+        />
+        <WeeklyTrendsSection
+          embedded
+          playerType={playerType}
+          onSelectPlayer={(playerId) => {
+            setSearchTerm("");
+            setSelectedId(playerId);
+          }}
+        />
+      </div>
 
       {hasSelectedPlayer && (
         <div className={styles.results}>
@@ -149,21 +164,23 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
             </div>
           ) : (
             <>
-              <header className={styles.playerHeader}>
-                <div className={styles.playerHeaderContent}>
-                  <PlayerHeadshot
-                    name={detailQuery.data.player.Name}
-                    playerId={detailQuery.data.player.PlayerId}
-                    mlbamid={detailQuery.data.player.mlbamid}
-                    size={72}
-                  />
-                  <div className={styles.playerMeta}>
-                    <h2>{detailQuery.data.player.Name}</h2>
-                    <p>Latest {playerType === "hitter" ? "hitter" : "pitcher"} outlook from McFarland AI.</p>
-                  </div>
-                </div>
-              </header>
               <AnalysisPanel
+                header={(
+                  <header className={styles.analysisIdentity}>
+                    <div className={styles.playerHeaderContent}>
+                      <PlayerHeadshot
+                        name={detailQuery.data.player.Name}
+                        playerId={detailQuery.data.player.PlayerId}
+                        mlbamid={detailQuery.data.player.mlbamid}
+                        size={72}
+                      />
+                      <div className={styles.playerMeta}>
+                        <h2>{detailQuery.data.player.Name}</h2>
+                        <p>Latest {playerType === "hitter" ? "hitter" : "pitcher"} outlook from McFarland AI.</p>
+                      </div>
+                    </div>
+                  </header>
+                )}
                 quickInsight={detailQuery.data.quickInsight}
                 isAnalyzing={isAnalysisPending}
                 analysis={analysisData?.analysis}
