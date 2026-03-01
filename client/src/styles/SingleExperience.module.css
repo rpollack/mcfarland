@@ -59,27 +59,26 @@
   letter-spacing: 0.01em;
 }
 
+.analysisActions {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  align-items: start;
+  gap: clamp(0.75rem, 1.8vw, 1.2rem);
+}
+
 .vibeSection {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
-  background: rgba(255, 255, 255, 0.92);
-  border-radius: 1.15rem;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  padding: clamp(1rem, 2.2vw, 1.4rem);
-  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.07);
+  min-width: 0;
 }
 
 .shareSection {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.75rem;
   flex-wrap: wrap;
-  background: rgba(255, 255, 255, 0.92);
-  border-radius: 1.15rem;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  padding: clamp(0.9rem, 2vw, 1.2rem);
-  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.07);
+  padding-top: 0.15rem;
 }
 
 .shareButton {
@@ -113,6 +112,10 @@
 @media (max-width: 768px) {
   .results {
     width: 100%;
+  }
+
+  .analysisActions {
+    grid-template-columns: 1fr;
   }
 
   .shareButton {

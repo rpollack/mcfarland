@@ -186,22 +186,24 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                 analysis={analysisData?.analysis}
                 persona={analysisData?.persona}
                 modeLabel={vibeLabel}
+                actions={
+                  analysisReady ? (
+                    <div className={styles.analysisActions}>
+                      <div className={styles.shareSection}>
+                        <button type="button" className={styles.shareButton} onClick={() => void handleShare()}>
+                          Share this analysis
+                        </button>
+                        {shareStatus === "success" && <span className={styles.shareStatus}>Link copied.</span>}
+                        {shareStatus === "error" && <span className={styles.shareStatus}>Couldn't copy link.</span>}
+                      </div>
+                      <div className={styles.vibeSection}>
+                        <span className={styles.vibeLabel}>Change the Vibe</span>
+                        <VibeSelector />
+                      </div>
+                    </div>
+                  ) : undefined
+                }
               />
-              {analysisReady && (
-                <div className={styles.shareSection}>
-                  <button type="button" className={styles.shareButton} onClick={() => void handleShare()}>
-                    Share this analysis
-                  </button>
-                  {shareStatus === "success" && <span className={styles.shareStatus}>Link copied.</span>}
-                  {shareStatus === "error" && <span className={styles.shareStatus}>Couldn't copy link.</span>}
-                </div>
-              )}
-              {analysisReady && (
-                <div className={styles.vibeSection}>
-                  <span className={styles.vibeLabel}>Adjust the vibe</span>
-                  <VibeSelector />
-                </div>
-              )}
             </>
           )}
         </div>

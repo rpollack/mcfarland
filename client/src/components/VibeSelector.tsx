@@ -15,17 +15,6 @@ function VibeSelector() {
     }));
   }, [vibes]);
 
-  const descriptions = useMemo(() => {
-    const map = new Map<string, string>();
-   
-    vibes?.forEach((vibe) => {
-      map.set(vibe.id, formatVibeDescription(vibe.description));
-    });
-    return map;
-  }, [vibes]);
-
-  const currentDescription = descriptions.get(mode) ?? "";
-
   return (
     <div className={styles.container}>
       <select
@@ -40,7 +29,6 @@ function VibeSelector() {
           </option>
         ))}
       </select>
-      <p className={styles.helper}>{isLoading ? "Loading vibes..." : currentDescription}</p>
     </div>
   );
 }
@@ -69,11 +57,6 @@ function formatVibeLabel(label: string): string {
     default:
       return `✨ ${label}`;
   }
-}
-
-function formatVibeDescription(description: string): string {
-  const match = description.match(/^(.*?)(\.|$)/);
-  return match ? match[1] : description;
 }
 
 export default VibeSelector;

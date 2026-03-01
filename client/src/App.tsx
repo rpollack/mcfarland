@@ -140,8 +140,7 @@ function AppShell() {
     <div className={styles.shell}>
       <header className={styles.hero}>
         <div>
-          <h1 className={styles.title}>McFARLAND</h1>
-          <p className={styles.tagline}>Advanced baseball analysis. Plain English.</p>
+          <h1 className={styles.title}>McFARLAND: Baseball Analysis in Plain English</h1>
         </div>
       </header>
 
