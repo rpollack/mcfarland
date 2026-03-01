@@ -25,9 +25,9 @@ function TrendGroup({
 }) {
   return (
     <section className={styles.row} aria-label={title}>
-      <h4 className={styles.rowTitle}>
-        <span aria-hidden="true">{emoji}</span> {title}
-      </h4>
+      <p className={styles.rowLeadIn}>
+        <span aria-hidden="true">{emoji}</span> {title}:
+      </p>
       <div className={styles.chipList}>
         {players.map((player) => (
           <button
@@ -69,8 +69,6 @@ export default function WeeklyTrendsSection({ playerType, onSelectPlayer, embedd
   if (trendsQuery.isLoading) {
     return (
       <section className={clsx(styles.wrapper, embedded && styles.embedded)} aria-label="Weekly risers and fallers">
-        <p className={styles.eyebrow}>Quick starts</p>
-        <h3 className={styles.title}>Or jump right in</h3>
         <p className={styles.subhead}>Loading…</p>
       </section>
     );
@@ -86,8 +84,6 @@ export default function WeeklyTrendsSection({ playerType, onSelectPlayer, embedd
 
   return (
     <section className={clsx(styles.wrapper, embedded && styles.embedded)} aria-label="Weekly risers and fallers">
-      <p className={styles.eyebrow}>Quick starts</p>
-      <h3 className={styles.title}>Or jump right in</h3>
       <button
         type="button"
         className={styles.mobileToggle}

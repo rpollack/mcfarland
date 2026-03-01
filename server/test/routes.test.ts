@@ -79,6 +79,7 @@ describe("McFARLAND API", () => {
     const response = await request(app).get("/api/trends/weekly");
 
     expect(response.status).toBe(200);
+    expect(response.body.weekStart).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(response.body.hitters?.risers).toHaveLength(3);
     expect(response.body.hitters?.fallers).toHaveLength(3);
     expect(response.body.pitchers?.risers).toHaveLength(3);

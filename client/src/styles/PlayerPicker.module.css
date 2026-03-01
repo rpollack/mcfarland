@@ -19,18 +19,6 @@
   min-width: 0;
 }
 
-.heading {
-  margin: 0;
-  color: #0f172a;
-  font-size: 1.06rem;
-}
-
-.subheading {
-  margin: -0.35rem 0 0.15rem;
-  color: #64748b;
-  font-size: 0.86rem;
-}
-
 .typeToggle {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

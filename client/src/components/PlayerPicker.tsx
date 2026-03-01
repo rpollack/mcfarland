@@ -36,8 +36,6 @@ function PlayerPicker({
 
   return (
     <section className={embedded ? styles.panelEmbedded : styles.panel} aria-label="Player search">
-      <h3 className={styles.heading}>Select a player</h3>
-      <p className={styles.subheading}>Type a player name to run analysis.</p>
       <div className={styles.typeToggle} role="group" aria-label="Player type selector">
         {(Object.keys(playerTypeLabels) as PlayerType[]).map((type) => (
           <button

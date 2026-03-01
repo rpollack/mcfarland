@@ -25,6 +25,50 @@ async function expectAnalysisReady(page: Page) {
 }
 
 test.describe("McFARLAND core experience", () => {
+  test("single-player quick links trigger matching analysis and stay out of compare mode", async ({ page }) => {
+    const singleAnalyzeRequests: { mode: string; playerId: string }[] = [];
+
+    page.on("request", (request) => {
+      if (request.method() !== "POST" || !request.url().endsWith("/api/analyze")) {
+        return;
+      }
+      try {
+        const body = JSON.parse(request.postData() ?? "{}");
+        singleAnalyzeRequests.push({
+          mode: String(body.analysisMode ?? ""),
+          playerId: String(body.playerId ?? ""),
+        });
+      } catch {
+        /* ignore */
+      }
+    });
+
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "McFARLAND" })).toBeVisible();
+
+    const onFireRow = page.locator("section[aria-label='On Fire']");
+    const iceColdRow = page.locator("section[aria-label='Ice Cold']");
+    await expect(onFireRow).toBeVisible();
+    await expect(iceColdRow).toBeVisible();
+
+    const firstQuickLink = onFireRow.locator("button").first();
+    const clickedPlayerName = (await firstQuickLink.textContent())?.trim() ?? "";
+    expect(clickedPlayerName).not.toBe("");
+
+    const analyzeFromQuickLinkFinished = waitForPostRequestFinished(page, "/api/analyze");
+    await firstQuickLink.click();
+    await analyzeFromQuickLinkFinished;
+    await expectAnalysisReady(page);
+
+    await expect(page.locator("h2").first()).toHaveText(new RegExp(clickedPlayerName, "i"));
+    expect(singleAnalyzeRequests.length).toBeGreaterThan(0);
+    expect(singleAnalyzeRequests.at(-1)?.playerId).not.toBe("");
+
+    await page.getByRole("tab", { name: "Compare Players" }).click();
+    await expect(page.locator("section[aria-label='On Fire']")).toHaveCount(0);
+    await expect(page.locator("section[aria-label='Ice Cold']")).toHaveCount(0);
+  });
+
   test("single analysis, vibe switch, compare three players, share link", async ({ page, context }) => {
     const singleAnalyzeRequests: { mode: string; playerId: string }[] = [];
     const compareAnalyzeRequests: { mode: string; playerIds: string[] }[] = [];
