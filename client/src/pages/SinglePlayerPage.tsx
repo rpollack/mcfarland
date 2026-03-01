@@ -6,9 +6,16 @@ import VibeSelector from "../components/VibeSelector";
 import PlayerHeadshot from "../components/PlayerHeadshot";
 import WeeklyTrendsSection from "../components/WeeklyTrendsSection";
 import { useVibe } from "../contexts/VibeContext";
-import { analyzePlayer, fetchPlayerDetail, fetchPlayers, logShareAnalyticsEvent } from "../api";
+import {
+  analyzePlayer,
+  fetchPlayerDetail,
+  fetchPlayers,
+  logShareAnalyticsEvent,
+  trackAnalysisRunAnalyticsEvent,
+} from "../api";
 import type { PlayerType } from "../types";
 import { buildSharePreviewUrl } from "../utils/share";
+import { saveRecentAnalysis } from "../utils/recentAnalyses";
 import styles from "../styles/SingleExperience.module.css";
 
 interface Props {
@@ -18,10 +25,11 @@ interface Props {
 }
 
 function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateChange }: Props) {
-  const { mode, vibes } = useVibe();
+  const { mode, setMode, vibes } = useVibe();
   const [playerType, setPlayerType] = useState<PlayerType>(initialPlayerType);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedId, setSelectedId] = useState<string | undefined>(initialPlayerId);
+  const [selectionSource, setSelectionSource] = useState<"recent_analyze_again" | "main_ui">("main_ui");
   const [shareStatus, setShareStatus] = useState<"idle" | "success" | "error">("idle");
   const syncingFromPropsRef = useRef(false);
 
@@ -82,6 +90,36 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
     runAnalysis({ playerId: selectedId, playerType, analysisMode: mode });
   }, [playerType, selectedId, mode, runAnalysis]);
 
+  const lastPersistedAnalysisRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedId || !analysisData?.analysis || !detailQuery.data?.player) {
+      return;
+    }
+
+    const key = `${playerType}|${selectedId}|${mode}|${analysisData.prompt}`;
+    if (lastPersistedAnalysisRef.current === key) {
+      return;
+    }
+    lastPersistedAnalysisRef.current = key;
+
+    saveRecentAnalysis({
+      playerId: selectedId,
+      playerName: detailQuery.data.player.Name,
+      playerType,
+      mlbamid: detailQuery.data.player.mlbamid ?? null,
+      analysisMode: mode,
+    });
+
+    trackAnalysisRunAnalyticsEvent({
+      playerId: selectedId,
+      playerName: detailQuery.data.player.Name,
+      playerType,
+      analysisMode: mode,
+      selectionSource,
+    });
+  }, [analysisData?.analysis, analysisData?.prompt, detailQuery.data, mode, playerType, selectedId, selectionSource]);
+
   useEffect(() => {
     if (syncingFromPropsRef.current) {
       syncingFromPropsRef.current = false;
@@ -132,6 +170,7 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
           onTypeChange={(nextType) => {
             setPlayerType(nextType);
             setSelectedId(undefined);
+            setSelectionSource("main_ui");
             setSearchTerm("");
           }}
           searchTerm={searchTerm}
@@ -143,13 +182,20 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
           }}
           players={playersQuery.data ?? []}
           selectedId={selectedId}
-          onSelect={setSelectedId}
+          onSelect={(playerId) => {
+            setSelectionSource("main_ui");
+            setSelectedId(playerId);
+          }}
           isLoading={playersQuery.isLoading}
         />
         <WeeklyTrendsSection
           embedded
           playerType={playerType}
-          onSelectPlayer={(playerId) => {
+          onSelectPlayer={({ playerId, source, analysisMode }) => {
+            setSelectionSource(source);
+            if (analysisMode && analysisMode !== mode) {
+              setMode(analysisMode);
+            }
             setSearchTerm("");
             setSelectedId(playerId);
           }}

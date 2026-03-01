@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import clsx from "clsx";
 import styles from "../styles/PlayerHeadshot.module.css";
 import { buildFallbackHeadshotUrl, buildHeadshotUrl } from "../utils/headshots";
@@ -14,6 +14,11 @@ type Props = {
 export default function PlayerHeadshot({ name, playerId, mlbamid, size = 64, className }: Props) {
   const [src, setSrc] = useState(() => buildHeadshotUrl({ mlbamid, playerId }));
   const fallbackSrc = buildFallbackHeadshotUrl();
+  const desiredSrc = buildHeadshotUrl({ mlbamid, playerId });
+
+  useEffect(() => {
+    setSrc(desiredSrc);
+  }, [desiredSrc]);
 
   return (
     <div className={clsx(styles.wrapper, className)} style={{ width: size, height: size }}>

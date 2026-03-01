@@ -3,12 +3,21 @@ import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { fetchWeeklyTrends } from "../api";
 import type { TrendPlayer, PlayerType } from "../types";
+import {
+  getRecentAnalysesUpdatedEventName,
+  readRecentAnalyses,
+  type RecentAnalysisEntry,
+} from "../utils/recentAnalyses";
 import PlayerHeadshot from "./PlayerHeadshot";
 import styles from "../styles/WeeklyTrendsSection.module.css";
 
 type Props = {
   playerType: PlayerType;
-  onSelectPlayer: (playerId: string) => void;
+  onSelectPlayer: (selection: {
+    playerId: string;
+    source: "recent_analyze_again" | "main_ui";
+    analysisMode?: string;
+  }) => void;
   embedded?: boolean;
 };
 
@@ -21,7 +30,7 @@ function TrendGroup({
   title: string;
   emoji: string;
   players: TrendPlayer[];
-  onSelectPlayer: (playerId: string) => void;
+  onSelectPlayer: Props["onSelectPlayer"];
 }) {
   return (
     <section className={styles.row} aria-label={title}>
@@ -34,7 +43,10 @@ function TrendGroup({
             key={`${title}-${player.id}`}
             type="button"
             className={styles.chipButton}
-            onClick={() => onSelectPlayer(player.id)}
+            onClick={() => onSelectPlayer({
+              playerId: player.id,
+              source: "main_ui",
+            })}
           >
             <PlayerHeadshot
               name={player.name}
@@ -50,8 +62,52 @@ function TrendGroup({
   );
 }
 
+function RecentAnalysesGroup({
+  analyses,
+  onSelectPlayer,
+}: {
+  analyses: RecentAnalysisEntry[];
+  onSelectPlayer: Props["onSelectPlayer"];
+}) {
+  if (analyses.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className={styles.row} aria-label="Analyze again">
+      <p className={styles.rowLeadIn}>
+        <span aria-hidden="true">🔄</span> Analyze Again:
+      </p>
+      <div className={styles.chipList}>
+        {analyses.map((analysis) => (
+          <button
+            key={`${analysis.playerId}-${analysis.analysisMode}`}
+            type="button"
+            className={styles.chipButton}
+            onClick={() => onSelectPlayer({
+              playerId: analysis.playerId,
+              analysisMode: analysis.analysisMode,
+              source: "recent_analyze_again",
+            })}
+            title={`${analysis.playerName} (${analysis.analysisMode})`}
+          >
+            <PlayerHeadshot
+              name={analysis.playerName}
+              playerId={analysis.playerId}
+              mlbamid={analysis.mlbamid}
+              size={20}
+            />
+            <span>{analysis.playerName}</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function WeeklyTrendsSection({ playerType, onSelectPlayer, embedded = false }: Props) {
   const [collapsedOnMobile, setCollapsedOnMobile] = useState(false);
+  const [recentAnalyses, setRecentAnalyses] = useState<RecentAnalysisEntry[]>([]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -60,27 +116,35 @@ export default function WeeklyTrendsSection({ playerType, onSelectPlayer, embedd
     setCollapsedOnMobile(window.innerWidth < 640);
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const eventName = getRecentAnalysesUpdatedEventName();
+    const syncRecentAnalyses = () => {
+      setRecentAnalyses(
+        readRecentAnalyses().filter((analysis) => analysis.playerType === playerType)
+      );
+    };
+
+    syncRecentAnalyses();
+    window.addEventListener(eventName, syncRecentAnalyses);
+    return () => {
+      window.removeEventListener(eventName, syncRecentAnalyses);
+    };
+  }, [playerType]);
+
   const trendsQuery = useQuery({
     queryKey: ["weekly-trends"],
     queryFn: fetchWeeklyTrends,
     staleTime: 30 * 60_000,
   });
 
-  if (trendsQuery.isLoading) {
-    return (
-      <section className={clsx(styles.wrapper, embedded && styles.embedded)} aria-label="Weekly risers and fallers">
-        <p className={styles.subhead}>Loading…</p>
-      </section>
-    );
-  }
-
-  if (trendsQuery.isError || !trendsQuery.data) {
-    return null;
-  }
-
-  const trendBucket = playerType === "hitter" ? trendsQuery.data.hitters : trendsQuery.data.pitchers;
-  const onFirePlayers = trendBucket.risers;
-  const iceColdPlayers = trendBucket.fallers;
+  const trendBucket =
+    trendsQuery.data &&
+    (playerType === "hitter" ? trendsQuery.data.hitters : trendsQuery.data.pitchers);
+  const onFirePlayers = trendBucket?.risers ?? [];
+  const iceColdPlayers = trendBucket?.fallers ?? [];
 
   return (
     <section className={clsx(styles.wrapper, embedded && styles.embedded)} aria-label="Weekly risers and fallers">
@@ -94,6 +158,11 @@ export default function WeeklyTrendsSection({ playerType, onSelectPlayer, embedd
       </button>
 
       <div className={clsx(styles.rows, collapsedOnMobile && styles.rowsCollapsed)}>
+        <RecentAnalysesGroup analyses={recentAnalyses} onSelectPlayer={onSelectPlayer} />
+        {trendsQuery.isLoading && <p className={styles.subhead}>Loading…</p>}
+        {trendsQuery.isError && <p className={styles.subhead}>Unable to load On Fire and Ice Cold right now.</p>}
+        {!trendsQuery.isLoading && !trendsQuery.isError && (
+          <>
         <TrendGroup
           title="On Fire"
           emoji="🔥"
@@ -106,6 +175,8 @@ export default function WeeklyTrendsSection({ playerType, onSelectPlayer, embedd
           players={iceColdPlayers}
           onSelectPlayer={onSelectPlayer}
         />
+          </>
+        )}
       </div>
     </section>
   );
