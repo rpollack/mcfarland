@@ -460,6 +460,11 @@ type RankingRow = {
   mlbamid: string | null;
 };
 
+export type TrendRefreshResult = {
+  snapshotDate: string;
+  rankingsDate: string | null;
+};
+
 function bucketRowsToPlayers(rows: RankingRow[], playerType: "hitter" | "pitcher", bucket: "risers" | "fallers"): TrendPlayer[] {
   return rows
     .filter((row) => row.player_type === playerType && row.bucket === bucket)
@@ -472,19 +477,7 @@ function bucketRowsToPlayers(rows: RankingRow[], playerType: "hitter" | "pitcher
     }));
 }
 
-export async function getWeeklyTrends(): Promise<WeeklyTrends> {
-  const localDate = getLocalDate(new Date(), DEFAULT_TIMEZONE);
-  const weekStart = getWeekStartFromDateString(localDate);
-  const pool = await getPool();
-
-  if (!pool) {
-    return fallbackFromCurrentScores(localDate);
-  }
-
-  await initializeTables(pool);
-  await ensureSnapshotForDate(pool, localDate);
-  await ensureRankingsForDate(pool, localDate);
-
+async function readRankingsForDate(pool: Pool, snapshotDate: string): Promise<RankingRow[]> {
   const rankingRows = await pool.query(
     `
       SELECT player_type, bucket, rank, player_id, player_name, mlbamid
@@ -492,26 +485,77 @@ export async function getWeeklyTrends(): Promise<WeeklyTrends> {
       WHERE snapshot_date = $1
       ORDER BY player_type, bucket, rank
     `,
-    [localDate]
+    [snapshotDate]
   );
 
-  if (rankingRows.rows.length === 0) {
-    return fallbackFromCurrentScores(localDate);
-  }
+  return rankingRows.rows as RankingRow[];
+}
 
-  const typedRows = rankingRows.rows as RankingRow[];
+async function getLatestRankingDate(pool: Pool): Promise<string | null> {
+  const result = await pool.query(
+    `
+      SELECT MAX(snapshot_date)::text AS snapshot_date
+      FROM daily_trend_rankings
+    `
+  );
+
+  return ((result.rows[0] as { snapshot_date?: string | null } | undefined)?.snapshot_date ?? null);
+}
+
+function buildWeeklyTrendsFromRows(snapshotDate: string, rows: RankingRow[]): WeeklyTrends {
+  const weekStart = getWeekStartFromDateString(snapshotDate);
 
   return {
     generatedAt: toIsoNow(),
     weekStart,
     hitters: {
-      risers: bucketRowsToPlayers(typedRows, "hitter", "risers"),
-      fallers: bucketRowsToPlayers(typedRows, "hitter", "fallers"),
+      risers: bucketRowsToPlayers(rows, "hitter", "risers"),
+      fallers: bucketRowsToPlayers(rows, "hitter", "fallers"),
     },
     pitchers: {
-      risers: bucketRowsToPlayers(typedRows, "pitcher", "risers"),
-      fallers: bucketRowsToPlayers(typedRows, "pitcher", "fallers"),
+      risers: bucketRowsToPlayers(rows, "pitcher", "risers"),
+      fallers: bucketRowsToPlayers(rows, "pitcher", "fallers"),
     },
   };
 }
 
+export async function refreshDailyTrendData(snapshotDate?: string): Promise<TrendRefreshResult | null> {
+  const pool = await getPool();
+  if (!pool) {
+    return null;
+  }
+
+  const targetDate = snapshotDate ?? getLocalDate(new Date(), DEFAULT_TIMEZONE);
+  await initializeTables(pool);
+  await ensureSnapshotForDate(pool, targetDate);
+  await ensureRankingsForDate(pool, targetDate);
+
+  const rankingRows = await readRankingsForDate(pool, targetDate);
+  return {
+    snapshotDate: targetDate,
+    rankingsDate: rankingRows.length > 0 ? targetDate : null,
+  };
+}
+
+export async function getWeeklyTrends(): Promise<WeeklyTrends> {
+  const localDate = getLocalDate(new Date(), DEFAULT_TIMEZONE);
+  const pool = await getPool();
+
+  if (!pool) {
+    return fallbackFromCurrentScores(localDate);
+  }
+
+  await initializeTables(pool);
+
+  const latestRankingDate = await getLatestRankingDate(pool);
+  if (!latestRankingDate) {
+    return fallbackFromCurrentScores(localDate);
+  }
+
+  const rankingRows = await readRankingsForDate(pool, latestRankingDate);
+  if (rankingRows.length === 0) {
+    return fallbackFromCurrentScores(localDate);
+  }
+
+  return buildWeeklyTrendsFromRows(latestRankingDate, rankingRows);
+}

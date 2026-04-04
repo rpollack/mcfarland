@@ -1,0 +1,40 @@
+name: Generate Trend Snapshots
+
+on:
+  schedule:
+    - cron: "15 11 * * *"
+  workflow_dispatch:
+
+jobs:
+  ping-trends-endpoint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate configured trends refresh settings
+        env:
+          TRENDS_SNAPSHOT_URL: ${{ secrets.TRENDS_SNAPSHOT_URL }}
+          TRENDS_REFRESH_SECRET: ${{ secrets.TRENDS_REFRESH_SECRET }}
+        run: |
+          if [[ -z "${TRENDS_SNAPSHOT_URL}" ]]; then
+            echo "TRENDS_SNAPSHOT_URL secret is not set."
+            exit 1
+          fi
+          if [[ -z "${TRENDS_REFRESH_SECRET}" ]]; then
+            echo "TRENDS_REFRESH_SECRET secret is not set."
+            exit 1
+          fi
+
+      - name: Trigger daily trend refresh
+        env:
+          TRENDS_SNAPSHOT_URL: ${{ secrets.TRENDS_SNAPSHOT_URL }}
+          TRENDS_REFRESH_SECRET: ${{ secrets.TRENDS_REFRESH_SECRET }}
+        run: |
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --max-time 60 \
+            --retry 3 \
+            --retry-all-errors \
+            --request POST \
+            --header "x-trends-refresh-secret: ${TRENDS_REFRESH_SECRET}" \
+            "${TRENDS_SNAPSHOT_URL}"
