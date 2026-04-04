@@ -1,6 +1,7 @@
-library(tidyverse)
+library(dplyr)
 library(readr)
 library(baseballr)
+library(stringr)
 library(stringi)
 library(httr)
 library(jsonlite)
@@ -151,7 +152,7 @@ url_api <- paste0("https://www.fangraphs.com/api/leaders/major-league/data?", qs
 raw <- fromJSON(url_api)
 pitching_stats_current <-
   raw$data |>
-  as_tibble() |>
+  tibble::as_tibble() |>
   clean_names() |>
   mutate(
     name = str_remove_all(name, "<[^>]+>") # remove HTML tags

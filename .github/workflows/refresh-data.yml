@@ -13,16 +13,19 @@ jobs:
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: '4.3'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev zlib1g-dev pkg-config
           
-      - uses: r-lib/actions/setup-r-dependencies@v2
-        with:
-          packages: |
-            tidyverse
-            baseballr
-            stringi
-            httr
-            jsonlite
-            janitor
+      - name: Install R dependencies
+        run: |
+          Rscript -e 'install.packages(c("dplyr", "readr", "tibble", "stringr", "stringi", "jsonlite", "janitor", "remotes", "curl", "httr", "rvest"), repos = c(CRAN = "https://cloud.r-project.org"))'
+          Rscript -e 'library(curl); library(httr); library(rvest)'
+          Rscript -e 'remotes::install_version("qs", version = "0.27.3", repos = c(CRAN = "https://cloud.r-project.org"))'
+          Rscript -e 'install.packages("baseballr", repos = c(CRAN = "https://cloud.r-project.org"))'
+          Rscript -e 'library(baseballr); packageVersion("baseballr")'
             
       - name: Refresh baseball data
         run: Rscript refresh_data.R
