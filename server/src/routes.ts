@@ -7,7 +7,7 @@ import { getPlayerById, getPlayerSummaries } from "./dataStore.js";
 import { logAnalysisEvent, logSessionStart, logShareEvent } from "./analytics.js";
 import { AnalysisMode, ANALYSIS_VIBES, DEFAULT_ANALYSIS_MODE } from "./vibes.js";
 import { isAdminModeRequest } from "./admin.js";
-import { getWeeklyTrends } from "./weeklyTrends.js";
+import { getWeeklyTrends, refreshDailyTrendData } from "./weeklyTrends.js";
 
 const analyzeLimiter = rateLimit({
   windowMs: 60_000,
@@ -248,6 +248,34 @@ router.get("/api/trends/weekly", async (_req, res) => {
   } catch (error) {
     console.error("[api/trends/weekly] failed to generate weekly trends", error);
     res.status(500).json({ error: "Unable to generate weekly trends" });
+  }
+});
+
+router.post("/api/trends/refresh", async (req, res) => {
+  const configuredSecret = process.env.TRENDS_REFRESH_SECRET?.trim();
+  if (!configuredSecret) {
+    return res.status(503).json({ error: "Trend refresh secret is not configured" });
+  }
+
+  const providedSecret = req.get("x-trends-refresh-secret")?.trim();
+  if (providedSecret !== configuredSecret) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  try {
+    const refreshResult = await refreshDailyTrendData();
+    if (!refreshResult) {
+      return res.status(503).json({ error: "Trend refresh storage is unavailable" });
+    }
+
+    res.json({
+      status: "ok",
+      snapshotDate: refreshResult.snapshotDate,
+      rankingsDate: refreshResult.rankingsDate,
+    });
+  } catch (error) {
+    console.error("[api/trends/refresh] failed to refresh trends", error);
+    res.status(500).json({ error: "Unable to refresh trends" });
   }
 });
 

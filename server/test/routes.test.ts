@@ -88,6 +88,37 @@ describe("McFARLAND API", () => {
     expect(response.body.pitchers.risers[0].type).toBe("pitcher");
   });
 
+  it("rejects trend refresh when secret is not configured", async () => {
+    delete process.env.TRENDS_REFRESH_SECRET;
+
+    const response = await request(app).post("/api/trends/refresh");
+
+    expect(response.status).toBe(503);
+    expect(response.body.error).toContain("not configured");
+  });
+
+  it("rejects trend refresh with the wrong secret", async () => {
+    process.env.TRENDS_REFRESH_SECRET = "expected-secret";
+
+    const response = await request(app)
+      .post("/api/trends/refresh")
+      .set("x-trends-refresh-secret", "wrong-secret");
+
+    expect(response.status).toBe(403);
+  });
+
+  it("returns storage unavailable for trend refresh when database is not configured", async () => {
+    process.env.TRENDS_REFRESH_SECRET = "expected-secret";
+    delete process.env.DATABASE_URL;
+
+    const response = await request(app)
+      .post("/api/trends/refresh")
+      .set("x-trends-refresh-secret", "expected-secret");
+
+    expect(response.status).toBe(503);
+    expect(response.body.error).toContain("storage is unavailable");
+  });
+
   it("serves dynamic social preview HTML for share links", async () => {
     const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
     const hitter = listBody.players[0];
