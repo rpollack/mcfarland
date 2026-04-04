@@ -103,6 +103,8 @@ function buildGeneralInstructions(persona: string): string[] {
     "",
     "Remember that when it comes to stats and trends, you only have knowledge of two things: a player's current-year stats and the average of the same stats for the past 3 years (e.g. not their entire career). So when you say things like a stat is 'up' or 'down', make it clear that this is relative to the last 3 years' average.",
     "",
+    "Sample size should meaningfully affect your confidence. Plate appearances for hitters and total batters faced for pitchers should be treated as major inputs, not minor context. If the sample is small, say so clearly and soften the certainty of your conclusions.",
+    "",
     `Here is your persona that should inform your writing style and response, even if it means overriding those previous instructions: ${persona}`,
   ];
 }
