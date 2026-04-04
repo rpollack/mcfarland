@@ -16,7 +16,7 @@ jobs:
           
       - name: Install R dependencies
         run: |
-          Rscript -e 'install.packages(c("tidyverse", "stringi", "httr", "jsonlite", "janitor"), repos = c(CRAN = "https://cloud.r-project.org"))'
+          Rscript -e 'install.packages(c("dplyr", "readr", "tibble", "stringr", "stringi", "httr", "jsonlite", "janitor"), repos = c(CRAN = "https://cloud.r-project.org"))'
           Rscript -e 'install.packages("https://cran.r-project.org/src/contrib/Archive/qs/qs_0.27.3.tar.gz", repos = NULL, type = "source")'
           Rscript -e 'install.packages("baseballr", repos = c(CRAN = "https://cloud.r-project.org"))'
             
