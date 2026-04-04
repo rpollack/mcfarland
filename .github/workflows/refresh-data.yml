@@ -16,10 +16,9 @@ jobs:
           
       - name: Install R dependencies
         run: |
-          Rscript -e 'options(repos = c(CRAN = "https://cloud.r-project.org"))'
-          Rscript -e 'install.packages(c("tidyverse", "stringi", "httr", "jsonlite", "janitor"))'
+          Rscript -e 'install.packages(c("tidyverse", "stringi", "httr", "jsonlite", "janitor"), repos = c(CRAN = "https://cloud.r-project.org"))'
           Rscript -e 'install.packages("https://cran.r-project.org/src/contrib/Archive/qs/qs_0.27.3.tar.gz", repos = NULL, type = "source")'
-          Rscript -e 'install.packages("baseballr")'
+          Rscript -e 'install.packages("baseballr", repos = c(CRAN = "https://cloud.r-project.org"))'
             
       - name: Refresh baseball data
         run: Rscript refresh_data.R
