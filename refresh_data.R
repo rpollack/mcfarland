@@ -6,7 +6,7 @@ library(httr)
 library(jsonlite)
 library(janitor)
 
-current_year <- 2025
+current_year <- 2026
 
 # =============================================================================
 # HITTERS DATA PROCESSING
@@ -19,9 +19,9 @@ cat("Available columns in fg_batter_leaders:", paste(colnames(current_hitters)[1
 
 hitter_stats <-
   bind_rows(
-    read_csv("fangraphs-leaderboards-2022.csv", show_col_types = FALSE) |> mutate(year = 2022),
     read_csv("fangraphs-leaderboards-2023.csv", show_col_types = FALSE) |> mutate(year = 2023),
     read_csv("fangraphs-leaderboards-2024.csv", show_col_types = FALSE) |> mutate(year = 2024),
+    read_csv("fangraphs-leaderboards-2025.csv", show_col_types = FALSE) |> mutate(year = 2025),
     # Get current year data with MLB IDs
     current_hitters |>
       select(Name = PlayerName, Age, PlayerId = playerid, mlbamid = xMLBAMID, AB, PA, `1B`, `2B`, `3B`, HR, H, HBP, SF, wOBA, xwOBA, SO, BB, Barrels) |>
@@ -100,9 +100,9 @@ full_stats_hitters <-
 # Load pitcher data for past 3 years
 pitching_stats_last_3 <-
   bind_rows(
-    read_csv("pitcher-stats-2022.csv", show_col_types = FALSE) |> mutate(year = 2022),
     read_csv("pitcher-stats-2023.csv", show_col_types = FALSE) |> mutate(year = 2023),
-    read_csv("pitcher-stats-2024.csv", show_col_types = FALSE) |> mutate(year = 2024)
+    read_csv("pitcher-stats-2024.csv", show_col_types = FALSE) |> mutate(year = 2024),
+    read_csv("pitcher-stats-2025.csv", show_col_types = FALSE) |> mutate(year = 2025)
   ) |>
   group_by(playerid, name, position) |>
   summarize(
