@@ -1,0 +1,32 @@
+name: Generate Trend Snapshots
+
+on:
+  schedule:
+    - cron: "15 11 * * *"
+  workflow_dispatch:
+
+jobs:
+  ping-trends-endpoint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate configured trends snapshot URL
+        env:
+          TRENDS_SNAPSHOT_URL: ${{ secrets.TRENDS_SNAPSHOT_URL }}
+        run: |
+          if [[ -z "${TRENDS_SNAPSHOT_URL}" ]]; then
+            echo "TRENDS_SNAPSHOT_URL secret is not set."
+            exit 1
+          fi
+
+      - name: Trigger weekly trends generation
+        env:
+          TRENDS_SNAPSHOT_URL: ${{ secrets.TRENDS_SNAPSHOT_URL }}
+        run: |
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --max-time 60 \
+            --retry 3 \
+            --retry-all-errors \
+            "${TRENDS_SNAPSHOT_URL}"
