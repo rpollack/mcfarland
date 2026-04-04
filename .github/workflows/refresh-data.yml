@@ -14,15 +14,12 @@ jobs:
         with:
           r-version: '4.3'
           
-      - uses: r-lib/actions/setup-r-dependencies@v2
-        with:
-          packages: |
-            tidyverse
-            baseballr
-            stringi
-            httr
-            jsonlite
-            janitor
+      - name: Install R dependencies
+        run: |
+          Rscript -e 'options(repos = c(CRAN = "https://cloud.r-project.org"))'
+          Rscript -e 'install.packages(c("tidyverse", "stringi", "httr", "jsonlite", "janitor"))'
+          Rscript -e 'install.packages("https://cran.r-project.org/src/contrib/Archive/qs/qs_0.27.3.tar.gz", repos = NULL, type = "source")'
+          Rscript -e 'install.packages("baseballr")'
             
       - name: Refresh baseball data
         run: Rscript refresh_data.R
