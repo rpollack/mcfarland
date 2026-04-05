@@ -1,61 +1,118 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useVibe } from "../contexts/VibeContext";
 import styles from "../styles/VibeSelector.module.css";
 
 function VibeSelector() {
   const { vibes, mode, setMode, isLoading } = useVibe();
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const options = useMemo(() =>{
+  const options = useMemo(() => {
     if (!vibes) {
       return [];
     }
+
     return vibes.map((vibe) => ({
-      ...vibe,
-      label: formatVibeLabel(vibe.label),
+      id: vibe.id,
+      label: formatCompactVibeLabel(vibe.label),
     }));
   }, [vibes]);
 
+  const activeLabel = options.find((option) => option.id === mode)?.label ?? "Choose a vibe";
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [isOpen]);
+
   return (
-    <div className={styles.container}>
-      <select
-        id="vibe-select"
-        value={mode}
-        onChange={(event) => setMode(event.target.value)}
+    <div className={styles.container} ref={containerRef}>
+      <button
+        type="button"
+        className={styles.trigger}
+        onClick={() => setIsOpen((current) => !current)}
         disabled={isLoading || options.length === 0}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
       >
-        {options.map((vibe) => (
-          <option key={vibe.id} value={vibe.id}>
-            {vibe.label}
-          </option>
-        ))}
-      </select>
+        <span aria-hidden className={styles.icon}>🎭</span>
+        <span>Change the vibe</span>
+      </button>
+
+      {isOpen && (
+        <div className={styles.menu} role="listbox" aria-label="Analysis vibes">
+          <div className={styles.menuHeader}>
+            <span className={styles.menuTitle}>Current: {activeLabel}</span>
+            <button type="button" className={styles.closeButton} onClick={() => setIsOpen(false)}>
+              Close
+            </button>
+          </div>
+
+          <div className={styles.optionList}>
+            {options.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className={option.id === mode ? styles.optionActive : styles.option}
+                onClick={() => {
+                  setMode(option.id);
+                  setIsOpen(false);
+                }}
+              >
+                <span>{option.label}</span>
+                {option.id === mode && <span className={styles.check}>✓</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function formatVibeLabel(label: string): string {
-  const normalized = label.replace(/:.*$/, "");
+function formatCompactVibeLabel(label: string): string {
+  const normalized = label.replace(/:.*$/, "").replace(/\s*\(default\)\s*/i, "");
   switch (normalized.toLowerCase()) {
     case "straightforward":
-      return "➡️ Straightforward — Just the facts";
+      return "Straightforward";
     case "analytics dork":
-      return "📊 Analytics dork — Numbers first";
+      return "Analytics dork";
     case "old coot":
-      return "🧓 Old coot — Get off my lawn";
+      return "Old coot";
     case "gen z":
-      return "🌀 Gen Z — Meme energy";
+      return "Gen Z";
     case "seventies":
-      return "🎷 Seventies — Retro vibes";
+      return "Seventies";
     case "sensationalist":
-      return "🎪 Sensationalist — Big drama";
+      return "Sensationalist";
     case "shakespeare":
-      return "🎭 Shakespeare — Bard mode";
+      return "Shakespeare";
     case "rose-colored glasses":
-      return "🌹 Rose-colored — Always sunny";
+      return "Rose-colored";
     case "rotisserie expert":
-      return "🍗 Rotisserie — Fantasy focus";
+      return "Rotisserie";
     default:
-      return `✨ ${label}`;
+      return normalized;
   }
 }
 

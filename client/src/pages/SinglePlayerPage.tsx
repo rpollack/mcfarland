@@ -5,6 +5,7 @@ import AnalysisPanel from "../components/AnalysisPanel";
 import VibeSelector from "../components/VibeSelector";
 import PlayerHeadshot from "../components/PlayerHeadshot";
 import WeeklyTrendsSection from "../components/WeeklyTrendsSection";
+import panelStyles from "../styles/AnalysisPanel.module.css";
 import { useVibe } from "../contexts/VibeContext";
 import {
   analyzePlayer,
@@ -210,6 +211,13 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
     }
   }, [detailQuery.data, mode, playerType]);
 
+  const handleAnalyzeAnother = useCallback(() => {
+    setSelectedId(undefined);
+    setSearchTerm("");
+    setShareStatus("idle");
+    lastAnalysisKeyRef.current = null;
+  }, []);
+
   return (
     <div className={styles.container}>
       <div className={styles.selectionCluster}>
@@ -277,26 +285,33 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                 )}
                 quickInsight={detailQuery.data.quickInsight}
                 quickStatsLine={quickStatsLine}
-                dataThroughLabel={freshnessQuery.data?.dataThroughLabel}
                 isAnalyzing={isAnalysisPending}
                 analysis={analysisData?.analysis}
                 persona={analysisData?.persona}
                 modeLabel={vibeLabel}
-                actions={
+                nextSteps={
                   analysisReady ? (
-                    <div className={styles.analysisActions}>
-                      <div className={styles.shareSection}>
-                        <button type="button" className={styles.shareButton} onClick={() => void handleShare()}>
-                          Share this analysis
+                    <>
+                      <div className={panelStyles.nextStepCard}>
+                        <button type="button" className={panelStyles.nextStepButton} onClick={() => void handleShare()}>
+                          <span aria-hidden className={panelStyles.icon}>🔗</span>
+                          <span>Share this analysis</span>
                         </button>
-                        {shareStatus === "success" && <span className={styles.shareStatus}>Link copied.</span>}
-                        {shareStatus === "error" && <span className={styles.shareStatus}>Couldn't copy link.</span>}
+                        {shareStatus === "success" && <span className={panelStyles.status}>Link copied.</span>}
+                        {shareStatus === "error" && <span className={panelStyles.status}>Couldn't copy link.</span>}
                       </div>
-                      <div className={styles.vibeSection}>
-                        <span className={styles.vibeLabel}>Change the Vibe</span>
+
+                      <div className={panelStyles.nextStepCard}>
                         <VibeSelector />
                       </div>
-                    </div>
+
+                      <div className={panelStyles.nextStepCard}>
+                        <button type="button" className={panelStyles.nextStepButton} onClick={handleAnalyzeAnother}>
+                          <span aria-hidden className={panelStyles.icon}>🔎</span>
+                          <span>Pick another player</span>
+                        </button>
+                      </div>
+                    </>
                   ) : undefined
                 }
               />
