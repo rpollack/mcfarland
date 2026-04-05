@@ -405,7 +405,8 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
                         name={player.Name}
                         playerId={player.PlayerId}
                         mlbamid={player.mlbamid}
-                        size={56}
+                        size={44}
+                        className={styles.compareHeadshot}
                       />
                       <div className={styles.playerText}>
                         <span className={styles.playerName}>{player.Name}</span>

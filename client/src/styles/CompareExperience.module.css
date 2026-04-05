@@ -186,6 +186,10 @@
   gap: 0.75rem;
 }
 
+.compareHeadshot {
+  --headshot-size: 44px;
+}
+
 .playerName {
   font-weight: 600;
   color: #0f172a;
@@ -230,6 +234,10 @@
 
   .results {
     width: 100%;
+  }
+
+  .compareHeadshot {
+    --headshot-size: 34px;
   }
 
   .compareButton {

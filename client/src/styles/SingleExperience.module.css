@@ -30,6 +30,10 @@
   gap: clamp(0.85rem, 2vw, 1.25rem);
 }
 
+.analysisHeadshot {
+  --headshot-size: 56px;
+}
+
 .analysisIdentity {
   margin: -0.1rem -0.1rem 0.2rem;
   padding: 0 0 clamp(0.9rem, 2vw, 1.1rem);
@@ -62,5 +66,9 @@
 @media (max-width: 768px) {
   .results {
     width: 100%;
+  }
+
+  .analysisHeadshot {
+    --headshot-size: 42px;
   }
 }
