@@ -53,6 +53,8 @@ export interface PitcherRecord {
   Age: number | null;
   position?: string | null;
   tbf: number | null;
+  so?: number | null;
+  bb?: number | null;
   era_cur: number | null;
   era_l3: number | null;
   era_diff: number | null;

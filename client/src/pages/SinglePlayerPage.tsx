@@ -14,7 +14,7 @@ import {
   logShareAnalyticsEvent,
   trackAnalysisRunAnalyticsEvent,
 } from "../api";
-import type { PlayerType } from "../types";
+import type { HitterRecord, PitcherRecord, PlayerType } from "../types";
 import { buildSharePreviewUrl } from "../utils/share";
 import { saveRecentAnalysis } from "../utils/recentAnalyses";
 import styles from "../styles/SingleExperience.module.css";
@@ -23,6 +23,45 @@ interface Props {
   initialPlayerType: PlayerType;
   initialPlayerId?: string;
   onStateChange: (state: { playerType: PlayerType; playerId?: string }) => void;
+}
+
+function formatSlashStat(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return "N/A";
+  }
+  return Number(value).toFixed(3).replace(/^(-?)0+/, "$1");
+}
+
+function formatInteger(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return "N/A";
+  }
+  return String(Math.round(value));
+}
+
+function formatEra(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return "N/A";
+  }
+  return Number(value).toFixed(2);
+}
+
+function buildQuickStatsLine(
+  player: HitterRecord | PitcherRecord,
+  playerType: PlayerType,
+  dataThroughLabel?: string
+): string | undefined {
+  if (!dataThroughLabel) {
+    return undefined;
+  }
+
+  if (playerType === "hitter") {
+    const hitter = player as HitterRecord;
+    return `Through ${dataThroughLabel}: ${formatInteger(hitter.PA_cur)} PA · ${formatSlashStat(hitter.AVG_cur)}/${formatSlashStat(hitter.OBP_cur)}/${formatSlashStat(hitter.SLG_cur)}`;
+  }
+
+  const pitcher = player as PitcherRecord;
+  return `Through ${dataThroughLabel}: ${formatInteger(pitcher.tbf)} TBF · ${formatEra(pitcher.era_cur)} ERA · ${formatInteger(pitcher.so)} SO · ${formatInteger(pitcher.bb)} BB`;
 }
 
 function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateChange }: Props) {
@@ -81,6 +120,10 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
   const hasSelectedPlayer = Boolean(selectedId);
   const hasPlayerProfile = Boolean(detailQuery.data);
   const analysisReady = Boolean(analysisData?.analysis);
+  const quickStatsLine =
+    detailQuery.data && freshnessQuery.data
+      ? buildQuickStatsLine(detailQuery.data.player, playerType, freshnessQuery.data.dataThroughLabel)
+      : undefined;
 
   useEffect(() => {
     if (!selectedId) {
@@ -234,6 +277,7 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                   </header>
                 )}
                 quickInsight={detailQuery.data.quickInsight}
+                quickStatsLine={quickStatsLine}
                 dataThroughLabel={freshnessQuery.data?.dataThroughLabel}
                 isAnalyzing={isAnalysisPending}
                 analysis={analysisData?.analysis}

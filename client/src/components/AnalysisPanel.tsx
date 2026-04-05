@@ -5,6 +5,7 @@ import styles from "../styles/AnalysisPanel.module.css";
 interface Props {
   header?: ReactNode;
   quickInsight?: string;
+  quickStatsLine?: string;
   onAnalyze?: () => void;
   actionLabel?: string;
   actions?: ReactNode;
@@ -19,6 +20,7 @@ interface Props {
 function AnalysisPanel({
   header,
   quickInsight,
+  quickStatsLine,
   onAnalyze,
   actionLabel,
   actions,
@@ -38,7 +40,7 @@ function AnalysisPanel({
         <div className={styles.quickInsight}>
           <h3>Quick insight</h3>
           <p>{quickInsight}</p>
-          {dataThroughLabel && <p className={styles.freshness}>Through games on {dataThroughLabel}</p>}
+          {quickStatsLine && <p className={styles.freshness}>{quickStatsLine}</p>}
         </div>
       )}
 

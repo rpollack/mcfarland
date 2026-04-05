@@ -50,6 +50,8 @@ export interface PitcherRecord {
   gs?: number | null;
   ip?: number | null;
   tbf: number | null;
+  so?: number | null;
+  bb?: number | null;
   babip_cur: number | null;
   lob_percent_cur: number | null;
   fip_cur?: number | null;
