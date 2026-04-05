@@ -293,10 +293,6 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                   analysisReady ? (
                     <>
                       <div className={panelStyles.nextStepCard}>
-                        <div>
-                          <h4>Share it</h4>
-                          <p>Drop this scouting report into a text, group chat, or thread.</p>
-                        </div>
                         <button type="button" className={panelStyles.nextStepButton} onClick={() => void handleShare()}>
                           Share this analysis
                         </button>
@@ -305,18 +301,10 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                       </div>
 
                       <div className={panelStyles.nextStepCard}>
-                        <div>
-                          <h4>Change the vibe</h4>
-                          <p>Rerun the same player with a different voice or angle.</p>
-                        </div>
                         <VibeSelector />
                       </div>
 
                       <div className={panelStyles.nextStepCard}>
-                        <div>
-                          <h4>Analyze another player</h4>
-                          <p>Jump back to search and keep the rabbit hole going.</p>
-                        </div>
                         <button type="button" className={panelStyles.nextStepButton} onClick={handleAnalyzeAnother}>
                           Pick another player
                         </button>

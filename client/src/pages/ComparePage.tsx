@@ -436,10 +436,6 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
               analysisReady ? (
                 <>
                   <div className={panelStyles.nextStepCard}>
-                    <div>
-                      <h4>Share it</h4>
-                      <p>Send this matchup breakdown to the group chat or league thread.</p>
-                    </div>
                     <button type="button" className={panelStyles.nextStepButton} onClick={() => void handleShare()}>
                       Share this analysis
                     </button>
@@ -448,18 +444,10 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
                   </div>
 
                   <div className={panelStyles.nextStepCard}>
-                    <div>
-                      <h4>Change the vibe</h4>
-                      <p>Rerun the same comparison with a different voice or framing.</p>
-                    </div>
                     <VibeSelector />
                   </div>
 
                   <div className={panelStyles.nextStepCard}>
-                    <div>
-                      <h4>Analyze another matchup</h4>
-                      <p>Clear the board and line up a new head-to-head or three-player test.</p>
-                    </div>
                     <button type="button" className={panelStyles.nextStepButton} onClick={handleAnalyzeAnother}>
                       Pick new players
                     </button>

@@ -113,19 +113,6 @@
   background: rgba(248, 250, 255, 0.9);
 }
 
-.nextStepCard h4 {
-  margin: 0;
-  color: #0f172a;
-  font-size: 0.95rem;
-}
-
-.nextStepCard p {
-  margin: 0;
-  color: #475569;
-  line-height: 1.55;
-  font-size: 0.92rem;
-}
-
 .nextStepButton {
   border: none;
   border-radius: 0.8rem;
