@@ -271,7 +271,6 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                       />
                       <div className={styles.playerMeta}>
                         <h2>{detailQuery.data.player.Name}</h2>
-                        <p>Latest {playerType === "hitter" ? "hitter" : "pitcher"} outlook from McFarland AI.</p>
                       </div>
                     </div>
                   </header>
