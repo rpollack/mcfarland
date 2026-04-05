@@ -389,7 +389,6 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
           <section className={styles.summaryCard} aria-label="Selected players">
             <header>
               <h2>Comparison lineup</h2>
-              <p>Head-to-head outlook for your {playerType === "hitter" ? "hitters" : "pitchers"}.</p>
             </header>
             <ul className={styles.playerList}>
               {comparisonResult.players.map((player) => {
