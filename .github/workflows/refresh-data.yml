@@ -51,9 +51,10 @@ jobs:
         with:
           token: ${{ secrets.REFRESH_PR_TOKEN }}
           branch: automated/daily-data-refresh
+          branch-suffix: timestamp
           delete-branch: true
-          commit-message: "Daily data refresh ${{ steps.refresh_meta.outputs.refresh_date }}"
-          title: "Daily data refresh ${{ steps.refresh_meta.outputs.refresh_date }}"
+          commit-message: "Daily baseball data refresh ${{ steps.refresh_meta.outputs.refresh_date }}"
+          title: "Daily baseball data refresh ${{ steps.refresh_meta.outputs.refresh_date }}"
           body: |
             Automated daily refresh generated at `${{ steps.refresh_meta.outputs.refresh_timestamp }}` for:
             - `full_stats_hitters.csv`
@@ -69,4 +70,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.REFRESH_PR_TOKEN }}
         run: |
-          gh pr merge --auto --squash "${{ steps.cpr.outputs.pull-request-number }}"
+          gh pr merge --auto --squash \
+            --subject "Daily baseball data refresh ${{ steps.refresh_meta.outputs.refresh_date }}" \
+            "${{ steps.cpr.outputs.pull-request-number }}"
