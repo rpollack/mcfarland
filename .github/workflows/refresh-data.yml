@@ -4,6 +4,10 @@ on:
     - cron: '0 11 * * *'  # 6 AM EST (11 AM UTC)
   workflow_dispatch:  # Allows manual trigger
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   refresh:
     runs-on: ubuntu-latest
@@ -29,22 +33,28 @@ jobs:
             
       - name: Refresh baseball data
         run: Rscript refresh_data.R
-        
-      - name: Commit and push changes
+
+      - name: Create pull request for refreshed data
+        id: cpr
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: automated/daily-data-refresh
+          delete-branch: true
+          commit-message: "Daily data refresh"
+          title: "Daily data refresh"
+          body: |
+            Automated daily refresh of:
+            - `full_stats_hitters.csv`
+            - `full_stats_pitchers.csv`
+            - `player_lookup.csv`
+          add-paths: |
+            full_stats_hitters.csv
+            full_stats_pitchers.csv
+            player_lookup.csv
+
+      - name: Enable auto-merge for refresh PR
+        if: steps.cpr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          
-          # Check if there are any changes to commit
-          if [[ -n $(git status --porcelain) ]]; then
-            # Add only the generated files we want to track
-            git add full_stats_hitters.csv full_stats_pitchers.csv player_lookup.csv
-            
-            # Commit the changes
-            git commit -m "Daily data refresh $(date -u '+%Y-%m-%d %H:%M UTC')"
-            git push
-            
-            echo "✓ Data refreshed and pushed"
-          else
-            echo "✓ No changes to commit"
-          fi
+          gh pr merge --auto --squash "${{ steps.cpr.outputs.pull-request-number }}"
