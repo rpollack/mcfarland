@@ -39,17 +39,24 @@ jobs:
             exit 1
           fi
 
+      - name: Set refresh metadata
+        id: refresh_meta
+        run: |
+          echo "refresh_date=$(date -u +'%Y-%m-%d')" >> "$GITHUB_OUTPUT"
+          echo "refresh_timestamp=$(date -u +'%Y-%m-%d %H:%M UTC')" >> "$GITHUB_OUTPUT"
+
       - name: Create pull request for refreshed data
         id: cpr
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.REFRESH_PR_TOKEN }}
           branch: automated/daily-data-refresh
+          branch-suffix: timestamp
           delete-branch: true
-          commit-message: "Daily data refresh"
-          title: "Daily data refresh"
+          commit-message: "Daily baseball data refresh ${{ steps.refresh_meta.outputs.refresh_date }}"
+          title: "Daily baseball data refresh ${{ steps.refresh_meta.outputs.refresh_date }}"
           body: |
-            Automated daily refresh of:
+            Automated daily refresh generated at `${{ steps.refresh_meta.outputs.refresh_timestamp }}` for:
             - `full_stats_hitters.csv`
             - `full_stats_pitchers.csv`
             - `player_lookup.csv`
@@ -63,4 +70,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.REFRESH_PR_TOKEN }}
         run: |
-          gh pr merge --auto --squash "${{ steps.cpr.outputs.pull-request-number }}"
+          gh pr merge --auto --squash \
+            --subject "Daily baseball data refresh ${{ steps.refresh_meta.outputs.refresh_date }}" \
+            "${{ steps.cpr.outputs.pull-request-number }}"
