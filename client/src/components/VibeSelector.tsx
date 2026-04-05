@@ -18,6 +18,7 @@ function VibeSelector({ variant = "popover" }: Props) {
     return vibes.map((vibe) => ({
       ...vibe,
       label: formatVibeLabel(vibe.label),
+      compactLabel: formatCompactVibeLabel(vibe.label),
     }));
   }, [vibes]);
 
@@ -63,8 +64,7 @@ function VibeSelector({ variant = "popover" }: Props) {
               }}
               disabled={isLoading || options.length === 0}
             >
-              <span className={styles.optionLabel}>{vibe.label}</span>
-              <span className={styles.optionDescription}>{vibe.description}</span>
+              <span className={styles.optionLabel}>{vibe.compactLabel}</span>
             </button>
           ))}
         </div>
@@ -132,6 +132,32 @@ function formatVibeLabel(label: string): string {
       return "🍗 Rotisserie — Fantasy focus";
     default:
       return `✨ ${label}`;
+  }
+}
+
+function formatCompactVibeLabel(label: string): string {
+  const normalized = label.replace(/:.*$/, "").replace(/\s*\(default\)\s*/i, "");
+  switch (normalized.toLowerCase()) {
+    case "straightforward":
+      return "➡️ Straightforward";
+    case "analytics dork":
+      return "📊 Analytics dork";
+    case "old coot":
+      return "🧓 Old coot";
+    case "gen z":
+      return "🌀 Gen Z";
+    case "seventies":
+      return "🎷 Seventies";
+    case "sensationalist":
+      return "🎪 Sensationalist";
+    case "shakespeare":
+      return "🎭 Shakespeare";
+    case "rose-colored glasses":
+      return "🌹 Rose-colored";
+    case "rotisserie expert":
+      return "🍗 Rotisserie";
+    default:
+      return `✨ ${normalized}`;
   }
 }
 
