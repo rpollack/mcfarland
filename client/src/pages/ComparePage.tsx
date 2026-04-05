@@ -457,7 +457,7 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
                     {isVibeChooserOpen && (
                       <div className={panelStyles.subAction}>
                         <p>Rerun this matchup with a different voice or framing.</p>
-                        <VibeSelector />
+                        <VibeSelector variant="inline" />
                       </div>
                     )}
                   </div>

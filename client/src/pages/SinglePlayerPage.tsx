@@ -314,7 +314,7 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                         {isVibeChooserOpen && (
                           <div className={panelStyles.subAction}>
                             <p>Rerun this player with a different voice or angle.</p>
-                            <VibeSelector />
+                            <VibeSelector variant="inline" />
                           </div>
                         )}
                       </div>

@@ -2,7 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useVibe } from "../contexts/VibeContext";
 import styles from "../styles/VibeSelector.module.css";
 
-function VibeSelector() {
+interface Props {
+  variant?: "popover" | "inline";
+}
+
+function VibeSelector({ variant = "popover" }: Props) {
   const { vibes, mode, setMode, isLoading } = useVibe();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -18,9 +22,10 @@ function VibeSelector() {
   }, [vibes]);
 
   const selectedOption = options.find((option) => option.id === mode) ?? options[0];
+  const optionListClassName = variant === "inline" ? styles.inlineList : styles.popover;
 
   useEffect(() => {
-    if (!isOpen) {
+    if (variant !== "popover" || !isOpen) {
       return;
     }
 
@@ -44,6 +49,29 @@ function VibeSelector() {
     };
   }, [isOpen]);
 
+  if (variant === "inline") {
+    return (
+      <div className={styles.container}>
+        <div className={styles.inlineList} role="listbox" aria-label="Analysis vibes">
+          {options.map((vibe) => (
+            <button
+              key={vibe.id}
+              type="button"
+              className={vibe.id === mode ? styles.optionActive : styles.option}
+              onClick={() => {
+                setMode(vibe.id);
+              }}
+              disabled={isLoading || options.length === 0}
+            >
+              <span className={styles.optionLabel}>{vibe.label}</span>
+              <span className={styles.optionDescription}>{vibe.description}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.container} ref={containerRef}>
       <button
@@ -60,7 +88,7 @@ function VibeSelector() {
       </button>
 
       {isOpen && (
-        <div className={styles.popover} role="listbox" aria-label="Analysis vibes">
+        <div className={optionListClassName} role="listbox" aria-label="Analysis vibes">
           {options.map((vibe) => (
             <button
               key={vibe.id}
