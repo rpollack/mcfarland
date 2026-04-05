@@ -5,6 +5,7 @@ import styles from "../styles/AnalysisPanel.module.css";
 interface Props {
   header?: ReactNode;
   quickInsight?: string;
+  quickStatsLine?: string;
   onAnalyze?: () => void;
   actionLabel?: string;
   actions?: ReactNode;
@@ -13,11 +14,13 @@ interface Props {
   persona?: string;
   disabled?: boolean;
   modeLabel?: string;
+  dataThroughLabel?: string;
 }
 
 function AnalysisPanel({
   header,
   quickInsight,
+  quickStatsLine,
   onAnalyze,
   actionLabel,
   actions,
@@ -26,6 +29,7 @@ function AnalysisPanel({
   persona,
   disabled,
   modeLabel,
+  dataThroughLabel,
 }: Props) {
   const showAnalysisBody = Boolean(isAnalyzing || analysis);
 
@@ -36,6 +40,7 @@ function AnalysisPanel({
         <div className={styles.quickInsight}>
           <h3>Quick insight</h3>
           <p>{quickInsight}</p>
+          {quickStatsLine && <p className={styles.freshness}>{quickStatsLine}</p>}
         </div>
       )}
 

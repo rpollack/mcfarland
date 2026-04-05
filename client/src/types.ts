@@ -53,6 +53,8 @@ export interface PitcherRecord {
   Age: number | null;
   position?: string | null;
   tbf: number | null;
+  so?: number | null;
+  bb?: number | null;
   era_cur: number | null;
   era_l3: number | null;
   era_diff: number | null;
@@ -90,6 +92,11 @@ export type PlayerRecord = HitterRecord | PitcherRecord;
 export interface PlayerDetail<T extends PlayerRecord> {
   player: T;
   quickInsight: string;
+}
+
+export interface DataFreshness {
+  dataThroughDate: string;
+  dataThroughLabel: string;
 }
 
 export interface ComparisonResponse<T extends PlayerRecord> {

@@ -254,6 +254,20 @@ write_csv(full_stats_hitters, "full_stats_hitters.csv")
 write_csv(full_stats_pitchers, "full_stats_pitchers.csv")
 write_csv(player_lookup, "player_lookup.csv")
 
+refresh_time_ct <- as.POSIXct(format(Sys.time(), tz = "America/Chicago", usetz = TRUE), tz = "America/Chicago")
+data_through_date <- as.character(as.Date(refresh_time_ct) - 1)
+
+write_json(
+  list(
+    refreshed_at = format(Sys.time(), tz = "UTC", usetz = TRUE),
+    refreshed_timezone = "UTC",
+    data_through_date = data_through_date
+  ),
+  "data_freshness.json",
+  auto_unbox = TRUE,
+  pretty = TRUE
+)
+
 cat("Data refreshed at:", as.character(Sys.time()), "\n")
 cat("Hitters:", nrow(full_stats_hitters), "\n")
 cat("Pitchers:", nrow(full_stats_pitchers), "\n")

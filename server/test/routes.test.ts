@@ -31,6 +31,14 @@ describe("McFARLAND API", () => {
     expect(typeof response.body.quickInsight).toBe("string");
   });
 
+  it("returns a baseball-facing data freshness label", async () => {
+    const response = await request(app).get("/api/data-freshness");
+
+    expect(response.status).toBe(200);
+    expect(response.body.dataThroughDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(response.body.dataThroughLabel).toMatch(/[A-Za-z]+\s+\d{1,2}/);
+  });
+
   it("builds analysis prompts without calling OpenAI when key missing", async () => {
     const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
     const hitter = listBody.players[0];

@@ -2,6 +2,7 @@ import {
   AboutContent,
   AnalysisResponse,
   ComparisonResponse,
+  DataFreshness,
   HitterRecord,
   PitcherRecord,
   PlayerDetail,
@@ -98,6 +99,10 @@ export async function fetchAbout(): Promise<AboutContent> {
 
 export async function fetchWeeklyTrends(): Promise<WeeklyTrendsResponse> {
   return request<WeeklyTrendsResponse>(`/api/trends/weekly`);
+}
+
+export async function fetchDataFreshness(): Promise<DataFreshness> {
+  return request<DataFreshness>(`/api/data-freshness`);
 }
 
 export type { HitterRecord, PitcherRecord };

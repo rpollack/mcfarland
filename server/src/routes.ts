@@ -3,7 +3,7 @@ import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { buildAboutContent, buildAnalysisPrompt, buildComparisonPrompt, generateQuickInsight, recommendBestPlayer } from "./analysis.js";
 import { callOpenAiChat } from "./openai.js";
-import { getPlayerById, getPlayerSummaries } from "./dataStore.js";
+import { getDataFreshness, getPlayerById, getPlayerSummaries } from "./dataStore.js";
 import { logAnalysisEvent, logSessionStart, logShareEvent } from "./analytics.js";
 import { AnalysisMode, ANALYSIS_VIBES, DEFAULT_ANALYSIS_MODE } from "./vibes.js";
 import { isAdminModeRequest } from "./admin.js";
@@ -78,6 +78,10 @@ router.get("/api/players/:playerId", (req, res) => {
 
   const quickInsight = generateQuickInsight(player, type);
   res.json({ player, quickInsight });
+});
+
+router.get("/api/data-freshness", (_req, res) => {
+  res.json(getDataFreshness());
 });
 
 router.post("/api/analyze", analyzeLimiter, async (req, res) => {
