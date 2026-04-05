@@ -29,22 +29,20 @@ jobs:
             
       - name: Refresh baseball data
         run: Rscript refresh_data.R
-        
-      - name: Commit and push changes
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          
-          # Check if there are any changes to commit
-          if [[ -n $(git status --porcelain) ]]; then
-            # Add only the generated files we want to track
-            git add full_stats_hitters.csv full_stats_pitchers.csv player_lookup.csv
-            
-            # Commit the changes
-            git commit -m "Daily data refresh $(date -u '+%Y-%m-%d %H:%M UTC')"
-            git push
-            
-            echo "✓ Data refreshed and pushed"
-          else
-            echo "✓ No changes to commit"
-          fi
+
+      - name: Create pull request for refreshed data
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: automated/daily-data-refresh
+          delete-branch: true
+          commit-message: "Daily data refresh"
+          title: "Daily data refresh"
+          body: |
+            Automated daily refresh of:
+            - `full_stats_hitters.csv`
+            - `full_stats_pitchers.csv`
+            - `player_lookup.csv`
+          add-paths: |
+            full_stats_hitters.csv
+            full_stats_pitchers.csv
+            player_lookup.csv
