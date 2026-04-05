@@ -4,10 +4,6 @@ on:
     - cron: '0 11 * * *'  # 6 AM EST (11 AM UTC)
   workflow_dispatch:  # Allows manual trigger
 
-permissions:
-  contents: write
-  pull-requests: write
-
 jobs:
   refresh:
     runs-on: ubuntu-latest
@@ -34,10 +30,20 @@ jobs:
       - name: Refresh baseball data
         run: Rscript refresh_data.R
 
+      - name: Validate refresh PR token
+        env:
+          REFRESH_PR_TOKEN: ${{ secrets.REFRESH_PR_TOKEN }}
+        run: |
+          if [[ -z "${REFRESH_PR_TOKEN}" ]]; then
+            echo "REFRESH_PR_TOKEN secret is not set."
+            exit 1
+          fi
+
       - name: Create pull request for refreshed data
         id: cpr
         uses: peter-evans/create-pull-request@v7
         with:
+          token: ${{ secrets.REFRESH_PR_TOKEN }}
           branch: automated/daily-data-refresh
           delete-branch: true
           commit-message: "Daily data refresh"
@@ -55,6 +61,6 @@ jobs:
       - name: Enable auto-merge for refresh PR
         if: steps.cpr.outputs.pull-request-number != ''
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.REFRESH_PR_TOKEN }}
         run: |
           gh pr merge --auto --squash "${{ steps.cpr.outputs.pull-request-number }}"
