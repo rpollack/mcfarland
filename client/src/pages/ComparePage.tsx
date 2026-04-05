@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { analyzeComparison, comparePlayers, fetchDataFreshness, fetchPlayers, logShareAnalyticsEvent } from "../api";
+import { analyzeComparison, comparePlayers, fetchPlayers, logShareAnalyticsEvent } from "../api";
 import { useVibe } from "../contexts/VibeContext";
 import type { PlayerSummary, PlayerType } from "../types";
 import { buildSharePreviewUrl } from "../utils/share";
 import AnalysisPanel from "../components/AnalysisPanel";
 import VibeSelector from "../components/VibeSelector";
 import PlayerHeadshot from "../components/PlayerHeadshot";
+import panelStyles from "../styles/AnalysisPanel.module.css";
 import styles from "../styles/CompareExperience.module.css";
 
 type ActiveComparison = {
@@ -72,11 +73,6 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
   const playersQuery = useQuery({
     queryKey: ["compare-players", playerType, searchTerm],
     queryFn: () => fetchPlayers(playerType, searchTerm),
-  });
-
-  const freshnessQuery = useQuery({
-    queryKey: ["data-freshness"],
-    queryFn: fetchDataFreshness,
   });
 
   const compareMutation = useMutation({
@@ -302,6 +298,15 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
     }
   }, [comparisonResult, playerType, vibeMode]);
 
+  const handleAnalyzeAnother = useCallback(() => {
+    skipNextAutoCompareRef.current = true;
+    hasHydratedFromUrl.current = true;
+    setSelectedPlayers([]);
+    clearAnalysisState();
+    setSearchTerm("");
+    setShareStatus("idle");
+  }, [clearAnalysisState]);
+
   return (
     <div className={styles.container}>
       <section className={styles.searchPanel} aria-label="Comparison search">
@@ -423,26 +428,43 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
                 ? `${recommendedPlayerName} projects best right now.`
                 : "No clear winner yet."
             }
-            dataThroughLabel={freshnessQuery.data?.dataThroughLabel}
             isAnalyzing={isAnalysisPending}
             analysis={analysisData?.analysis}
             persona={analysisData?.persona}
             modeLabel={vibeLabel}
-            actions={
+            nextSteps={
               analysisReady ? (
-                <div className={styles.analysisActions}>
-                  <div className={styles.shareSection}>
-                    <button type="button" className={styles.shareButton} onClick={() => void handleShare()}>
+                <>
+                  <div className={panelStyles.nextStepCard}>
+                    <div>
+                      <h4>Share it</h4>
+                      <p>Send this matchup breakdown to the group chat or league thread.</p>
+                    </div>
+                    <button type="button" className={panelStyles.nextStepButton} onClick={() => void handleShare()}>
                       Share this analysis
                     </button>
-                    {shareStatus === "success" && <span className={styles.shareStatus}>Link copied.</span>}
-                    {shareStatus === "error" && <span className={styles.shareStatus}>Couldn't copy link.</span>}
+                    {shareStatus === "success" && <span className={panelStyles.status}>Link copied.</span>}
+                    {shareStatus === "error" && <span className={panelStyles.status}>Couldn't copy link.</span>}
                   </div>
-                  <div className={styles.vibeSection}>
-                    <span className={styles.vibeLabel}>Change the Vibe</span>
+
+                  <div className={panelStyles.nextStepCard}>
+                    <div>
+                      <h4>Change the vibe</h4>
+                      <p>Rerun the same comparison with a different voice or framing.</p>
+                    </div>
                     <VibeSelector />
                   </div>
-                </div>
+
+                  <div className={panelStyles.nextStepCard}>
+                    <div>
+                      <h4>Analyze another matchup</h4>
+                      <p>Clear the board and line up a new head-to-head or three-player test.</p>
+                    </div>
+                    <button type="button" className={panelStyles.nextStepButton} onClick={handleAnalyzeAnother}>
+                      Pick new players
+                    </button>
+                  </div>
+                </>
               ) : undefined
             }
           />
