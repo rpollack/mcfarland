@@ -7,12 +7,22 @@ on:
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    env:
+      R_LIBS_USER: ${{ github.workspace }}/.github/r-lib
     steps:
       - uses: actions/checkout@v4
       
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: '4.3'
+
+      - name: Cache R package library
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: ${{ runner.os }}-r-4.3-refresh-${{ hashFiles('.github/workflows/refresh-data.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-r-4.3-refresh-
 
       - name: Install system dependencies
         run: |
@@ -21,6 +31,7 @@ jobs:
           
       - name: Install R dependencies
         run: |
+          mkdir -p "${R_LIBS_USER}"
           Rscript -e 'install.packages(c("dplyr", "readr", "tibble", "stringr", "stringi", "jsonlite", "janitor", "remotes", "curl", "httr", "rvest"), repos = c(CRAN = "https://cloud.r-project.org"))'
           Rscript -e 'library(curl); library(httr); library(rvest)'
           Rscript -e 'remotes::install_version("qs", version = "0.27.3", repos = c(CRAN = "https://cloud.r-project.org"))'
