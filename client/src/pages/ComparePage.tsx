@@ -444,8 +444,7 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
                   </div>
 
                   <div className={panelStyles.nextStepCard}>
-                    <p className={panelStyles.subActionCopy}>Rerun this matchup with a different voice or framing.</p>
-                    <VibeSelector />
+                    <VibeSelector helperText="Rerun this matchup with a different voice or framing." />
                   </div>
 
                   <div className={panelStyles.nextStepCard}>

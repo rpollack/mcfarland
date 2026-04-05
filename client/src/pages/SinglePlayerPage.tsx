@@ -301,8 +301,7 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                       </div>
 
                       <div className={panelStyles.nextStepCard}>
-                        <p className={panelStyles.subActionCopy}>Rerun this player with a different voice or angle.</p>
-                        <VibeSelector />
+                        <VibeSelector helperText="Rerun this player with a different voice or angle." />
                       </div>
 
                       <div className={panelStyles.nextStepCard}>

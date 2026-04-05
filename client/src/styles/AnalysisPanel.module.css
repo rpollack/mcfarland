@@ -113,20 +113,6 @@
   min-width: 0;
 }
 
-.subAction {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-}
-
-.subAction p,
-.subActionCopy {
-  margin: 0;
-  color: #475569;
-  line-height: 1.55;
-  font-size: 0.92rem;
-}
-
 .nextStepButton {
   border: none;
   border-radius: 0.8rem;
