@@ -4,9 +4,11 @@ import styles from "../styles/VibeSelector.module.css";
 
 interface Props {
   variant?: "popover" | "inline";
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-function VibeSelector({ variant = "popover" }: Props) {
+function VibeSelector({ variant = "popover", open, onOpenChange }: Props) {
   const { vibes, mode, setMode, isLoading } = useVibe();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -23,22 +25,29 @@ function VibeSelector({ variant = "popover" }: Props) {
   }, [vibes]);
 
   const selectedOption = options.find((option) => option.id === mode) ?? options[0];
-  const optionListClassName = variant === "inline" ? styles.inlineList : styles.popover;
+  const controlledOpen = open ?? isOpen;
+
+  const setOpenState = (nextOpen: boolean) => {
+    if (open === undefined) {
+      setIsOpen(nextOpen);
+    }
+    onOpenChange?.(nextOpen);
+  };
 
   useEffect(() => {
-    if (variant !== "popover" || !isOpen) {
+    if (variant !== "popover" || !controlledOpen) {
       return;
     }
 
     const handlePointerDown = (event: MouseEvent) => {
       if (!containerRef.current?.contains(event.target as Node)) {
-        setIsOpen(false);
+        setOpenState(false);
       }
     };
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setIsOpen(false);
+        setOpenState(false);
       }
     };
 
@@ -48,59 +57,49 @@ function VibeSelector({ variant = "popover" }: Props) {
       document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("keydown", handleEscape);
     };
-  }, [isOpen]);
-
-  if (variant === "inline") {
-    return (
-      <div className={styles.container}>
-        <div className={styles.inlineList} role="listbox" aria-label="Analysis vibes">
-          {options.map((vibe) => (
-            <button
-              key={vibe.id}
-              type="button"
-              className={vibe.id === mode ? styles.optionActive : styles.option}
-              onClick={() => {
-                setMode(vibe.id);
-              }}
-              disabled={isLoading || options.length === 0}
-            >
-              <span className={styles.optionLabel}>{vibe.compactLabel}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  }, [controlledOpen, variant]);
 
   return (
     <div className={styles.container} ref={containerRef}>
       <button
         type="button"
         className={styles.trigger}
-        onClick={() => setIsOpen((current) => !current)}
+        onClick={() => setOpenState(!controlledOpen)}
         disabled={isLoading || options.length === 0}
         aria-haspopup="listbox"
-        aria-expanded={isOpen}
+        aria-expanded={controlledOpen}
         aria-label="Choose analysis vibe"
       >
-        <span className={styles.triggerLabel}>{selectedOption?.label ?? "Choose a vibe"}</span>
+        <span className={styles.triggerLabel}>
+          {variant === "inline" ? "Choose a vibe" : selectedOption?.label ?? "Choose a vibe"}
+        </span>
         <span className={styles.chevron} aria-hidden>⌄</span>
       </button>
 
-      {isOpen && (
-        <div className={optionListClassName} role="listbox" aria-label="Analysis vibes">
+      {controlledOpen && (
+        <div className={variant === "inline" ? styles.overlay : styles.popover} role="listbox" aria-label="Analysis vibes">
+          {variant === "inline" && (
+            <div className={styles.overlayHeader}>
+              <p>Choose a vibe</p>
+              <button type="button" className={styles.closeButton} onClick={() => setOpenState(false)}>
+                Close
+              </button>
+            </div>
+          )}
           {options.map((vibe) => (
             <button
               key={vibe.id}
               type="button"
-              className={vibe.id === mode ? styles.optionActive : styles.option}
+              className={variant === "inline"
+                ? (vibe.id === mode ? styles.inlineOptionActive : styles.inlineOption)
+                : (vibe.id === mode ? styles.optionActive : styles.option)}
               onClick={() => {
                 setMode(vibe.id);
-                setIsOpen(false);
+                setOpenState(false);
               }}
             >
-              <span className={styles.optionLabel}>{vibe.label}</span>
-              <span className={styles.optionDescription}>{vibe.description}</span>
+              <span className={styles.optionLabel}>{variant === "inline" ? vibe.compactLabel : vibe.label}</span>
+              {variant !== "inline" && <span className={styles.optionDescription}>{vibe.description}</span>}
             </button>
           ))}
         </div>

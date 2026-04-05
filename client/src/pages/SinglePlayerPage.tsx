@@ -311,12 +311,8 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                         >
                           Change the vibe
                         </button>
-                        {isVibeChooserOpen && (
-                          <div className={panelStyles.subAction}>
-                            <p>Rerun this player with a different voice or angle.</p>
-                            <VibeSelector variant="inline" />
-                          </div>
-                        )}
+                        <p className={panelStyles.subActionCopy}>Rerun this player with a different voice or angle.</p>
+                        <VibeSelector variant="inline" open={isVibeChooserOpen} onOpenChange={setIsVibeChooserOpen} />
                       </div>
 
                       <div className={panelStyles.nextStepCard}>

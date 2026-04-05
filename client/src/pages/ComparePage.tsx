@@ -454,12 +454,8 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
                     >
                       Change the vibe
                     </button>
-                    {isVibeChooserOpen && (
-                      <div className={panelStyles.subAction}>
-                        <p>Rerun this matchup with a different voice or framing.</p>
-                        <VibeSelector variant="inline" />
-                      </div>
-                    )}
+                    <p className={panelStyles.subActionCopy}>Rerun this matchup with a different voice or framing.</p>
+                    <VibeSelector variant="inline" open={isVibeChooserOpen} onOpenChange={setIsVibeChooserOpen} />
                   </div>
 
                   <div className={panelStyles.nextStepCard}>

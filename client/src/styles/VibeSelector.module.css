@@ -57,10 +57,43 @@
   box-shadow: 0 18px 36px rgba(15, 23, 42, 0.16);
 }
 
-.inlineList {
+.overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 0.7rem);
+  z-index: 30;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
+  padding: 0.75rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: rgba(255, 255, 255, 0.99);
+  box-shadow: 0 22px 40px rgba(15, 23, 42, 0.18);
+}
+
+.overlayHeader {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.overlayHeader p {
+  margin: 0;
+  color: #1f2937;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.closeButton {
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .option,
@@ -95,6 +128,26 @@
   line-height: 1.45;
 }
 
+.inlineOption,
+.inlineOptionActive {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.7rem 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(248, 250, 255, 0.75);
+  text-align: center;
+  cursor: pointer;
+}
+
+.inlineOptionActive {
+  border-color: rgba(37, 99, 235, 0.38);
+  background: rgba(219, 234, 254, 0.72);
+}
+
 .helper {
   font-size: 0.75rem;
   color: #475569;
@@ -107,7 +160,7 @@
 }
 
 @media (max-width: 640px) {
-  .inlineList {
+  .overlay {
     grid-template-columns: 1fr;
   }
 }
