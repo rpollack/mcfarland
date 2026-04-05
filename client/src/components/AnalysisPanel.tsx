@@ -58,10 +58,7 @@ function AnalysisPanel({
       {showAnalysisBody && (
         <article className={styles.analysis} aria-live="polite">
           {isAnalyzing ? (
-            <>
-              <p className={styles.loading}>Generating the latest scouting notes…</p>
-              {dataThroughLabel && <p className={styles.loadingMeta}>Using data through games on {dataThroughLabel}.</p>}
-            </>
+            <p className={styles.loading}>Generating the latest scouting notes…</p>
           ) : (
             analysis && <ReactMarkdown>{analysis}</ReactMarkdown>
           )}

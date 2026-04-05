@@ -25,8 +25,6 @@
 
 .freshness {
   margin-top: 0.55rem;
-  font-size: 0.86rem;
-  color: #64748b;
 }
 
 .button {
@@ -66,12 +64,6 @@
   margin: 0;
   color: #475569;
   font-style: italic;
-}
-
-.loadingMeta {
-  margin: 0.4rem 0 0;
-  color: #64748b;
-  font-size: 0.9rem;
 }
 
 .analysis :global(p) {
