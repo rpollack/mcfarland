@@ -92,6 +92,11 @@ export interface PlayerDetail<T extends PlayerRecord> {
   quickInsight: string;
 }
 
+export interface DataFreshness {
+  dataThroughDate: string;
+  dataThroughLabel: string;
+}
+
 export interface ComparisonResponse<T extends PlayerRecord> {
   players: T[];
   recommendedPlayerId: string | null;

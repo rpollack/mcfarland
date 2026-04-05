@@ -109,6 +109,11 @@ export interface PlayerDetail<T> {
   quickInsight: string;
 }
 
+export interface DataFreshness {
+  dataThroughDate: string;
+  dataThroughLabel: string;
+}
+
 export interface ComparisonResult<T> {
   players: T[];
   recommendedPlayerId: string | null;

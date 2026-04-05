@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { analyzeComparison, comparePlayers, fetchPlayers, logShareAnalyticsEvent } from "../api";
+import { analyzeComparison, comparePlayers, fetchDataFreshness, fetchPlayers, logShareAnalyticsEvent } from "../api";
 import { useVibe } from "../contexts/VibeContext";
 import type { PlayerSummary, PlayerType } from "../types";
 import { buildSharePreviewUrl } from "../utils/share";
@@ -72,6 +72,11 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
   const playersQuery = useQuery({
     queryKey: ["compare-players", playerType, searchTerm],
     queryFn: () => fetchPlayers(playerType, searchTerm),
+  });
+
+  const freshnessQuery = useQuery({
+    queryKey: ["data-freshness"],
+    queryFn: fetchDataFreshness,
   });
 
   const compareMutation = useMutation({
@@ -419,6 +424,7 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
                 ? `${recommendedPlayerName} projects best right now.`
                 : "No clear winner yet."
             }
+            dataThroughLabel={freshnessQuery.data?.dataThroughLabel}
             isAnalyzing={isAnalysisPending}
             analysis={analysisData?.analysis}
             persona={analysisData?.persona}

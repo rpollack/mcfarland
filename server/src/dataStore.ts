@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "csv-parse/sync";
-import { HitterRecord, PitcherRecord, PlayerLookupRecord, PlayerSummary, PlayerType } from "./types.js";
+import { DataFreshness, HitterRecord, PitcherRecord, PlayerLookupRecord, PlayerSummary, PlayerType } from "./types.js";
 import { safeNumber } from "./utils.js";
 
 interface BaseballDataStore {
@@ -10,6 +10,7 @@ interface BaseballDataStore {
   pitchers: Map<string, PitcherRecord>;
   lookup: PlayerLookupRecord[];
   summaries: PlayerSummary[];
+  dataFreshness: DataFreshness;
 }
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
@@ -38,6 +39,56 @@ function readCsv<T>(filename: string): T[] {
     });
     return parsedRow as T;
   });
+}
+
+function formatDataThroughLabel(dataThroughDate: string): string {
+  const parsed = new Date(`${dataThroughDate}T12:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) {
+    return dataThroughDate;
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(parsed);
+}
+
+function buildFallbackDataFreshness(): DataFreshness {
+  const filenames = ["full_stats_hitters.csv", "full_stats_pitchers.csv", "player_lookup.csv"];
+  const latestTimestamp = filenames
+    .map((filename) => fs.statSync(path.resolve(DATA_ROOT, filename)).mtimeMs)
+    .reduce((max, value) => Math.max(max, value), 0);
+
+  const dataThrough = new Date(latestTimestamp);
+  dataThrough.setUTCDate(dataThrough.getUTCDate() - 1);
+  const dataThroughDate = dataThrough.toISOString().slice(0, 10);
+
+  return {
+    dataThroughDate,
+    dataThroughLabel: formatDataThroughLabel(dataThroughDate),
+  };
+}
+
+function readDataFreshness(): DataFreshness {
+  const filePath = path.resolve(DATA_ROOT, "data_freshness.json");
+  if (!fs.existsSync(filePath)) {
+    return buildFallbackDataFreshness();
+  }
+
+  try {
+    const parsed = JSON.parse(fs.readFileSync(filePath, "utf8")) as { data_through_date?: string };
+    if (typeof parsed.data_through_date !== "string" || !parsed.data_through_date) {
+      return buildFallbackDataFreshness();
+    }
+
+    return {
+      dataThroughDate: parsed.data_through_date,
+      dataThroughLabel: formatDataThroughLabel(parsed.data_through_date),
+    };
+  } catch {
+    return buildFallbackDataFreshness();
+  }
 }
 
 function buildDataStore(): BaseballDataStore {
@@ -76,6 +127,7 @@ function buildDataStore(): BaseballDataStore {
     pitchers: pitchersMap,
     lookup,
     summaries,
+    dataFreshness: readDataFreshness(),
   };
 }
 
@@ -121,4 +173,8 @@ export function resolvePlayerType(playerId: string): PlayerType | null {
 
 export function getLookup(): PlayerLookupRecord[] {
   return store.lookup;
+}
+
+export function getDataFreshness(): DataFreshness {
+  return store.dataFreshness;
 }

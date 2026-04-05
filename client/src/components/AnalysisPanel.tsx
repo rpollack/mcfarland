@@ -13,6 +13,7 @@ interface Props {
   persona?: string;
   disabled?: boolean;
   modeLabel?: string;
+  dataThroughLabel?: string;
 }
 
 function AnalysisPanel({
@@ -26,6 +27,7 @@ function AnalysisPanel({
   persona,
   disabled,
   modeLabel,
+  dataThroughLabel,
 }: Props) {
   const showAnalysisBody = Boolean(isAnalyzing || analysis);
 
@@ -36,6 +38,7 @@ function AnalysisPanel({
         <div className={styles.quickInsight}>
           <h3>Quick insight</h3>
           <p>{quickInsight}</p>
+          {dataThroughLabel && <p className={styles.freshness}>Through games on {dataThroughLabel}</p>}
         </div>
       )}
 
@@ -53,7 +56,10 @@ function AnalysisPanel({
       {showAnalysisBody && (
         <article className={styles.analysis} aria-live="polite">
           {isAnalyzing ? (
-            <p className={styles.loading}>Generating the latest scouting notes…</p>
+            <>
+              <p className={styles.loading}>Generating the latest scouting notes…</p>
+              {dataThroughLabel && <p className={styles.loadingMeta}>Using data through games on {dataThroughLabel}.</p>}
+            </>
           ) : (
             analysis && <ReactMarkdown>{analysis}</ReactMarkdown>
           )}

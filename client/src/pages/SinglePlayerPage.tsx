@@ -8,6 +8,7 @@ import WeeklyTrendsSection from "../components/WeeklyTrendsSection";
 import { useVibe } from "../contexts/VibeContext";
 import {
   analyzePlayer,
+  fetchDataFreshness,
   fetchPlayerDetail,
   fetchPlayers,
   logShareAnalyticsEvent,
@@ -51,6 +52,11 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
     queryKey: ["player-detail", playerType, selectedId],
     queryFn: () => fetchPlayerDetail(playerType, selectedId!),
     enabled: Boolean(selectedId),
+  });
+
+  const freshnessQuery = useQuery({
+    queryKey: ["data-freshness"],
+    queryFn: fetchDataFreshness,
   });
 
   const lastAnalysisKeyRef = useRef<string | null>(null);
@@ -228,6 +234,7 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                   </header>
                 )}
                 quickInsight={detailQuery.data.quickInsight}
+                dataThroughLabel={freshnessQuery.data?.dataThroughLabel}
                 isAnalyzing={isAnalysisPending}
                 analysis={analysisData?.analysis}
                 persona={analysisData?.persona}
