@@ -72,12 +72,14 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
   const [selectedId, setSelectedId] = useState<string | undefined>(initialPlayerId);
   const [selectionSource, setSelectionSource] = useState<"recent_analyze_again" | "main_ui">("main_ui");
   const [shareStatus, setShareStatus] = useState<"idle" | "success" | "error">("idle");
+  const [isVibeChooserOpen, setIsVibeChooserOpen] = useState(false);
   const syncingFromPropsRef = useRef(false);
 
   useEffect(() => {
     syncingFromPropsRef.current = true;
     setPlayerType(initialPlayerType);
     setSelectedId(initialPlayerId);
+    setIsVibeChooserOpen(false);
     if (initialPlayerId) {
       setSearchTerm("");
     }
@@ -215,6 +217,7 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
     setSelectedId(undefined);
     setSearchTerm("");
     setShareStatus("idle");
+    setIsVibeChooserOpen(false);
     lastAnalysisKeyRef.current = null;
   }, []);
 
@@ -301,7 +304,19 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                       </div>
 
                       <div className={panelStyles.nextStepCard}>
-                        <VibeSelector />
+                        <button
+                          type="button"
+                          className={panelStyles.nextStepButton}
+                          onClick={() => setIsVibeChooserOpen((current) => !current)}
+                        >
+                          Change the vibe
+                        </button>
+                        {isVibeChooserOpen && (
+                          <div className={panelStyles.subAction}>
+                            <p>Rerun this player with a different voice or angle.</p>
+                            <VibeSelector />
+                          </div>
+                        )}
                       </div>
 
                       <div className={panelStyles.nextStepCard}>

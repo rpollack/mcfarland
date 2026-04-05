@@ -55,6 +55,7 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
     hydrateSelectedPlayers([], initialPlayerIds.slice(0, MAX_PLAYERS), initialPlayerType)
   );
   const [shareStatus, setShareStatus] = useState<"idle" | "success" | "error">("idle");
+  const [isVibeChooserOpen, setIsVibeChooserOpen] = useState(false);
   const [activeComparison, setActiveComparison] = useState<ActiveComparison | null>(null);
   const lastAnalysisKeyRef = useRef<string | null>(null);
   const hasHydratedFromUrl = useRef(false);
@@ -62,6 +63,7 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
 
   useEffect(() => {
     setPlayerType(initialPlayerType);
+    setIsVibeChooserOpen(false);
   }, [initialPlayerType]);
 
   useEffect(() => {
@@ -305,6 +307,7 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
     clearAnalysisState();
     setSearchTerm("");
     setShareStatus("idle");
+    setIsVibeChooserOpen(false);
   }, [clearAnalysisState]);
 
   return (
@@ -444,7 +447,19 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
                   </div>
 
                   <div className={panelStyles.nextStepCard}>
-                    <VibeSelector />
+                    <button
+                      type="button"
+                      className={panelStyles.nextStepButton}
+                      onClick={() => setIsVibeChooserOpen((current) => !current)}
+                    >
+                      Change the vibe
+                    </button>
+                    {isVibeChooserOpen && (
+                      <div className={panelStyles.subAction}>
+                        <p>Rerun this matchup with a different voice or framing.</p>
+                        <VibeSelector />
+                      </div>
+                    )}
                   </div>
 
                   <div className={panelStyles.nextStepCard}>
