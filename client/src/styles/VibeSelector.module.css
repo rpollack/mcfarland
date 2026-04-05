@@ -14,6 +14,10 @@
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 14px 24px rgba(37, 99, 235, 0.18);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
 }
 
 .trigger:hover:not(:disabled) {
@@ -23,13 +27,6 @@
 .trigger:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-.helper {
-  margin: 0;
-  color: #475569;
-  line-height: 1.55;
-  font-size: 0.92rem;
 }
 
 .menu {
@@ -99,6 +96,12 @@
 .check {
   color: #2563eb;
   font-weight: 800;
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 @media (max-width: 640px) {

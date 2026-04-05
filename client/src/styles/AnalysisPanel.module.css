@@ -122,6 +122,10 @@
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 14px 24px rgba(37, 99, 235, 0.18);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
 }
 
 .nextStepButton:hover {
@@ -132,6 +136,12 @@
   font-size: 0.9rem;
   font-weight: 600;
   color: #1f2937;
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 @media (max-width: 768px) {

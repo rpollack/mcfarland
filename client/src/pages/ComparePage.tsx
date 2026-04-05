@@ -437,19 +437,21 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
                 <>
                   <div className={panelStyles.nextStepCard}>
                     <button type="button" className={panelStyles.nextStepButton} onClick={() => void handleShare()}>
-                      Share this analysis
+                      <span aria-hidden className={panelStyles.icon}>🔗</span>
+                      <span>Share this analysis</span>
                     </button>
                     {shareStatus === "success" && <span className={panelStyles.status}>Link copied.</span>}
                     {shareStatus === "error" && <span className={panelStyles.status}>Couldn't copy link.</span>}
                   </div>
 
                   <div className={panelStyles.nextStepCard}>
-                    <VibeSelector helperText="Rerun this matchup with a different voice or framing." />
+                    <VibeSelector />
                   </div>
 
                   <div className={panelStyles.nextStepCard}>
                     <button type="button" className={panelStyles.nextStepButton} onClick={handleAnalyzeAnother}>
-                      Pick new players
+                      <span aria-hidden className={panelStyles.icon}>🧪</span>
+                      <span>Pick new players</span>
                     </button>
                   </div>
                 </>

@@ -2,11 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useVibe } from "../contexts/VibeContext";
 import styles from "../styles/VibeSelector.module.css";
 
-interface Props {
-  helperText: string;
-}
-
-function VibeSelector({ helperText }: Props) {
+function VibeSelector() {
   const { vibes, mode, setMode, isLoading } = useVibe();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -59,9 +55,9 @@ function VibeSelector({ helperText }: Props) {
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >
-        Change the vibe
+        <span aria-hidden className={styles.icon}>🎭</span>
+        <span>Change the vibe</span>
       </button>
-      <p className={styles.helper}>{helperText}</p>
 
       {isOpen && (
         <div className={styles.menu} role="listbox" aria-label="Analysis vibes">

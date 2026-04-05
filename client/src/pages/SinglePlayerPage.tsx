@@ -294,19 +294,21 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                     <>
                       <div className={panelStyles.nextStepCard}>
                         <button type="button" className={panelStyles.nextStepButton} onClick={() => void handleShare()}>
-                          Share this analysis
+                          <span aria-hidden className={panelStyles.icon}>🔗</span>
+                          <span>Share this analysis</span>
                         </button>
                         {shareStatus === "success" && <span className={panelStyles.status}>Link copied.</span>}
                         {shareStatus === "error" && <span className={panelStyles.status}>Couldn't copy link.</span>}
                       </div>
 
                       <div className={panelStyles.nextStepCard}>
-                        <VibeSelector helperText="Rerun this player with a different voice or angle." />
+                        <VibeSelector />
                       </div>
 
                       <div className={panelStyles.nextStepCard}>
                         <button type="button" className={panelStyles.nextStepButton} onClick={handleAnalyzeAnother}>
-                          Pick another player
+                          <span aria-hidden className={panelStyles.icon}>🔎</span>
+                          <span>Pick another player</span>
                         </button>
                       </div>
                     </>
