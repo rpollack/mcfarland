@@ -67,7 +67,6 @@ function AnalysisPanel({
         <section className={styles.nextSteps} aria-label="Next steps">
           <div className={styles.nextStepsHeader}>
             <h3>Next steps</h3>
-            <p>Keep the analysis moving.</p>
           </div>
           <div className={styles.nextStepsGrid}>{nextSteps}</div>
         </section>
