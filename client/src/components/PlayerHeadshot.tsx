@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { CSSProperties } from "react";
 import clsx from "clsx";
 import styles from "../styles/PlayerHeadshot.module.css";
 import { buildFallbackHeadshotUrl, buildHeadshotUrl } from "../utils/headshots";
@@ -21,7 +22,10 @@ export default function PlayerHeadshot({ name, playerId, mlbamid, size = 64, cla
   }, [desiredSrc]);
 
   return (
-    <div className={clsx(styles.wrapper, className)} style={{ width: size, height: size }}>
+    <div
+      className={clsx(styles.wrapper, className)}
+      style={{ "--headshot-size": `${size}px` } as CSSProperties}
+    >
       <img
         className={styles.image}
         src={src}

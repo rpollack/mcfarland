@@ -1,4 +1,6 @@
 .wrapper {
+  width: var(--headshot-size, 64px);
+  height: var(--headshot-size, 64px);
   position: relative;
   overflow: hidden;
   border-radius: 50%;

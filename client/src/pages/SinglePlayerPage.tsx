@@ -267,7 +267,8 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                         name={detailQuery.data.player.Name}
                         playerId={detailQuery.data.player.PlayerId}
                         mlbamid={detailQuery.data.player.mlbamid}
-                        size={72}
+                        size={56}
+                        className={styles.analysisHeadshot}
                       />
                       <div className={styles.playerMeta}>
                         <h2>{detailQuery.data.player.Name}</h2>
