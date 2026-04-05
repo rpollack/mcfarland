@@ -8,13 +8,12 @@ interface Props {
   quickStatsLine?: string;
   onAnalyze?: () => void;
   actionLabel?: string;
-  actions?: ReactNode;
+  nextSteps?: ReactNode;
   isAnalyzing?: boolean;
   analysis?: string;
   persona?: string;
   disabled?: boolean;
   modeLabel?: string;
-  dataThroughLabel?: string;
 }
 
 function AnalysisPanel({
@@ -23,13 +22,12 @@ function AnalysisPanel({
   quickStatsLine,
   onAnalyze,
   actionLabel,
-  actions,
+  nextSteps,
   isAnalyzing = false,
   analysis,
   persona,
   disabled,
   modeLabel,
-  dataThroughLabel,
 }: Props) {
   const showAnalysisBody = Boolean(isAnalyzing || analysis);
 
@@ -65,7 +63,14 @@ function AnalysisPanel({
         </article>
       )}
 
-      {actions && <div className={styles.actions}>{actions}</div>}
+      {nextSteps && (
+        <section className={styles.nextSteps} aria-label="Next steps">
+          <div className={styles.nextStepsHeader}>
+            <h3>Next steps</h3>
+          </div>
+          <div className={styles.nextStepsGrid}>{nextSteps}</div>
+        </section>
+      )}
     </section>
   );
 }

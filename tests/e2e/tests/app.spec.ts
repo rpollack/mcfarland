@@ -16,12 +16,12 @@ async function waitForPostRequestFinished(
 async function expectAnalysisReady(page: Page) {
   const panel = page.locator("section[aria-label='AI analysis']");
   const article = panel.locator("article[aria-live='polite']");
-  const vibeSelect = page.locator("#vibe-select");
+  const vibeButton = page.getByRole("button", { name: "Change the vibe" }).first();
 
   await expect(panel).toBeVisible({ timeout: 15000 });
   await expect(article).toBeVisible({ timeout: 15000 });
   await expect(article).not.toHaveText(/^\s*$/, { timeout: 15000 });
-  await expect(vibeSelect).toBeVisible({ timeout: 15000 });
+  await expect(vibeButton).toBeVisible({ timeout: 15000 });
 }
 
 test.describe("McFARLAND core experience", () => {
@@ -211,15 +211,14 @@ test.describe("McFARLAND core experience", () => {
     expect(straightforwardRuns.length).toBeGreaterThan(0);
     expect(straightforwardRuns.at(-1)?.playerId).not.toBe("");
 
-    const vibeSelect = page.locator("#vibe-select");
     const vibeSwitchFinished = waitForPostRequestFinished(
       page,
       "/api/analyze",
       (request) => (request.postData() ?? "").includes("analytics_dork")
     );
-    await vibeSelect.selectOption("analytics_dork");
+    await page.getByRole("button", { name: "Change the vibe" }).first().click();
+    await page.getByRole("button", { name: "Analytics dork" }).click();
     await vibeSwitchFinished;
-    await expect(vibeSelect).toHaveValue("analytics_dork");
     await expectAnalysisReady(page);
 
     const analyticsRuns = singleAnalyzeRequests.filter((entry) => entry.mode === "analytics_dork");
@@ -243,8 +242,6 @@ test.describe("McFARLAND core experience", () => {
     await compareRequestFinished;
 
     await expectAnalysisReady(page);
-    await expect(page.locator("#vibe-select")).toHaveValue("analytics_dork");
-
     expect(compareAnalyzeRequests.length).toBe(initialCompareCount + 1);
     const lastCompare = compareAnalyzeRequests.at(-1);
     expect(lastCompare?.playerIds).toHaveLength(3);
@@ -258,7 +255,6 @@ test.describe("McFARLAND core experience", () => {
 
     await sharedCompareRequestFinished;
     await expectAnalysisReady(sharePage);
-    await expect(sharePage.locator("#vibe-select")).toHaveValue("analytics_dork");
 
     await sharePage.close();
   });
