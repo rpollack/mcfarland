@@ -53,6 +53,17 @@
   text-decoration: underline;
 }
 
+.bodyCopy {
+  margin: 0;
+  color: #475569;
+}
+
+.freshnessLine {
+  margin: 0.15rem 0 0;
+  color: #0f172a;
+  font-weight: 600;
+}
+
 .vibes {
   background: rgba(255, 255, 255, 0.95);
   border-radius: 1.25rem;
