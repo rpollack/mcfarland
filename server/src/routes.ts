@@ -8,7 +8,7 @@ import { logAnalysisEvent, logSessionStart, logShareEvent } from "./analytics.js
 import { AnalysisMode, ANALYSIS_VIBES, DEFAULT_ANALYSIS_MODE } from "./vibes.js";
 import { getAdminPassword, isAdminModeRequest } from "./admin.js";
 import { getWeeklyTrends, refreshDailyTrendData } from "./weeklyTrends.js";
-import { generateSocialSuggestions } from "./socialAssistant.js";
+import { generateSocialSuggestions, getTrendingQuickLinks } from "./socialAssistant.js";
 
 const analyzeLimiter = rateLimit({
   windowMs: 60_000,
@@ -244,6 +244,11 @@ router.get("/api/vibes", (_req, res) => {
 
 router.get("/api/about", (_req, res) => {
   res.json(buildAboutContent());
+});
+
+router.get("/api/trending", (req, res) => {
+  const baseUrl = `${req.protocol}://${req.get("host")}`;
+  res.json(getTrendingQuickLinks(baseUrl));
 });
 
 router.get("/api/admin/social-suggestions", async (req, res) => {

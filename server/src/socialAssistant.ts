@@ -7,6 +7,7 @@ type SocialCandidate = {
   playerId: string;
   playerType: PlayerType;
   playerName: string;
+  mlbamid?: string | null;
   score: number;
   whyNow: string;
   statSnapshot: string;
@@ -41,6 +42,16 @@ export type SocialSuggestionResponse = {
   blueskyPosts: string[];
   modelSummary: string;
   usedFallback: boolean;
+};
+
+export type TrendingQuickLinksResponse = {
+  generatedAt: string;
+  hitters: {
+    trending: { id: string; name: string; type: "hitter"; mlbamid?: string | null }[];
+  };
+  pitchers: {
+    trending: { id: string; name: string; type: "pitcher"; mlbamid?: string | null }[];
+  };
 };
 
 function absolute(value: number | null | undefined): number {
@@ -93,6 +104,7 @@ function buildHitterCandidate(player: HitterRecord, baseUrl: string): SocialCand
     playerId: String(player.PlayerId),
     playerType: "hitter",
     playerName: player.Name,
+    mlbamid: player.mlbamid ?? null,
     score,
     whyNow: `${player.Name} stands out because ${headlineMetric} over ${Math.round(player.PA_cur ?? 0)} PA.`,
     statSnapshot: `${Math.round(player.PA_cur ?? 0)} PA · wOBA ${formatSigned(player.wOBA_diff)} · xwOBA ${formatSigned(player.xwOBA_diff)} · SLG ${formatSigned(player.SLG_diff)}`,
@@ -121,12 +133,27 @@ function buildPitcherCandidate(player: PitcherRecord, baseUrl: string): SocialCa
     playerId: String(player.PlayerId),
     playerType: "pitcher",
     playerName: player.Name,
+    mlbamid: player.mlbamid ?? null,
     score,
     whyNow: `${player.Name} stands out because ${headlineMetric} over ${Math.round(player.tbf ?? 0)} TBF.`,
     statSnapshot: `${Math.round(player.tbf ?? 0)} TBF · ERA ${formatSigned(player.era_diff, 2)} · xERA ${formatSigned(player.xera_diff, 2)} · K-BB% ${formatSigned(player.k_minus_bb_percent_diff, 1)}`,
     shareUrl: buildShareUrl(baseUrl, "pitcher", String(player.PlayerId)),
     news: [],
   };
+}
+
+function topTrendingCandidates(type: PlayerType, baseUrl: string): SocialCandidate[] {
+  if (type === "hitter") {
+    return listPlayers("hitter")
+      .map((player) => buildHitterCandidate(player as HitterRecord, baseUrl))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3);
+  }
+
+  return listPlayers("pitcher")
+    .map((player) => buildPitcherCandidate(player as PitcherRecord, baseUrl))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
 }
 
 function decodeHtml(value: string): string {
@@ -356,5 +383,27 @@ export async function generateSocialSuggestions(baseUrl: string): Promise<Social
     blueskyPosts: parsed.blueskyPosts.map((entry: unknown) => String(entry)).slice(0, 2),
     modelSummary: String(parsed.modelSummary ?? "AI-ranked from current McFARLAND signals plus lightweight news context."),
     usedFallback: false,
+  };
+}
+
+export function getTrendingQuickLinks(baseUrl: string): TrendingQuickLinksResponse {
+  const hitters = topTrendingCandidates("hitter", baseUrl).map((candidate) => ({
+    id: candidate.playerId,
+    name: candidate.playerName,
+    type: "hitter" as const,
+    mlbamid: candidate.mlbamid ?? null,
+  }));
+
+  const pitchers = topTrendingCandidates("pitcher", baseUrl).map((candidate) => ({
+    id: candidate.playerId,
+    name: candidate.playerName,
+    type: "pitcher" as const,
+    mlbamid: candidate.mlbamid ?? null,
+  }));
+
+  return {
+    generatedAt: new Date().toISOString(),
+    hitters: { trending: hitters },
+    pitchers: { trending: pitchers },
   };
 }

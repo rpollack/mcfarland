@@ -141,6 +141,16 @@ export interface WeeklyTrendsResponse {
   };
 }
 
+export interface TrendingQuickLinksResponse {
+  generatedAt: string;
+  hitters: {
+    trending: TrendPlayer[];
+  };
+  pitchers: {
+    trending: TrendPlayer[];
+  };
+}
+
 export interface SocialNewsItem {
   title: string;
   link: string;

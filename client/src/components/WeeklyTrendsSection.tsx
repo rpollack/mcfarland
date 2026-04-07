@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
-import { fetchWeeklyTrends } from "../api";
+import { fetchTrendingQuickLinks, fetchWeeklyTrends } from "../api";
 import type { TrendPlayer, PlayerType } from "../types";
 import {
   getRecentAnalysesUpdatedEventName,
@@ -140,9 +140,19 @@ export default function WeeklyTrendsSection({ playerType, onSelectPlayer, embedd
     staleTime: 30 * 60_000,
   });
 
+  const trendingQuery = useQuery({
+    queryKey: ["trending-quick-links"],
+    queryFn: fetchTrendingQuickLinks,
+    staleTime: 30 * 60_000,
+  });
+
   const trendBucket =
     trendsQuery.data &&
     (playerType === "hitter" ? trendsQuery.data.hitters : trendsQuery.data.pitchers);
+  const trendingBucket =
+    trendingQuery.data &&
+    (playerType === "hitter" ? trendingQuery.data.hitters : trendingQuery.data.pitchers);
+  const trendingPlayers = trendingBucket?.trending ?? [];
   const onFirePlayers = trendBucket?.risers ?? [];
   const iceColdPlayers = trendBucket?.fallers ?? [];
 
@@ -159,22 +169,30 @@ export default function WeeklyTrendsSection({ playerType, onSelectPlayer, embedd
 
       <div className={clsx(styles.rows, collapsedOnMobile && styles.rowsCollapsed)}>
         <RecentAnalysesGroup analyses={recentAnalyses} onSelectPlayer={onSelectPlayer} />
-        {trendsQuery.isLoading && <p className={styles.subhead}>Loading…</p>}
+        {(trendsQuery.isLoading || trendingQuery.isLoading) && <p className={styles.subhead}>Loading…</p>}
         {trendsQuery.isError && <p className={styles.subhead}>Unable to load On Fire and Ice Cold right now.</p>}
+        {!trendingQuery.isLoading && !trendingQuery.isError && trendingPlayers.length > 0 && (
+          <TrendGroup
+            title="Trending"
+            emoji="📈"
+            players={trendingPlayers}
+            onSelectPlayer={onSelectPlayer}
+          />
+        )}
         {!trendsQuery.isLoading && !trendsQuery.isError && (
           <>
-        <TrendGroup
-          title="On Fire"
-          emoji="🔥"
-          players={onFirePlayers}
-          onSelectPlayer={onSelectPlayer}
-        />
-        <TrendGroup
-          title="Ice Cold"
-          emoji="🥶"
-          players={iceColdPlayers}
-          onSelectPlayer={onSelectPlayer}
-        />
+            <TrendGroup
+              title="On Fire"
+              emoji="🔥"
+              players={onFirePlayers}
+              onSelectPlayer={onSelectPlayer}
+            />
+            <TrendGroup
+              title="Ice Cold"
+              emoji="🥶"
+              players={iceColdPlayers}
+              onSelectPlayer={onSelectPlayer}
+            />
           </>
         )}
       </div>
