@@ -17,9 +17,32 @@ const PLAYER_ID_PARAM = "playerId";
 const PLAYER_IDS_PARAM = "playerIds";
 const VIBE_PARAM = "vibe";
 
+function normalizeSearchParams(params: URLSearchParams, defaultMode: string): URLSearchParams {
+  const next = new URLSearchParams(params);
+  const experienceMode = next.get(EXPERIENCE_PARAM);
+  const playerType = next.get(PLAYER_TYPE_PARAM);
+  const playerId = next.get(PLAYER_ID_PARAM);
+  const playerIds = next.get(PLAYER_IDS_PARAM);
+  const vibe = next.get(VIBE_PARAM);
+
+  if (experienceMode === "single") {
+    next.delete(EXPERIENCE_PARAM);
+  }
+
+  if (vibe === defaultMode) {
+    next.delete(VIBE_PARAM);
+  }
+
+  if (playerType === "hitter" && !playerId && !playerIds) {
+    next.delete(PLAYER_TYPE_PARAM);
+  }
+
+  return next;
+}
+
 function AppShell() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { mode: vibeMode, setMode: setVibeMode, vibes } = useVibe();
+  const { mode: vibeMode, setMode: setVibeMode, vibes, defaultMode } = useVibe();
   const lastUrlVibeRef = useRef<string | null>(searchParams.get(VIBE_PARAM));
 
   const urlMode = searchParams.get(EXPERIENCE_PARAM) === "compare" ? "compare" : "single";
@@ -40,12 +63,14 @@ function AppShell() {
           next.set(key, value);
         }
       });
-      if (next.toString() === searchParams.toString()) {
+      const normalizedNext = normalizeSearchParams(next, defaultMode);
+      const normalizedCurrent = normalizeSearchParams(searchParams, defaultMode);
+      if (normalizedNext.toString() === normalizedCurrent.toString()) {
         return;
       }
-      setSearchParams(next, { replace: true });
+      setSearchParams(normalizedNext, { replace: true });
     },
-    [searchParams, setSearchParams]
+    [defaultMode, searchParams, setSearchParams]
   );
 
   const playerTypeParam: PlayerType = searchParams.get(PLAYER_TYPE_PARAM) === "pitcher" ? "pitcher" : "hitter";
@@ -70,17 +95,14 @@ function AppShell() {
     if (!vibeMode) {
       return;
     }
-    if (searchParams.get(VIBE_PARAM) !== vibeMode) {
+    if (searchParams.get(VIBE_PARAM) !== vibeMode && vibeMode !== defaultMode) {
       lastUrlVibeRef.current = vibeMode;
       applySearchParams({ [VIBE_PARAM]: vibeMode });
     }
-  }, [vibeMode, searchParams, applySearchParams]);
-
-  useEffect(() => {
-    if (!searchParams.get(EXPERIENCE_PARAM)) {
-      applySearchParams({ [EXPERIENCE_PARAM]: experienceMode });
+    if (searchParams.get(VIBE_PARAM) && vibeMode === defaultMode) {
+      applySearchParams({ [VIBE_PARAM]: null });
     }
-  }, [experienceMode, searchParams, applySearchParams]);
+  }, [applySearchParams, defaultMode, searchParams, vibeMode]);
 
   const handleExperienceToggle = useCallback(
     (nextMode: ExperienceMode) => {
