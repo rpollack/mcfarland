@@ -173,8 +173,8 @@ export default function WeeklyTrendsSection({ playerType, onSelectPlayer, embedd
         {trendsQuery.isError && <p className={styles.subhead}>Unable to load On Fire and Ice Cold right now.</p>}
         {!trendingQuery.isLoading && !trendingQuery.isError && trendingPlayers.length > 0 && (
           <TrendGroup
-            title="Trending"
-            emoji="📈"
+            title="Out of Character"
+            emoji="👀"
             players={trendingPlayers}
             onSelectPlayer={onSelectPlayer}
           />
