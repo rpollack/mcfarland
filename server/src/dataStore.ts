@@ -60,9 +60,16 @@ function buildFallbackDataFreshness(): DataFreshness {
     .map((filename) => fs.statSync(path.resolve(DATA_ROOT, filename)).mtimeMs)
     .reduce((max, value) => Math.max(max, value), 0);
 
-  const dataThrough = new Date(latestTimestamp);
-  dataThrough.setUTCDate(dataThrough.getUTCDate() - 1);
-  const dataThroughDate = dataThrough.toISOString().slice(0, 10);
+  const latestInChicago = new Date(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Chicago",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date(latestTimestamp))
+  );
+  latestInChicago.setDate(latestInChicago.getDate() - 1);
+  const dataThroughDate = latestInChicago.toISOString().slice(0, 10);
 
   return {
     dataThroughDate,
