@@ -6,8 +6,9 @@ import { callOpenAiChat } from "./openai.js";
 import { getDataFreshness, getPlayerById, getPlayerSummaries } from "./dataStore.js";
 import { logAnalysisEvent, logSessionStart, logShareEvent } from "./analytics.js";
 import { AnalysisMode, ANALYSIS_VIBES, DEFAULT_ANALYSIS_MODE } from "./vibes.js";
-import { isAdminModeRequest } from "./admin.js";
+import { getAdminPassword, isAdminModeRequest } from "./admin.js";
 import { getWeeklyTrends, refreshDailyTrendData } from "./weeklyTrends.js";
+import { generateSocialSuggestions } from "./socialAssistant.js";
 
 const analyzeLimiter = rateLimit({
   windowMs: 60_000,
@@ -243,6 +244,22 @@ router.get("/api/vibes", (_req, res) => {
 
 router.get("/api/about", (_req, res) => {
   res.json(buildAboutContent());
+});
+
+router.get("/api/admin/social-suggestions", async (req, res) => {
+  const adminPassword = getAdminPassword();
+  if (adminPassword && !isAdminModeRequest(req)) {
+    return res.status(403).json({ error: "Admin access required" });
+  }
+
+  try {
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const suggestions = await generateSocialSuggestions(baseUrl);
+    return res.json(suggestions);
+  } catch (error) {
+    console.error("[api/admin/social-suggestions] failed to generate suggestions", error);
+    return res.status(500).json({ error: "Unable to generate social suggestions" });
+  }
 });
 
 router.get("/api/trends/weekly", async (_req, res) => {

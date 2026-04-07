@@ -9,6 +9,7 @@ import {
   PlayerRecord,
   PlayerSummary,
   PlayerType,
+  SocialSuggestionResponse,
   Vibe,
   WeeklyTrendsResponse,
 } from "./types";
@@ -103,6 +104,10 @@ export async function fetchWeeklyTrends(): Promise<WeeklyTrendsResponse> {
 
 export async function fetchDataFreshness(): Promise<DataFreshness> {
   return request<DataFreshness>(`/api/data-freshness`);
+}
+
+export async function fetchSocialSuggestions(): Promise<SocialSuggestionResponse> {
+  return request<SocialSuggestionResponse>(`/api/admin/social-suggestions`);
 }
 
 export type { HitterRecord, PitcherRecord };

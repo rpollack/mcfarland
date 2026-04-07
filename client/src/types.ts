@@ -140,3 +140,32 @@ export interface WeeklyTrendsResponse {
     fallers: TrendPlayer[];
   };
 }
+
+export interface SocialNewsItem {
+  title: string;
+  link: string;
+  source?: string;
+  publishedAt?: string;
+}
+
+export interface SocialSuggestionCandidate {
+  playerId: string;
+  playerType: PlayerType;
+  playerName: string;
+  whyNow: string;
+  recommendationWhy: string;
+  shareUrl: string;
+  statSnapshot: string;
+  news: SocialNewsItem[];
+}
+
+export interface SocialSuggestionResponse {
+  generatedAt: string;
+  dataThroughLabel: string;
+  candidates: SocialSuggestionCandidate[];
+  recommended: SocialSuggestionCandidate;
+  xPosts: string[];
+  blueskyPosts: string[];
+  modelSummary: string;
+  usedFallback: boolean;
+}

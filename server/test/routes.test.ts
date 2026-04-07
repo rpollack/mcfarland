@@ -70,6 +70,28 @@ describe("McFARLAND API", () => {
     expect(response.body.defaultMode).toBe("straightforward");
   });
 
+  it("requires admin access for social suggestions when admin password is configured", async () => {
+    process.env.ADMIN_PASSWORD = "top-secret";
+
+    const response = await request(app).get("/api/admin/social-suggestions");
+
+    expect(response.status).toBe(403);
+    expect(response.body.error).toContain("Admin access required");
+    delete process.env.ADMIN_PASSWORD;
+  });
+
+  it("returns fallback social suggestions when admin password is not configured", async () => {
+    delete process.env.ADMIN_PASSWORD;
+
+    const response = await request(app).get("/api/admin/social-suggestions");
+
+    expect(response.status).toBe(200);
+    expect(response.body.candidates).toHaveLength(3);
+    expect(response.body.recommended.playerId).toBeTypeOf("string");
+    expect(response.body.xPosts).toHaveLength(2);
+    expect(response.body.blueskyPosts).toHaveLength(2);
+  });
+
   it("accepts share analytics events", async () => {
     const response = await request(app)
       .post("/api/share-events")
