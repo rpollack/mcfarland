@@ -3,19 +3,21 @@ import { useSearchParams } from "react-router-dom";
 import SinglePlayerPage from "./pages/SinglePlayerPage";
 import ComparePage from "./pages/ComparePage";
 import AboutPage from "./pages/AboutPage";
+import SocialAssistantPage from "./pages/SocialAssistantPage";
 import { VibeProvider, useVibe } from "./contexts/VibeContext";
 import styles from "./styles/App.module.css";
 import { registerSession } from "./api";
 import type { PlayerType } from "./types";
 
 type ExperienceMode = "single" | "compare";
-type View = "experience" | "about";
+type View = "experience" | "about" | "social";
 
 const EXPERIENCE_PARAM = "mode";
 const PLAYER_TYPE_PARAM = "playerType";
 const PLAYER_ID_PARAM = "playerId";
 const PLAYER_IDS_PARAM = "playerIds";
 const VIBE_PARAM = "vibe";
+const TOOL_PARAM = "tool";
 
 function normalizeSearchParams(params: URLSearchParams, defaultMode: string): URLSearchParams {
   const next = new URLSearchParams(params);
@@ -47,11 +49,15 @@ function AppShell() {
 
   const urlMode = searchParams.get(EXPERIENCE_PARAM) === "compare" ? "compare" : "single";
   const [experienceMode, setExperienceMode] = useState<ExperienceMode>(urlMode);
-  const [view, setView] = useState<View>("experience");
+  const [view, setView] = useState<View>(searchParams.get(TOOL_PARAM) === "social" ? "social" : "experience");
 
   useEffect(() => {
     setExperienceMode(urlMode);
   }, [urlMode]);
+
+  useEffect(() => {
+    setView(searchParams.get(TOOL_PARAM) === "social" ? "social" : "experience");
+  }, [searchParams]);
 
   const applySearchParams = useCallback(
     (updates: Record<string, string | null | undefined>) => {
@@ -162,7 +168,9 @@ function AppShell() {
     <div className={styles.shell}>
       <header className={styles.hero}>
         <div>
-          <h1 className={styles.title}>McFARLAND: Baseball Analysis in Plain English</h1>
+          <h1 className={styles.title}>
+            {view === "social" ? "McFARLAND Social Assistant" : "McFARLAND: Baseball Analysis in Plain English"}
+          </h1>
         </div>
       </header>
 
@@ -190,7 +198,9 @@ function AppShell() {
       )}
 
       <main className={styles.main}>
-        {experienceMode === "single" ? (
+        {view === "social" ? (
+          <SocialAssistantPage />
+        ) : experienceMode === "single" ? (
           <SinglePlayerPage
             initialPlayerType={playerTypeParam}
             initialPlayerId={singlePlayerId}
@@ -209,9 +219,15 @@ function AppShell() {
         <button
           type="button"
           className={styles.linkButton}
-          onClick={() => setView(view === "experience" ? "about" : "experience")}
+          onClick={() => {
+            if (view === "social") {
+              applySearchParams({ [TOOL_PARAM]: null });
+              return;
+            }
+            setView(view === "experience" ? "about" : "experience");
+          }}
         >
-          {view === "experience" ? "About McFARLAND" : "← Back to analysis"}
+          {view === "social" ? "← Back to analysis" : view === "experience" ? "About McFARLAND" : "← Back to analysis"}
         </button>
       </footer>
 
