@@ -86,12 +86,9 @@ function AboutPage() {
         <p className={styles.bodyCopy}>
           McFARLAND refreshes automatically every morning during the season using fresh baseball data. Each player's current-year performance is compared against his recent baseline, so the app can highlight what has actually changed instead of just repeating raw stats.
         </p>
-        <p className={styles.bodyCopy}>
-          In baseball terms, the app reflects data through the most recently completed day of games, not live in-game updates. That keeps the analysis stable, consistent, and easy to trust.
-        </p>
         {freshnessQuery.data ? (
           <p className={styles.freshnessLine}>
-            Currently all data is current through games on {freshnessQuery.data.dataThroughLabel}.
+            Data is current through games on {freshnessQuery.data.dataThroughLabel}.
           </p>
         ) : null}
       </section>
