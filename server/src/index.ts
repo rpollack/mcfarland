@@ -23,7 +23,7 @@ const MLB_GENERIC_HEADSHOT = `${MLB_PHOTO_BASE}/0/headshot/67/current`;
 type CardMetadata = {
   title: string;
   description: string;
-  imageUrl: string;
+  imageUrl?: string;
   canonicalUrl: string;
 };
 
@@ -133,7 +133,6 @@ function buildCardMetadata(req: express.Request): CardMetadata {
   return {
     title: DEFAULT_TITLE,
     description: DEFAULT_DESCRIPTION,
-    imageUrl: MLB_GENERIC_HEADSHOT,
     canonicalUrl,
   };
 }
@@ -141,8 +140,14 @@ function buildCardMetadata(req: express.Request): CardMetadata {
 function buildSocialMetaTags(card: CardMetadata): string {
   const title = escapeHtml(card.title);
   const description = escapeHtml(card.description);
-  const imageUrl = escapeHtml(card.imageUrl);
   const canonicalUrl = escapeHtml(card.canonicalUrl);
+  const imageTags = card.imageUrl
+    ? [
+        `<meta property="og:image" content="${escapeHtml(card.imageUrl)}" />`,
+        `<meta name="twitter:image" content="${escapeHtml(card.imageUrl)}" />`,
+      ].join("\n    ")
+    : "";
+  const twitterCard = card.imageUrl ? "summary_large_image" : "summary";
 
   return [
     `<meta name="description" content="${description}" />`,
@@ -150,14 +155,15 @@ function buildSocialMetaTags(card: CardMetadata): string {
     `<meta property="og:site_name" content="${APP_NAME}" />`,
     `<meta property="og:title" content="${title}" />`,
     `<meta property="og:description" content="${description}" />`,
-    `<meta property="og:image" content="${imageUrl}" />`,
+    imageTags,
     `<meta property="og:url" content="${canonicalUrl}" />`,
-    `<meta name="twitter:card" content="summary_large_image" />`,
+    `<meta name="twitter:card" content="${twitterCard}" />`,
     `<meta name="twitter:title" content="${title}" />`,
     `<meta name="twitter:description" content="${description}" />`,
-    `<meta name="twitter:image" content="${imageUrl}" />`,
     `<link rel="canonical" href="${canonicalUrl}" />`,
-  ].join("\n    ");
+  ]
+    .filter(Boolean)
+    .join("\n    ");
 }
 
 function injectMetaTags(indexHtml: string, metaTags: string): string {
@@ -170,9 +176,15 @@ function injectMetaTags(indexHtml: string, metaTags: string): string {
 function buildSharePreviewHtml(card: CardMetadata, redirectTo: string): string {
   const title = escapeHtml(card.title);
   const description = escapeHtml(card.description);
-  const imageUrl = escapeHtml(card.imageUrl);
   const canonicalUrl = escapeHtml(card.canonicalUrl);
   const safeRedirect = escapeHtml(redirectTo);
+  const imageTags = card.imageUrl
+    ? [
+        `<meta property="og:image" content="${escapeHtml(card.imageUrl)}" />`,
+        `<meta name="twitter:image" content="${escapeHtml(card.imageUrl)}" />`,
+      ].join("\n    ")
+    : "";
+  const twitterCard = card.imageUrl ? "summary_large_image" : "summary";
 
   return `<!doctype html>
 <html lang="en">
@@ -185,12 +197,11 @@ function buildSharePreviewHtml(card: CardMetadata, redirectTo: string): string {
     <meta property="og:site_name" content="${APP_NAME}" />
     <meta property="og:title" content="${title}" />
     <meta property="og:description" content="${description}" />
-    <meta property="og:image" content="${imageUrl}" />
+    ${imageTags}
     <meta property="og:url" content="${canonicalUrl}" />
-    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:card" content="${twitterCard}" />
     <meta name="twitter:title" content="${title}" />
     <meta name="twitter:description" content="${description}" />
-    <meta name="twitter:image" content="${imageUrl}" />
     <meta http-equiv="refresh" content="0;url=${safeRedirect}" />
     <link rel="canonical" href="${canonicalUrl}" />
     <script>
