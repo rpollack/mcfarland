@@ -258,6 +258,12 @@ export function createServer() {
         .send(buildSharePreviewHtml(card, target));
     });
 
+    app.get("/", (req, res) => {
+      const card = buildCardMetadata(req);
+      const dynamicIndexHtml = injectMetaTags(indexTemplate, buildSocialMetaTags(card));
+      res.setHeader("Content-Type", "text/html; charset=utf-8").send(dynamicIndexHtml);
+    });
+
     app.use(express.static(clientDistPath, { index: false }));
     app.get("*", (req, res) => {
       const card = buildCardMetadata(req);
