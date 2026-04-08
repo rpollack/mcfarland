@@ -10,6 +10,7 @@ import {
   PlayerSummary,
   PlayerType,
   SocialSuggestionResponse,
+  TrendingQuickLinksResponse,
   Vibe,
   WeeklyTrendsResponse,
 } from "./types";
@@ -100,6 +101,10 @@ export async function fetchAbout(): Promise<AboutContent> {
 
 export async function fetchWeeklyTrends(): Promise<WeeklyTrendsResponse> {
   return request<WeeklyTrendsResponse>(`/api/trends/weekly`);
+}
+
+export async function fetchTrendingQuickLinks(): Promise<TrendingQuickLinksResponse> {
+  return request<TrendingQuickLinksResponse>(`/api/trending`);
 }
 
 export async function fetchDataFreshness(): Promise<DataFreshness> {

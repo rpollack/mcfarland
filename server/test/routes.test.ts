@@ -92,6 +92,16 @@ describe("McFARLAND API", () => {
     expect(response.body.blueskyPosts).toHaveLength(2);
   });
 
+  it("returns trending quick links for hitters and pitchers", async () => {
+    const response = await request(app).get("/api/trending");
+
+    expect(response.status).toBe(200);
+    expect(response.body.hitters.trending).toHaveLength(3);
+    expect(response.body.pitchers.trending).toHaveLength(3);
+    expect(response.body.hitters.trending[0].type).toBe("hitter");
+    expect(response.body.pitchers.trending[0].type).toBe("pitcher");
+  });
+
   it("accepts share analytics events", async () => {
     const response = await request(app)
       .post("/api/share-events")
