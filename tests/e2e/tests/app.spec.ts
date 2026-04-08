@@ -48,7 +48,7 @@ test.describe("McFARLAND core experience", () => {
       window.localStorage.clear();
     });
     await page.reload();
-    await expect(page.getByRole("heading", { name: "McFARLAND" })).toBeVisible();
+    await expect(page.getByPlaceholder("Find hitters...")).toBeVisible();
 
     const onFireRow = page.locator("section[aria-label='On Fire']");
     const iceColdRow = page.locator("section[aria-label='Ice Cold']");
@@ -136,7 +136,7 @@ test.describe("McFARLAND core experience", () => {
     });
 
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "McFARLAND" })).toBeVisible();
+    await expect(page.getByPlaceholder("Find hitters...")).toBeVisible();
 
     const onFireRow = page.locator("section[aria-label='On Fire']");
     const iceColdRow = page.locator("section[aria-label='Ice Cold']");
@@ -198,7 +198,7 @@ test.describe("McFARLAND core experience", () => {
     recordApiEvents(page);
 
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "McFARLAND" })).toBeVisible();
+    await expect(page.getByPlaceholder("Find hitters...")).toBeVisible();
 
     const singleSearch = page.getByPlaceholder("Find hitters...");
     const initialAnalyzeFinished = waitForPostRequestFinished(page, "/api/analyze");
@@ -217,7 +217,7 @@ test.describe("McFARLAND core experience", () => {
       (request) => (request.postData() ?? "").includes("analytics_dork")
     );
     await page.getByRole("button", { name: "Change the vibe" }).first().click();
-    await page.getByRole("button", { name: "Analytics dork" }).click();
+    await page.getByRole("button", { name: "Analytics Nerd" }).click();
     await vibeSwitchFinished;
     await expectAnalysisReady(page);
 

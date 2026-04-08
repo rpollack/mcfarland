@@ -95,22 +95,22 @@ function formatCompactVibeLabel(label: string): string {
   switch (normalized.toLowerCase()) {
     case "straightforward":
       return "Straightforward";
-    case "analytics dork":
-      return "Analytics dork";
-    case "old coot":
-      return "Old coot";
+    case "analytics nerd":
+      return "Analytics Nerd";
+    case "old-timer":
+      return "Old-Timer";
     case "gen z":
       return "Gen Z";
-    case "seventies":
-      return "Seventies";
+    case "old-school":
+      return "Old-School";
     case "sensationalist":
       return "Sensationalist";
     case "shakespeare":
       return "Shakespeare";
-    case "rose-colored glasses":
-      return "Rose-colored";
-    case "rotisserie expert":
-      return "Rotisserie";
+    case "optimist":
+      return "Optimist";
+    case "fantasy expert":
+      return "Fantasy";
     default:
       return normalized;
   }
