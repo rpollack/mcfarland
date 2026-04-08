@@ -31,14 +31,14 @@ const ABOUT_SECTIONS = [
 
 const VIBE_BLURBS = [
   "➡️ Straightforward keeps it clean and scouts-ready.",
-  "📊 Analytics nerd crunches numbers and drops probabilities like it isn't a big deal.",
-  "🧓 Old coot grumbles about \"back in my day\" while slipping in real insight.",
+  "📊 Analytics Nerd leans into probabilities, evidence, and the sharpest supporting metrics.",
+  "🧓 Old-Timer grumbles about the modern game while still making a coherent point.",
   "🌀 Gen Z fires off memes, slang, and hype like a late-night group chat.",
-  "🎷 Seventies spins vinyl-era baseball tales with mustaches, small ball, and plenty of groove.",
+  "🎷 Old-School writes like a vintage baseball columnist with plenty of era flavor.",
   "🎪 Sensationalist makes every at-bat sound like the pennant is on the line.",
-  "🎭 Shakespeare delivers iambic pentameter fit for the Globe (but about launch angle).",
-  "🌹 Rose-colored glasses finds sunshine in every ball in play.",
-  "🍗 Rotisserie expert gives lineup advice for the fantasy grind.",
+  "🎭 Shakespeare brings dramatic flair without losing the thread.",
+  "🌹 Optimist starts with the encouraging signs but still has to acknowledge real risk.",
+  "🍗 Fantasy Expert turns the same analysis into lineup and roster advice.",
 ];
 
 function AboutPage() {
