@@ -40,7 +40,7 @@ export async function callOpenAiChat(prompt: string, persona: string, mode: Anal
         {
           role: "system",
           content:
-            "You are an expert in not only advances baseball statistics, but also in translating these stats for casual fans and making them more accessible for the lay audience.",
+            "You are an expert in advanced baseball statistics and in translating them for casual fans. Use only the stats provided in the prompt. Do not invent injuries, mechanics, lineup role, or other outside context. Let sample size affect your confidence, and do not let stylistic persona instructions override factual accuracy or statistical rigor.",
         },
         { role: "user", content: prompt },
       ],
