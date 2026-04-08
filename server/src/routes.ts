@@ -226,7 +226,7 @@ router.post("/api/share-events", async (req, res) => {
 });
 
 router.get("/api/vibes", (_req, res) => {
-  const vibes = Object.entries(ANALYSIS_VIBES).map(([id, description]) => {
+  const mappedVibes = Object.entries(ANALYSIS_VIBES).map(([id, description]) => {
     const readable = ANALYSIS_VIBE_LABELS[id as AnalysisMode];
 
     return {
@@ -235,6 +235,11 @@ router.get("/api/vibes", (_req, res) => {
       description,
     };
   });
+  const [defaultVibe, ...otherVibes] = mappedVibes;
+  const vibes = [
+    defaultVibe,
+    ...otherVibes.sort((a, b) => a.label.localeCompare(b.label)),
+  ];
 
   res.json({ vibes, defaultMode: DEFAULT_ANALYSIS_MODE });
 });

@@ -32,13 +32,13 @@ const ABOUT_SECTIONS = [
 const VIBE_BLURBS = [
   "➡️ Straightforward keeps it clean and scouts-ready.",
   "📊 Analytics Nerd leans into probabilities, evidence, and the sharpest supporting metrics.",
-  "🧓 Old-Timer grumbles about the modern game while still making a coherent point.",
+  "🍗 Fantasy Expert turns the same analysis into lineup and roster advice.",
   "🌀 Gen Z fires off memes, slang, and hype like a late-night group chat.",
   "🎷 Old-School writes like a vintage baseball columnist with plenty of era flavor.",
+  "🧓 Old-Timer grumbles about the modern game while still making a coherent point.",
+  "🌹 Optimist starts with the encouraging signs but still has to acknowledge real risk.",
   "🎪 Sensationalist makes every at-bat sound like the pennant is on the line.",
   "🎭 Shakespeare brings dramatic flair without losing the thread.",
-  "🌹 Optimist starts with the encouraging signs but still has to acknowledge real risk.",
-  "🍗 Fantasy Expert turns the same analysis into lineup and roster advice.",
 ];
 
 function AboutPage() {
