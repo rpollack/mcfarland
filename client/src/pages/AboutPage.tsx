@@ -16,6 +16,8 @@ const ABOUT_SECTIONS = [
     items: [
       "\"On Fire\" means a player's recent trend has improved the most over the last 7 days compared to the 7 days before that.",
       "\"Ice Cold\" means the same comparison moved hardest in the negative direction.",
+      "\"Out of Character\" highlights players whose current-year stats look the most different from their recent baseline.",
+      "That list refreshes with the daily data update, so it's more of a daily watch list than a live social-media trend feed.",
       "We calculate this daily for hitters and pitchers separately, then show the top 3 and bottom 3 for each group.",
       "In plain language: we look at who's heating up and cooling off right now, not just who had one lucky game.",
     ],
