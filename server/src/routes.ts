@@ -5,7 +5,7 @@ import { buildAboutContent, buildAnalysisPrompt, buildComparisonPrompt, generate
 import { callOpenAiChat } from "./openai.js";
 import { getDataFreshness, getPlayerById, getPlayerSummaries } from "./dataStore.js";
 import { logAnalysisEvent, logSessionStart, logShareEvent } from "./analytics.js";
-import { AnalysisMode, ANALYSIS_VIBES, DEFAULT_ANALYSIS_MODE } from "./vibes.js";
+import { AnalysisMode, ANALYSIS_VIBE_LABELS, ANALYSIS_VIBES, DEFAULT_ANALYSIS_MODE } from "./vibes.js";
 import { getAdminPassword, isAdminModeRequest } from "./admin.js";
 import { getWeeklyTrends, refreshDailyTrendData } from "./weeklyTrends.js";
 import { generateSocialSuggestions, getTrendingQuickLinks } from "./socialAssistant.js";
@@ -226,11 +226,8 @@ router.post("/api/share-events", async (req, res) => {
 });
 
 router.get("/api/vibes", (_req, res) => {
-  const vibes = Object.entries(ANALYSIS_VIBES).map(([id, description]) => {
-    const readable = id
-      .split("_")
-      .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-      .join(" ");
+  const mappedVibes = Object.entries(ANALYSIS_VIBES).map(([id, description]) => {
+    const readable = ANALYSIS_VIBE_LABELS[id as AnalysisMode];
 
     return {
       id,
@@ -238,6 +235,11 @@ router.get("/api/vibes", (_req, res) => {
       description,
     };
   });
+  const [defaultVibe, ...otherVibes] = mappedVibes;
+  const vibes = [
+    defaultVibe,
+    ...otherVibes.sort((a, b) => a.label.localeCompare(b.label)),
+  ];
 
   res.json({ vibes, defaultMode: DEFAULT_ANALYSIS_MODE });
 });
