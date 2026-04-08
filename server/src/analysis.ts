@@ -35,7 +35,7 @@ export function buildHitterPrompt(player: HitterRecord): string {
     "- BB%/K% changes reflect plate discipline skill.",
     "- Age matters: younger players are more likely to improve.",
     "- Barrel% drives power and BABIP; look for supporting trends.",
-    "- Consider injuries or context, and sample size (full season ≈ 600 PA).",
+    "- Sample size matters: full season ≈ 600 PA.",
   ];
 
   return [...header, ...metrics, ...notes].join("\n");
@@ -95,6 +95,10 @@ function buildGeneralInstructions(persona: string): string[] {
     "",
     "The very first element of the response should be a title that encompasses your findings.",
     "",
+    "After the title, start with a short thesis before getting into supporting evidence.",
+    "",
+    "Focus on the 2-4 most important signals. Do not try to mention every metric.",
+    "",
     "Your analysis must incorporate metric, direction, and magnitude of difference. For example BB% is up, indicate by how much, and what the size of that gap might indicate. You don't need to explicitly call out this framing (e.g. in bullets), just make sure to weave it into your analysis.",
     "",
     "Separate your analysis into core skills and luck/regression indicators.",
@@ -105,7 +109,11 @@ function buildGeneralInstructions(persona: string): string[] {
     "",
     "Sample size should meaningfully affect your confidence. Plate appearances for hitters and total batters faced for pitchers should be treated as major inputs, not minor context. If the sample is small, say so clearly and soften the certainty of your conclusions.",
     "",
-    `Here is your persona that should inform your writing style and response, even if it means overriding those previous instructions: ${persona}`,
+    "End with a rest-of-season call: improve, decline, or stay about the same, and state whether your confidence is high, medium, or low.",
+    "",
+    "Do not speculate about injuries, mechanics, lineup role, team context, or other information not supported by the provided stats.",
+    "",
+    `Use this persona for tone and phrasing only. Do not let it override factual accuracy, sample-size caution, or the requirement to ground claims in the provided stats: ${persona}`,
   ];
 }
 
@@ -145,10 +153,30 @@ export function buildComparisonPrompt(players: (HitterRecord | PitcherRecord)[],
   const lines = players.map((player) => {
     if (type === "hitter") {
       const hitter = player as HitterRecord;
-      return `${hitter.Name}: PA ${formatStatValue(hitter.PA_cur, 0)}, AVG ${formatStatValue(hitter.AVG_cur)}, OBP ${formatStatValue(hitter.OBP_cur)}, SLG ${formatStatValue(hitter.SLG_cur)}, wOBA ${formatStatValue(hitter.wOBA_cur)}, xwOBA ${formatStatValue(hitter.xwOBA_cur)}, K% ${formatPercentage(hitter.K_pct_cur)}, BB% ${formatPercentage(hitter.BB_pct_cur)}`;
+      return [
+        `${hitter.Name}:`,
+        `  PA: ${formatStatValue(hitter.PA_cur, 0)}`,
+        `  AVG: ${formatStatValue(hitter.AVG_cur)}  Last 3 Years: ${formatStatValue(hitter.AVG_l3)}  Diff: ${formatStatValue(hitter.AVG_diff)}`,
+        `  OBP: ${formatStatValue(hitter.OBP_cur)}  Last 3 Years: ${formatStatValue(hitter.OBP_l3)}  Diff: ${formatStatValue(hitter.OBP_diff)}`,
+        `  SLG: ${formatStatValue(hitter.SLG_cur)}  Last 3 Years: ${formatStatValue(hitter.SLG_l3)}  Diff: ${formatStatValue(hitter.SLG_diff)}`,
+        `  wOBA: ${formatStatValue(hitter.wOBA_cur)}  Last 3 Years: ${formatStatValue(hitter.wOBA_l3)}  Diff: ${formatStatValue(hitter.wOBA_diff)}`,
+        `  xwOBA: ${formatStatValue(hitter.xwOBA_cur)}  Last 3 Years: ${formatStatValue(hitter.xwOBA_l3)}  Diff: ${formatStatValue(hitter.xwOBA_diff)}`,
+        `  K%: ${formatPercentage(hitter.K_pct_cur)}  Last 3 Years: ${formatPercentage(hitter.K_pct_l3)}  Diff: ${formatPercentage(hitter.K_pct_diff)}`,
+        `  BB%: ${formatPercentage(hitter.BB_pct_cur)}  Last 3 Years: ${formatPercentage(hitter.BB_pct_l3)}  Diff: ${formatPercentage(hitter.BB_pct_diff)}`,
+      ].join("\n");
     }
     const pitcher = player as PitcherRecord;
-    return `${pitcher.Name}: ERA ${formatEra(pitcher.era_cur)}, xERA ${formatEra(pitcher.xera_cur)}, K% ${formatPercentage(pitcher.k_percent_cur)}, BB% ${formatPercentage(pitcher.bb_percent_cur)}, BABIP ${formatStatValue(pitcher.babip_cur)}, CSW% ${formatPercentage(pitcher.csw_percent_cur)}`;
+    return [
+      `${pitcher.Name}:`,
+      `  TBF: ${formatStatValue(pitcher.tbf, 0)}`,
+      `  ERA: ${formatEra(pitcher.era_cur)}  Last 3 Years: ${formatEra(pitcher.era_l3)}  Diff: ${formatEra(pitcher.era_diff)}`,
+      `  xERA: ${formatEra(pitcher.xera_cur)}  Last 3 Years: ${formatEra(pitcher.xera_l3)}  Diff: ${formatEra(pitcher.xera_diff)}`,
+      `  K%: ${formatPercentage(pitcher.k_percent_cur)}  Last 3 Years: ${formatPercentage(pitcher.k_percent_l3)}  Diff: ${formatPercentage(pitcher.k_percent_diff)}`,
+      `  BB%: ${formatPercentage(pitcher.bb_percent_cur)}  Last 3 Years: ${formatPercentage(pitcher.bb_percent_l3)}  Diff: ${formatPercentage(pitcher.bb_percent_diff)}`,
+      `  K-BB%: ${formatPercentage(pitcher.k_minus_bb_percent_cur)}  Last 3 Years: ${formatPercentage(pitcher.k_minus_bb_percent_l3)}  Diff: ${formatPercentage(pitcher.k_minus_bb_percent_diff)}`,
+      `  BABIP: ${formatStatValue(pitcher.babip_cur)}  Last 3 Years: ${formatStatValue(pitcher.babip_l3)}  Diff: ${formatStatValue(pitcher.babip_diff)}`,
+      `  CSW%: ${formatPercentage(pitcher.csw_percent_cur)}  Last 3 Years: ${formatPercentage(pitcher.csw_percent_l3)}  Diff: ${formatPercentage(pitcher.csw_percent_diff)}`,
+    ].join("\n");
   });
 
   return [
