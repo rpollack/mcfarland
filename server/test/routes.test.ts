@@ -97,9 +97,13 @@ describe("McFARLAND API", () => {
 
     expect(response.status).toBe(200);
     expect(response.body.hitters.trending).toHaveLength(3);
+    expect(response.body.hitters.breakouts).toHaveLength(3);
     expect(response.body.pitchers.trending).toHaveLength(3);
+    expect(response.body.pitchers.breakouts).toHaveLength(3);
     expect(response.body.hitters.trending[0].type).toBe("hitter");
+    expect(response.body.hitters.breakouts[0].type).toBe("hitter");
     expect(response.body.pitchers.trending[0].type).toBe("pitcher");
+    expect(response.body.pitchers.breakouts[0].type).toBe("pitcher");
   });
 
   it("accepts share analytics events", async () => {

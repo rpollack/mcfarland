@@ -48,11 +48,20 @@ export type TrendingQuickLinksResponse = {
   generatedAt: string;
   hitters: {
     trending: { id: string; name: string; type: "hitter"; mlbamid?: string | null }[];
+    breakouts: { id: string; name: string; type: "hitter"; mlbamid?: string | null }[];
   };
   pitchers: {
     trending: { id: string; name: string; type: "pitcher"; mlbamid?: string | null }[];
+    breakouts: { id: string; name: string; type: "pitcher"; mlbamid?: string | null }[];
   };
 };
+
+function valueOrZero(value: number | null | undefined): number {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return 0;
+  }
+  return value;
+}
 
 function absolute(value: number | null | undefined): number {
   if (value === null || value === undefined || Number.isNaN(value)) {
@@ -142,6 +151,119 @@ function buildPitcherCandidate(player: PitcherRecord, baseUrl: string): SocialCa
   };
 }
 
+function countImprovedSignals(signals: boolean[]): number {
+  return signals.filter(Boolean).length;
+}
+
+function buildHitterBreakoutCandidate(player: HitterRecord, baseUrl: string): SocialCandidate | null {
+  const plateAppearances = valueOrZero(player.PA_cur);
+  const xwobaDiff = valueOrZero(player.xwOBA_diff);
+  const barrelDiff = valueOrZero(player.Barrel_pct_diff);
+  const bbDiff = valueOrZero(player.BB_pct_diff);
+  const kDiff = valueOrZero(player.K_pct_diff);
+  const slgDiff = valueOrZero(player.SLG_diff);
+  const obpDiff = valueOrZero(player.OBP_diff);
+  const babipDiff = valueOrZero(player.BABIP_diff);
+  const wobaDiff = valueOrZero(player.wOBA_diff);
+
+  if (plateAppearances < 25 || (xwobaDiff <= 0 && barrelDiff <= 0)) {
+    return null;
+  }
+
+  const improvedSignals = countImprovedSignals([
+    xwobaDiff > 0.015,
+    barrelDiff > 1.5,
+    bbDiff > 1,
+    kDiff < -1,
+  ]);
+
+  if (improvedSignals < 2) {
+    return null;
+  }
+
+  const skillGain = xwobaDiff * 40 + barrelDiff * 1.8 + bbDiff * 1.2 + (-kDiff) * 1.0;
+  const support = slgDiff * 12 + obpDiff * 10 + (barrelDiff > 0 && xwobaDiff > 0 ? 4 : 0) + (bbDiff > 0 && kDiff < 0 ? 3 : 0);
+  const luckPenalty = Math.max(0, babipDiff - 0.02) * 25 + Math.max(0, wobaDiff - xwobaDiff) * 35;
+  const reliability = sampleWeight(plateAppearances, 120);
+  const score = (skillGain + support - luckPenalty) * reliability;
+
+  if (score <= 0) {
+    return null;
+  }
+
+  return {
+    playerId: String(player.PlayerId),
+    playerType: "hitter",
+    playerName: player.Name,
+    mlbamid: player.mlbamid ?? null,
+    score,
+    whyNow: `${player.Name} looks like a real early breakout: xwOBA ${formatSigned(player.xwOBA_diff)} and Barrel% ${formatSigned(player.Barrel_pct_diff, 1)} over ${Math.round(plateAppearances)} PA.`,
+    statSnapshot: `${Math.round(plateAppearances)} PA · xwOBA ${formatSigned(player.xwOBA_diff)} · Barrel% ${formatSigned(player.Barrel_pct_diff, 1)} · BB% ${formatSigned(player.BB_pct_diff, 1)}`,
+    shareUrl: buildShareUrl(baseUrl, "hitter", String(player.PlayerId)),
+    news: [],
+  };
+}
+
+function buildPitcherBreakoutCandidate(player: PitcherRecord, baseUrl: string): SocialCandidate | null {
+  const battersFaced = valueOrZero(player.tbf);
+  const xeraDiff = valueOrZero(player.xera_diff);
+  const kMinusBbDiff = valueOrZero(player.k_minus_bb_percent_diff);
+  const kDiff = valueOrZero(player.k_percent_diff);
+  const bbDiff = valueOrZero(player.bb_percent_diff);
+  const cswDiff = valueOrZero(player.csw_percent_diff);
+  const barrelDiff = valueOrZero(player.barrel_percent_diff);
+  const eraDiff = valueOrZero(player.era_diff);
+  const babipDiff = valueOrZero(player.babip_diff);
+  const lobDiff = valueOrZero(player.lob_percent_diff);
+
+  if (battersFaced < 30 || (xeraDiff >= 0 && kMinusBbDiff <= 0)) {
+    return null;
+  }
+
+  const improvedSignals = countImprovedSignals([
+    xeraDiff < -0.2,
+    kMinusBbDiff > 2,
+    bbDiff < -1,
+    cswDiff > 1,
+    barrelDiff < -1,
+  ]);
+
+  if (improvedSignals < 2) {
+    return null;
+  }
+
+  const skillGain =
+    (-xeraDiff) * 18 +
+    kMinusBbDiff * 1.8 +
+    kDiff * 0.9 +
+    (-bbDiff) * 1.1 +
+    cswDiff * 0.8 +
+    (-barrelDiff) * 1.0;
+  const support = (kMinusBbDiff > 0 && xeraDiff < 0 ? 4 : 0) + (cswDiff > 0 && bbDiff < 0 ? 3 : 0);
+  const luckPenalty =
+    Math.max(0, xeraDiff - eraDiff) * 10 +
+    Math.max(0, -babipDiff - 0.015) * 8 +
+    Math.max(0, lobDiff - 4) * 0.8;
+  const reliability = sampleWeight(battersFaced, 120);
+  const score = (skillGain + support - luckPenalty) * reliability;
+
+  if (score <= 0) {
+    return null;
+  }
+
+  return {
+    playerId: String(player.PlayerId),
+    playerType: "pitcher",
+    playerName: player.Name,
+    mlbamid: player.mlbamid ?? null,
+    score,
+    whyNow: `${player.Name} has the look of a real pitching breakout: xERA ${formatSigned(player.xera_diff, 2)} and K-BB% ${formatSigned(player.k_minus_bb_percent_diff, 1)} over ${Math.round(battersFaced)} TBF.`,
+    statSnapshot: `${Math.round(battersFaced)} TBF · xERA ${formatSigned(player.xera_diff, 2)} · K-BB% ${formatSigned(player.k_minus_bb_percent_diff, 1)} · CSW% ${formatSigned(player.csw_percent_diff, 1)}`,
+    shareUrl: buildShareUrl(baseUrl, "pitcher", String(player.PlayerId)),
+    news: [],
+  };
+}
+
 function topTrendingCandidates(type: PlayerType, baseUrl: string): SocialCandidate[] {
   if (type === "hitter") {
     return listPlayers("hitter")
@@ -152,6 +274,22 @@ function topTrendingCandidates(type: PlayerType, baseUrl: string): SocialCandida
 
   return listPlayers("pitcher")
     .map((player) => buildPitcherCandidate(player as PitcherRecord, baseUrl))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+}
+
+function topBreakoutCandidates(type: PlayerType, baseUrl: string): SocialCandidate[] {
+  if (type === "hitter") {
+    return listPlayers("hitter")
+      .map((player) => buildHitterBreakoutCandidate(player as HitterRecord, baseUrl))
+      .filter((candidate): candidate is SocialCandidate => Boolean(candidate))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3);
+  }
+
+  return listPlayers("pitcher")
+    .map((player) => buildPitcherBreakoutCandidate(player as PitcherRecord, baseUrl))
+    .filter((candidate): candidate is SocialCandidate => Boolean(candidate))
     .sort((a, b) => b.score - a.score)
     .slice(0, 3);
 }
@@ -393,8 +531,20 @@ export function getTrendingQuickLinks(baseUrl: string): TrendingQuickLinksRespon
     type: "hitter" as const,
     mlbamid: candidate.mlbamid ?? null,
   }));
+  const hitterBreakouts = topBreakoutCandidates("hitter", baseUrl).map((candidate) => ({
+    id: candidate.playerId,
+    name: candidate.playerName,
+    type: "hitter" as const,
+    mlbamid: candidate.mlbamid ?? null,
+  }));
 
   const pitchers = topTrendingCandidates("pitcher", baseUrl).map((candidate) => ({
+    id: candidate.playerId,
+    name: candidate.playerName,
+    type: "pitcher" as const,
+    mlbamid: candidate.mlbamid ?? null,
+  }));
+  const pitcherBreakouts = topBreakoutCandidates("pitcher", baseUrl).map((candidate) => ({
     id: candidate.playerId,
     name: candidate.playerName,
     type: "pitcher" as const,
@@ -403,7 +553,7 @@ export function getTrendingQuickLinks(baseUrl: string): TrendingQuickLinksRespon
 
   return {
     generatedAt: new Date().toISOString(),
-    hitters: { trending: hitters },
-    pitchers: { trending: pitchers },
+    hitters: { trending: hitters, breakouts: hitterBreakouts },
+    pitchers: { trending: pitchers, breakouts: pitcherBreakouts },
   };
 }

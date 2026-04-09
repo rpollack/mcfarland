@@ -24,6 +24,14 @@ async function expectAnalysisReady(page: Page) {
   await expect(vibeButton).toBeVisible({ timeout: 15000 });
 }
 
+function singleSearchInput(page: Page) {
+  return page.locator("section[aria-label='Player search'] input[type='search']");
+}
+
+function compareSearchInput(page: Page) {
+  return page.locator("section[aria-label='Comparison search'] input[type='search']");
+}
+
 test.describe("McFARLAND core experience", () => {
   test("analyze again reselects player and updates analysis headshot", async ({ page }) => {
     const singleAnalyzeRequests: { mode: string; playerId: string }[] = [];
@@ -48,7 +56,7 @@ test.describe("McFARLAND core experience", () => {
       window.localStorage.clear();
     });
     await page.reload();
-    await expect(page.getByPlaceholder("Find hitters...")).toBeVisible();
+    await expect(singleSearchInput(page)).toBeVisible();
 
     const onFireRow = page.locator("section[aria-label='On Fire']");
     const iceColdRow = page.locator("section[aria-label='Ice Cold']");
@@ -136,7 +144,7 @@ test.describe("McFARLAND core experience", () => {
     });
 
     await page.goto("/");
-    await expect(page.getByPlaceholder("Find hitters...")).toBeVisible();
+    await expect(singleSearchInput(page)).toBeVisible();
 
     const onFireRow = page.locator("section[aria-label='On Fire']");
     const iceColdRow = page.locator("section[aria-label='Ice Cold']");
@@ -198,9 +206,9 @@ test.describe("McFARLAND core experience", () => {
     recordApiEvents(page);
 
     await page.goto("/");
-    await expect(page.getByPlaceholder("Find hitters...")).toBeVisible();
+    await expect(singleSearchInput(page)).toBeVisible();
 
-    const singleSearch = page.getByPlaceholder("Find hitters...");
+    const singleSearch = singleSearchInput(page);
     const initialAnalyzeFinished = waitForPostRequestFinished(page, "/api/analyze");
     await singleSearch.fill("Aaron Judge");
     await page.getByRole("button", { name: /^Aaron Judge$/i }).first().click();
@@ -226,7 +234,7 @@ test.describe("McFARLAND core experience", () => {
 
     await page.getByRole("tab", { name: "Compare Players" }).click();
 
-    const compareSearch = page.getByPlaceholder("Find hitters...");
+    const compareSearch = compareSearchInput(page);
     const addComparePlayer = async (fullName: string) => {
       await compareSearch.fill(fullName);
       await page.getByRole("button", { name: new RegExp(`^${fullName}$`, "i") }).first().click();
