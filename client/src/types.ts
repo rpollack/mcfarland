@@ -145,9 +145,11 @@ export interface TrendingQuickLinksResponse {
   generatedAt: string;
   hitters: {
     trending: TrendPlayer[];
+    breakouts: TrendPlayer[];
   };
   pitchers: {
     trending: TrendPlayer[];
+    breakouts: TrendPlayer[];
   };
 }
 

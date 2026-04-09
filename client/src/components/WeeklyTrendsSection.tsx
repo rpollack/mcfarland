@@ -153,11 +153,12 @@ export default function WeeklyTrendsSection({ playerType, onSelectPlayer, embedd
     trendingQuery.data &&
     (playerType === "hitter" ? trendingQuery.data.hitters : trendingQuery.data.pitchers);
   const trendingPlayers = trendingBucket?.trending ?? [];
+  const breakoutPlayers = trendingBucket?.breakouts ?? [];
   const onFirePlayers = trendBucket?.risers ?? [];
   const iceColdPlayers = trendBucket?.fallers ?? [];
 
   return (
-    <section className={clsx(styles.wrapper, embedded && styles.embedded)} aria-label="Weekly risers and fallers">
+    <section className={clsx(styles.wrapper, embedded && styles.embedded)} aria-label="Quick links">
       <button
         type="button"
         className={styles.mobileToggle}
@@ -170,7 +171,15 @@ export default function WeeklyTrendsSection({ playerType, onSelectPlayer, embedd
       <div className={clsx(styles.rows, collapsedOnMobile && styles.rowsCollapsed)}>
         <RecentAnalysesGroup analyses={recentAnalyses} onSelectPlayer={onSelectPlayer} />
         {(trendsQuery.isLoading || trendingQuery.isLoading) && <p className={styles.subhead}>Loading…</p>}
-        {trendsQuery.isError && <p className={styles.subhead}>Unable to load On Fire and Ice Cold right now.</p>}
+        {(trendsQuery.isError || trendingQuery.isError) && <p className={styles.subhead}>Unable to load quick links right now.</p>}
+        {!trendingQuery.isLoading && !trendingQuery.isError && breakoutPlayers.length > 0 && (
+          <TrendGroup
+            title="Breakouts"
+            emoji="🚀"
+            players={breakoutPlayers}
+            onSelectPlayer={onSelectPlayer}
+          />
+        )}
         {!trendingQuery.isLoading && !trendingQuery.isError && trendingPlayers.length > 0 && (
           <TrendGroup
             title="Out of Character"
