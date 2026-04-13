@@ -14,6 +14,7 @@ const ABOUT_SECTIONS = [
   {
     title: "How quick links work",
     items: [
+      "\"Breakouts\" highlights players whose underlying skill stats look meaningfully better than their recent baseline, while discounting tiny samples and obvious luck spikes.",
       "\"On Fire\" shows the players whose recent trend improved the most over the last 7 days compared to the 7 days before that.",
       "\"Ice Cold\" shows the players whose recent trend moved hardest in the wrong direction over that same window.",
       "\"Out of Character\" is a daily watch list of players whose current-year stats look the most different from their recent baseline.",
