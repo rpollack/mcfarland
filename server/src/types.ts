@@ -124,6 +124,7 @@ export interface ComparisonResult<T> {
 export interface AnalysisResponse {
   prompt: string;
   persona: string;
+  headline: string;
   analysis: string;
   cached: boolean;
 }

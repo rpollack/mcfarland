@@ -287,6 +287,7 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                 quickInsight={detailQuery.data.quickInsight}
                 quickStatsLine={quickStatsLine}
                 isAnalyzing={isAnalysisPending}
+                headline={analysisData?.headline}
                 analysis={analysisData?.analysis}
                 persona={analysisData?.persona}
                 modeLabel={vibeLabel}

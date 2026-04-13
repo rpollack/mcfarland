@@ -10,6 +10,7 @@ interface Props {
   actionLabel?: string;
   nextSteps?: ReactNode;
   isAnalyzing?: boolean;
+  headline?: string;
   analysis?: string;
   persona?: string;
   disabled?: boolean;
@@ -24,6 +25,7 @@ function AnalysisPanel({
   actionLabel,
   nextSteps,
   isAnalyzing = false,
+  headline,
   analysis,
   persona,
   disabled,
@@ -58,7 +60,12 @@ function AnalysisPanel({
           {isAnalyzing ? (
             <p className={styles.loading}>Generating the latest scouting notes…</p>
           ) : (
-            analysis && <ReactMarkdown>{analysis}</ReactMarkdown>
+            analysis && (
+              <>
+                {headline && <h3 className={styles.headline}>{headline}</h3>}
+                <ReactMarkdown>{analysis}</ReactMarkdown>
+              </>
+            )
           )}
         </article>
       )}
