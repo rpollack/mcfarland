@@ -107,6 +107,7 @@ export interface ComparisonResponse<T extends PlayerRecord> {
 export interface AnalysisResponse {
   prompt: string;
   persona: string;
+  headline: string;
   analysis: string;
   cached: boolean;
 }

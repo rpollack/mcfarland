@@ -59,6 +59,16 @@
   line-height: 1.65;
 }
 
+.headline {
+  margin: 0 0 0.9rem;
+  color: #0f172a;
+  font-size: clamp(1.12rem, 2.1vw, 1.32rem);
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
 
 .loading {
   margin: 0;

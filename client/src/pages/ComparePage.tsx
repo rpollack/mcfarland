@@ -430,6 +430,7 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
                 : "No clear winner yet."
             }
             isAnalyzing={isAnalysisPending}
+            headline={analysisData?.headline}
             analysis={analysisData?.analysis}
             persona={analysisData?.persona}
             modeLabel={vibeLabel}
