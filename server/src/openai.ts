@@ -12,13 +12,19 @@ interface OpenAIResponse {
   cached: boolean;
 }
 
-function buildHeadlinePrompt(analysis: string): string {
+type ParsedAnalysisPayload = {
+  headline: string;
+  analysis: string;
+};
+
+function buildStructuredAnalysisPrompt(prompt: string): string {
   return [
-    "You are a newspaper editor whose job is to distill a detailed baseball analysis into a factual but compelling headline.",
+    prompt,
     "",
-    "Using the analysis below, write a single headline that captures the most important takeaway and makes the reader want to keep reading.",
+    "Return valid JSON only with this exact shape:",
+    '{"headline":"...","analysis":"..."}',
     "",
-    "Requirements:",
+    "For headline:",
     "- Be concise.",
     "- Be specific and grounded in the analysis.",
     "- Use words, not stat notation.",
@@ -29,11 +35,45 @@ function buildHeadlinePrompt(analysis: string): string {
     "- Do not use first-person language.",
     "- Prefer substance over puns.",
     "- Reflect the actual confidence level of the analysis and do not overstate small-sample conclusions.",
-    "- Return only the headline text.",
     "",
-    "Analysis:",
-    analysis,
+    "For analysis:",
+    "- Put the full analysis in the analysis field only.",
+    "- Do not repeat the headline verbatim as the first sentence.",
   ].join("\n");
+}
+
+function parseJsonPayload(text: string): ParsedAnalysisPayload | null {
+  const trimmed = text.trim();
+  const direct = trimmed.match(/^\{[\s\S]*\}$/);
+  const candidate = direct?.[0] ?? trimmed.match(/```json\s*([\s\S]*?)```/i)?.[1] ?? trimmed.match(/```([\s\S]*?)```/)?.[1];
+
+  if (!candidate) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(candidate) as Partial<ParsedAnalysisPayload>;
+    if (typeof parsed.headline !== "string" || typeof parsed.analysis !== "string") {
+      return null;
+    }
+    return {
+      headline: parsed.headline.trim(),
+      analysis: parsed.analysis.trim(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function buildFallbackHeadline(analysis: string): string {
+  const normalized = analysis
+    .replace(/^#+\s*/gm, "")
+    .replace(/\*\*/g, "")
+    .trim();
+  const firstLine = normalized.split(/\n+/).find((line) => line.trim().length > 0)?.trim() ?? "";
+  const firstSentence = firstLine.split(/(?<=[.!?])\s+/)[0]?.trim() ?? "";
+  const candidate = (firstSentence || firstLine).replace(/[.!?]+$/, "").trim();
+  return candidate || "Analysis available";
 }
 
 async function runChatCompletion(apiKey: string, prompt: string): Promise<string> {
@@ -87,8 +127,10 @@ export async function callOpenAiChat(prompt: string, persona: string, mode: Anal
   }
 
   try {
-    const analysis = await runChatCompletion(apiKey, prompt);
-    const headline = await runChatCompletion(apiKey, buildHeadlinePrompt(analysis));
+    const payload = await runChatCompletion(apiKey, buildStructuredAnalysisPrompt(prompt));
+    const parsed = parseJsonPayload(payload);
+    const analysis = parsed?.analysis || payload;
+    const headline = parsed?.headline || buildFallbackHeadline(analysis);
 
     cache.set(cacheKey, { analysis, headline, persona, timestamp: Date.now() });
 

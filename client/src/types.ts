@@ -112,6 +112,11 @@ export interface AnalysisResponse {
   cached: boolean;
 }
 
+export interface CompareAnalysisResponse<T extends PlayerRecord> extends AnalysisResponse {
+  players: T[];
+  recommendedPlayerId: string | null;
+}
+
 export interface Vibe {
   id: string;
   label: string;
