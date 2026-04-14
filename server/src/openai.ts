@@ -12,13 +12,34 @@ interface OpenAIResponse {
   cached: boolean;
 }
 
-function buildHeadlinePrompt(analysis: string): string {
+type ParsedAnalysisPayload = {
+  headline: string;
+  analysis: string;
+};
+
+function buildStructuredAnalysisPrompt(prompt: string): string {
   return [
-    "You are a newspaper editor whose job is to distill a detailed baseball analysis into a factual but compelling headline.",
+    "You are doing the same two tasks as the previous version of this feature, but you must return both results in one JSON object.",
     "",
-    "Using the analysis below, write a single headline that captures the most important takeaway and makes the reader want to keep reading.",
+    "Task 1: write the full baseball analysis from the prompt below.",
+    "Task 2: then distill that analysis into a factual but compelling headline.",
     "",
-    "Requirements:",
+    "Important:",
+    "- Keep the analysis as tight, controlled, and statistically grounded as the original prompt implies.",
+    "- Do not loosen the tone, broaden the scope, or improvise extra structure just because you are returning JSON.",
+    "- The headline should feel like it was written after reading the completed analysis, not independently.",
+    "- Return raw JSON only. Do not wrap it in markdown fences.",
+    "",
+    "JSON shape:",
+    '{"headline":"...","analysis":"..."}',
+    "",
+    "Write the analysis first, following the prompt exactly:",
+    "",
+    prompt,
+    "",
+    "For headline:",
+    "- You are a newspaper editor whose job is to distill a detailed baseball analysis into a factual but compelling headline.",
+    "- Using the completed analysis, write a single headline that captures the most important takeaway and makes the reader want to keep reading.",
     "- Be concise.",
     "- Be specific and grounded in the analysis.",
     "- Use words, not stat notation.",
@@ -29,11 +50,47 @@ function buildHeadlinePrompt(analysis: string): string {
     "- Do not use first-person language.",
     "- Prefer substance over puns.",
     "- Reflect the actual confidence level of the analysis and do not overstate small-sample conclusions.",
-    "- Return only the headline text.",
+    "- Return headline text only inside the headline field.",
     "",
-    "Analysis:",
-    analysis,
+    "For analysis:",
+    "- Put the full analysis in the analysis field only.",
+    "- Do not repeat the headline verbatim as the first sentence.",
+    "- Do not add extra keys, labels, or commentary.",
   ].join("\n");
+}
+
+function parseJsonPayload(text: string): ParsedAnalysisPayload | null {
+  const trimmed = text.trim();
+  const direct = trimmed.match(/^\{[\s\S]*\}$/);
+  const candidate = direct?.[0] ?? trimmed.match(/```json\s*([\s\S]*?)```/i)?.[1] ?? trimmed.match(/```([\s\S]*?)```/)?.[1];
+
+  if (!candidate) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(candidate) as Partial<ParsedAnalysisPayload>;
+    if (typeof parsed.headline !== "string" || typeof parsed.analysis !== "string") {
+      return null;
+    }
+    return {
+      headline: parsed.headline.trim(),
+      analysis: parsed.analysis.trim(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function buildFallbackHeadline(analysis: string): string {
+  const normalized = analysis
+    .replace(/^#+\s*/gm, "")
+    .replace(/\*\*/g, "")
+    .trim();
+  const firstLine = normalized.split(/\n+/).find((line) => line.trim().length > 0)?.trim() ?? "";
+  const firstSentence = firstLine.split(/(?<=[.!?])\s+/)[0]?.trim() ?? "";
+  const candidate = (firstSentence || firstLine).replace(/[.!?]+$/, "").trim();
+  return candidate || "Analysis available";
 }
 
 async function runChatCompletion(apiKey: string, prompt: string): Promise<string> {
@@ -87,8 +144,10 @@ export async function callOpenAiChat(prompt: string, persona: string, mode: Anal
   }
 
   try {
-    const analysis = await runChatCompletion(apiKey, prompt);
-    const headline = await runChatCompletion(apiKey, buildHeadlinePrompt(analysis));
+    const payload = await runChatCompletion(apiKey, buildStructuredAnalysisPrompt(prompt));
+    const parsed = parseJsonPayload(payload);
+    const analysis = parsed?.analysis || payload;
+    const headline = parsed?.headline || buildFallbackHeadline(analysis);
 
     cache.set(cacheKey, { analysis, headline, persona, timestamp: Date.now() });
 

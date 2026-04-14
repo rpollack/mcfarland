@@ -39,8 +39,8 @@ router.post("/api/sessions", async (req, res) => {
     return res.status(204).end();
   }
 
-  await logSessionStart(parseResult.data.sessionId, req.get("referer"));
   res.status(204).end();
+  void logSessionStart(parseResult.data.sessionId, req.get("referer"));
 });
 
 router.get("/api/players", (req, res) => {
@@ -111,8 +111,9 @@ router.post("/api/analyze", analyzeLimiter, async (req, res) => {
   try {
     const response = await callOpenAiChat(prompt, persona, mode);
     const sessionId = req.get("x-session-id") ?? "";
+    res.json(response);
     if (!isAdminModeRequest(req)) {
-      await logAnalysisEvent({
+      void logAnalysisEvent({
         sessionId,
         playerName: player.Name,
         analysisMode: mode,
@@ -121,7 +122,6 @@ router.post("/api/analyze", analyzeLimiter, async (req, res) => {
         referer: req.get("referer"),
       });
     }
-    res.json(response);
   } catch (error) {
     console.error("[api/analyze] OpenAI request failed", error);
     res.status(502).json({ error: "Analysis service temporarily unavailable" });
@@ -173,14 +173,20 @@ router.post("/api/compare/analyze", analyzeLimiter, async (req, res) => {
   const mode = (analysisMode in ANALYSIS_VIBES ? analysisMode : DEFAULT_ANALYSIS_MODE) as AnalysisMode;
   const prompt = buildComparisonPrompt(players, playerType, mode);
   const persona = ANALYSIS_VIBES[mode];
+  const recommendedPlayerId = recommendBestPlayer(players, playerType);
 
   try {
     const response = await callOpenAiChat(prompt, persona, mode);
 
     const sessionId = req.get("x-session-id") ?? "";
     const playerName = players.map((entry) => entry.Name).filter(Boolean).join(" vs ");
+    res.json({
+      ...response,
+      players,
+      recommendedPlayerId,
+    });
     if (!isAdminModeRequest(req)) {
-      await logAnalysisEvent({
+      void logAnalysisEvent({
         sessionId,
         playerName: playerName || players.map((entry) => entry.PlayerId).join(" vs "),
         analysisMode: mode,
@@ -189,8 +195,6 @@ router.post("/api/compare/analyze", analyzeLimiter, async (req, res) => {
         referer: req.get("referer"),
       });
     }
-
-    res.json(response);
   } catch (error) {
     console.error("[api/compare/analyze] OpenAI request failed", error);
     res.status(502).json({ error: "Analysis service temporarily unavailable" });
@@ -212,7 +216,8 @@ router.post("/api/share-events", async (req, res) => {
     return res.status(400).json({ error: "Invalid request body" });
   }
 
-  await logShareEvent({
+  res.status(204).end();
+  void logShareEvent({
     sessionId: parseResult.data.sessionId,
     playerName: parseResult.data.playerName,
     analysisMode: parseResult.data.analysisMode,
@@ -221,8 +226,6 @@ router.post("/api/share-events", async (req, res) => {
     shareUrl: parseResult.data.shareUrl,
     referer: req.get("referer"),
   });
-
-  res.status(204).end();
 });
 
 router.get("/api/vibes", (_req, res) => {

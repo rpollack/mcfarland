@@ -1,6 +1,7 @@
 import {
   AboutContent,
   AnalysisResponse,
+  CompareAnalysisResponse,
   ComparisonResponse,
   DataFreshness,
   HitterRecord,
@@ -56,10 +57,13 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-export async function fetchPlayers(type: PlayerType, query?: string): Promise<PlayerSummary[]> {
+export async function fetchPlayers(type: PlayerType, query?: string, limit?: number): Promise<PlayerSummary[]> {
   const params = new URLSearchParams({ type });
   if (query) {
     params.set("q", query);
+  }
+  if (limit) {
+    params.set("limit", String(limit));
   }
   const data = await request<{ players: PlayerSummary[] }>(`/api/players?${params.toString()}`);
   return data.players;
@@ -84,8 +88,12 @@ export async function comparePlayers<T extends PlayerRecord>(playerType: PlayerT
   });
 }
 
-export async function analyzeComparison(playerType: PlayerType, playerIds: string[], analysisMode: string): Promise<AnalysisResponse> {
-  return request<AnalysisResponse>(`/api/compare/analyze`, {
+export async function analyzeComparison<T extends PlayerRecord>(
+  playerType: PlayerType,
+  playerIds: string[],
+  analysisMode: string
+): Promise<CompareAnalysisResponse<T>> {
+  return request<CompareAnalysisResponse<T>>(`/api/compare/analyze`, {
     method: "POST",
     body: JSON.stringify({ playerType, playerIds, analysisMode }),
   });

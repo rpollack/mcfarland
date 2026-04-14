@@ -26,6 +26,9 @@ interface Props {
   onStateChange: (state: { playerType: PlayerType; playerId?: string }) => void;
 }
 
+const SEARCH_MIN_LENGTH = 2;
+const SEARCH_RESULT_LIMIT = 8;
+
 function formatSlashStat(value: number | null | undefined): string {
   if (value === null || value === undefined || Number.isNaN(value)) {
     return "N/A";
@@ -83,9 +86,13 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
     }
   }, [initialPlayerType, initialPlayerId]);
 
+  const trimmedSearch = searchTerm.trim();
+  const searchEnabled = trimmedSearch.length >= SEARCH_MIN_LENGTH;
+
   const playersQuery = useQuery({
-    queryKey: ["players", playerType, searchTerm],
-    queryFn: () => fetchPlayers(playerType, searchTerm),
+    queryKey: ["players", playerType, trimmedSearch],
+    queryFn: () => fetchPlayers(playerType, trimmedSearch, SEARCH_RESULT_LIMIT),
+    enabled: searchEnabled,
   });
 
   const detailQuery = useQuery({
@@ -237,13 +244,13 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
               setSelectedId(undefined);
             }
           }}
-          players={playersQuery.data ?? []}
+          players={searchEnabled ? playersQuery.data ?? [] : []}
           selectedId={selectedId}
           onSelect={(playerId) => {
             setSelectionSource("main_ui");
             setSelectedId(playerId);
           }}
-          isLoading={playersQuery.isLoading}
+          isLoading={searchEnabled && playersQuery.isLoading}
         />
         <WeeklyTrendsSection
           embedded

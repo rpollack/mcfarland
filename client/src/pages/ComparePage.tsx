@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { analyzeComparison, comparePlayers, fetchPlayers, logShareAnalyticsEvent } from "../api";
+import { analyzeComparison, fetchPlayers, logShareAnalyticsEvent } from "../api";
 import { useVibe } from "../contexts/VibeContext";
 import type { PlayerSummary, PlayerType } from "../types";
 import { buildSharePreviewUrl } from "../utils/share";
@@ -27,6 +27,8 @@ interface Props {
 }
 
 const MAX_PLAYERS = 3;
+const SEARCH_MIN_LENGTH = 2;
+const SEARCH_RESULT_LIMIT = 8;
 
 function buildAnalysisKey(payload: ActiveComparison & { vibe: string }) {
   return `${payload.type}|${payload.ids.join(",")}|${payload.vibe}`;
@@ -70,17 +72,17 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
     );
   }, [initialPlayerIds, initialPlayerType]);
 
-  const playersQuery = useQuery({
-    queryKey: ["compare-players", playerType, searchTerm],
-    queryFn: () => fetchPlayers(playerType, searchTerm),
-  });
+  const trimmedSearch = searchTerm.trim();
+  const searchEnabled = trimmedSearch.length >= SEARCH_MIN_LENGTH;
 
-  const compareMutation = useMutation({
-    mutationFn: ({ type, ids }: ActiveComparison) => comparePlayers(type, ids),
+  const playersQuery = useQuery({
+    queryKey: ["compare-players", playerType, trimmedSearch],
+    queryFn: () => fetchPlayers(playerType, trimmedSearch, SEARCH_RESULT_LIMIT),
+    enabled: searchEnabled,
   });
 
   const {
-    mutate: runAnalysis,
+    mutateAsync: runAnalysis,
     reset: resetAnalysis,
     data: analysisData,
     isPending: isAnalysisPending,
@@ -96,23 +98,22 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
   );
 
   const triggerAnalysis = useCallback(
-    (payload: ActiveComparison & { vibe: string }) => {
+    async (payload: ActiveComparison & { vibe: string }) => {
       const key = buildAnalysisKey(payload);
       if (lastAnalysisKeyRef.current === key) {
-        return;
+        return analysisData;
       }
       lastAnalysisKeyRef.current = key;
-      runAnalysis(payload);
+      return runAnalysis(payload);
     },
-    [runAnalysis]
+    [analysisData, runAnalysis]
   );
 
   const clearAnalysisState = useCallback(() => {
     lastAnalysisKeyRef.current = null;
-    compareMutation.reset();
     resetAnalysis();
     setActiveComparison(null);
-  }, [compareMutation, resetAnalysis]);
+  }, [resetAnalysis]);
 
   const handleCompare = useCallback(
     async (
@@ -132,10 +133,11 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
       }
       const typeToUse = options?.type ?? playerType;
       const payload: ActiveComparison = { type: typeToUse, ids };
-      const result = await compareMutation.mutateAsync(payload);
+      const result = await triggerAnalysis({ type: typeToUse, ids, vibe: vibeMode });
       setActiveComparison(payload);
-      lastAnalysisKeyRef.current = null;
-      triggerAnalysis({ ...payload, vibe: vibeMode });
+      if (!result) {
+        return result;
+      }
       if (options?.updateSelection !== false) {
         const detailsMap = new Map(
           result.players.map((player) => [player.PlayerId, { name: player.Name, mlbamid: player.mlbamid ?? null }])
@@ -144,14 +146,14 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
       }
       return result;
     },
-    [selectedPlayers, playerType, compareMutation, triggerAnalysis, vibeMode]
+    [playerType, selectedPlayers, triggerAnalysis, vibeMode]
   );
 
   const handleAddPlayer = useCallback(
     (player: PlayerSummary) => {
       skipNextAutoCompareRef.current = true;
       hasHydratedFromUrl.current = true;
-      if (compareMutation.data) {
+      if (analysisData) {
         clearAnalysisState();
       }
       setSelectedPlayers((current) => {
@@ -161,22 +163,20 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
         return [...current, player];
       });
       setSearchTerm("");
-      lastAnalysisKeyRef.current = null;
     },
-    [clearAnalysisState, compareMutation]
+    [analysisData, clearAnalysisState]
   );
 
   const handleRemovePlayer = useCallback(
     (id: string) => {
       skipNextAutoCompareRef.current = true;
       hasHydratedFromUrl.current = true;
-      if (compareMutation.data) {
+      if (analysisData) {
         clearAnalysisState();
       }
       setSelectedPlayers((current) => current.filter((player) => player.id !== id));
-      lastAnalysisKeyRef.current = null;
     },
-    [clearAnalysisState, compareMutation]
+    [analysisData, clearAnalysisState]
   );
 
   useEffect(() => {
@@ -186,7 +186,7 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
     if (isAnalysisPending) {
       return;
     }
-    triggerAnalysis({ ...activeComparison, vibe: vibeMode });
+    void triggerAnalysis({ ...activeComparison, vibe: vibeMode });
   }, [activeComparison, isAnalysisPending, triggerAnalysis, vibeMode]);
 
   useEffect(() => {
@@ -259,19 +259,13 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
     vibeMode,
   ]);
 
-  const comparisonResult = compareMutation.data;
+  const comparisonResult = analysisData;
   const analysisReady = Boolean(analysisData?.analysis);
   const recommendedPlayerId = comparisonResult?.recommendedPlayerId ?? null;
 
-  const availablePlayers = playersQuery.data ?? [];
-  const trimmedSearch = searchTerm.trim();
+  const availablePlayers = searchEnabled ? playersQuery.data ?? [] : [];
   const canAddMore = selectedPlayers.length < MAX_PLAYERS;
   const hasSelection = selectedPlayers.length > 0;
-  const helperMessage = !trimmedSearch
-    ? hasSelection
-      ? "Search again to add or swap players."
-      : "Start typing to add players."
-    : null;
   const recommendedPlayerName = recommendedPlayerId
     ? comparisonResult?.players.find((player) => player.PlayerId === recommendedPlayerId)?.Name ?? null
     : null;
@@ -383,9 +377,9 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
           onClick={() => {
             void handleCompare();
           }}
-          disabled={selectedPlayers.length < 2 || compareMutation.isPending}
+          disabled={selectedPlayers.length < 2 || isAnalysisPending}
         >
-          {compareMutation.isPending ? "Comparing…" : "Compare"}
+          {isAnalysisPending ? "Comparing…" : "Compare"}
         </button>
       </section>
 
