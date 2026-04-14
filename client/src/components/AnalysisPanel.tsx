@@ -32,6 +32,7 @@ function AnalysisPanel({
   modeLabel,
 }: Props) {
   const showAnalysisBody = Boolean(isAnalyzing || analysis);
+  const normalizedHeadline = headline?.replace(/\s+/g, " ").trim();
 
   return (
     <section className={styles.panel} aria-label="AI analysis">
@@ -62,7 +63,7 @@ function AnalysisPanel({
           ) : (
             analysis && (
               <>
-                {headline && <h3 className={styles.headline}>{headline}</h3>}
+                {normalizedHeadline && <h3 className={styles.headline}>{normalizedHeadline}</h3>}
                 <ReactMarkdown>{analysis}</ReactMarkdown>
               </>
             )

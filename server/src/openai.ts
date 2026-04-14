@@ -19,12 +19,27 @@ type ParsedAnalysisPayload = {
 
 function buildStructuredAnalysisPrompt(prompt: string): string {
   return [
-    prompt,
+    "You are doing the same two tasks as the previous version of this feature, but you must return both results in one JSON object.",
     "",
-    "Return valid JSON only with this exact shape:",
+    "Task 1: write the full baseball analysis from the prompt below.",
+    "Task 2: then distill that analysis into a factual but compelling headline.",
+    "",
+    "Important:",
+    "- Keep the analysis as tight, controlled, and statistically grounded as the original prompt implies.",
+    "- Do not loosen the tone, broaden the scope, or improvise extra structure just because you are returning JSON.",
+    "- The headline should feel like it was written after reading the completed analysis, not independently.",
+    "- Return raw JSON only. Do not wrap it in markdown fences.",
+    "",
+    "JSON shape:",
     '{"headline":"...","analysis":"..."}',
     "",
+    "Write the analysis first, following the prompt exactly:",
+    "",
+    prompt,
+    "",
     "For headline:",
+    "- You are a newspaper editor whose job is to distill a detailed baseball analysis into a factual but compelling headline.",
+    "- Using the completed analysis, write a single headline that captures the most important takeaway and makes the reader want to keep reading.",
     "- Be concise.",
     "- Be specific and grounded in the analysis.",
     "- Use words, not stat notation.",
@@ -35,10 +50,12 @@ function buildStructuredAnalysisPrompt(prompt: string): string {
     "- Do not use first-person language.",
     "- Prefer substance over puns.",
     "- Reflect the actual confidence level of the analysis and do not overstate small-sample conclusions.",
+    "- Return headline text only inside the headline field.",
     "",
     "For analysis:",
     "- Put the full analysis in the analysis field only.",
     "- Do not repeat the headline verbatim as the first sentence.",
+    "- Do not add extra keys, labels, or commentary.",
   ].join("\n");
 }
 
