@@ -6,7 +6,6 @@ import express from "express";
 import helmet from "helmet";
 import cors from "cors";
 import router from "./routes.js";
-import { initializeAnalytics } from "./analytics.js";
 import { adminModeMiddleware } from "./admin.js";
 import { getPlayerById } from "./dataStore.js";
 import { ANALYSIS_VIBES, DEFAULT_ANALYSIS_MODE } from "./vibes.js";
@@ -216,8 +215,6 @@ function buildSharePreviewHtml(card: CardMetadata, redirectTo: string): string {
 
 export function createServer() {
   const app = express();
-
-  void initializeAnalytics();
 
   // Allow Express to respect proxy headers (Render/Heroku set X-Forwarded-For)
   const trustProxy = process.env.TRUST_PROXY ?? "1";
