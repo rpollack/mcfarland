@@ -119,6 +119,8 @@ function buildGeneralInstructions(persona: string): string[] {
     "",
     "Vary your sentence structure. Avoid sounding repetitive, corporate, or over-produced.",
     "",
+    "Maintain the chosen vibe consistently from the opening line through the closing rest-of-season call. Do not use the vibe only for the first paragraph and then drift back to neutral default prose.",
+    "",
     `Use this persona for tone and phrasing only. Do not let it override factual accuracy, sample-size caution, or the requirement to ground claims in the provided stats. The final result should still sound like a human being, not a template: ${persona}`,
   ];
 }
