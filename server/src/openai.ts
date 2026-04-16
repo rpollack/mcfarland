@@ -17,7 +17,28 @@ type ParsedAnalysisPayload = {
   analysis: string;
 };
 
-function buildStructuredAnalysisPrompt(prompt: string, persona: string): string {
+function buildStructuredAnalysisPrompt(prompt: string, persona: string, mode: AnalysisMode): string {
+  const modeSpecificInstructions =
+    mode === "shakespeare"
+      ? [
+          "Mode-specific requirement for Shakespeare:",
+          "- The analysis should read like stage verse, not ordinary prose.",
+          "- Use unrhymed lines that aim for iambic pentameter whenever possible.",
+          "- Do not mention meter or explain the gimmick; just write in it.",
+          "- Keep the statistical claims precise and grounded even while the language is heightened.",
+          "",
+        ]
+      : mode === "gen_z"
+        ? [
+            "Mode-specific requirement for Gen Z:",
+            "- Keep the Gen Z voice active across the full analysis, not just the opening sentence or first paragraph.",
+            "- Let slang, internet cadence, and emoji-level energy show up throughout the piece.",
+            "- Do not abruptly snap back into plain default analyst prose midway through the response.",
+            "- Keep the stats accurate, but the whole read should still sound like the same over-the-top fan voice from start to finish.",
+            "",
+          ]
+      : [];
+
   return [
     "You are doing the same two tasks as the previous version of this feature, but you must return both results in one JSON object.",
     "",
@@ -31,7 +52,9 @@ function buildStructuredAnalysisPrompt(prompt: string, persona: string): string 
     "- Return raw JSON only. Do not wrap it in markdown fences.",
     `- Make the analysis clearly reflect the requested vibe in tone and phrasing: ${persona}`,
     "- Preserve that vibe strongly enough that different modes produce noticeably different writing styles, while keeping the facts grounded in the stats.",
+    "- Sustain the vibe through every paragraph and the closing verdict; do not let the style fade after the opening.",
     "",
+    ...modeSpecificInstructions,
     "JSON shape:",
     '{"headline":"...","analysis":"..."}',
     "",
@@ -146,7 +169,7 @@ export async function callOpenAiChat(prompt: string, persona: string, mode: Anal
   }
 
   try {
-    const payload = await runChatCompletion(apiKey, buildStructuredAnalysisPrompt(prompt, persona));
+    const payload = await runChatCompletion(apiKey, buildStructuredAnalysisPrompt(prompt, persona, mode));
     const parsed = parseJsonPayload(payload);
     const analysis = parsed?.analysis || payload;
     const headline = parsed?.headline || buildFallbackHeadline(analysis);
