@@ -17,7 +17,7 @@ type ParsedAnalysisPayload = {
   analysis: string;
 };
 
-function buildStructuredAnalysisPrompt(prompt: string): string {
+function buildStructuredAnalysisPrompt(prompt: string, persona: string): string {
   return [
     "You are doing the same two tasks as the previous version of this feature, but you must return both results in one JSON object.",
     "",
@@ -29,6 +29,8 @@ function buildStructuredAnalysisPrompt(prompt: string): string {
     "- Do not loosen the tone, broaden the scope, or improvise extra structure just because you are returning JSON.",
     "- The headline should feel like it was written after reading the completed analysis, not independently.",
     "- Return raw JSON only. Do not wrap it in markdown fences.",
+    `- Make the analysis clearly reflect the requested vibe in tone and phrasing: ${persona}`,
+    "- Preserve that vibe strongly enough that different modes produce noticeably different writing styles, while keeping the facts grounded in the stats.",
     "",
     "JSON shape:",
     '{"headline":"...","analysis":"..."}',
@@ -144,7 +146,7 @@ export async function callOpenAiChat(prompt: string, persona: string, mode: Anal
   }
 
   try {
-    const payload = await runChatCompletion(apiKey, buildStructuredAnalysisPrompt(prompt));
+    const payload = await runChatCompletion(apiKey, buildStructuredAnalysisPrompt(prompt, persona));
     const parsed = parseJsonPayload(payload);
     const analysis = parsed?.analysis || payload;
     const headline = parsed?.headline || buildFallbackHeadline(analysis);
