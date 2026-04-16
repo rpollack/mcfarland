@@ -18,6 +18,7 @@ Albert Suarez,6175,36,pitcher,544150,6175_pitcher,Albert Suarez,RP,RP
 Alec Bohm,21618,29,hitter,664761,21618_hitter,Alec Bohm,Hitter,NA
 Alec Burleson,27615,27,hitter,676475,27615_hitter,Alec Burleson,Hitter,NA
 Alejandro Kirk,22581,27,hitter,672386,22581_hitter,Alejandro Kirk,Hitter,NA
+Alek Jacob,29628,28,pitcher,689690,29628_pitcher,Alek Jacob,RP,RP
 Alek Thomas,23792,26,hitter,677950,23792_hitter,Alek Thomas,Hitter,NA
 Alex Bregman,17678,32,hitter,608324,17678_hitter,Alex Bregman,Hitter,NA
 Alex Call,19296,31,hitter,669743,19296_hitter,Alex Call,Hitter,NA
@@ -238,6 +239,7 @@ Dominic Canzone,26438,28,hitter,686527,26438_hitter,Dominic Canzone,Hitter,NA
 Dominic Smith,15653,31,hitter,642086,15653_hitter,Dominic Smith,Hitter,NA
 Drake Baldwin,31539,25,hitter,686948,31539_hitter,Drake Baldwin,Hitter,NA
 Drew Anderson,15130,32,pitcher,623454,15130_pitcher,Drew Anderson,RP,RP
+Drew Gilbert,31545,25,hitter,687551,31545_hitter,Drew Gilbert,Hitter,NA
 Drew Millas,25643,28,hitter,686452,25643_hitter,Drew Millas,Hitter,NA
 Drew Pomeranz,11426,37,pitcher,519141,11426_pitcher,Drew Pomeranz,RP,RP
 Drew Rasmussen,25385,30,pitcher,656876,25385_pitcher,Drew Rasmussen,SP,SP
@@ -249,7 +251,7 @@ Dylan Carlson,20126,27,hitter,666185,20126_hitter,Dylan Carlson,Hitter,NA
 Dylan Cease,18525,30,pitcher,656302,18525_pitcher,Dylan Cease,SP,SP
 Dylan Dodd,29928,28,pitcher,689266,29928_pitcher,Dylan Dodd,RP,RP
 Dylan Lee,19996,31,pitcher,669276,19996_pitcher,Dylan Lee,RP,RP
-Dylan Moore,18042,33,hitter,664238,18042_hitter,Dylan Moore,Hitter,NA
+Dylan Moore,18042,33,pitcher,664238,18042_pitcher,Dylan Moore,RP,RP
 Easton McGee,22176,28,pitcher,668834,22176_pitcher,Easton McGee,RP,RP
 Edgar Quero,28022,23,hitter,700337,28022_hitter,Edgar Quero,Hitter,NA
 Edgardo Henriquez,26944,24,pitcher,683618,26944_pitcher,Edgardo Henriquez,RP,RP
@@ -524,6 +526,7 @@ Kyle Freeland,16256,33,pitcher,607536,16256_pitcher,Kyle Freeland,SP,SP
 Kyle Harrison,27758,24,pitcher,690986,27758_pitcher,Kyle Harrison,SP,SP
 Kyle Hart,19646,33,pitcher,606996,19646_pitcher,Kyle Hart,RP,RP
 Kyle Higashioka,5517,36,hitter,543309,5517_hitter,Kyle Higashioka,Hitter,NA
+Kyle Hurt,27514,28,pitcher,669165,27514_pitcher,Kyle Hurt,RP,RP
 Kyle Isbel,21614,29,hitter,664728,21614_hitter,Kyle Isbel,Hitter,NA
 Kyle Karros,33252,23,hitter,691720,33252_hitter,Kyle Karros,Hitter,NA
 Kyle Leahy,24763,29,pitcher,681517,24763_pitcher,Kyle Leahy,SP,SP
@@ -566,10 +569,12 @@ Luis Severino,15890,32,pitcher,622663,15890_pitcher,Luis Severino,SP,SP
 Luis Torrens,15905,30,hitter,620443,15905_hitter,Luis Torrens,Hitter,NA
 Luisangel Acuna,26548,24,hitter,682668,26548_hitter,Luisangel Acuna,Hitter,NA
 Luke Keaschall,33321,23,hitter,807712,33321_hitter,Luke Keaschall,Hitter,NA
+Luke Little,28036,25,pitcher,681432,28036_pitcher,Luke Little,RP,RP
 Luke Raley,19354,31,hitter,670042,19354_hitter,Luke Raley,Hitter,NA
 Luke Weaver,16918,32,pitcher,596133,16918_pitcher,Luke Weaver,RP,RP
 Luke Williams,19931,29,hitter,663897,19931_hitter,Luke Williams,Hitter,NA
 Luken Baker,21497,29,hitter,663609,21497_hitter,Luken Baker,Hitter,NA
+MJ Melendez,22197,27,hitter,669004,22197_hitter,MJ Melendez,Hitter,NA
 MacKenzie Gore,22201,27,pitcher,669022,22201_pitcher,MacKenzie Gore,SP,SP
 Maikel Garcia,22715,26,hitter,672580,22715_hitter,Maikel Garcia,Hitter,NA
 Manny Machado,11493,33,hitter,592518,11493_hitter,Manny Machado,Hitter,NA
@@ -699,7 +704,8 @@ Randy Arozarena,19290,31,hitter,668227,19290_hitter,Randy Arozarena,Hitter,NA
 Randy Vasquez,24719,27,pitcher,681190,24719_pitcher,Randy Vasquez,SP,SP
 Ranger Suarez,17277,30,pitcher,624133,17277_pitcher,Ranger Suarez,SP,SP
 Rece Hinds,27493,25,hitter,677956,27493_hitter,Rece Hinds,Hitter,NA
-Reese McGuire,15674,31,hitter,624512,15674_hitter,Reese McGuire,Hitter,NA
+Reese McGuire,15674,31,hitter,624512,15674_hitter,Reese McGuire (Hitter),Hitter,NA
+Reese McGuire,15674,31,pitcher,624512,15674_pitcher,Reese McGuire (RP),RP,RP
 Reid Detmers,27468,26,pitcher,672282,27468_pitcher,Reid Detmers,SP,SP
 Reynaldo Lopez,16400,32,pitcher,625643,16400_pitcher,Reynaldo Lopez,SP,SP
 Rhett Lowder,33876,24,pitcher,695076,33876_pitcher,Rhett Lowder,SP,SP
@@ -751,7 +757,9 @@ Sal Stewart,31505,22,hitter,701398,31505_hitter,Sal Stewart,Hitter,NA
 Salvador Perez,7304,36,hitter,521692,7304_hitter,Salvador Perez,Hitter,NA
 Sam Bachman,29754,26,pitcher,696147,29754_pitcher,Sam Bachman,RP,RP
 Sam Haggerty,18054,32,hitter,664059,18054_hitter,Sam Haggerty,Hitter,NA
+Sam Huff,22209,28,hitter,669087,22209_hitter,Sam Huff,Hitter,NA
 Sam Moll,14874,34,pitcher,594580,14874_pitcher,Sam Moll,RP,RP
+Samuel Antonacci,35101,23,hitter,803011,35101_hitter,Samuel Antonacci,Hitter,NA
 Samuel Basallo,28824,21,hitter,694212,28824_hitter,Samuel Basallo,Hitter,NA
 Sandy Alcantara,18684,30,pitcher,645261,18684_pitcher,Sandy Alcantara,SP,SP
 Santiago Espinal,19997,31,hitter,669289,19997_hitter,Santiago Espinal,Hitter,NA
@@ -778,6 +786,7 @@ Shota Imanaga,33829,32,pitcher,684007,33829_pitcher,Shota Imanaga,SP,SP
 Simeon Woods Richardson,24494,25,pitcher,680573,24494_pitcher,Simeon Woods Richardson,SP,SP
 Slade Cecconi,27500,27,pitcher,677944,27500_pitcher,Slade Cecconi,SP,SP
 Sonny Gray,12768,36,pitcher,543243,12768_pitcher,Sonny Gray,SP,SP
+Spencer Arrighetti,29921,26,pitcher,681293,29921_pitcher,Spencer Arrighetti,SP,SP
 Spencer Horwitz,26477,28,hitter,687462,26477_hitter,Spencer Horwitz,Hitter,NA
 Spencer Miles,31621,25,pitcher,693686,31621_pitcher,Spencer Miles,RP,RP
 Spencer Steer,26323,28,hitter,668715,26323_hitter,Spencer Steer,Hitter,NA
@@ -793,6 +802,7 @@ Taijuan Walker,11836,33,pitcher,592836,11836_pitcher,Taijuan Walker,SP,SP
 Taj Bradley,22543,25,pitcher,671737,22543_pitcher,Taj Bradley,SP,SP
 Tanner Banks,16990,34,pitcher,621383,16990_pitcher,Tanner Banks,RP,RP
 Tanner Bibee,30134,27,pitcher,676440,30134_pitcher,Tanner Bibee,SP,SP
+Tanner Gordon,27669,28,pitcher,685299,27669_pitcher,Tanner Gordon,RP,RP
 Tanner Murray,28848,26,hitter,695020,28848_hitter,Tanner Murray,Hitter,NA
 Tanner Scott,17586,31,pitcher,656945,17586_pitcher,Tanner Scott,RP,RP
 Tarik Skubal,22267,29,pitcher,669373,22267_pitcher,Tarik Skubal,SP,SP
@@ -857,7 +867,9 @@ Walbert Urena,29357,22,pitcher,700712,29357_pitcher,Walbert Urena,RP,RP
 Walker Buehler,19374,31,pitcher,621111,19374_pitcher,Walker Buehler,SP,SP
 Wandy Peralta,14295,34,pitcher,593974,14295_pitcher,Wandy Peralta,RP,RP
 Wenceel Perez,22857,26,hitter,672761,22857_hitter,Wenceel Perez,Hitter,NA
+Weston Wilson,19358,31,hitter,642215,19358_hitter,Weston Wilson,Hitter,NA
 Will Benson,21853,28,hitter,666181,21853_hitter,Will Benson,Hitter,NA
+Will Brennan,25660,28,hitter,686823,25660_hitter,Will Brennan,Hitter,NA
 Will Klein,27787,26,pitcher,694361,27787_pitcher,Will Klein,RP,RP
 Will Smith,19197,31,hitter,669257,19197_hitter,Will Smith,Hitter,NA
 Will Vest,19769,31,pitcher,676684,19769_pitcher,Will Vest,RP,RP
