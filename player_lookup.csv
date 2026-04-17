@@ -83,7 +83,7 @@ Brandon Lowe,18882,31,hitter,664040,18882_hitter,Brandon Lowe,Hitter,NA
 Brandon Marsh,20202,28,hitter,669016,20202_hitter,Brandon Marsh,Hitter,NA
 Brandon Nimmo,12927,33,hitter,607043,12927_hitter,Brandon Nimmo,Hitter,NA
 Brandon Pfaadt,27782,27,pitcher,694297,27782_pitcher,Brandon Pfaadt,SP,SP
-Brandon Sproat,33850,25,pitcher,687075,33850_pitcher,Brandon Sproat,RP,RP
+Brandon Sproat,33850,25,pitcher,687075,33850_pitcher,Brandon Sproat,SP,SP
 Brandon Valenzuela,23813,25,hitter,678218,23813_hitter,Brandon Valenzuela,Hitter,NA
 Brandon Williamson,25463,28,pitcher,682227,25463_pitcher,Brandon Williamson,SP,SP
 Brandon Woodruff,16162,33,pitcher,605540,16162_pitcher,Brandon Woodruff,SP,SP
@@ -127,12 +127,14 @@ Cade Cavalli,27473,27,pitcher,676917,27473_pitcher,Cade Cavalli,SP,SP
 Cade Horton,31872,24,pitcher,690990,31872_pitcher,Cade Horton,SP,SP
 Cade Povich,30055,26,pitcher,700249,30055_pitcher,Cade Povich,SP,SP
 Cade Smith,27867,27,pitcher,671922,27867_pitcher,Cade Smith,RP,RP
+Cal Quantrill,19312,31,pitcher,615698,19312_pitcher,Cal Quantrill,RP,RP
 Cal Raleigh,21534,29,hitter,663728,21534_hitter,Cal Raleigh,Hitter,NA
 Caleb Durbin,29646,26,hitter,702332,29646_hitter,Caleb Durbin,Hitter,NA
 Caleb Kilian,26213,29,pitcher,668873,26213_pitcher,Caleb Kilian,RP,RP
 Caleb Thielbar,10078,39,pitcher,573204,10078_pitcher,Caleb Thielbar,RP,RP
 Calvin Faucher,20116,30,pitcher,676534,20116_pitcher,Calvin Faucher,RP,RP
 Cam Smith,35108,23,hitter,701358,35108_hitter,Cam Smith,Hitter,NA
+Cameron Foster,31942,27,pitcher,671382,31942_pitcher,Cameron Foster,RP,RP
 Cameron Schlittler,32095,25,pitcher,693645,32095_pitcher,Cameron Schlittler,SP,SP
 Camilo Doval,21992,28,pitcher,666808,21992_pitcher,Camilo Doval,RP,RP
 Carlos Correa,14162,31,hitter,621043,14162_hitter,Carlos Correa,Hitter,NA
@@ -321,6 +323,7 @@ Grant Anderson,20546,29,pitcher,681982,20546_pitcher,Grant Anderson,RP,RP
 Grant Holmes,16944,30,pitcher,656550,16944_pitcher,Grant Holmes,SP,SP
 Grant Taylor,33927,24,pitcher,691799,33927_pitcher,Grant Taylor,SP,SP
 Grant Wolfram,21623,29,pitcher,664991,21623_pitcher,Grant Wolfram,RP,RP
+Greg Jones,25448,28,hitter,675659,25448_hitter,Greg Jones,Hitter,NA
 Greg Weissert,20375,31,pitcher,669711,20375_pitcher,Greg Weissert,RP,RP
 Gregory Soto,19677,31,pitcher,642397,19677_pitcher,Gregory Soto,RP,RP
 Griffin Conine,21626,28,hitter,665052,21626_hitter,Griffin Conine,Hitter,NA
@@ -656,6 +659,7 @@ Nick Martinez,12730,35,pitcher,607259,12730_pitcher,Nick Martinez,SP,SP
 Nick Mears,25376,29,pitcher,683232,25376_pitcher,Nick Mears,RP,RP
 Nick Pivetta,15454,33,pitcher,601713,15454_pitcher,Nick Pivetta,SP,SP
 Nick Raquet,20333,30,pitcher,675919,20333_pitcher,Nick Raquet,RP,RP
+Nick Sandlin,20517,29,pitcher,680704,20517_pitcher,Nick Sandlin,RP,RP
 Nick Yorke,27504,24,hitter,694377,27504_hitter,Nick Yorke,Hitter,NA
 Nico Hoerner,21479,29,hitter,663538,21479_hitter,Nico Hoerner,Hitter,NA
 Noah Cameron,30184,26,pitcher,702070,30184_pitcher,Noah Cameron,SP,SP
@@ -674,7 +678,8 @@ Otto Kemp,31792,26,hitter,805249,31792_hitter,Otto Kemp,Hitter,NA
 Otto Lopez,19608,27,hitter,672640,19608_hitter,Otto Lopez,Hitter,NA
 Owen Caissie,27496,23,hitter,683357,27496_hitter,Owen Caissie,Hitter,NA
 Ozzie Albies,16556,29,hitter,645277,16556_hitter,Ozzie Albies,Hitter,NA
-P.J. Higgins,18433,33,pitcher,664731,18433_pitcher,P.J. Higgins,RP,RP
+P.J. Higgins,18433,33,hitter,664731,18433_hitter,P.J. Higgins (Hitter),Hitter,NA
+P.J. Higgins,18433,33,pitcher,664731,18433_pitcher,P.J. Higgins (RP),RP,RP
 PJ Poulin,23394,29,pitcher,676571,23394_pitcher,PJ Poulin,RP,RP
 Parker Meadows,23800,26,hitter,678009,23800_hitter,Parker Meadows,Hitter,NA
 Parker Messick,31986,25,pitcher,800048,31986_pitcher,Parker Messick,SP,SP
@@ -755,11 +760,12 @@ Ryne Stanek,15947,34,pitcher,592773,15947_pitcher,Ryne Stanek,RP,RP
 Sal Frelick,29622,26,hitter,686217,29622_hitter,Sal Frelick,Hitter,NA
 Sal Stewart,31505,22,hitter,701398,31505_hitter,Sal Stewart,Hitter,NA
 Salvador Perez,7304,36,hitter,521692,7304_hitter,Salvador Perez,Hitter,NA
+Sam Aldegheri,26443,24,pitcher,691951,26443_pitcher,Sam Aldegheri,RP,RP
+Sam Antonacci,35101,23,hitter,803011,35101_hitter,Sam Antonacci,Hitter,NA
 Sam Bachman,29754,26,pitcher,696147,29754_pitcher,Sam Bachman,RP,RP
 Sam Haggerty,18054,32,hitter,664059,18054_hitter,Sam Haggerty,Hitter,NA
 Sam Huff,22209,28,hitter,669087,22209_hitter,Sam Huff,Hitter,NA
 Sam Moll,14874,34,pitcher,594580,14874_pitcher,Sam Moll,RP,RP
-Samuel Antonacci,35101,23,hitter,803011,35101_hitter,Samuel Antonacci,Hitter,NA
 Samuel Basallo,28824,21,hitter,694212,28824_hitter,Samuel Basallo,Hitter,NA
 Sandy Alcantara,18684,30,pitcher,645261,18684_pitcher,Sandy Alcantara,SP,SP
 Santiago Espinal,19997,31,hitter,669289,19997_hitter,Santiago Espinal,Hitter,NA
