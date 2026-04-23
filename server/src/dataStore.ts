@@ -185,3 +185,7 @@ export function getLookup(): PlayerLookupRecord[] {
 export function getDataFreshness(): DataFreshness {
   return store.dataFreshness;
 }
+
+export function __setDataFreshnessForTests(dataFreshness: DataFreshness): void {
+  store.dataFreshness = dataFreshness;
+}

@@ -2,7 +2,8 @@ import express from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { buildAboutContent, buildAnalysisPrompt, buildComparisonPrompt, generateQuickInsight, recommendBestPlayer } from "./analysis.js";
-import { callOpenAiChat } from "./openai.js";
+import { callOpenAiChat, isCacheableOpenAiResponse } from "./openai.js";
+import { buildAnalysisCacheKey, getCachedAnalysis, saveCachedAnalysis } from "./analysisCache.js";
 import { getDataFreshness, getPlayerById, getPlayerSummaries } from "./dataStore.js";
 import { logAnalysisEvent, logSessionStart, logShareEvent } from "./analytics.js";
 import { AnalysisMode, ANALYSIS_VIBE_LABELS, ANALYSIS_VIBES, DEFAULT_ANALYSIS_MODE } from "./vibes.js";
@@ -20,6 +21,42 @@ const analyzeLimiter = rateLimit({
 const router = express.Router();
 
 const playerTypeSchema = z.enum(["hitter", "pitcher"]);
+
+async function getAnalysisResponse(params: {
+  prompt: string;
+  persona: string;
+  mode: AnalysisMode;
+  playerType: "hitter" | "pitcher";
+  playerIds: string[];
+}) {
+  const freshness = getDataFreshness();
+  const cacheKey = buildAnalysisCacheKey(params.mode, params.prompt);
+  const cached = await getCachedAnalysis({ cacheKey, dataThroughDate: freshness.dataThroughDate });
+  if (cached) {
+    return {
+      prompt: params.prompt,
+      persona: params.persona,
+      headline: cached.headline,
+      analysis: cached.analysis,
+      cached: true,
+    };
+  }
+
+  const response = await callOpenAiChat(params.prompt, params.persona, params.mode);
+  if (isCacheableOpenAiResponse(response)) {
+    await saveCachedAnalysis({
+      cacheKey,
+      dataThroughDate: freshness.dataThroughDate,
+      analysisMode: params.mode,
+      playerType: params.playerType,
+      playerIds: params.playerIds,
+      headline: response.headline,
+      analysis: response.analysis,
+    });
+  }
+
+  return response;
+}
 
 router.get("/health", (_req, res) => {
   res.json({ status: "ok" });
@@ -109,7 +146,13 @@ router.post("/api/analyze", analyzeLimiter, async (req, res) => {
   const persona = ANALYSIS_VIBES[mode];
 
   try {
-    const response = await callOpenAiChat(prompt, persona, mode);
+    const response = await getAnalysisResponse({
+      prompt,
+      persona,
+      mode,
+      playerType,
+      playerIds: [playerId],
+    });
     const sessionId = req.get("x-session-id") ?? "";
     res.json(response);
     if (!isAdminModeRequest(req)) {
@@ -176,7 +219,13 @@ router.post("/api/compare/analyze", analyzeLimiter, async (req, res) => {
   const recommendedPlayerId = recommendBestPlayer(players, playerType);
 
   try {
-    const response = await callOpenAiChat(prompt, persona, mode);
+    const response = await getAnalysisResponse({
+      prompt,
+      persona,
+      mode,
+      playerType,
+      playerIds,
+    });
 
     const sessionId = req.get("x-session-id") ?? "";
     const playerName = players.map((entry) => entry.Name).filter(Boolean).join(" vs ");
