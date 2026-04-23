@@ -1,8 +1,4 @@
-import crypto from "crypto";
 import type { AnalysisMode } from "./vibes.js";
-
-const cache = new Map<string, { analysis: string; headline: string; persona: string; timestamp: number }>();
-const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
 
 interface OpenAIResponse {
   prompt: string;
@@ -16,6 +12,11 @@ type ParsedAnalysisPayload = {
   headline: string;
   analysis: string;
 };
+
+type ChatHandler = (prompt: string, persona: string, mode: AnalysisMode) => Promise<OpenAIResponse>;
+
+let testChatHandler: ChatHandler | null = null;
+const uncacheableResponses = new WeakSet<OpenAIResponse>();
 
 function buildStructuredAnalysisPrompt(prompt: string, persona: string, mode: AnalysisMode): string {
   const modeSpecificInstructions =
@@ -151,21 +152,21 @@ async function runChatCompletion(apiKey: string, prompt: string): Promise<string
 }
 
 export async function callOpenAiChat(prompt: string, persona: string, mode: AnalysisMode): Promise<OpenAIResponse> {
-  const cacheKey = crypto.createHash("sha256").update(`${mode}:${prompt}`).digest("hex");
-  const cached = cache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-    return { prompt, persona, headline: cached.headline, analysis: cached.analysis, cached: true };
+  if (testChatHandler) {
+    return testChatHandler(prompt, persona, mode);
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return {
+    const response = {
       prompt,
       persona,
       headline: "Analysis unavailable",
       analysis: "OpenAI API key is not configured. Provide an OPENAI_API_KEY environment variable to enable AI analysis.",
       cached: false,
     };
+    uncacheableResponses.add(response);
+    return response;
   }
 
   try {
@@ -173,17 +174,34 @@ export async function callOpenAiChat(prompt: string, persona: string, mode: Anal
     const parsed = parseJsonPayload(payload);
     const analysis = parsed?.analysis || payload;
     const headline = parsed?.headline || buildFallbackHeadline(analysis);
+    const response = { prompt, persona, headline, analysis, cached: false };
 
-    cache.set(cacheKey, { analysis, headline, persona, timestamp: Date.now() });
+    if (!parsed) {
+      uncacheableResponses.add(response);
+    }
 
-    return { prompt, persona, headline, analysis, cached: false };
+    return response;
   } catch (error) {
-    return {
+    const response = {
       prompt,
       persona,
       headline: "Analysis unavailable",
       analysis: `OpenAI API error: ${error instanceof Error ? error.message : "Unknown error"}`,
       cached: false,
     };
+    uncacheableResponses.add(response);
+    return response;
   }
+}
+
+export function isCacheableOpenAiResponse(response: OpenAIResponse): boolean {
+  return (
+    !uncacheableResponses.has(response) &&
+    response.headline !== "Analysis unavailable" &&
+    !response.analysis.startsWith("OpenAI API error:")
+  );
+}
+
+export function __setOpenAiChatHandlerForTests(handler: ChatHandler | null): void {
+  testChatHandler = handler;
 }

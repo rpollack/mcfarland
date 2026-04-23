@@ -1,12 +1,61 @@
 import request from "supertest";
-import { describe, expect, it, beforeAll } from "vitest";
+import { describe, expect, it, beforeAll, beforeEach, afterEach, vi } from "vitest";
 import { createServer } from "../src/index.js";
+import { __setAnalysisCacheStoreForTests } from "../src/analysisCache.js";
+import { getDataFreshness, __setDataFreshnessForTests } from "../src/dataStore.js";
+import { __setOpenAiChatHandlerForTests } from "../src/openai.js";
 
 const app = createServer();
+const originalFreshness = getDataFreshness();
+
+function createMemoryCacheStore() {
+  const rows = new Map<string, { dataThroughDate: string; headline: string; analysis: string }>();
+  return {
+    rows,
+    store: {
+      async get({ cacheKey, dataThroughDate }: { cacheKey: string; dataThroughDate: string }) {
+        const row = rows.get(cacheKey);
+        if (!row || row.dataThroughDate !== dataThroughDate) {
+          return null;
+        }
+        return { headline: row.headline, analysis: row.analysis };
+      },
+      async set(entry: { cacheKey: string; dataThroughDate: string; headline: string; analysis: string }) {
+        rows.set(entry.cacheKey, {
+          dataThroughDate: entry.dataThroughDate,
+          headline: entry.headline,
+          analysis: entry.analysis,
+        });
+      },
+      async prune(dataThroughDate: string) {
+        for (const [cacheKey, row] of rows.entries()) {
+          if (row.dataThroughDate !== dataThroughDate) {
+            rows.delete(cacheKey);
+          }
+        }
+      },
+    },
+  };
+}
 
 describe("McFARLAND API", () => {
   beforeAll(() => {
     process.env.OPENAI_API_KEY = ""; // ensure offline tests do not call the API
+  });
+
+  beforeEach(() => {
+    process.env.OPENAI_API_KEY = "";
+    __setAnalysisCacheStoreForTests(null);
+    __setOpenAiChatHandlerForTests(null);
+    __setDataFreshnessForTests(originalFreshness);
+    vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    __setAnalysisCacheStoreForTests(null);
+    __setOpenAiChatHandlerForTests(null);
+    __setDataFreshnessForTests(originalFreshness);
+    vi.restoreAllMocks();
   });
 
   it("returns health status", async () => {
@@ -49,6 +98,253 @@ describe("McFARLAND API", () => {
     expect(response.status).toBe(200);
     expect(response.body.prompt).toContain("Player: ");
     expect(response.body.analysis).toContain("OpenAI API key is not configured");
+  });
+
+  it("caches identical single-player analysis across sessions", async () => {
+    const memoryCache = createMemoryCacheStore();
+    __setAnalysisCacheStoreForTests(memoryCache.store);
+    const openAiHandler = vi.fn(async (prompt: string, persona: string) => ({
+      prompt,
+      persona,
+      headline: "Cached Judge headline",
+      analysis: "Cached Judge analysis",
+      cached: false,
+    }));
+    __setOpenAiChatHandlerForTests(openAiHandler);
+
+    const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
+    const hitter = listBody.players[0];
+    const first = await request(app)
+      .post("/api/analyze")
+      .set("x-session-id", "user-a")
+      .send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
+    const second = await request(app)
+      .post("/api/analyze")
+      .set("x-session-id", "user-b")
+      .send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
+
+    expect(first.status).toBe(200);
+    expect(first.body.cached).toBe(false);
+    expect(second.status).toBe(200);
+    expect(second.body.cached).toBe(true);
+    expect(second.body.headline).toBe("Cached Judge headline");
+    expect(openAiHandler).toHaveBeenCalledTimes(1);
+  });
+
+  it("misses the analysis cache when vibe changes", async () => {
+    const memoryCache = createMemoryCacheStore();
+    __setAnalysisCacheStoreForTests(memoryCache.store);
+    const openAiHandler = vi.fn(async (prompt: string, persona: string) => ({
+      prompt,
+      persona,
+      headline: "Fresh headline",
+      analysis: "Fresh analysis",
+      cached: false,
+    }));
+    __setOpenAiChatHandlerForTests(openAiHandler);
+
+    const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
+    const hitter = listBody.players[0];
+    await request(app).post("/api/analyze").send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
+    await request(app).post("/api/analyze").send({ playerId: hitter.id, playerType: "hitter", analysisMode: "shakespeare" });
+
+    expect(openAiHandler).toHaveBeenCalledTimes(2);
+  });
+
+  it("misses the analysis cache when data freshness changes", async () => {
+    const memoryCache = createMemoryCacheStore();
+    __setAnalysisCacheStoreForTests(memoryCache.store);
+    const openAiHandler = vi.fn(async (prompt: string, persona: string) => ({
+      prompt,
+      persona,
+      headline: "Fresh headline",
+      analysis: "Fresh analysis",
+      cached: false,
+    }));
+    __setOpenAiChatHandlerForTests(openAiHandler);
+
+    const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
+    const hitter = listBody.players[0];
+    await request(app).post("/api/analyze").send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
+    __setDataFreshnessForTests({ dataThroughDate: "2099-04-22", dataThroughLabel: "April 22" });
+    const second = await request(app).post("/api/analyze").send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
+
+    expect(second.body.cached).toBe(false);
+    expect(openAiHandler).toHaveBeenCalledTimes(2);
+  });
+
+  it("caches ordered comparison analysis separately from single-player analysis", async () => {
+    const memoryCache = createMemoryCacheStore();
+    __setAnalysisCacheStoreForTests(memoryCache.store);
+    const openAiHandler = vi.fn(async (prompt: string, persona: string) => ({
+      prompt,
+      persona,
+      headline: "Comparison headline",
+      analysis: "Comparison analysis",
+      cached: false,
+    }));
+    __setOpenAiChatHandlerForTests(openAiHandler);
+
+    const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter" });
+    const playerIds = listBody.players.slice(0, 2).map((p: any) => p.id);
+    const first = await request(app)
+      .post("/api/compare/analyze")
+      .send({ playerType: "hitter", playerIds, analysisMode: "straightforward" });
+    const second = await request(app)
+      .post("/api/compare/analyze")
+      .send({ playerType: "hitter", playerIds, analysisMode: "straightforward" });
+
+    expect(first.status).toBe(200);
+    expect(first.body.cached).toBe(false);
+    expect(second.status).toBe(200);
+    expect(second.body.cached).toBe(true);
+    expect(second.body.players).toHaveLength(2);
+    expect(openAiHandler).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not cache unavailable OpenAI responses", async () => {
+    const memoryCache = createMemoryCacheStore();
+    __setAnalysisCacheStoreForTests(memoryCache.store);
+    const openAiHandler = vi.fn(async (prompt: string, persona: string) => ({
+      prompt,
+      persona,
+      headline: "Analysis unavailable",
+      analysis: "OpenAI API error: temporarily unavailable",
+      cached: false,
+    }));
+    __setOpenAiChatHandlerForTests(openAiHandler);
+
+    const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
+    const hitter = listBody.players[0];
+    await request(app).post("/api/analyze").send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
+    await request(app).post("/api/analyze").send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
+
+    expect(openAiHandler).toHaveBeenCalledTimes(2);
+    expect(memoryCache.rows.size).toBe(0);
+  });
+
+  it("does not cache malformed OpenAI responses", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    const memoryCache = createMemoryCacheStore();
+    __setAnalysisCacheStoreForTests(memoryCache.store);
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: "not json" } }] }),
+    } as Response);
+
+    const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
+    const hitter = listBody.players[0];
+    await request(app).post("/api/analyze").send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
+    await request(app).post("/api/analyze").send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(memoryCache.rows.size).toBe(0);
+  });
+
+  it("falls back to OpenAI when cache reads fail", async () => {
+    __setAnalysisCacheStoreForTests({
+      async get() {
+        throw new Error("read failed");
+      },
+      async set() {},
+      async prune() {},
+    });
+    const openAiHandler = vi.fn(async (prompt: string, persona: string) => ({
+      prompt,
+      persona,
+      headline: "Fresh headline",
+      analysis: "Fresh analysis",
+      cached: false,
+    }));
+    __setOpenAiChatHandlerForTests(openAiHandler);
+
+    const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
+    const hitter = listBody.players[0];
+    const response = await request(app)
+      .post("/api/analyze")
+      .send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
+
+    expect(response.status).toBe(200);
+    expect(response.body.analysis).toBe("Fresh analysis");
+    expect(openAiHandler).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns generated analysis when cache writes fail", async () => {
+    __setAnalysisCacheStoreForTests({
+      async get() {
+        return null;
+      },
+      async set() {
+        throw new Error("write failed");
+      },
+      async prune() {},
+    });
+    const openAiHandler = vi.fn(async (prompt: string, persona: string) => ({
+      prompt,
+      persona,
+      headline: "Fresh headline",
+      analysis: "Fresh analysis",
+      cached: false,
+    }));
+    __setOpenAiChatHandlerForTests(openAiHandler);
+
+    const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
+    const hitter = listBody.players[0];
+    const response = await request(app)
+      .post("/api/analyze")
+      .send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
+
+    expect(response.status).toBe(200);
+    expect(response.body.analysis).toBe("Fresh analysis");
+  });
+
+  it("logs Amplitude events for cache misses and hits", async () => {
+    const memoryCache = createMemoryCacheStore();
+    __setAnalysisCacheStoreForTests(memoryCache.store);
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true } as Response);
+    __setOpenAiChatHandlerForTests(async (prompt: string, persona: string) => ({
+      prompt,
+      persona,
+      headline: "Tracked headline",
+      analysis: "Tracked analysis",
+      cached: false,
+    }));
+
+    const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
+    const hitter = listBody.players[0];
+    await request(app)
+      .post("/api/analyze")
+      .set("x-session-id", "tracked-a")
+      .send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
+    await request(app)
+      .post("/api/analyze")
+      .set("x-session-id", "tracked-b")
+      .send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
+
+    await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2));
+  });
+
+  it("prunes stale analysis cache rows after successful writes", async () => {
+    const memoryCache = createMemoryCacheStore();
+    memoryCache.rows.set("old-cache-key", {
+      dataThroughDate: "2001-04-01",
+      headline: "Old headline",
+      analysis: "Old analysis",
+    });
+    __setAnalysisCacheStoreForTests(memoryCache.store);
+    __setOpenAiChatHandlerForTests(async (prompt: string, persona: string) => ({
+      prompt,
+      persona,
+      headline: "Fresh headline",
+      analysis: "Fresh analysis",
+      cached: false,
+    }));
+
+    const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
+    const hitter = listBody.players[0];
+    await request(app).post("/api/analyze").send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
+
+    expect(memoryCache.rows.has("old-cache-key")).toBe(false);
   });
 
   it("recommends a comparison winner", async () => {
