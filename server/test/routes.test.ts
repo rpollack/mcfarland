@@ -475,6 +475,31 @@ describe("McFARLAND API", () => {
     expect(response.text).toContain("/?mode=single");
   });
 
+  it("uses a cached generated headline in share social preview titles", async () => {
+    const memoryCache = createMemoryCacheStore();
+    __setAnalysisCacheStoreForTests(memoryCache.store);
+    __setOpenAiChatHandlerForTests(async (prompt: string, persona: string) => ({
+      prompt,
+      persona,
+      headline: "Judge keeps forcing the issue",
+      analysis: "Generated analysis body",
+      cached: false,
+    }));
+    const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
+    const hitter = listBody.players[0];
+
+    await request(app)
+      .post("/api/analyze")
+      .send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
+    const response = await request(app)
+      .get("/share")
+      .query({ mode: "single", playerType: "hitter", playerId: hitter.id, vibe: "gen_z" });
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain('property="og:title" content="Judge keeps forcing the issue | McFARLAND"');
+    expect(response.text).toContain('name="twitter:title" content="Judge keeps forcing the issue | McFARLAND"');
+  });
+
   it("injects OG tags into SPA HTML responses", async () => {
     const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter" });
     const players = listBody.players.slice(0, 2);
