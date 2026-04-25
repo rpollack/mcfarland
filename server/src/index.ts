@@ -7,7 +7,9 @@ import helmet from "helmet";
 import cors from "cors";
 import router from "./routes.js";
 import { adminModeMiddleware } from "./admin.js";
-import { getPlayerById } from "./dataStore.js";
+import { buildAnalysisPrompt, buildComparisonPrompt } from "./analysis.js";
+import { buildAnalysisCacheKey, getCachedAnalysis } from "./analysisCache.js";
+import { getDataFreshness, getPlayerById } from "./dataStore.js";
 import { ANALYSIS_VIBES, DEFAULT_ANALYSIS_MODE } from "./vibes.js";
 import type { PlayerType } from "./types.js";
 
@@ -23,6 +25,15 @@ type CardMetadata = {
   title: string;
   description: string;
   imageUrl?: string;
+  canonicalUrl: string;
+};
+
+type ResolvedCardState = {
+  playerType: PlayerType;
+  mode: "single" | "compare";
+  vibe: keyof typeof ANALYSIS_VIBES;
+  vibeLabel: string;
+  players: NonNullable<ReturnType<typeof getPlayerById>>[];
   canonicalUrl: string;
 };
 
@@ -90,12 +101,12 @@ function getBaseUrl(req: express.Request): string {
   return `${req.protocol}://${req.get("host")}`;
 }
 
-function buildCardMetadata(req: express.Request): CardMetadata {
+function resolveCardState(req: express.Request): ResolvedCardState {
   const params = getAppStateParams(req.query);
   const playerType = (params.get("playerType") === "pitcher" ? "pitcher" : "hitter") as PlayerType;
   const mode = params.get("mode") === "compare" ? "compare" : "single";
   const rawVibe = params.get("vibe") ?? DEFAULT_ANALYSIS_MODE;
-  const vibe = rawVibe in ANALYSIS_VIBES ? rawVibe : DEFAULT_ANALYSIS_MODE;
+  const vibe = (rawVibe in ANALYSIS_VIBES ? rawVibe : DEFAULT_ANALYSIS_MODE) as keyof typeof ANALYSIS_VIBES;
   const vibeLabel = toReadableVibe(vibe);
 
   const ids = (params.get("playerIds") ?? "")
@@ -111,10 +122,35 @@ function buildCardMetadata(req: express.Request): CardMetadata {
   const canonicalPath = params.toString() ? `/?${params.toString()}` : "/";
   const canonicalUrl = `${getBaseUrl(req)}${canonicalPath}`;
 
+  return { playerType, mode, vibe, vibeLabel, players, canonicalUrl };
+}
+
+async function getCachedShareHeadline(state: ResolvedCardState): Promise<string | null> {
+  if (state.mode === "compare" && state.players.length < 2) {
+    return null;
+  }
+  if (state.mode === "single" && state.players.length !== 1) {
+    return null;
+  }
+
+  const prompt =
+    state.mode === "compare"
+      ? buildComparisonPrompt(state.players, state.playerType, state.vibe)
+      : buildAnalysisPrompt(state.players[0], state.playerType, state.vibe);
+  const cacheKey = buildAnalysisCacheKey(state.vibe, prompt);
+  const cached = await getCachedAnalysis({ cacheKey, dataThroughDate: getDataFreshness().dataThroughDate });
+  return cached?.headline?.replace(/\s+/g, " ").trim() || null;
+}
+
+async function buildCardMetadata(req: express.Request): Promise<CardMetadata> {
+  const state = resolveCardState(req);
+  const { canonicalUrl, mode, playerType, players, vibeLabel } = state;
+  const cachedHeadline = await getCachedShareHeadline(state);
+
   if (mode === "compare" && players.length > 1) {
     const names = players.map((player) => player.Name).filter(Boolean);
     const versus = names.join(" vs ");
-    const title = `${versus} | ${APP_NAME} Comparison`;
+    const title = cachedHeadline ? `${cachedHeadline} | ${APP_NAME}` : `${versus} | ${APP_NAME} Comparison`;
     const description = `AI comparison in ${vibeLabel} mode for ${versus}. Stats, trends, and a clear recommendation.`;
     const imageUrl = buildMlbHeadshotUrl(players[0].mlbamid ?? null);
     return { title, description, imageUrl, canonicalUrl };
@@ -123,7 +159,7 @@ function buildCardMetadata(req: express.Request): CardMetadata {
   if (players.length === 1) {
     const player = players[0];
     const subject = playerType === "pitcher" ? "Pitching" : "Hitting";
-    const title = `${player.Name} ${subject} Breakdown | ${APP_NAME}`;
+    const title = cachedHeadline ? `${cachedHeadline} | ${APP_NAME}` : `${player.Name} ${subject} Breakdown | ${APP_NAME}`;
     const description = `${subject} analysis for ${player.Name} in ${vibeLabel} mode. Data-backed takeaways in plain English.`;
     const imageUrl = buildMlbHeadshotUrl(player.mlbamid ?? null);
     return { title, description, imageUrl, canonicalUrl };
@@ -246,8 +282,8 @@ export function createServer() {
     const indexHtmlPath = path.join(clientDistPath, "index.html");
     const indexTemplate = fs.readFileSync(indexHtmlPath, "utf8");
 
-    app.get("/share", (req, res) => {
-      const card = buildCardMetadata(req);
+    app.get("/share", async (req, res) => {
+      const card = await buildCardMetadata(req);
       const params = getAppStateParams(req.query);
       const target = params.toString() ? `/?${params.toString()}` : "/";
       res
@@ -255,15 +291,15 @@ export function createServer() {
         .send(buildSharePreviewHtml(card, target));
     });
 
-    app.get("/", (req, res) => {
-      const card = buildCardMetadata(req);
+    app.get("/", async (req, res) => {
+      const card = await buildCardMetadata(req);
       const dynamicIndexHtml = injectMetaTags(indexTemplate, buildSocialMetaTags(card));
       res.setHeader("Content-Type", "text/html; charset=utf-8").send(dynamicIndexHtml);
     });
 
     app.use(express.static(clientDistPath, { index: false }));
-    app.get("*", (req, res) => {
-      const card = buildCardMetadata(req);
+    app.get("*", async (req, res) => {
+      const card = await buildCardMetadata(req);
       const dynamicIndexHtml = injectMetaTags(indexTemplate, buildSocialMetaTags(card));
       res.setHeader("Content-Type", "text/html; charset=utf-8").send(dynamicIndexHtml);
     });
