@@ -50,6 +50,23 @@ function formatOrdinalDay(day: number): string {
   return `${day}th`;
 }
 
+function formatDateLabel(date: Date, timeZone = "America/Chicago"): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    timeZone,
+  }).formatToParts(date);
+  const weekday = parts.find((part) => part.type === "weekday")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = Number(parts.find((part) => part.type === "day")?.value);
+
+  if (!weekday || !month || !Number.isFinite(day)) {
+    return "Today";
+  }
+  return `${weekday}, ${month} ${formatOrdinalDay(day)}`;
+}
+
 function formatMatchupDate(matchup: DailyMatchupContext): string {
   const rawDate = matchup.gameDate ?? matchup.date;
   if (!rawDate) {
@@ -59,9 +76,7 @@ function formatMatchupDate(matchup: DailyMatchupContext): string {
   if (Number.isNaN(date.getTime())) {
     return rawDate;
   }
-  const weekday = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(date);
-  const month = new Intl.DateTimeFormat("en-US", { month: "long" }).format(date);
-  return `${weekday}, ${month} ${formatOrdinalDay(date.getDate())}`;
+  return formatDateLabel(date);
 }
 
 function formatLineupStatus(matchup: DailyMatchupContext): string {
@@ -259,12 +274,13 @@ function FantasyToolsPage({ initialPlayerType, initialPlayerId, onStateChange }:
 
   const result = data as FantasyDailyMatchupResponse<PlayerRecord> | undefined;
   const playerName = result?.player.Name;
+  const todayLabel = useMemo(() => formatDateLabel(new Date()), []);
 
   return (
     <div className={styles.container}>
       <section className={styles.selectionPanel} aria-label="Fantasy daily matchup tool">
         <header className={styles.toolHeader}>
-          <h2>Daily Matchup</h2>
+          <h2>Daily Matchup: {todayLabel}</h2>
           <p>Pick one player and get a clear start/sit recommendation using today&apos;s MLB matchup context.</p>
         </header>
         <PlayerPicker

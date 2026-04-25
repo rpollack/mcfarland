@@ -357,7 +357,7 @@ test.describe("McFARLAND core experience", () => {
     await page.getByRole("tab", { name: "Fantasy Tools" }).click();
 
     await expect(page).toHaveURL(/mode=fantasy/);
-    await expect(page.getByRole("heading", { name: "Daily Matchup" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Daily Matchup: .+, .+ \d+(st|nd|rd|th)/ })).toBeVisible();
 
     const search = fantasySearchInput(page);
     await expect(search).toBeVisible();

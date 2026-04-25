@@ -92,6 +92,8 @@ describe("FantasyToolsPage", () => {
       <FantasyToolsPage initialPlayerType="hitter" onStateChange={() => {}} />
     );
 
+    expect(screen.getByRole("heading", { name: /Daily Matchup: .+, .+ \d+(st|nd|rd|th)/ })).toBeInTheDocument();
+
     fireEvent.change(screen.getByRole("searchbox"), { target: { value: "Judge" } });
     const result = await screen.findByRole("button", { name: "Aaron Judge" });
     fireEvent.click(result);
