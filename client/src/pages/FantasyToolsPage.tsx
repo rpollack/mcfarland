@@ -23,6 +23,12 @@ type PlatoonAdvantage = {
   explanation: string;
 };
 
+type LineupSignal = {
+  label: "In" | "Out" | "Unknown";
+  className: string;
+  icon: string;
+};
+
 function formatGameTime(value?: string): string {
   if (!value) {
     return "TBD";
@@ -79,11 +85,26 @@ function formatMatchupDate(matchup: DailyMatchupContext): string {
   return formatDateLabel(date);
 }
 
-function formatLineupStatus(matchup: DailyMatchupContext): string {
-  if (matchup.lineupStatus === "confirmed") return "Confirmed in lineup";
-  if (matchup.lineupStatus === "notInLineup") return "Not in posted lineup";
-  if (matchup.lineupStatus === "unavailable") return "Lineup not posted";
-  return "N/A";
+function getLineupSignal(matchup: DailyMatchupContext): LineupSignal {
+  if (matchup.lineupStatus === "confirmed") {
+    return {
+      label: "In",
+      className: styles.signalGood,
+      icon: "✓",
+    };
+  }
+  if (matchup.lineupStatus === "notInLineup") {
+    return {
+      label: "Out",
+      className: styles.signalBad,
+      icon: "✕",
+    };
+  }
+  return {
+    label: "Unknown",
+    className: styles.signalUnknown,
+    icon: "-",
+  };
 }
 
 function formatWeather(matchup: DailyMatchupContext): string {
@@ -103,7 +124,7 @@ function getPlatoonAdvantage(matchup: DailyMatchupContext): PlatoonAdvantage {
   if (!batSide || !pitchHand) {
     return {
       label: "Unknown",
-      className: styles.platoonUnknown,
+      className: styles.signalUnknown,
       icon: "-",
       explanation,
     };
@@ -112,10 +133,37 @@ function getPlatoonAdvantage(matchup: DailyMatchupContext): PlatoonAdvantage {
   const hasAdvantage = batSide === "S" || batSide !== pitchHand;
   return {
     label: hasAdvantage ? "Yes" : "No",
-    className: hasAdvantage ? styles.platoonYes : styles.platoonNo,
+    className: hasAdvantage ? styles.signalGood : styles.signalBad,
     icon: hasAdvantage ? "✓" : "✕",
     explanation,
   };
+}
+
+function VerdictSignals({ matchup, playerType }: { matchup: DailyMatchupContext; playerType: PlayerType }) {
+  if (playerType !== "hitter" || matchup.matchupStatus !== "ok") {
+    return null;
+  }
+
+  const lineupSignal = getLineupSignal(matchup);
+  const platoonAdvantage = getPlatoonAdvantage(matchup);
+
+  return (
+    <>
+      <span className={styles.signal}>
+        <span className={styles.signalLabel}>Lineup</span>
+        <span className={`${styles.signalBadge} ${lineupSignal.className}`}>
+          {lineupSignal.icon} {lineupSignal.label}
+        </span>
+      </span>
+      <span className={styles.signal}>
+        <span className={styles.signalLabel}>Platoon Advantage vs. Starter</span>
+        <span className={`${styles.signalBadge} ${platoonAdvantage.className}`}>
+          {platoonAdvantage.icon} {platoonAdvantage.label}
+        </span>
+        <span className={styles.signalHint}>{platoonAdvantage.explanation}</span>
+      </span>
+    </>
+  );
 }
 
 function MatchupCard({ matchup, playerType }: { matchup: DailyMatchupContext; playerType: PlayerType }) {
@@ -140,8 +188,6 @@ function MatchupCard({ matchup, playerType }: { matchup: DailyMatchupContext; pl
       </section>
     );
   }
-
-  const platoonAdvantage = getPlatoonAdvantage(matchup);
 
   return (
     <section className={styles.card} aria-label="Daily matchup">
@@ -180,25 +226,10 @@ function MatchupCard({ matchup, playerType }: { matchup: DailyMatchupContext; pl
               : `${matchup.selectedTeamStarter?.name ?? "Not posted"}${matchup.isProbableStarter === false ? " · selected pitcher not listed" : ""}`}
           </dd>
         </div>
-        <div>
-          <dt>{playerType === "hitter" ? "Platoon advantage" : "Opponent starter"}</dt>
-          <dd>
-            {playerType === "hitter" ? (
-              <span className={styles.platoonSummary}>
-                <span className={`${styles.platoonBadge} ${platoonAdvantage.className}`}>
-                  {platoonAdvantage.icon} {platoonAdvantage.label}
-                </span>
-                <span className={styles.platoonExplanation}>{platoonAdvantage.explanation}</span>
-              </span>
-            ) : (
-              `${matchup.opposingStarter?.name ?? "Not posted"}${matchup.opposingStarter?.pitchHand ? ` (${matchup.opposingStarter.pitchHand}HP)` : ""}`
-            )}
-          </dd>
-        </div>
-        {playerType === "hitter" && (
+        {playerType === "pitcher" && (
           <div>
-            <dt>Lineup</dt>
-            <dd>{formatLineupStatus(matchup)}</dd>
+            <dt>Opponent starter</dt>
+            <dd>{`${matchup.opposingStarter?.name ?? "Not posted"}${matchup.opposingStarter?.pitchHand ? ` (${matchup.opposingStarter.pitchHand}HP)` : ""}`}</dd>
           </div>
         )}
       </dl>
@@ -337,7 +368,10 @@ function FantasyToolsPage({ initialPlayerType, initialPlayerId, onStateChange }:
               <section className={result.decision === "START" ? styles.startCard : styles.sitCard} aria-label="Start sit decision">
                 <div className={styles.decisionRow}>
                   <span className={styles.decision}>{result.decision}</span>
-                  <span className={styles.confidence}>{result.confidence} confidence</span>
+                  <div className={styles.decisionSignals}>
+                    <span className={styles.confidence}>{result.confidence} confidence</span>
+                    <VerdictSignals matchup={result.matchup} playerType={playerType} />
+                  </div>
                 </div>
                 <h3>{result.headline}</h3>
                 <ReactMarkdown>{result.analysis}</ReactMarkdown>

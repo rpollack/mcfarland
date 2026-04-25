@@ -376,13 +376,16 @@ test.describe("McFARLAND core experience", () => {
     await expect(matchupCard).toContainText("Saturday, April 25th");
     await expect(matchupCard).toContainText("NYY at HOU");
     await expect(matchupCard).toContainText("Ryan Weathers (LHP)");
-    await expect(matchupCard).toContainText("✓ Yes");
-    await expect(matchupCard).toContainText("RHB vs LHP");
-    await expect(matchupCard).toContainText("Confirmed in lineup");
+    await expect(matchupCard).not.toContainText("Platoon Advantage");
 
     const decisionCard = page.getByLabel("Start sit decision");
     await expect(decisionCard).toContainText("START");
     await expect(decisionCard).toContainText("Medium confidence");
+    await expect(decisionCard).toContainText("Lineup");
+    await expect(decisionCard).toContainText("✓ In");
+    await expect(decisionCard).toContainText("Platoon Advantage vs. Starter");
+    await expect(decisionCard).toContainText("✓ Yes");
+    await expect(decisionCard).toContainText("RHB vs LHP");
     await expect(decisionCard).toContainText("Start Judge for the platoon edge");
 
     expect(fantasyAnalyzeRequests).toHaveLength(1);

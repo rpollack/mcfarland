@@ -136,14 +136,31 @@
   overflow-wrap: anywhere;
 }
 
-.platoonSummary {
+.decisionSignals,
+.signal {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+}
+
+.decisionSignals {
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
+.signal {
   gap: 0.45rem;
 }
 
-.platoonBadge {
+.signalLabel {
+  color: #64748b;
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.signalBadge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -155,25 +172,25 @@
   white-space: nowrap;
 }
 
-.platoonYes {
+.signalGood {
   background: rgba(220, 252, 231, 0.95);
   border: 1px solid rgba(22, 163, 74, 0.28);
   color: #166534;
 }
 
-.platoonNo {
+.signalBad {
   background: rgba(254, 226, 226, 0.95);
   border: 1px solid rgba(220, 38, 38, 0.28);
   color: #991b1b;
 }
 
-.platoonUnknown {
+.signalUnknown {
   background: rgba(241, 245, 249, 0.95);
   border: 1px solid rgba(100, 116, 139, 0.22);
   color: #475569;
 }
 
-.platoonExplanation {
+.signalHint {
   color: #475569;
   font-size: 0.92rem;
   font-weight: 700;
@@ -242,6 +259,10 @@
   .cardHeader {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .decisionSignals {
+    justify-content: flex-start;
   }
 
   .headshot {
