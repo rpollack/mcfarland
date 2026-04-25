@@ -2,7 +2,9 @@ import express from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
 import { buildAboutContent, buildAnalysisPrompt, buildComparisonPrompt, generateQuickInsight, recommendBestPlayer } from "./analysis.js";
-import { callOpenAiChat, isCacheableOpenAiResponse } from "./openai.js";
+import { buildFantasyDailyMatchupPrompt, parseFantasyCachedPayload, serializeFantasyCachedPayload } from "./fantasy.js";
+import { getDailyMatchupContext } from "./mlbMatchups.js";
+import { callOpenAiChat, callOpenAiFantasyDecision, isCacheableFantasyDecision, isCacheableOpenAiResponse } from "./openai.js";
 import { buildAnalysisCacheKey, getCachedAnalysis, saveCachedAnalysis } from "./analysisCache.js";
 import { getDataFreshness, getPlayerById, getPlayerSummaries } from "./dataStore.js";
 import { logAnalysisEvent, logSessionStart, logShareEvent } from "./analytics.js";
@@ -247,6 +249,77 @@ router.post("/api/compare/analyze", analyzeLimiter, async (req, res) => {
   } catch (error) {
     console.error("[api/compare/analyze] OpenAI request failed", error);
     res.status(502).json({ error: "Analysis service temporarily unavailable" });
+  }
+});
+
+router.post("/api/fantasy/daily-matchup/analyze", analyzeLimiter, async (req, res) => {
+  const schema = z.object({
+    playerId: z.string(),
+    playerType: playerTypeSchema,
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  });
+
+  const parseResult = schema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res.status(400).json({ error: "Invalid request body" });
+  }
+
+  const { playerId, playerType, date } = parseResult.data;
+  const player = getPlayerById(playerType, playerId);
+  if (!player) {
+    return res.status(404).json({ error: "Player not found" });
+  }
+
+  try {
+    const matchup = await getDailyMatchupContext({ player, playerType, date });
+    const prompt = buildFantasyDailyMatchupPrompt(player, playerType, matchup);
+    const cacheMode = "rotisserie_expert" as AnalysisMode;
+    const freshness = getDataFreshness();
+    const cacheKey = buildAnalysisCacheKey(cacheMode, prompt);
+    const cached = await getCachedAnalysis({ cacheKey, dataThroughDate: freshness.dataThroughDate });
+    if (cached) {
+      const cachedDecision = parseFantasyCachedPayload(cached.headline, cached.analysis);
+      if (cachedDecision) {
+        return res.json({
+          player,
+          matchup,
+          ...cachedDecision,
+          prompt,
+          cached: true,
+        });
+      }
+    }
+
+    const decision = await callOpenAiFantasyDecision(prompt);
+    if (isCacheableFantasyDecision(decision)) {
+      await saveCachedAnalysis({
+        cacheKey,
+        dataThroughDate: freshness.dataThroughDate,
+        analysisMode: cacheMode,
+        playerType,
+        playerIds: [playerId],
+        headline: decision.headline,
+        analysis: serializeFantasyCachedPayload({
+          decision: decision.decision,
+          confidence: decision.confidence,
+          analysis: decision.analysis,
+        }),
+      });
+    }
+
+    res.json({
+      player,
+      matchup,
+      decision: decision.decision,
+      confidence: decision.confidence,
+      headline: decision.headline,
+      analysis: decision.analysis,
+      prompt,
+      cached: decision.cached,
+    });
+  } catch (error) {
+    console.error("[api/fantasy/daily-matchup/analyze] failed", error);
+    res.status(502).json({ error: "Fantasy matchup service temporarily unavailable" });
   }
 });
 

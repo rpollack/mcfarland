@@ -4,6 +4,7 @@ import {
   CompareAnalysisResponse,
   ComparisonResponse,
   DataFreshness,
+  FantasyDailyMatchupResponse,
   HitterRecord,
   PitcherRecord,
   PlayerDetail,
@@ -96,6 +97,17 @@ export async function analyzeComparison<T extends PlayerRecord>(
   return request<CompareAnalysisResponse<T>>(`/api/compare/analyze`, {
     method: "POST",
     body: JSON.stringify({ playerType, playerIds, analysisMode }),
+  });
+}
+
+export async function analyzeDailyMatchup<T extends PlayerRecord>(
+  playerId: string,
+  playerType: PlayerType,
+  date?: string
+): Promise<FantasyDailyMatchupResponse<T>> {
+  return request<FantasyDailyMatchupResponse<T>>(`/api/fantasy/daily-matchup/analyze`, {
+    method: "POST",
+    body: JSON.stringify({ playerId, playerType, date }),
   });
 }
 

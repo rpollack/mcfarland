@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import SinglePlayerPage from "./pages/SinglePlayerPage";
 import ComparePage from "./pages/ComparePage";
+import FantasyToolsPage from "./pages/FantasyToolsPage";
 import AboutPage from "./pages/AboutPage";
 import SocialAssistantPage from "./pages/SocialAssistantPage";
 import { VibeProvider, useVibe } from "./contexts/VibeContext";
@@ -9,7 +10,7 @@ import styles from "./styles/App.module.css";
 import { registerSession } from "./api";
 import type { PlayerType } from "./types";
 
-type ExperienceMode = "single" | "compare";
+type ExperienceMode = "single" | "compare" | "fantasy";
 type View = "experience" | "about" | "social";
 
 const EXPERIENCE_PARAM = "mode";
@@ -47,7 +48,8 @@ function AppShell() {
   const { mode: vibeMode, setMode: setVibeMode, vibes, defaultMode } = useVibe();
   const lastUrlVibeRef = useRef<string | null>(searchParams.get(VIBE_PARAM));
 
-  const urlMode = searchParams.get(EXPERIENCE_PARAM) === "compare" ? "compare" : "single";
+  const rawMode = searchParams.get(EXPERIENCE_PARAM);
+  const urlMode: ExperienceMode = rawMode === "compare" || rawMode === "fantasy" ? rawMode : "single";
   const [experienceMode, setExperienceMode] = useState<ExperienceMode>(urlMode);
   const [view, setView] = useState<View>(searchParams.get(TOOL_PARAM) === "social" ? "social" : "experience");
 
@@ -149,6 +151,19 @@ function AppShell() {
     [applySearchParams]
   );
 
+  const handleFantasyStateChange = useCallback(
+    ({ playerType, playerId }: { playerType: PlayerType; playerId?: string }) => {
+      setExperienceMode("fantasy");
+      applySearchParams({
+        [EXPERIENCE_PARAM]: "fantasy",
+        [PLAYER_TYPE_PARAM]: playerType,
+        [PLAYER_ID_PARAM]: playerId ?? null,
+        [PLAYER_IDS_PARAM]: null,
+      });
+    },
+    [applySearchParams]
+  );
+
   useEffect(() => {
     if (view !== "about") {
       return;
@@ -194,6 +209,15 @@ function AppShell() {
           >
             Compare Players
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={experienceMode === "fantasy"}
+            className={experienceMode === "fantasy" ? styles.activeTab : styles.tab}
+            onClick={() => handleExperienceToggle("fantasy")}
+          >
+            Fantasy Tools
+          </button>
         </div>
       )}
 
@@ -206,11 +230,17 @@ function AppShell() {
             initialPlayerId={singlePlayerId}
             onStateChange={handleSingleStateChange}
           />
-        ) : (
+        ) : experienceMode === "compare" ? (
           <ComparePage
             initialPlayerType={playerTypeParam}
             initialPlayerIds={comparePlayerIds}
             onStateChange={handleCompareStateChange}
+          />
+        ) : (
+          <FantasyToolsPage
+            initialPlayerType={playerTypeParam}
+            initialPlayerId={singlePlayerId}
+            onStateChange={handleFantasyStateChange}
           />
         )}
       </main>

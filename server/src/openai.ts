@@ -8,15 +8,34 @@ interface OpenAIResponse {
   cached: boolean;
 }
 
+interface FantasyDecisionResponse {
+  prompt: string;
+  decision: "START" | "SIT";
+  confidence: "Low" | "Medium" | "High";
+  headline: string;
+  analysis: string;
+  cached: boolean;
+}
+
 type ParsedAnalysisPayload = {
   headline: string;
   analysis: string;
 };
 
+type ParsedFantasyPayload = {
+  decision: "START" | "SIT";
+  confidence: "Low" | "Medium" | "High";
+  headline: string;
+  analysis: string;
+};
+
 type ChatHandler = (prompt: string, persona: string, mode: AnalysisMode) => Promise<OpenAIResponse>;
+type FantasyDecisionHandler = (prompt: string) => Promise<FantasyDecisionResponse>;
 
 let testChatHandler: ChatHandler | null = null;
+let testFantasyDecisionHandler: FantasyDecisionHandler | null = null;
 const uncacheableResponses = new WeakSet<OpenAIResponse>();
+const uncacheableFantasyResponses = new WeakSet<FantasyDecisionResponse>();
 
 function buildStructuredAnalysisPrompt(prompt: string, persona: string, mode: AnalysisMode): string {
   const modeSpecificInstructions =
@@ -100,6 +119,33 @@ function parseJsonPayload(text: string): ParsedAnalysisPayload | null {
       return null;
     }
     return {
+      headline: parsed.headline.trim(),
+      analysis: parsed.analysis.trim(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function parseFantasyJsonPayload(text: string): ParsedFantasyPayload | null {
+  const trimmed = text.trim();
+  const direct = trimmed.match(/^\{[\s\S]*\}$/);
+  const candidate = direct?.[0] ?? trimmed.match(/```json\s*([\s\S]*?)```/i)?.[1] ?? trimmed.match(/```([\s\S]*?)```/)?.[1];
+
+  if (!candidate) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(candidate) as Partial<ParsedFantasyPayload>;
+    const decision = parsed.decision === "START" || parsed.decision === "SIT" ? parsed.decision : null;
+    const confidence = parsed.confidence === "Low" || parsed.confidence === "Medium" || parsed.confidence === "High" ? parsed.confidence : null;
+    if (!decision || !confidence || typeof parsed.headline !== "string" || typeof parsed.analysis !== "string") {
+      return null;
+    }
+    return {
+      decision,
+      confidence,
       headline: parsed.headline.trim(),
       analysis: parsed.analysis.trim(),
     };
@@ -194,6 +240,65 @@ export async function callOpenAiChat(prompt: string, persona: string, mode: Anal
   }
 }
 
+export async function callOpenAiFantasyDecision(prompt: string): Promise<FantasyDecisionResponse> {
+  if (testFantasyDecisionHandler) {
+    return testFantasyDecisionHandler(prompt);
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    const response = {
+      prompt,
+      decision: "SIT" as const,
+      confidence: "Low" as const,
+      headline: "Fantasy decision unavailable",
+      analysis: "OpenAI API key is not configured. Provide an OPENAI_API_KEY environment variable to enable fantasy matchup decisions.",
+      cached: false,
+    };
+    uncacheableFantasyResponses.add(response);
+    return response;
+  }
+
+  try {
+    const payload = await runChatCompletion(
+      apiKey,
+      [
+        "Return raw JSON only. Do not wrap the response in markdown fences.",
+        "The JSON must match exactly this shape:",
+        '{"decision":"START|SIT","confidence":"Low|Medium|High","headline":"...","analysis":"..."}',
+        "",
+        prompt,
+      ].join("\n")
+    );
+    const parsed = parseFantasyJsonPayload(payload);
+    if (!parsed) {
+      const response = {
+        prompt,
+        decision: "SIT" as const,
+        confidence: "Low" as const,
+        headline: "Fantasy decision unavailable",
+        analysis: payload,
+        cached: false,
+      };
+      uncacheableFantasyResponses.add(response);
+      return response;
+    }
+
+    return { prompt, ...parsed, cached: false };
+  } catch (error) {
+    const response = {
+      prompt,
+      decision: "SIT" as const,
+      confidence: "Low" as const,
+      headline: "Fantasy decision unavailable",
+      analysis: `OpenAI API error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      cached: false,
+    };
+    uncacheableFantasyResponses.add(response);
+    return response;
+  }
+}
+
 export function isCacheableOpenAiResponse(response: OpenAIResponse): boolean {
   return (
     !uncacheableResponses.has(response) &&
@@ -202,6 +307,18 @@ export function isCacheableOpenAiResponse(response: OpenAIResponse): boolean {
   );
 }
 
+export function isCacheableFantasyDecision(response: FantasyDecisionResponse): boolean {
+  return (
+    !uncacheableFantasyResponses.has(response) &&
+    response.headline !== "Fantasy decision unavailable" &&
+    !response.analysis.startsWith("OpenAI API error:")
+  );
+}
+
 export function __setOpenAiChatHandlerForTests(handler: ChatHandler | null): void {
   testChatHandler = handler;
+}
+
+export function __setFantasyDecisionHandlerForTests(handler: FantasyDecisionHandler | null): void {
+  testFantasyDecisionHandler = handler;
 }
