@@ -32,6 +32,10 @@ function compareSearchInput(page: Page) {
   return page.locator("section[aria-label='Comparison search'] input[type='search']");
 }
 
+function fantasySearchInput(page: Page) {
+  return page.locator("section[aria-label='Player search'] input[type='search']");
+}
+
 test.describe("McFARLAND core experience", () => {
   test("analyze again reselects player and updates analysis headshot", async ({ page }) => {
     const singleAnalyzeRequests: { mode: string; playerId: string }[] = [];
@@ -265,5 +269,115 @@ test.describe("McFARLAND core experience", () => {
     await expectAnalysisReady(sharePage);
 
     await sharePage.close();
+  });
+
+  test("fantasy daily matchup selects a hitter and renders start sit context", async ({ page }) => {
+    const fantasyAnalyzeRequests: { playerId: string; playerType: string; date?: string }[] = [];
+
+    await page.route("**/api/fantasy/daily-matchup/analyze", async (route) => {
+      const request = route.request();
+      const body = JSON.parse(request.postData() ?? "{}");
+      fantasyAnalyzeRequests.push({
+        playerId: String(body.playerId ?? ""),
+        playerType: String(body.playerType ?? ""),
+        date: typeof body.date === "string" ? body.date : undefined,
+      });
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          player: {
+            Name: "Aaron Judge",
+            PlayerId: body.playerId,
+            Age: 33,
+            mlbamid: "592450",
+            AVG_cur: 0.31,
+            OBP_cur: 0.42,
+            SLG_cur: 0.61,
+            K_pct_cur: 24,
+            BB_pct_cur: 15,
+            Barrel_pct_cur: 18,
+            BABIP_cur: 0.31,
+            wOBA_cur: 0.43,
+            xwOBA_cur: 0.45,
+            xwOBA_wOBA_gap_cur: 0.02,
+            PA_cur: 120,
+            AVG_l3: 0.29,
+            OBP_l3: 0.4,
+            SLG_l3: 0.58,
+            K_pct_l3: 25,
+            BB_pct_l3: 14,
+            Barrel_pct_l3: 17,
+            BABIP_l3: 0.3,
+            wOBA_l3: 0.41,
+            xwOBA_l3: 0.42,
+            xwOBA_wOBA_gap_l3: 0.01,
+            PA_l3: 540,
+            AVG_diff: 0.02,
+            OBP_diff: 0.02,
+            SLG_diff: 0.03,
+            K_pct_diff: -1,
+            BB_pct_diff: 1,
+            Barrel_pct_diff: 1,
+            BABIP_diff: 0.01,
+            wOBA_diff: 0.02,
+            xwOBA_diff: 0.03,
+            xwOBA_wOBA_gap_diff: 0.01,
+          },
+          matchup: {
+            matchupStatus: "ok",
+            date: "2026-04-25",
+            gamePk: 824203,
+            gameDate: "2026-04-25T23:10:00Z",
+            gameStatus: "Scheduled",
+            homeAway: "away",
+            playerTeam: { id: 147, name: "New York Yankees", abbreviation: "NYY" },
+            opponent: { id: 117, name: "Houston Astros", abbreviation: "HOU" },
+            venue: "Daikin Park",
+            weather: { condition: "Clear", temp: "72", wind: "5 mph" },
+            selectedPlayerHandedness: { batSide: "R", pitchHand: "R" },
+            opposingStarter: { id: 677960, name: "Ryan Weathers", pitchHand: "L" },
+            selectedTeamStarter: { id: 681347, name: "Mike Burrows", pitchHand: "R" },
+            isProbableStarter: undefined,
+            platoonLabel: "RHB vs LHP",
+            lineupStatus: "confirmed",
+          },
+          decision: "START",
+          confidence: "Medium",
+          headline: "Start Judge for the platoon edge",
+          analysis: "START Judge because the lineup is confirmed and the platoon matchup is favorable.",
+          prompt: "prompt",
+          cached: false,
+        }),
+      });
+    });
+
+    await page.goto("/");
+    await page.getByRole("tab", { name: "Fantasy Tools" }).click();
+
+    await expect(page).toHaveURL(/mode=fantasy/);
+    await expect(page.getByRole("heading", { name: "Daily Matchup" })).toBeVisible();
+
+    const search = fantasySearchInput(page);
+    await expect(search).toBeVisible();
+    await search.fill("Aaron Judge");
+    await page.getByRole("button", { name: /^Aaron Judge$/i }).first().click();
+
+    await expect(page.getByRole("heading", { name: "Aaron Judge" })).toBeVisible({ timeout: 15000 });
+    const matchupCard = page.getByRole("region", { name: "Daily matchup", exact: true });
+    await expect(matchupCard).toContainText("NYY at HOU");
+    await expect(matchupCard).toContainText("Ryan Weathers (LHP)");
+    await expect(matchupCard).toContainText("RHB vs LHP");
+    await expect(matchupCard).toContainText("Confirmed in lineup");
+
+    const decisionCard = page.getByLabel("Start sit decision");
+    await expect(decisionCard).toContainText("START");
+    await expect(decisionCard).toContainText("Medium confidence");
+    await expect(decisionCard).toContainText("Start Judge for the platoon edge");
+
+    expect(fantasyAnalyzeRequests).toHaveLength(1);
+    expect(fantasyAnalyzeRequests[0].playerType).toBe("hitter");
+    expect(fantasyAnalyzeRequests[0].playerId).not.toBe("");
   });
 });
