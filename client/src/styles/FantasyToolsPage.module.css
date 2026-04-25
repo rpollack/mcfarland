@@ -92,6 +92,13 @@
   color: #0f172a;
 }
 
+.cardDate {
+  color: #64748b;
+  font-size: 0.92rem;
+  font-weight: 800;
+  margin: 0.18rem 0 0;
+}
+
 .statusPill,
 .confidence {
   border-radius: 999px;

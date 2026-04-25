@@ -124,7 +124,8 @@ function MatchupCard({ matchup, playerType }: { matchup: DailyMatchupContext; pl
   if (matchup.matchupStatus === "missing_mlbam_id") {
     return (
       <section className={styles.card} aria-label="Daily matchup">
-        <h3>Daily matchup: {matchupDate}</h3>
+        <h3>Game Summary</h3>
+        <p className={styles.cardDate}>{matchupDate}</p>
         <p className={styles.muted}>This player is missing an MLBAM ID, so live matchup context is unavailable.</p>
       </section>
     );
@@ -133,7 +134,8 @@ function MatchupCard({ matchup, playerType }: { matchup: DailyMatchupContext; pl
   if (matchup.matchupStatus === "no_game") {
     return (
       <section className={styles.card} aria-label="Daily matchup">
-        <h3>Daily matchup: {matchupDate}</h3>
+        <h3>Game Summary</h3>
+        <p className={styles.cardDate}>{matchupDate}</p>
         <p className={styles.muted}>No MLB game found for this player today.</p>
       </section>
     );
@@ -144,7 +146,10 @@ function MatchupCard({ matchup, playerType }: { matchup: DailyMatchupContext; pl
   return (
     <section className={styles.card} aria-label="Daily matchup">
       <div className={styles.cardHeader}>
-        <h3>Daily matchup: {matchupDate}</h3>
+        <div>
+          <h3>Game Summary</h3>
+          <p className={styles.cardDate}>{matchupDate}</p>
+        </div>
         <span className={styles.statusPill}>{matchup.gameStatus ?? "Scheduled"}</span>
       </div>
       <dl className={styles.facts}>

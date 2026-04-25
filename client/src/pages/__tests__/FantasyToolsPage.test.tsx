@@ -101,7 +101,8 @@ describe("FantasyToolsPage", () => {
     await waitFor(() => expect(analyzeDailyMatchup).toHaveBeenCalledWith("15640", "hitter"));
     expect(await screen.findByText("START")).toBeInTheDocument();
     expect(screen.getByText("Start Judge for the platoon edge")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Daily matchup: Saturday, April 25th" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Game Summary" })).toBeInTheDocument();
+    expect(screen.getByText("Saturday, April 25th")).toBeInTheDocument();
     expect(screen.getByText(/NYY at HOU/)).toBeInTheDocument();
     expect(screen.getByText(/✓ Yes/)).toBeInTheDocument();
     expect(screen.getByText("RHB vs LHP")).toBeInTheDocument();
