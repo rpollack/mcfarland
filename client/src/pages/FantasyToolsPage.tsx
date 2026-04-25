@@ -305,7 +305,7 @@ function FantasyToolsPage({ initialPlayerType, initialPlayerId, onStateChange }:
         <div className={styles.results}>
           {isPending && (
             <div className={styles.loadingCard}>
-              <p>Hydrating MLB matchup data and building the fantasy recommendation...</p>
+              <p>Building the fantasy recommendation ...</p>
             </div>
           )}
           {isError && !isPending && (
