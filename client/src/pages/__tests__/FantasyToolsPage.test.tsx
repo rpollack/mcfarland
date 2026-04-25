@@ -100,6 +100,7 @@ describe("FantasyToolsPage", () => {
     expect(await screen.findByText("START")).toBeInTheDocument();
     expect(screen.getByText("Start Judge for the platoon edge")).toBeInTheDocument();
     expect(screen.getByText(/NYY at HOU/)).toBeInTheDocument();
+    expect(screen.getByText(/✓ Yes/)).toBeInTheDocument();
     expect(screen.getByText("RHB vs LHP")).toBeInTheDocument();
   });
 });

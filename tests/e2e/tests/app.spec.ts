@@ -365,9 +365,16 @@ test.describe("McFARLAND core experience", () => {
     await page.getByRole("button", { name: /^Aaron Judge$/i }).first().click();
 
     await expect(page.getByRole("heading", { name: "Aaron Judge" })).toBeVisible({ timeout: 15000 });
+    expect(
+      await page
+        .locator("section[aria-label='Start sit decision'], section[aria-label='Daily matchup']")
+        .evaluateAll((sections) => sections.map((section) => section.getAttribute("aria-label")))
+    ).toEqual(["Start sit decision", "Daily matchup"]);
+
     const matchupCard = page.getByRole("region", { name: "Daily matchup", exact: true });
     await expect(matchupCard).toContainText("NYY at HOU");
     await expect(matchupCard).toContainText("Ryan Weathers (LHP)");
+    await expect(matchupCard).toContainText("✓ Yes");
     await expect(matchupCard).toContainText("RHB vs LHP");
     await expect(matchupCard).toContainText("Confirmed in lineup");
 

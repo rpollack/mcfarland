@@ -16,6 +16,13 @@ interface Props {
 const SEARCH_MIN_LENGTH = 2;
 const SEARCH_RESULT_LIMIT = 8;
 
+type PlatoonAdvantage = {
+  label: "Yes" | "No" | "Unknown";
+  className: string;
+  icon: string;
+  explanation: string;
+};
+
 function formatGameTime(value?: string): string {
   if (!value) {
     return "TBD";
@@ -48,6 +55,29 @@ function formatWeather(matchup: DailyMatchupContext): string {
     .join(" · ") || "N/A";
 }
 
+function getPlatoonAdvantage(matchup: DailyMatchupContext): PlatoonAdvantage {
+  const batSide = matchup.selectedPlayerHandedness?.batSide;
+  const pitchHand = matchup.opposingStarter?.pitchHand;
+  const explanation = matchup.platoonLabel ?? "Handedness matchup unavailable";
+
+  if (!batSide || !pitchHand) {
+    return {
+      label: "Unknown",
+      className: styles.platoonUnknown,
+      icon: "-",
+      explanation,
+    };
+  }
+
+  const hasAdvantage = batSide === "S" || batSide !== pitchHand;
+  return {
+    label: hasAdvantage ? "Yes" : "No",
+    className: hasAdvantage ? styles.platoonYes : styles.platoonNo,
+    icon: hasAdvantage ? "✓" : "✕",
+    explanation,
+  };
+}
+
 function MatchupCard({ matchup, playerType }: { matchup: DailyMatchupContext; playerType: PlayerType }) {
   if (matchup.matchupStatus === "missing_mlbam_id") {
     return (
@@ -66,6 +96,8 @@ function MatchupCard({ matchup, playerType }: { matchup: DailyMatchupContext; pl
       </section>
     );
   }
+
+  const platoonAdvantage = getPlatoonAdvantage(matchup);
 
   return (
     <section className={styles.card} aria-label="Daily matchup">
@@ -102,11 +134,18 @@ function MatchupCard({ matchup, playerType }: { matchup: DailyMatchupContext; pl
           </dd>
         </div>
         <div>
-          <dt>{playerType === "hitter" ? "Platoon" : "Opponent starter"}</dt>
+          <dt>{playerType === "hitter" ? "Platoon advantage" : "Opponent starter"}</dt>
           <dd>
-            {playerType === "hitter"
-              ? matchup.platoonLabel ?? "N/A"
-              : `${matchup.opposingStarter?.name ?? "Not posted"}${matchup.opposingStarter?.pitchHand ? ` (${matchup.opposingStarter.pitchHand}HP)` : ""}`}
+            {playerType === "hitter" ? (
+              <span className={styles.platoonSummary}>
+                <span className={`${styles.platoonBadge} ${platoonAdvantage.className}`}>
+                  {platoonAdvantage.icon} {platoonAdvantage.label}
+                </span>
+                <span className={styles.platoonExplanation}>{platoonAdvantage.explanation}</span>
+              </span>
+            ) : (
+              `${matchup.opposingStarter?.name ?? "Not posted"}${matchup.opposingStarter?.pitchHand ? ` (${matchup.opposingStarter.pitchHand}HP)` : ""}`
+            )}
           </dd>
         </div>
         {playerType === "hitter" && (
@@ -247,8 +286,6 @@ function FantasyToolsPage({ initialPlayerType, initialPlayerId, onStateChange }:
                 </div>
               </section>
 
-              <MatchupCard matchup={result.matchup} playerType={playerType} />
-
               <section className={result.decision === "START" ? styles.startCard : styles.sitCard} aria-label="Start sit decision">
                 <div className={styles.decisionRow}>
                   <span className={styles.decision}>{result.decision}</span>
@@ -257,6 +294,8 @@ function FantasyToolsPage({ initialPlayerType, initialPlayerId, onStateChange }:
                 <h3>{result.headline}</h3>
                 <ReactMarkdown>{result.analysis}</ReactMarkdown>
               </section>
+
+              <MatchupCard matchup={result.matchup} playerType={playerType} />
             </>
           )}
         </div>
