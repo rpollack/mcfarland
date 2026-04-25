@@ -39,6 +39,31 @@ function formatGameTime(value?: string): string {
   }).format(date);
 }
 
+function formatOrdinalDay(day: number): string {
+  if (day >= 11 && day <= 13) {
+    return `${day}th`;
+  }
+  const lastDigit = day % 10;
+  if (lastDigit === 1) return `${day}st`;
+  if (lastDigit === 2) return `${day}nd`;
+  if (lastDigit === 3) return `${day}rd`;
+  return `${day}th`;
+}
+
+function formatMatchupDate(matchup: DailyMatchupContext): string {
+  const rawDate = matchup.gameDate ?? matchup.date;
+  if (!rawDate) {
+    return "Today";
+  }
+  const date = new Date(rawDate.includes("T") ? rawDate : `${rawDate}T12:00:00`);
+  if (Number.isNaN(date.getTime())) {
+    return rawDate;
+  }
+  const weekday = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(date);
+  const month = new Intl.DateTimeFormat("en-US", { month: "long" }).format(date);
+  return `${weekday}, ${month} ${formatOrdinalDay(date.getDate())}`;
+}
+
 function formatLineupStatus(matchup: DailyMatchupContext): string {
   if (matchup.lineupStatus === "confirmed") return "Confirmed in lineup";
   if (matchup.lineupStatus === "notInLineup") return "Not in posted lineup";
@@ -79,10 +104,12 @@ function getPlatoonAdvantage(matchup: DailyMatchupContext): PlatoonAdvantage {
 }
 
 function MatchupCard({ matchup, playerType }: { matchup: DailyMatchupContext; playerType: PlayerType }) {
+  const matchupDate = formatMatchupDate(matchup);
+
   if (matchup.matchupStatus === "missing_mlbam_id") {
     return (
       <section className={styles.card} aria-label="Daily matchup">
-        <h3>Daily matchup</h3>
+        <h3>Daily matchup: {matchupDate}</h3>
         <p className={styles.muted}>This player is missing an MLBAM ID, so live matchup context is unavailable.</p>
       </section>
     );
@@ -91,7 +118,7 @@ function MatchupCard({ matchup, playerType }: { matchup: DailyMatchupContext; pl
   if (matchup.matchupStatus === "no_game") {
     return (
       <section className={styles.card} aria-label="Daily matchup">
-        <h3>Daily matchup</h3>
+        <h3>Daily matchup: {matchupDate}</h3>
         <p className={styles.muted}>No MLB game found for this player today.</p>
       </section>
     );
@@ -102,7 +129,7 @@ function MatchupCard({ matchup, playerType }: { matchup: DailyMatchupContext; pl
   return (
     <section className={styles.card} aria-label="Daily matchup">
       <div className={styles.cardHeader}>
-        <h3>Daily matchup</h3>
+        <h3>Daily matchup: {matchupDate}</h3>
         <span className={styles.statusPill}>{matchup.gameStatus ?? "Scheduled"}</span>
       </div>
       <dl className={styles.facts}>

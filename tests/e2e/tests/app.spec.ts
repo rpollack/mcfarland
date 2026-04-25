@@ -372,6 +372,7 @@ test.describe("McFARLAND core experience", () => {
     ).toEqual(["Start sit decision", "Daily matchup"]);
 
     const matchupCard = page.getByRole("region", { name: "Daily matchup", exact: true });
+    await expect(matchupCard.getByRole("heading", { name: "Daily matchup: Saturday, April 25th" })).toBeVisible();
     await expect(matchupCard).toContainText("NYY at HOU");
     await expect(matchupCard).toContainText("Ryan Weathers (LHP)");
     await expect(matchupCard).toContainText("✓ Yes");
