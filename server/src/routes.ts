@@ -280,13 +280,26 @@ router.post("/api/fantasy/daily-matchup/analyze", analyzeLimiter, async (req, re
     if (cached) {
       const cachedDecision = parseFantasyCachedPayload(cached.headline, cached.analysis);
       if (cachedDecision) {
-        return res.json({
+        const sessionId = req.get("x-session-id") ?? "";
+        res.json({
           player,
           matchup,
           ...cachedDecision,
           prompt,
           cached: true,
         });
+        if (!isAdminModeRequest(req)) {
+          void logAnalysisEvent({
+            sessionId,
+            playerId,
+            playerName: player.Name,
+            analysisMode: "fantasy",
+            playerType,
+            eventType: "fantasy",
+            referer: req.get("referer"),
+          });
+        }
+        return;
       }
     }
 
@@ -307,6 +320,7 @@ router.post("/api/fantasy/daily-matchup/analyze", analyzeLimiter, async (req, re
       });
     }
 
+    const sessionId = req.get("x-session-id") ?? "";
     res.json({
       player,
       matchup,
@@ -317,6 +331,17 @@ router.post("/api/fantasy/daily-matchup/analyze", analyzeLimiter, async (req, re
       prompt,
       cached: decision.cached,
     });
+    if (!isAdminModeRequest(req)) {
+      void logAnalysisEvent({
+        sessionId,
+        playerId,
+        playerName: player.Name,
+        analysisMode: "fantasy",
+        playerType,
+        eventType: "fantasy",
+        referer: req.get("referer"),
+      });
+    }
   } catch (error) {
     console.error("[api/fantasy/daily-matchup/analyze] failed", error);
     res.status(502).json({ error: "Fantasy matchup service temporarily unavailable" });

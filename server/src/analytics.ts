@@ -62,10 +62,11 @@ export async function initializeAnalytics(): Promise<void> {
 
 type AnalysisLogEvent = {
   sessionId: string;
+  playerId?: string | null;
   playerName: string;
   analysisMode: string;
   playerType: "hitter" | "pitcher";
-  eventType: "single" | "compare";
+  eventType: "single" | "compare" | "fantasy";
   referer?: string | null;
 };
 
@@ -110,6 +111,7 @@ export async function logAnalysisEvent(event: AnalysisLogEvent): Promise<void> {
     user_id: event.sessionId,
     time: Date.now(),
     event_properties: {
+      player_id: truncate(event.playerId ?? null, 128),
       player_name: truncate(event.playerName, 256),
       analysis_mode: truncate(event.analysisMode, 64),
       player_type: event.playerType,

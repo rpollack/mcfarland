@@ -461,7 +461,7 @@ describe("McFARLAND API", () => {
     const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
     const hitter = listBody.players[0];
     const mlbamid = Number(hitter.mlbamid);
-    mockMlbApi({ playerMlbamId: mlbamid });
+    const fetchSpy = mockMlbApi({ playerMlbamId: mlbamid });
     const fantasyHandler = vi.fn(async (prompt: string) => ({
       prompt,
       decision: "START" as const,
@@ -474,6 +474,7 @@ describe("McFARLAND API", () => {
 
     const response = await request(app)
       .post("/api/fantasy/daily-matchup/analyze")
+      .set("x-session-id", "fantasy-tracked")
       .send({ playerId: hitter.id, playerType: "hitter", date: "2026-04-25" });
 
     expect(response.status).toBe(200);
@@ -487,6 +488,18 @@ describe("McFARLAND API", () => {
     expect(fantasyHandler.mock.calls[0][0]).toContain("decision must be exactly START or SIT");
     expect(fantasyHandler.mock.calls[0][0]).toContain("Do not mention confirmed lineup status in the headline");
     expect(fantasyHandler.mock.calls[0][0]).toContain("Fresh MLB matchup data");
+    await vi.waitFor(() => {
+      const amplitudeCall = fetchSpy.mock.calls.find(([input]) => String(input).includes("api2.amplitude.com"));
+      expect(amplitudeCall).toBeTruthy();
+      const payload = JSON.parse(String(amplitudeCall?.[1]?.body ?? "{}"));
+      expect(payload.events[0].event_properties).toMatchObject({
+        player_id: hitter.id,
+        player_name: hitter.name,
+        analysis_mode: "fantasy",
+        player_type: "hitter",
+        event_type: "fantasy",
+      });
+    });
   });
 
   it("returns SIT guidance when a pitcher is not listed as today's probable starter", async () => {
