@@ -114,6 +114,7 @@ export async function logAnalysisEvent(event: AnalysisLogEvent): Promise<void> {
       player_id: truncate(event.playerId ?? null, 128),
       player_name: truncate(event.playerName, 256),
       analysis_mode: truncate(event.analysisMode, 64),
+      mode: event.eventType,
       player_type: event.playerType,
       event_type: event.eventType,
       referer: truncate(event.referer, 512),

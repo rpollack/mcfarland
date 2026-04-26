@@ -408,6 +408,8 @@ describe("McFARLAND API", () => {
 
     const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
     const hitter = listBody.players[0];
+    const { body: compareListBody } = await request(app).get("/api/players").query({ type: "hitter" });
+    const comparePlayerIds = compareListBody.players.slice(0, 2).map((player: any) => player.id);
     await request(app)
       .post("/api/analyze")
       .set("x-session-id", "tracked-a")
@@ -416,8 +418,17 @@ describe("McFARLAND API", () => {
       .post("/api/analyze")
       .set("x-session-id", "tracked-b")
       .send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
+    await request(app)
+      .post("/api/compare/analyze")
+      .set("x-session-id", "tracked-c")
+      .send({ playerType: "hitter", playerIds: comparePlayerIds, analysisMode: "gen_z" });
 
-    await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(3));
+    const loggedModes = fetchSpy.mock.calls.map(([_, init]) => {
+      const payload = JSON.parse(String(init?.body ?? "{}"));
+      return payload.events[0].event_properties.mode;
+    });
+    expect(loggedModes).toEqual(["single", "single", "compare"]);
   });
 
   it("prunes stale analysis cache rows after successful writes", async () => {
@@ -496,6 +507,7 @@ describe("McFARLAND API", () => {
         player_id: hitter.id,
         player_name: hitter.name,
         analysis_mode: "fantasy",
+        mode: "fantasy",
         player_type: "hitter",
         event_type: "fantasy",
       });
