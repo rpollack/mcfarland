@@ -24,7 +24,7 @@ type PlatoonAdvantage = {
 };
 
 type LineupSignal = {
-  label: "In" | "Out" | "Unknown";
+  label: "In" | "Out" | "TBD";
   className: string;
   icon: string;
 };
@@ -101,7 +101,7 @@ function getLineupSignal(matchup: DailyMatchupContext): LineupSignal {
     };
   }
   return {
-    label: "Unknown",
+    label: "TBD",
     className: styles.signalUnknown,
     icon: "-",
   };
@@ -150,7 +150,7 @@ function VerdictSignals({ matchup, playerType }: { matchup: DailyMatchupContext;
   return (
     <>
       <span className={styles.signal}>
-        <span className={styles.signalLabel}>Lineup</span>
+        <span className={styles.signalLabel}>Lineup Status:</span>
         <span className={`${styles.signalBadge} ${lineupSignal.className}`}>
           {lineupSignal.icon} {lineupSignal.label}
         </span>

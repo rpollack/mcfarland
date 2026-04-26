@@ -104,7 +104,7 @@ describe("FantasyToolsPage", () => {
     expect(screen.getByRole("heading", { name: "Game Summary" })).toBeInTheDocument();
     expect(screen.getByText("Saturday, April 25th")).toBeInTheDocument();
     expect(screen.getByText(/NYY at HOU/)).toBeInTheDocument();
-    expect(screen.getByText("Lineup")).toBeInTheDocument();
+    expect(screen.getByText("Lineup Status:")).toBeInTheDocument();
     expect(screen.getByText(/✓ In/)).toBeInTheDocument();
     expect(screen.getByText("Platoon Advantage vs. Starter")).toBeInTheDocument();
     expect(screen.getByText(/✓ Yes/)).toBeInTheDocument();

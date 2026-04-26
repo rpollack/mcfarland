@@ -381,7 +381,7 @@ test.describe("McFARLAND core experience", () => {
     const decisionCard = page.getByLabel("Start sit decision");
     await expect(decisionCard).toContainText("START");
     await expect(decisionCard).toContainText("Medium confidence");
-    await expect(decisionCard).toContainText("Lineup");
+    await expect(decisionCard).toContainText("Lineup Status:");
     await expect(decisionCard).toContainText("✓ In");
     await expect(decisionCard).toContainText("Platoon Advantage vs. Starter");
     await expect(decisionCard).toContainText("✓ Yes");
