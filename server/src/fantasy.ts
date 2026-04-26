@@ -94,6 +94,8 @@ export function buildFantasyDailyMatchupPrompt(
     "- decision must be exactly START or SIT.",
     "- confidence must be exactly Low, Medium, or High.",
     "- The recommendation must be unambiguous and actionable. Do not hedge with Start/Sit, maybe, or depends as the decision.",
+    "- Headline should focus on the main fantasy edge or risk, such as player quality, matchup, role, opponent, venue, or pitcher status.",
+    "- Do not mention confirmed lineup status in the headline; lineup has its own UI badge. Use lineup status in analysis only when it changes the recommendation or confidence.",
     "- If there is no game today, the game is postponed, the hitter is confirmed not in the lineup, or a pitcher is not today's probable starter, strongly prefer SIT and say why.",
     "- If key matchup facts are unavailable, still give a START or SIT decision and lower the confidence.",
     "- Keep analysis concise: 2 short paragraphs maximum.",

@@ -485,6 +485,7 @@ describe("McFARLAND API", () => {
     expect(response.body.matchup.lineupStatus).toBe("confirmed");
     expect(fantasyHandler).toHaveBeenCalledTimes(1);
     expect(fantasyHandler.mock.calls[0][0]).toContain("decision must be exactly START or SIT");
+    expect(fantasyHandler.mock.calls[0][0]).toContain("Do not mention confirmed lineup status in the headline");
     expect(fantasyHandler.mock.calls[0][0]).toContain("Fresh MLB matchup data");
   });
 
