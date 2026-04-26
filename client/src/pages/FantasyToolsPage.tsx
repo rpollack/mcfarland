@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
-import { analyzeDailyMatchup, fetchPlayers, trackAnalysisRunAnalyticsEvent } from "../api";
+import { analyzeDailyMatchup, fetchPlayers } from "../api";
 import PlayerHeadshot from "../components/PlayerHeadshot";
 import PlayerPicker from "../components/PlayerPicker";
 import type { DailyMatchupContext, FantasyDailyMatchupResponse, PlayerRecord, PlayerType } from "../types";
@@ -311,26 +311,6 @@ function FantasyToolsPage({ initialPlayerType, initialPlayerId, onStateChange }:
   const result = data as FantasyDailyMatchupResponse<PlayerRecord> | undefined;
   const playerName = result?.player.Name;
   const todayLabel = useMemo(() => formatDateLabel(new Date()), []);
-  const lastTrackedResultRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!selectedId || !result) {
-      return;
-    }
-
-    const key = `${playerType}|${selectedId}|${result.prompt}`;
-    if (lastTrackedResultRef.current === key) {
-      return;
-    }
-    lastTrackedResultRef.current = key;
-    trackAnalysisRunAnalyticsEvent({
-      playerId: selectedId,
-      playerName: result.player.Name,
-      playerType,
-      analysisMode: "fantasy",
-      selectionSource: "main_ui",
-    });
-  }, [playerType, result, selectedId]);
 
   return (
     <div className={styles.container}>
