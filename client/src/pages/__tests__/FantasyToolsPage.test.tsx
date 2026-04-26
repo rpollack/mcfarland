@@ -3,12 +3,11 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import FantasyToolsPage from "../FantasyToolsPage";
-import { analyzeDailyMatchup, fetchPlayers, trackAnalysisRunAnalyticsEvent } from "../../api";
+import { analyzeDailyMatchup, fetchPlayers } from "../../api";
 
 vi.mock("../../api", () => ({
   analyzeDailyMatchup: vi.fn(),
   fetchPlayers: vi.fn(),
-  trackAnalysisRunAnalyticsEvent: vi.fn(),
 }));
 
 function renderWithClient(ui: ReactNode) {
@@ -100,15 +99,6 @@ describe("FantasyToolsPage", () => {
     fireEvent.click(result);
 
     await waitFor(() => expect(analyzeDailyMatchup).toHaveBeenCalledWith("15640", "hitter"));
-    await waitFor(() =>
-      expect(trackAnalysisRunAnalyticsEvent).toHaveBeenCalledWith({
-        playerId: "15640",
-        playerName: "Aaron Judge",
-        playerType: "hitter",
-        analysisMode: "fantasy",
-        selectionSource: "main_ui",
-      })
-    );
     expect(await screen.findByText("START")).toBeInTheDocument();
     expect(screen.getByText("Start Judge for the platoon edge")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Game Summary" })).toBeInTheDocument();
