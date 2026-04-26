@@ -116,7 +116,8 @@ pitching_stats_last_3 <-
     fip = weighted.mean(fip, w = tbf, na.rm = TRUE),
     era_fip_gap = era - fip,
     barrel_percent = weighted.mean(barrel_percent, w = tbf, na.rm = TRUE) * 100,
-    o_swing_percent = weighted.mean(o_swing_percent, w = tbf, na.rm = TRUE),
+    ld_percent = weighted.mean(ld_percent, w = tbf, na.rm = TRUE) * 100,
+    o_swing_percent = weighted.mean(o_swing_percent, w = tbf, na.rm = TRUE) * 100,
     babip = weighted.mean(babip, w = tbf, na.rm = TRUE),
     lob_percent = weighted.mean(lob_percent, w = tbf, na.rm = TRUE) * 100,
     csw_percent = weighted.mean(c_sw_str_percent, w = tbf, na.rm = TRUE) * 100,
@@ -167,10 +168,12 @@ pitching_stats_current <-
     era = (er / ip) * 9,
     xera_gap = era - x_era,
     fip_era_gap = era - fip,
+    ld_percent = ld_percent * 100,
     barrel_percent = barrel_percent * 100,
     csw_percent = csw_percent * 100,
     name = stri_trans_general(name, id = "Latin-ASCII"),
-    lob_percent = lob_percent * 100
+    lob_percent = lob_percent * 100,
+    o_swing_percent = o_swing_percent * 100
   )
 
 # Combine pitcher data and compute differences
@@ -183,6 +186,7 @@ full_stats_pitchers <-
     bb_percent_diff = bb_percent_cur - bb_percent_l3,
     k_minus_bb_percent_diff = k_minus_bb_percent_cur - k_minus_bb_percent_l3,
     xera_diff = xera_cur - xera_l3,
+    ld_percent_diff = ld_percent_cur - ld_percent_l3,
     o_swing_percent_diff = o_swing_percent_cur - o_swing_percent_l3,
     csw_percent_diff = csw_percent_cur - csw_percent_l3,
     barrel_percent_diff = barrel_percent_cur - barrel_percent_l3,
