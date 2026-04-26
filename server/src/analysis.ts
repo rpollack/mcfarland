@@ -58,6 +58,7 @@ export function buildPitcherPrompt(player: PitcherRecord): string {
     `xERA: ${formatEra(player.xera_cur)}  Last 3 Years: ${formatEra(player.xera_l3)}  Diff: ${formatEra(player.xera_diff)}`,
     `BABIP: ${formatStatValue(player.babip_cur)}  Last 3 Years: ${formatStatValue(player.babip_l3)}  Diff: ${formatStatValue(player.babip_diff)}`,
     `Barrel Rate: ${formatPercentage(player.barrel_percent_cur)}  Last 3 Years: ${formatPercentage(player.barrel_percent_l3)}  Diff: ${formatPercentage(player.barrel_percent_diff)}`,
+    `Line Drive Rate (LD%): ${formatPercentage(player.ld_percent_cur)}  Last 3 Years: ${formatPercentage(player.ld_percent_l3)}  Diff: ${formatPercentage(player.ld_percent_diff)}`,
     `Strikeout Rate (K%): ${formatPercentage(player.k_percent_cur)}  Last 3 Years: ${formatPercentage(player.k_percent_l3)}  Diff: ${formatPercentage(player.k_percent_diff)}`,
     `Called Strike & Whiff Rate (CSW%): ${formatPercentage(player.csw_percent_cur)}  Last 3 Years: ${formatPercentage(player.csw_percent_l3)}  Diff: ${formatPercentage(player.csw_percent_diff)}`,
     `Outside Zone Swing Rate (O-Swing%): ${formatPercentage(player.o_swing_percent_cur)}  Last 3 Years: ${formatPercentage(player.o_swing_percent_l3)}  Diff: ${formatPercentage(player.o_swing_percent_diff)}`,
@@ -183,6 +184,7 @@ export function buildComparisonPrompt(players: (HitterRecord | PitcherRecord)[],
       `  BB%: ${formatPercentage(pitcher.bb_percent_cur)}  Last 3 Years: ${formatPercentage(pitcher.bb_percent_l3)}  Diff: ${formatPercentage(pitcher.bb_percent_diff)}`,
       `  K-BB%: ${formatPercentage(pitcher.k_minus_bb_percent_cur)}  Last 3 Years: ${formatPercentage(pitcher.k_minus_bb_percent_l3)}  Diff: ${formatPercentage(pitcher.k_minus_bb_percent_diff)}`,
       `  BABIP: ${formatStatValue(pitcher.babip_cur)}  Last 3 Years: ${formatStatValue(pitcher.babip_l3)}  Diff: ${formatStatValue(pitcher.babip_diff)}`,
+      `  LD%: ${formatPercentage(pitcher.ld_percent_cur)}  Last 3 Years: ${formatPercentage(pitcher.ld_percent_l3)}  Diff: ${formatPercentage(pitcher.ld_percent_diff)}`,
       `  CSW%: ${formatPercentage(pitcher.csw_percent_cur)}  Last 3 Years: ${formatPercentage(pitcher.csw_percent_l3)}  Diff: ${formatPercentage(pitcher.csw_percent_diff)}`,
     ].join("\n");
   });

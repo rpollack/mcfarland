@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import PlayerStatsCard from "../PlayerStatsCard";
-import type { HitterRecord } from "../../types";
+import type { HitterRecord, PitcherRecord } from "../../types";
 
 const hitter: HitterRecord = {
   Name: "Test Hitter",
@@ -48,5 +48,57 @@ describe("PlayerStatsCard", () => {
     expect(screen.getByText("AVG")).toBeInTheDocument();
     expect(screen.getByText(".312")).toBeInTheDocument();
     expect(screen.getByText(".401")).toBeInTheDocument();
+  });
+
+  it("renders pitcher O-Swing values as percentage points", () => {
+    const pitcher: PitcherRecord = {
+      Name: "Test Pitcher",
+      PlayerId: "2",
+      Age: 29,
+      tbf: 200,
+      era_cur: 3.4,
+      era_l3: 3.8,
+      era_diff: -0.4,
+      xera_cur: 3.5,
+      xera_l3: 3.7,
+      xera_diff: -0.2,
+      babip_cur: 0.29,
+      babip_l3: 0.3,
+      babip_diff: -0.01,
+      barrel_percent_cur: 7,
+      barrel_percent_l3: 8,
+      barrel_percent_diff: -1,
+      ld_percent_cur: 18.4,
+      ld_percent_l3: 21.2,
+      ld_percent_diff: -2.8,
+      k_percent_cur: 25,
+      k_percent_l3: 24,
+      k_percent_diff: 1,
+      bb_percent_cur: 8,
+      bb_percent_l3: 7,
+      bb_percent_diff: 1,
+      k_minus_bb_percent_cur: 17,
+      k_minus_bb_percent_l3: 17,
+      k_minus_bb_percent_diff: 0,
+      csw_percent_cur: 28,
+      csw_percent_l3: 27,
+      csw_percent_diff: 1,
+      o_swing_percent_cur: 26.1,
+      o_swing_percent_l3: 29.4,
+      o_swing_percent_diff: -3.3,
+      lob_percent_cur: 72,
+      lob_percent_l3: 74,
+      lob_percent_diff: -2,
+    };
+
+    render(<PlayerStatsCard type="pitcher" player={pitcher} />);
+    expect(screen.getByText("O-Swing%")).toBeInTheDocument();
+    expect(screen.getByText("26.1%")).toBeInTheDocument();
+    expect(screen.getByText("29.4%")).toBeInTheDocument();
+    expect(screen.getByText("-3.3%")).toBeInTheDocument();
+    expect(screen.getByText("LD%")).toBeInTheDocument();
+    expect(screen.getByText("18.4%")).toBeInTheDocument();
+    expect(screen.getByText("21.2%")).toBeInTheDocument();
+    expect(screen.getByText("-2.8%")).toBeInTheDocument();
   });
 });

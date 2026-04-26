@@ -42,6 +42,7 @@ const pitcherMetrics = [
   { key: "xERA", cur: "xera_cur", l3: "xera_l3", diff: "xera_diff", formatter: (value: number | null) => (value === null ? "N/A" : Number(value).toFixed(2)) },
   { key: "BABIP", cur: "babip_cur", l3: "babip_l3", diff: "babip_diff", formatter: formatValue },
   { key: "Barrel%", cur: "barrel_percent_cur", l3: "barrel_percent_l3", diff: "barrel_percent_diff", formatter: formatPercent },
+  { key: "LD%", cur: "ld_percent_cur", l3: "ld_percent_l3", diff: "ld_percent_diff", formatter: formatPercent },
   { key: "K%", cur: "k_percent_cur", l3: "k_percent_l3", diff: "k_percent_diff", formatter: formatPercent },
   { key: "BB%", cur: "bb_percent_cur", l3: "bb_percent_l3", diff: "bb_percent_diff", formatter: formatPercent },
   { key: "K-BB%", cur: "k_minus_bb_percent_cur", l3: "k_minus_bb_percent_l3", diff: "k_minus_bb_percent_diff", formatter: formatPercent },
