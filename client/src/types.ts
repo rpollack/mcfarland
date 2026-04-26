@@ -117,6 +117,61 @@ export interface CompareAnalysisResponse<T extends PlayerRecord> extends Analysi
   recommendedPlayerId: string | null;
 }
 
+export type FantasyDecision = "START" | "SIT";
+export type FantasyConfidence = "Low" | "Medium" | "High";
+export type LineupStatus = "confirmed" | "notInLineup" | "unavailable";
+export type MatchupStatus = "ok" | "missing_mlbam_id" | "no_game";
+
+export interface FantasyTeamContext {
+  id: number;
+  name: string;
+  abbreviation?: string | null;
+}
+
+export interface FantasyPitcherContext {
+  id: number;
+  name: string;
+  pitchHand?: string | null;
+}
+
+export interface DailyMatchupContext {
+  matchupStatus: MatchupStatus;
+  date: string;
+  gamePk?: number;
+  gameDate?: string;
+  gameStatus?: string;
+  isPostponed?: boolean;
+  homeAway?: "home" | "away";
+  playerTeam?: FantasyTeamContext;
+  opponent?: FantasyTeamContext;
+  venue?: string | null;
+  weather?: {
+    condition?: string | null;
+    temp?: string | null;
+    wind?: string | null;
+  } | null;
+  selectedPlayerHandedness?: {
+    batSide?: string | null;
+    pitchHand?: string | null;
+  };
+  opposingStarter?: FantasyPitcherContext | null;
+  selectedTeamStarter?: FantasyPitcherContext | null;
+  isProbableStarter?: boolean;
+  platoonLabel?: string | null;
+  lineupStatus?: LineupStatus;
+}
+
+export interface FantasyDailyMatchupResponse<T extends PlayerRecord> {
+  player: T;
+  matchup: DailyMatchupContext;
+  decision: FantasyDecision;
+  confidence: FantasyConfidence;
+  headline: string;
+  analysis: string;
+  prompt: string;
+  cached: boolean;
+}
+
 export interface Vibe {
   id: string;
   label: string;

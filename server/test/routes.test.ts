@@ -3,7 +3,8 @@ import { describe, expect, it, beforeAll, beforeEach, afterEach, vi } from "vite
 import { createServer } from "../src/index.js";
 import { __setAnalysisCacheStoreForTests } from "../src/analysisCache.js";
 import { getDataFreshness, __setDataFreshnessForTests } from "../src/dataStore.js";
-import { __setOpenAiChatHandlerForTests } from "../src/openai.js";
+import { __clearMlbMatchupCacheForTests } from "../src/mlbMatchups.js";
+import { __setFantasyDecisionHandlerForTests, __setOpenAiChatHandlerForTests } from "../src/openai.js";
 
 const app = createServer();
 const originalFreshness = getDataFreshness();
@@ -38,6 +39,97 @@ function createMemoryCacheStore() {
   };
 }
 
+function jsonResponse(body: unknown): Response {
+  return {
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    json: async () => body,
+  } as Response;
+}
+
+function mockMlbApi({
+  playerMlbamId,
+  teamId = 147,
+  opponentTeamId = 117,
+  selectedProbablePitcherId,
+  status = "Scheduled",
+  battingOrder = [playerMlbamId],
+  includeOpposingPitcher = true,
+}: {
+  playerMlbamId: number;
+  teamId?: number;
+  opponentTeamId?: number;
+  selectedProbablePitcherId?: number;
+  status?: string;
+  battingOrder?: number[];
+  includeOpposingPitcher?: boolean;
+}) {
+  const opposingPitcher = includeOpposingPitcher ? { id: 677960, fullName: "Ryan Weathers" } : undefined;
+  const selectedStarter = selectedProbablePitcherId ? { id: selectedProbablePitcherId, fullName: "Selected Starter" } : { id: 681347, fullName: "Mike Burrows" };
+  return vi.spyOn(globalThis, "fetch").mockImplementation(async (input: string | URL | Request) => {
+    const url = String(input);
+    if (url.includes("/api/v1/schedule")) {
+      return jsonResponse({
+        dates: [
+          {
+            games: [
+              {
+                gamePk: 824203,
+                gameDate: "2026-04-25T23:10:00Z",
+                status: { detailedState: status, statusCode: status === "Postponed" ? "DR" : "S" },
+                teams: {
+                  away: {
+                    team: { id: teamId, name: "New York Yankees", abbreviation: "NYY" },
+                    probablePitcher: selectedStarter,
+                  },
+                  home: {
+                    team: { id: opponentTeamId, name: "Houston Astros", abbreviation: "HOU" },
+                    probablePitcher: opposingPitcher,
+                  },
+                },
+                venue: { name: "Daikin Park" },
+                weather: { condition: "Clear", temp: "72", wind: "5 mph, Out To LF" },
+              },
+            ],
+          },
+        ],
+      });
+    }
+    if (url.includes("/api/v1/people")) {
+      return jsonResponse({
+        people: [
+          {
+            id: playerMlbamId,
+            fullName: "Selected Player",
+            currentTeam: { id: teamId, name: "New York Yankees" },
+            batSide: { code: "R" },
+            pitchHand: { code: "R" },
+          },
+          { id: 677960, fullName: "Ryan Weathers", pitchHand: { code: "L" } },
+          { id: 681347, fullName: "Mike Burrows", pitchHand: { code: "R" } },
+          ...(selectedProbablePitcherId && selectedProbablePitcherId !== playerMlbamId
+            ? [{ id: selectedProbablePitcherId, fullName: "Selected Starter", pitchHand: { code: "L" } }]
+            : []),
+        ],
+      });
+    }
+    if (url.includes("/api/v1.1/game/824203/feed/live")) {
+      return jsonResponse({
+        liveData: {
+          boxscore: {
+            teams: {
+              away: { battingOrder },
+              home: { battingOrder: [] },
+            },
+          },
+        },
+      });
+    }
+    return jsonResponse({});
+  });
+}
+
 describe("McFARLAND API", () => {
   beforeAll(() => {
     process.env.OPENAI_API_KEY = ""; // ensure offline tests do not call the API
@@ -47,6 +139,8 @@ describe("McFARLAND API", () => {
     process.env.OPENAI_API_KEY = "";
     __setAnalysisCacheStoreForTests(null);
     __setOpenAiChatHandlerForTests(null);
+    __setFantasyDecisionHandlerForTests(null);
+    __clearMlbMatchupCacheForTests();
     __setDataFreshnessForTests(originalFreshness);
     vi.restoreAllMocks();
   });
@@ -54,6 +148,8 @@ describe("McFARLAND API", () => {
   afterEach(() => {
     __setAnalysisCacheStoreForTests(null);
     __setOpenAiChatHandlerForTests(null);
+    __setFantasyDecisionHandlerForTests(null);
+    __clearMlbMatchupCacheForTests();
     __setDataFreshnessForTests(originalFreshness);
     vi.restoreAllMocks();
   });
@@ -357,6 +453,141 @@ describe("McFARLAND API", () => {
     expect(response.status).toBe(200);
     expect(response.body.players).toHaveLength(2);
     expect(response.body.recommendedPlayerId).toBeTypeOf("string");
+  });
+
+  it("returns a fantasy daily matchup start/sit decision for a hitter", async () => {
+    const memoryCache = createMemoryCacheStore();
+    __setAnalysisCacheStoreForTests(memoryCache.store);
+    const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
+    const hitter = listBody.players[0];
+    const mlbamid = Number(hitter.mlbamid);
+    const fetchSpy = mockMlbApi({ playerMlbamId: mlbamid });
+    const fantasyHandler = vi.fn(async (prompt: string) => ({
+      prompt,
+      decision: "START" as const,
+      confidence: "Medium" as const,
+      headline: "Start Judge for the platoon edge",
+      analysis: "START Judge. The matchup context shows a right-handed bat facing a left-handed starter, with lineup status confirmed.",
+      cached: false,
+    }));
+    __setFantasyDecisionHandlerForTests(fantasyHandler);
+
+    const response = await request(app)
+      .post("/api/fantasy/daily-matchup/analyze")
+      .set("x-session-id", "fantasy-tracked")
+      .send({ playerId: hitter.id, playerType: "hitter", date: "2026-04-25" });
+
+    expect(response.status).toBe(200);
+    expect(response.body.decision).toBe("START");
+    expect(response.body.confidence).toBe("Medium");
+    expect(response.body.matchup.opponent.name).toBe("Houston Astros");
+    expect(response.body.matchup.opposingStarter.name).toBe("Ryan Weathers");
+    expect(response.body.matchup.platoonLabel).toBe("RHB vs LHP");
+    expect(response.body.matchup.lineupStatus).toBe("confirmed");
+    expect(fantasyHandler).toHaveBeenCalledTimes(1);
+    expect(fantasyHandler.mock.calls[0][0]).toContain("decision must be exactly START or SIT");
+    expect(fantasyHandler.mock.calls[0][0]).toContain("Do not mention confirmed lineup status in the headline");
+    expect(fantasyHandler.mock.calls[0][0]).toContain("Fresh MLB matchup data");
+    await vi.waitFor(() => {
+      const amplitudeCall = fetchSpy.mock.calls.find(([input]) => String(input).includes("api2.amplitude.com"));
+      expect(amplitudeCall).toBeTruthy();
+      const payload = JSON.parse(String(amplitudeCall?.[1]?.body ?? "{}"));
+      expect(payload.events[0].event_properties).toMatchObject({
+        player_id: hitter.id,
+        player_name: hitter.name,
+        analysis_mode: "fantasy",
+        player_type: "hitter",
+        event_type: "fantasy",
+      });
+    });
+  });
+
+  it("returns SIT guidance when a pitcher is not listed as today's probable starter", async () => {
+    const { body: listBody } = await request(app).get("/api/players").query({ type: "pitcher", q: "Skubal" });
+    const pitcher = listBody.players[0];
+    const mlbamid = Number(pitcher.mlbamid);
+    mockMlbApi({ playerMlbamId: mlbamid });
+    __setFantasyDecisionHandlerForTests(async (prompt: string) => ({
+      prompt,
+      decision: "SIT",
+      confidence: "High",
+      headline: "Sit him because he is not the listed starter",
+      analysis: "SIT. The selected pitcher is not listed as today's probable starter, so he should not be used for a daily start decision.",
+      cached: false,
+    }));
+
+    const response = await request(app)
+      .post("/api/fantasy/daily-matchup/analyze")
+      .send({ playerId: pitcher.id, playerType: "pitcher", date: "2026-04-25" });
+
+    expect(response.status).toBe(200);
+    expect(response.body.decision).toBe("SIT");
+    expect(response.body.matchup.isProbableStarter).toBe(false);
+    expect(response.body.matchup.selectedTeamStarter.name).toBe("Mike Burrows");
+  });
+
+  it("marks selected pitchers as probable starters when MLB probable data matches", async () => {
+    const { body: listBody } = await request(app).get("/api/players").query({ type: "pitcher", q: "Skubal" });
+    const pitcher = listBody.players[0];
+    const mlbamid = Number(pitcher.mlbamid);
+    mockMlbApi({ playerMlbamId: mlbamid, selectedProbablePitcherId: mlbamid });
+    __setFantasyDecisionHandlerForTests(async (prompt: string) => ({
+      prompt,
+      decision: "START",
+      confidence: "Medium",
+      headline: "Start the listed probable starter",
+      analysis: "START. He is listed as the probable starter, so the matchup can be evaluated as an active pitching start.",
+      cached: false,
+    }));
+
+    const response = await request(app)
+      .post("/api/fantasy/daily-matchup/analyze")
+      .send({ playerId: pitcher.id, playerType: "pitcher", date: "2026-04-25" });
+
+    expect(response.status).toBe(200);
+    expect(response.body.matchup.isProbableStarter).toBe(true);
+  });
+
+  it("returns no-game matchup context when MLB has no game for the selected player", async () => {
+    const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
+    const hitter = listBody.players[0];
+    const mlbamid = Number(hitter.mlbamid);
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes("/api/v1/schedule")) {
+        return jsonResponse({ dates: [{ games: [] }] });
+      }
+      if (url.includes("/api/v1/people")) {
+        return jsonResponse({
+          people: [
+            {
+              id: mlbamid,
+              fullName: "Aaron Judge",
+              currentTeam: { id: 147, name: "New York Yankees" },
+              batSide: { code: "R" },
+              pitchHand: { code: "R" },
+            },
+          ],
+        });
+      }
+      return jsonResponse({});
+    });
+    __setFantasyDecisionHandlerForTests(async (prompt: string) => ({
+      prompt,
+      decision: "SIT",
+      confidence: "High",
+      headline: "Sit him with no game today",
+      analysis: "SIT. No MLB game was found for this player today.",
+      cached: false,
+    }));
+
+    const response = await request(app)
+      .post("/api/fantasy/daily-matchup/analyze")
+      .send({ playerId: hitter.id, playerType: "hitter", date: "2026-04-25" });
+
+    expect(response.status).toBe(200);
+    expect(response.body.matchup.matchupStatus).toBe("no_game");
+    expect(response.body.decision).toBe("SIT");
   });
 
   it("returns persona metadata", async () => {
