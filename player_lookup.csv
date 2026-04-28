@@ -25,6 +25,7 @@ Alek Thomas,23792,26,hitter,677950,23792_hitter,Alek Thomas,Hitter,NA
 Alex Bregman,17678,32,hitter,608324,17678_hitter,Alex Bregman,Hitter,NA
 Alex Call,19296,31,hitter,669743,19296_hitter,Alex Call,Hitter,NA
 Alex Freeland,31665,24,hitter,690976,31665_hitter,Alex Freeland,Hitter,NA
+Alex Hoppe,31880,27,pitcher,695380,31880_pitcher,Alex Hoppe,RP,RP
 Alex Lange,19883,30,pitcher,656638,19883_pitcher,Alex Lange,RP,RP
 Alex Vesia,25007,30,pitcher,681911,25007_pitcher,Alex Vesia,RP,RP
 Amed Rosario,15518,30,hitter,642708,15518_hitter,Amed Rosario,Hitter,NA
@@ -173,6 +174,7 @@ Charlie Barnes,19865,30,pitcher,656212,19865_pitcher,Charlie Barnes,RP,RP
 Chase Burns,35333,23,pitcher,695505,35333_pitcher,Chase Burns,SP,SP
 Chase DeLauter,32127,24,hitter,800050,32127_hitter,Chase DeLauter,Hitter,NA
 Chase Dollander,33482,24,pitcher,801403,33482_pitcher,Chase Dollander,SP,SP
+Chase Lee,29574,27,pitcher,695445,29574_pitcher,Chase Lee,RP,RP
 Chase Meidroth,31580,24,hitter,805367,31580_hitter,Chase Meidroth,Hitter,NA
 Chase Shugart,21544,29,pitcher,663767,21544_pitcher,Chase Shugart,RP,RP
 Chase Silseth,30074,26,pitcher,681217,30074_pitcher,Chase Silseth,RP,RP
@@ -442,6 +444,7 @@ Jared Triolo,25807,28,hitter,669707,25807_hitter,Jared Triolo,Hitter,NA
 Jared Young,20404,30,hitter,676724,20404_hitter,Jared Young,Hitter,NA
 Jarren Duran,24617,29,hitter,680776,24617_hitter,Jarren Duran,Hitter,NA
 Jason Adam,11861,34,pitcher,592094,11861_pitcher,Jason Adam,RP,RP
+Jasson Dominguez,28080,23,hitter,691176,28080_hitter,Jasson Dominguez,Hitter,NA
 Javier Assad,21741,28,pitcher,665871,21741_pitcher,Javier Assad,SP,SP
 Javier Baez,12979,33,hitter,595879,12979_hitter,Javier Baez,Hitter,NA
 Javier Sanoja,28253,23,hitter,691594,28253_hitter,Javier Sanoja,Hitter,NA
@@ -505,7 +508,8 @@ Jose Altuve,5417,36,hitter,514888,5417_hitter,Jose Altuve,Hitter,NA
 Jose Alvarado,17780,31,pitcher,621237,17780_pitcher,Jose Alvarado,RP,RP
 Jose Butto,23313,28,pitcher,676130,23313_pitcher,Jose Butto,RP,RP
 Jose Caballero,23401,29,hitter,676609,23401_hitter,Jose Caballero,Hitter,NA
-Jose Fermin,21746,27,hitter,665877,21746_hitter,Jose Fermin,Hitter,NA
+Jose Fermin,21746,27,hitter,665877,21746_hitter,Jose Fermin (Hitter),Hitter,NA
+Jose Fermin,33908,24,pitcher,820862,33908_pitcher,Jose Fermin (RP),RP,RP
 Jose Fernandez,28020,22,hitter,699912,28020_hitter,Jose Fernandez,Hitter,NA
 Jose Franco,27014,25,pitcher,683742,27014_pitcher,Jose Franco,RP,RP
 Jose Quintana,11423,37,pitcher,500779,11423_pitcher,Jose Quintana,SP,SP
@@ -827,6 +831,7 @@ Scott Kingery,17975,32,hitter,664068,17975_hitter,Scott Kingery,Hitter,NA
 Sean Burke,29878,26,pitcher,680732,29878_pitcher,Sean Burke,SP,SP
 Sean Manaea,15873,34,pitcher,640455,15873_pitcher,Sean Manaea,RP,RP
 Sean Newcomb,16943,33,pitcher,656794,16943_pitcher,Sean Newcomb,RP,RP
+Sebastian Rivero,21735,27,hitter,665861,21735_hitter,Sebastian Rivero,Hitter,NA
 Seiya Suzuki,30116,31,hitter,673548,30116_hitter,Seiya Suzuki,Hitter,NA
 Seranthony Dominguez,19249,31,pitcher,622554,19249_pitcher,Seranthony Dominguez,RP,RP
 Seth Halvorsen,33294,26,pitcher,678020,33294_pitcher,Seth Halvorsen,RP,RP
