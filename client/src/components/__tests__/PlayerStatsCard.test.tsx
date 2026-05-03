@@ -46,6 +46,8 @@ describe("PlayerStatsCard", () => {
     render(<PlayerStatsCard type="hitter" player={hitter} />);
     expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("Test Hitter");
     expect(screen.getByText("AVG")).toBeInTheDocument();
+    expect(screen.getByText("weighted baseline")).toBeInTheDocument();
+    expect(screen.queryByText("Last 3 Years")).not.toBeInTheDocument();
     expect(screen.getByText(".312")).toBeInTheDocument();
     expect(screen.getByText(".401")).toBeInTheDocument();
   });

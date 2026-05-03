@@ -106,8 +106,8 @@ function buildHitterCandidate(player: HitterRecord, baseUrl: string): SocialCand
 
   const headlineMetric =
     absolute(player.wOBA_diff) >= absolute(player.SLG_diff)
-      ? `wOBA ${formatSigned(player.wOBA_diff)} vs recent baseline`
-      : `SLG ${formatSigned(player.SLG_diff)} vs recent baseline`;
+      ? `wOBA ${formatSigned(player.wOBA_diff)} vs weighted baseline`
+      : `SLG ${formatSigned(player.SLG_diff)} vs weighted baseline`;
 
   return {
     playerId: String(player.PlayerId),
@@ -135,8 +135,8 @@ function buildPitcherCandidate(player: PitcherRecord, baseUrl: string): SocialCa
 
   const headlineMetric =
     absolute(player.era_diff) >= absolute(player.xera_diff)
-      ? `ERA ${formatSigned(player.era_diff, 2)} vs recent baseline`
-      : `xERA ${formatSigned(player.xera_diff, 2)} vs recent baseline`;
+      ? `ERA ${formatSigned(player.era_diff, 2)} vs weighted baseline`
+      : `xERA ${formatSigned(player.xera_diff, 2)} vs weighted baseline`;
 
   return {
     playerId: String(player.PlayerId),

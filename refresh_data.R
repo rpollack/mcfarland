@@ -33,21 +33,29 @@ hitter_stats <-
     Name = stri_trans_general(Name, id = "Latin-ASCII")
   )
 
-# Compute hitter stats for the past 3 years
+# Compute weighted hitter baselines from the past 3 years
 hitters_last_3 <-
   hitter_stats |>
   filter(year != current_year) |>
+  mutate(
+    baseline_weight = case_when(
+      year == current_year - 1 ~ 5,
+      year == current_year - 2 ~ 3,
+      year == current_year - 3 ~ 1,
+      TRUE ~ 0
+    )
+  ) |>
   group_by(Name, PlayerId) |>
   summarize(
-    AVG = sum(H) / sum(AB),
-    OBP = (sum(H) + sum(BB) + sum(HBP)) / (sum(AB) + sum(BB) + sum(HBP) + sum(SF)),
-    SLG = sum(TB) / sum(AB),
-    K_pct = 100 * sum(SO) / sum(PA),
-    BB_pct = 100 * sum(BB) / sum(PA),
-    Barrel_pct = 100 * sum(Barrels) / sum(PA),
-    BABIP = (sum(H) - sum(HR)) / (sum(AB) - sum(SO) - sum(HR) + sum(SF)),
-    wOBA = weighted.mean(wOBA, w = PA, na.rm = TRUE),
-    xwOBA = weighted.mean(xwOBA, w = PA, na.rm = TRUE),
+    AVG = sum(H * baseline_weight) / sum(AB * baseline_weight),
+    OBP = (sum(H * baseline_weight) + sum(BB * baseline_weight) + sum(HBP * baseline_weight)) / (sum(AB * baseline_weight) + sum(BB * baseline_weight) + sum(HBP * baseline_weight) + sum(SF * baseline_weight)),
+    SLG = sum(TB * baseline_weight) / sum(AB * baseline_weight),
+    K_pct = 100 * sum(SO * baseline_weight) / sum(PA * baseline_weight),
+    BB_pct = 100 * sum(BB * baseline_weight) / sum(PA * baseline_weight),
+    Barrel_pct = 100 * sum(Barrels * baseline_weight) / sum(PA * baseline_weight),
+    BABIP = (sum(H * baseline_weight) - sum(HR * baseline_weight)) / (sum(AB * baseline_weight) - sum(SO * baseline_weight) - sum(HR * baseline_weight) + sum(SF * baseline_weight)),
+    wOBA = weighted.mean(wOBA, w = PA * baseline_weight, na.rm = TRUE),
+    xwOBA = weighted.mean(xwOBA, w = PA * baseline_weight, na.rm = TRUE),
     xwOBA_wOBA_gap = xwOBA - wOBA,
     PA = sum(PA),
     .groups = "drop"
@@ -98,30 +106,38 @@ full_stats_hitters <-
 # PITCHERS DATA PROCESSING  
 # =============================================================================
 
-# Load pitcher data for past 3 years
+# Load pitcher data for weighted baselines from the past 3 years
 pitching_stats_last_3 <-
   bind_rows(
     read_csv("pitcher-stats-2023.csv", show_col_types = FALSE) |> mutate(year = 2023),
     read_csv("pitcher-stats-2024.csv", show_col_types = FALSE) |> mutate(year = 2024),
     read_csv("pitcher-stats-2025.csv", show_col_types = FALSE) |> mutate(year = 2025)
   ) |>
+  mutate(
+    baseline_weight = case_when(
+      year == current_year - 1 ~ 5,
+      year == current_year - 2 ~ 3,
+      year == current_year - 3 ~ 1,
+      TRUE ~ 0
+    )
+  ) |>
   group_by(playerid, name, position) |>
   summarize(
-    era = sum(er) / sum(ip) * 9,
-    k_percent = sum(so) / sum(tbf) * 100,
-    bb_percent = sum(bb) / sum(tbf) * 100,
+    era = sum(er * baseline_weight) / sum(ip * baseline_weight) * 9,
+    k_percent = sum(so * baseline_weight) / sum(tbf * baseline_weight) * 100,
+    bb_percent = sum(bb * baseline_weight) / sum(tbf * baseline_weight) * 100,
     k_minus_bb_percent = k_percent - bb_percent,
-    xera = weighted.mean(x_era, w = tbf, na.rm = TRUE),
+    xera = weighted.mean(x_era, w = tbf * baseline_weight, na.rm = TRUE),
     era_xera_gap = era - xera,
-    fip = weighted.mean(fip, w = tbf, na.rm = TRUE),
+    fip = weighted.mean(fip, w = tbf * baseline_weight, na.rm = TRUE),
     era_fip_gap = era - fip,
-    barrel_percent = weighted.mean(barrel_percent, w = tbf, na.rm = TRUE) * 100,
-    ld_percent = weighted.mean(ld_percent, w = tbf, na.rm = TRUE) * 100,
-    o_swing_percent = weighted.mean(o_swing_percent, w = tbf, na.rm = TRUE) * 100,
-    babip = weighted.mean(babip, w = tbf, na.rm = TRUE),
-    lob_percent = weighted.mean(lob_percent, w = tbf, na.rm = TRUE) * 100,
-    csw_percent = weighted.mean(c_sw_str_percent, w = tbf, na.rm = TRUE) * 100,
-    hr_fb = weighted.mean(hr_fb, w = tbf, na.rm = TRUE),
+    barrel_percent = weighted.mean(barrel_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100,
+    ld_percent = weighted.mean(ld_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100,
+    o_swing_percent = weighted.mean(o_swing_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100,
+    babip = weighted.mean(babip, w = tbf * baseline_weight, na.rm = TRUE),
+    lob_percent = weighted.mean(lob_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100,
+    csw_percent = weighted.mean(c_sw_str_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100,
+    hr_fb = weighted.mean(hr_fb, w = tbf * baseline_weight, na.rm = TRUE),
     .groups = "drop"
   )
 

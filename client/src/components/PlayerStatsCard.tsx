@@ -65,7 +65,7 @@ function PlayerStatsCard({ type, player }: Props) {
       <div className={styles.metricsGrid}>
         <div className={styles.metricHeader}>Metric</div>
         <div className={styles.metricHeader}>Current</div>
-        <div className={styles.metricHeader}>Last 3 Years</div>
+        <div className={styles.metricHeader}>weighted baseline</div>
         <div className={styles.metricHeader}>Diff</div>
         {metrics.map((metric) => (
           <Fragment key={metric.key}>
