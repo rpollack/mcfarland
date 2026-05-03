@@ -37,7 +37,7 @@ let testFantasyDecisionHandler: FantasyDecisionHandler | null = null;
 const uncacheableResponses = new WeakSet<OpenAIResponse>();
 const uncacheableFantasyResponses = new WeakSet<FantasyDecisionResponse>();
 
-function buildStructuredAnalysisPrompt(prompt: string, persona: string, mode: AnalysisMode): string {
+export function buildStructuredAnalysisPrompt(prompt: string, persona: string, mode: AnalysisMode): string {
   const modeSpecificInstructions =
     mode === "shakespeare"
       ? [
@@ -60,19 +60,11 @@ function buildStructuredAnalysisPrompt(prompt: string, persona: string, mode: An
       : [];
 
   return [
-    "You are doing the same two tasks as the previous version of this feature, but you must return both results in one JSON object.",
-    "",
-    "Task 1: write the full baseball analysis from the prompt below.",
-    "Task 2: then distill that analysis into a factual but compelling headline.",
-    "",
-    "Important:",
-    "- Keep the analysis as tight, controlled, and statistically grounded as the original prompt implies.",
-    "- Do not loosen the tone, broaden the scope, or improvise extra structure just because you are returning JSON.",
-    "- The headline should feel like it was written after reading the completed analysis, not independently.",
+    "Return one raw JSON object with a full baseball analysis and a headline based on it.",
     "- Return raw JSON only. Do not wrap it in markdown fences.",
-    `- Make the analysis clearly reflect the requested vibe in tone and phrasing: ${persona}`,
-    "- Preserve that vibe strongly enough that different modes produce noticeably different writing styles, while keeping the facts grounded in the stats.",
-    "- Sustain the vibe through every paragraph and the closing verdict; do not let the style fade after the opening.",
+    `- Analysis vibe: ${persona}`,
+    "- Make the chosen vibe meaningfully alter word choice, rhythm, and framing throughout; do not flatten back into neutral analyst prose.",
+    "- Stay statistically grounded and within the prompt.",
     "",
     ...modeSpecificInstructions,
     "JSON shape:",
@@ -83,47 +75,74 @@ function buildStructuredAnalysisPrompt(prompt: string, persona: string, mode: An
     prompt,
     "",
     "For headline:",
-    "- You are a newspaper editor whose job is to distill a detailed baseball analysis into a factual but compelling headline.",
-    "- Using the completed analysis, write a single headline that captures the most important takeaway and makes the reader want to keep reading.",
-    "- Be concise.",
-    "- Be specific and grounded in the analysis.",
-    "- Use words, not stat notation.",
-    "- Do not include parenthetical metric lists or multiple embedded numbers unless absolutely necessary.",
-    "- Do not turn the headline into a mini-analysis.",
-    "- Focus on the single most important tension or takeaway.",
-    "- Do not use clickbait or exaggeration.",
-    "- Do not use first-person language.",
-    "- Prefer substance over puns.",
-    "- Reflect the actual confidence level of the analysis and do not overstate small-sample conclusions.",
+    "- Write one concise, specific, non-clickbait headline from the finished analysis.",
+    "- Use words over stat notation; avoid metric lists, extra numbers, first person, puns, and overstatement.",
     "- Return headline text only inside the headline field.",
     "",
     "For analysis:",
     "- Put the full analysis in the analysis field only.",
+    "- Format it as 3-5 short paragraphs separated by blank lines.",
     "- Do not repeat the headline verbatim as the first sentence.",
     "- Do not add extra keys, labels, or commentary.",
   ].join("\n");
 }
 
-function parseJsonPayload(text: string): ParsedAnalysisPayload | null {
+function coerceParsedAnalysisPayload(parsed: unknown): ParsedAnalysisPayload | null {
+  if (typeof parsed === "string") {
+    return parseJsonPayload(parsed);
+  }
+
+  if (!parsed || typeof parsed !== "object") {
+    return null;
+  }
+
+  const payload = parsed as Partial<ParsedAnalysisPayload>;
+  if (typeof payload.headline !== "string" || typeof payload.analysis !== "string") {
+    return null;
+  }
+
+  return {
+    headline: payload.headline.trim(),
+    analysis: payload.analysis.trim(),
+  };
+}
+
+function unescapeJsonString(value: string): string {
+  try {
+    return JSON.parse(`"${value.replace(/"/g, '\\"')}"`) as string;
+  } catch {
+    return value.replace(/\\"/g, '"').replace(/\\n/g, "\n").replace(/\\\\/g, "\\");
+  }
+}
+
+function parseLooseJsonPayload(candidate: string): ParsedAnalysisPayload | null {
+  const headlineMatch = candidate.match(/"headline"\s*:\s*"((?:\\.|[^"\\])*)"/);
+  const analysisMatch = candidate.match(/"analysis"\s*:\s*"([\s\S]*)"\s*\}?$/);
+
+  if (!headlineMatch || !analysisMatch) {
+    return null;
+  }
+
+  const headline = unescapeJsonString(headlineMatch[1]).trim();
+  const analysis = unescapeJsonString(analysisMatch[1]).trim();
+
+  return headline && analysis ? { headline, analysis } : null;
+}
+
+export function parseJsonPayload(text: string): ParsedAnalysisPayload | null {
   const trimmed = text.trim();
   const direct = trimmed.match(/^\{[\s\S]*\}$/);
-  const candidate = direct?.[0] ?? trimmed.match(/```json\s*([\s\S]*?)```/i)?.[1] ?? trimmed.match(/```([\s\S]*?)```/)?.[1];
+  const fenced = trimmed.match(/```json\s*([\s\S]*?)```/i)?.[1] ?? trimmed.match(/```([\s\S]*?)```/)?.[1];
+  const candidate = direct?.[0] ?? fenced ?? trimmed;
 
   if (!candidate) {
     return null;
   }
 
   try {
-    const parsed = JSON.parse(candidate) as Partial<ParsedAnalysisPayload>;
-    if (typeof parsed.headline !== "string" || typeof parsed.analysis !== "string") {
-      return null;
-    }
-    return {
-      headline: parsed.headline.trim(),
-      analysis: parsed.analysis.trim(),
-    };
+    return coerceParsedAnalysisPayload(JSON.parse(candidate));
   } catch {
-    return null;
+    return parseLooseJsonPayload(candidate);
   }
 }
 
