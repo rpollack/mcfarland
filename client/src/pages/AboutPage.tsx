@@ -31,7 +31,7 @@ const ABOUT_SECTIONS = [
 ];
 
 const VIBE_BLURBS = [
-  "➡️ Straightforward keeps it clean and scouts-ready.",
+  "➡️ Straightforward keeps it warm, clear, and grounded.",
   "📊 Analytics Nerd leans into probabilities, evidence, and the sharpest supporting metrics.",
   "🍗 Fantasy Expert turns the same analysis into lineup and roster advice.",
   "🌀 Gen Z fires off memes, slang, and hype like a late-night group chat.",

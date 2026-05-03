@@ -607,6 +607,15 @@ describe("McFARLAND API", () => {
     expect(response.status).toBe(200);
     expect(response.body.vibes).toHaveLength(9);
     expect(response.body.defaultMode).toBe("straightforward");
+    expect(response.body.vibes[0]).toMatchObject({
+      id: "straightforward",
+      label: "Straightforward (Default)",
+    });
+    expect(response.body.vibes[0].description).toContain("friendly baseball person");
+    expect(response.body.vibes[0].description).toContain("warm, conversational");
+    expect(response.body.vibes[0].description).toContain("full, naturally flowing sentences");
+    expect(response.body.vibes[0].description).toContain("inverted-pyramid structure");
+    expect(response.body.vibes[0].description).toContain("metric-first sentence fragments");
   });
 
   it("requires admin access for social suggestions when admin password is configured", async () => {
