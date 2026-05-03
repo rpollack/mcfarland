@@ -14,10 +14,10 @@ const ABOUT_SECTIONS = [
   {
     title: "How quick links work",
     items: [
-      "\"Breakouts\" highlights players whose underlying skill stats look meaningfully better than their recent baseline, while discounting tiny samples and obvious luck spikes.",
+      "\"Breakouts\" highlights players whose underlying skill stats look meaningfully better than their weighted baseline, while discounting tiny samples and obvious luck spikes.",
       "\"On Fire\" shows the players whose recent trend improved the most over the last 7 days compared to the 7 days before that.",
       "\"Ice Cold\" shows the players whose recent trend moved hardest in the wrong direction over that same window.",
-      "\"Out of Character\" is a daily watch list of players whose current-year stats look the most different from their recent baseline.",
+      "\"Out of Character\" is a daily watch list of players whose current-year stats look the most different from their weighted baseline.",
     ],
   },
   {
@@ -58,6 +58,24 @@ function AboutPage() {
         The app updates every morning during the season, right after the previous night's games. You get insights that are fresh off the field and ready for your fantasy lineup or group chat brag.
       </p>
 
+      <section className={styles.section}>
+        <h3>How the analysis works</h3>
+        <p className={styles.bodyCopy}>
+          For each player, we take his current-season stats and compare them to a weighted baseline, so the app can highlight what has actually changed instead of just repeating raw numbers.
+        </p>
+        <p className={styles.bodyCopy}>
+          The weighted baseline uses the previous three seasons with 5/3/1 recency weights: last year counts most, two years ago counts less, and three years ago counts least. It is also weighted by playing time, using PA for hitters and batters faced for pitchers.
+        </p>
+        <p className={styles.bodyCopy}>
+          From there, McFARLAND separates skill signals from luck signals, accounts for age and sample size, and turns the results into plain-English analysis.
+        </p>
+        {freshnessQuery.data ? (
+          <p className={styles.freshnessLine}>
+            Data is current through games on {freshnessQuery.data.dataThroughLabel}.
+          </p>
+        ) : null}
+      </section>
+
       {ABOUT_SECTIONS.map((section) => (
         <section key={section.title} className={styles.section}>
           <h3>{section.title}</h3>
@@ -79,18 +97,6 @@ function AboutPage() {
             <li key={blurb}>{blurb}</li>
           ))}
         </ul>
-      </section>
-
-      <section className={styles.section}>
-        <h3>How the data stays current</h3>
-        <p className={styles.bodyCopy}>
-          McFARLAND refreshes automatically every morning during the season using fresh baseball data. Each player's current-year performance is compared against his recent baseline, so the app can highlight what has actually changed instead of just repeating raw stats.
-        </p>
-        {freshnessQuery.data ? (
-          <p className={styles.freshnessLine}>
-            Data is current through games on {freshnessQuery.data.dataThroughLabel}.
-          </p>
-        ) : null}
       </section>
 
       <section className={styles.section}>

@@ -58,8 +58,8 @@ function buildFantasyPlayerLines(player: HitterRecord | PitcherRecord, type: Pla
       formatLine("K%", formatPercentage(hitter.K_pct_cur)),
       formatLine("BB%", formatPercentage(hitter.BB_pct_cur)),
       formatLine("Barrel%", formatPercentage(hitter.Barrel_pct_cur)),
-      formatLine("xwOBA last 3 years", formatStatValue(hitter.xwOBA_l3)),
-      formatLine("xwOBA diff vs last 3 years", formatStatValue(hitter.xwOBA_diff)),
+      formatLine("xwOBA weighted baseline", formatStatValue(hitter.xwOBA_l3)),
+      formatLine("xwOBA diff vs weighted baseline", formatStatValue(hitter.xwOBA_diff)),
     ];
   }
 
@@ -76,8 +76,8 @@ function buildFantasyPlayerLines(player: HitterRecord | PitcherRecord, type: Pla
     formatLine("CSW%", formatPercentage(pitcher.csw_percent_cur)),
     formatLine("Barrel% allowed", formatPercentage(pitcher.barrel_percent_cur)),
     formatLine("LD% allowed", formatPercentage(pitcher.ld_percent_cur)),
-    formatLine("xERA last 3 years", formatEra(pitcher.xera_l3)),
-    formatLine("xERA diff vs last 3 years", formatEra(pitcher.xera_diff)),
+    formatLine("xERA weighted baseline", formatEra(pitcher.xera_l3)),
+    formatLine("xERA diff vs weighted baseline", formatEra(pitcher.xera_diff)),
   ];
 }
 

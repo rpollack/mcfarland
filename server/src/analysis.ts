@@ -14,22 +14,22 @@ export function buildHitterPrompt(player: HitterRecord): string {
   ];
 
   const metrics = [
-    `AVG: ${formatStatValue(player.AVG_cur)}  Last 3 Years: ${formatStatValue(player.AVG_l3)}  Diff: ${formatStatValue(player.AVG_diff)}`,
-    `OBP: ${formatStatValue(player.OBP_cur)}  Last 3 Years: ${formatStatValue(player.OBP_l3)}  Diff: ${formatStatValue(player.OBP_diff)}`,
-    `SLG: ${formatStatValue(player.SLG_cur)}  Last 3 Years: ${formatStatValue(player.SLG_l3)}  Diff: ${formatStatValue(player.SLG_diff)}`,
-    `K%: ${formatPercentage(player.K_pct_cur)}  Last 3 Years: ${formatPercentage(player.K_pct_l3)}  Diff: ${formatPercentage(player.K_pct_diff)}`,
-    `BB%: ${formatPercentage(player.BB_pct_cur)}  Last 3 Years: ${formatPercentage(player.BB_pct_l3)}  Diff: ${formatPercentage(player.BB_pct_diff)}`,
-    `Barrel%: ${formatPercentage(player.Barrel_pct_cur)}  Last 3 Years: ${formatPercentage(player.Barrel_pct_l3)}  Diff: ${formatPercentage(player.Barrel_pct_diff)}`,
-    `BABIP: ${formatStatValue(player.BABIP_cur)}  Last 3 Years: ${formatStatValue(player.BABIP_l3)}  Diff: ${formatStatValue(player.BABIP_diff)}`,
-    `wOBA: ${formatStatValue(player.wOBA_cur)}  Last 3 Years: ${formatStatValue(player.wOBA_l3)}  Diff: ${formatStatValue(player.wOBA_diff)}`,
-    `xwOBA: ${formatStatValue(player.xwOBA_cur)}  Last 3 Years: ${formatStatValue(player.xwOBA_l3)}  Diff: ${formatStatValue(player.xwOBA_diff)}`,
-    `xwOBA-wOBA gap: ${formatStatValue(player.xwOBA_wOBA_gap_cur)}  Last 3 Years: ${formatStatValue(player.xwOBA_wOBA_gap_l3)}  Diff: ${formatStatValue(player.xwOBA_wOBA_gap_diff)}`,
+    `AVG: ${formatStatValue(player.AVG_cur)}  weighted baseline: ${formatStatValue(player.AVG_l3)}  Diff: ${formatStatValue(player.AVG_diff)}`,
+    `OBP: ${formatStatValue(player.OBP_cur)}  weighted baseline: ${formatStatValue(player.OBP_l3)}  Diff: ${formatStatValue(player.OBP_diff)}`,
+    `SLG: ${formatStatValue(player.SLG_cur)}  weighted baseline: ${formatStatValue(player.SLG_l3)}  Diff: ${formatStatValue(player.SLG_diff)}`,
+    `K%: ${formatPercentage(player.K_pct_cur)}  weighted baseline: ${formatPercentage(player.K_pct_l3)}  Diff: ${formatPercentage(player.K_pct_diff)}`,
+    `BB%: ${formatPercentage(player.BB_pct_cur)}  weighted baseline: ${formatPercentage(player.BB_pct_l3)}  Diff: ${formatPercentage(player.BB_pct_diff)}`,
+    `Barrel%: ${formatPercentage(player.Barrel_pct_cur)}  weighted baseline: ${formatPercentage(player.Barrel_pct_l3)}  Diff: ${formatPercentage(player.Barrel_pct_diff)}`,
+    `BABIP: ${formatStatValue(player.BABIP_cur)}  weighted baseline: ${formatStatValue(player.BABIP_l3)}  Diff: ${formatStatValue(player.BABIP_diff)}`,
+    `wOBA: ${formatStatValue(player.wOBA_cur)}  weighted baseline: ${formatStatValue(player.wOBA_l3)}  Diff: ${formatStatValue(player.wOBA_diff)}`,
+    `xwOBA: ${formatStatValue(player.xwOBA_cur)}  weighted baseline: ${formatStatValue(player.xwOBA_l3)}  Diff: ${formatStatValue(player.xwOBA_diff)}`,
+    `xwOBA-wOBA gap: ${formatStatValue(player.xwOBA_wOBA_gap_cur)}  weighted baseline: ${formatStatValue(player.xwOBA_wOBA_gap_l3)}  Diff: ${formatStatValue(player.xwOBA_wOBA_gap_diff)}`,
   ];
 
   const notes = [
     "",
     "--- Notes for analysis ---",
-    "- Focus on current-year performance compared to the last three years.",
+    "- Focus on current-year performance compared to the weighted baseline.",
     "- BABIP above/below norms indicates luck.",
     "- Gaps between wOBA and xwOBA signal luck vs skill trends.",
     "- BB%/K% changes reflect plate discipline skill.",
@@ -54,17 +54,17 @@ export function buildPitcherPrompt(player: PitcherRecord): string {
   ];
 
   const metrics = [
-    `ERA: ${formatEra(player.era_cur)}  Last 3 Years: ${formatEra(player.era_l3)}  Diff: ${formatEra(player.era_diff)}`,
-    `xERA: ${formatEra(player.xera_cur)}  Last 3 Years: ${formatEra(player.xera_l3)}  Diff: ${formatEra(player.xera_diff)}`,
-    `BABIP: ${formatStatValue(player.babip_cur)}  Last 3 Years: ${formatStatValue(player.babip_l3)}  Diff: ${formatStatValue(player.babip_diff)}`,
-    `Barrel Rate: ${formatPercentage(player.barrel_percent_cur)}  Last 3 Years: ${formatPercentage(player.barrel_percent_l3)}  Diff: ${formatPercentage(player.barrel_percent_diff)}`,
-    `Line Drive Rate (LD%): ${formatPercentage(player.ld_percent_cur)}  Last 3 Years: ${formatPercentage(player.ld_percent_l3)}  Diff: ${formatPercentage(player.ld_percent_diff)}`,
-    `Strikeout Rate (K%): ${formatPercentage(player.k_percent_cur)}  Last 3 Years: ${formatPercentage(player.k_percent_l3)}  Diff: ${formatPercentage(player.k_percent_diff)}`,
-    `Called Strike & Whiff Rate (CSW%): ${formatPercentage(player.csw_percent_cur)}  Last 3 Years: ${formatPercentage(player.csw_percent_l3)}  Diff: ${formatPercentage(player.csw_percent_diff)}`,
-    `Outside Zone Swing Rate (O-Swing%): ${formatPercentage(player.o_swing_percent_cur)}  Last 3 Years: ${formatPercentage(player.o_swing_percent_l3)}  Diff: ${formatPercentage(player.o_swing_percent_diff)}`,
-    `Walk Rate (BB%): ${formatPercentage(player.bb_percent_cur)}  Last 3 Years: ${formatPercentage(player.bb_percent_l3)}  Diff: ${formatPercentage(player.bb_percent_diff)}`,
-    `K-BB%: ${formatPercentage(player.k_minus_bb_percent_cur)}  Last 3 Years: ${formatPercentage(player.k_minus_bb_percent_l3)}  Diff: ${formatPercentage(player.k_minus_bb_percent_diff)}`,
-    `LOB%: ${formatPercentage(player.lob_percent_cur)}  Last 3 Years: ${formatPercentage(player.lob_percent_l3)}  Diff: ${formatPercentage(player.lob_percent_diff)}`,
+    `ERA: ${formatEra(player.era_cur)}  weighted baseline: ${formatEra(player.era_l3)}  Diff: ${formatEra(player.era_diff)}`,
+    `xERA: ${formatEra(player.xera_cur)}  weighted baseline: ${formatEra(player.xera_l3)}  Diff: ${formatEra(player.xera_diff)}`,
+    `BABIP: ${formatStatValue(player.babip_cur)}  weighted baseline: ${formatStatValue(player.babip_l3)}  Diff: ${formatStatValue(player.babip_diff)}`,
+    `Barrel Rate: ${formatPercentage(player.barrel_percent_cur)}  weighted baseline: ${formatPercentage(player.barrel_percent_l3)}  Diff: ${formatPercentage(player.barrel_percent_diff)}`,
+    `Line Drive Rate (LD%): ${formatPercentage(player.ld_percent_cur)}  weighted baseline: ${formatPercentage(player.ld_percent_l3)}  Diff: ${formatPercentage(player.ld_percent_diff)}`,
+    `Strikeout Rate (K%): ${formatPercentage(player.k_percent_cur)}  weighted baseline: ${formatPercentage(player.k_percent_l3)}  Diff: ${formatPercentage(player.k_percent_diff)}`,
+    `Called Strike & Whiff Rate (CSW%): ${formatPercentage(player.csw_percent_cur)}  weighted baseline: ${formatPercentage(player.csw_percent_l3)}  Diff: ${formatPercentage(player.csw_percent_diff)}`,
+    `Outside Zone Swing Rate (O-Swing%): ${formatPercentage(player.o_swing_percent_cur)}  weighted baseline: ${formatPercentage(player.o_swing_percent_l3)}  Diff: ${formatPercentage(player.o_swing_percent_diff)}`,
+    `Walk Rate (BB%): ${formatPercentage(player.bb_percent_cur)}  weighted baseline: ${formatPercentage(player.bb_percent_l3)}  Diff: ${formatPercentage(player.bb_percent_diff)}`,
+    `K-BB%: ${formatPercentage(player.k_minus_bb_percent_cur)}  weighted baseline: ${formatPercentage(player.k_minus_bb_percent_l3)}  Diff: ${formatPercentage(player.k_minus_bb_percent_diff)}`,
+    `LOB%: ${formatPercentage(player.lob_percent_cur)}  weighted baseline: ${formatPercentage(player.lob_percent_l3)}  Diff: ${formatPercentage(player.lob_percent_diff)}`,
   ];
 
   const notes = [
@@ -106,7 +106,7 @@ function buildGeneralInstructions(persona: string): string[] {
     "",
     "Don't repeat yourself. For example, if you say a stat or performance or trend is 'lucky', you don't need to say it's 'not unlucky'.",
     "",
-    "Remember that when it comes to stats and trends, you only have knowledge of two things: a player's current-year stats and the average of the same stats for the past 3 years (e.g. not their entire career). So when you say things like a stat is 'up' or 'down', make it clear that this is relative to the last 3 years' average.",
+    "Remember that when it comes to stats and trends, you only have knowledge of two things: a player's current-year stats and the weighted baseline for the same stats (e.g. not their entire career). So when you say things like a stat is 'up' or 'down', make it clear that this is relative to the weighted baseline.",
     "",
     "Sample size should meaningfully affect your confidence. Plate appearances for hitters and total batters faced for pitchers should be treated as major inputs, not minor context. If the sample is small, say so clearly and soften the certainty of your conclusions.",
     "",
@@ -165,27 +165,27 @@ export function buildComparisonPrompt(players: (HitterRecord | PitcherRecord)[],
       return [
         `${hitter.Name}:`,
         `  PA: ${formatStatValue(hitter.PA_cur, 0)}`,
-        `  AVG: ${formatStatValue(hitter.AVG_cur)}  Last 3 Years: ${formatStatValue(hitter.AVG_l3)}  Diff: ${formatStatValue(hitter.AVG_diff)}`,
-        `  OBP: ${formatStatValue(hitter.OBP_cur)}  Last 3 Years: ${formatStatValue(hitter.OBP_l3)}  Diff: ${formatStatValue(hitter.OBP_diff)}`,
-        `  SLG: ${formatStatValue(hitter.SLG_cur)}  Last 3 Years: ${formatStatValue(hitter.SLG_l3)}  Diff: ${formatStatValue(hitter.SLG_diff)}`,
-        `  wOBA: ${formatStatValue(hitter.wOBA_cur)}  Last 3 Years: ${formatStatValue(hitter.wOBA_l3)}  Diff: ${formatStatValue(hitter.wOBA_diff)}`,
-        `  xwOBA: ${formatStatValue(hitter.xwOBA_cur)}  Last 3 Years: ${formatStatValue(hitter.xwOBA_l3)}  Diff: ${formatStatValue(hitter.xwOBA_diff)}`,
-        `  K%: ${formatPercentage(hitter.K_pct_cur)}  Last 3 Years: ${formatPercentage(hitter.K_pct_l3)}  Diff: ${formatPercentage(hitter.K_pct_diff)}`,
-        `  BB%: ${formatPercentage(hitter.BB_pct_cur)}  Last 3 Years: ${formatPercentage(hitter.BB_pct_l3)}  Diff: ${formatPercentage(hitter.BB_pct_diff)}`,
+        `  AVG: ${formatStatValue(hitter.AVG_cur)}  weighted baseline: ${formatStatValue(hitter.AVG_l3)}  Diff: ${formatStatValue(hitter.AVG_diff)}`,
+        `  OBP: ${formatStatValue(hitter.OBP_cur)}  weighted baseline: ${formatStatValue(hitter.OBP_l3)}  Diff: ${formatStatValue(hitter.OBP_diff)}`,
+        `  SLG: ${formatStatValue(hitter.SLG_cur)}  weighted baseline: ${formatStatValue(hitter.SLG_l3)}  Diff: ${formatStatValue(hitter.SLG_diff)}`,
+        `  wOBA: ${formatStatValue(hitter.wOBA_cur)}  weighted baseline: ${formatStatValue(hitter.wOBA_l3)}  Diff: ${formatStatValue(hitter.wOBA_diff)}`,
+        `  xwOBA: ${formatStatValue(hitter.xwOBA_cur)}  weighted baseline: ${formatStatValue(hitter.xwOBA_l3)}  Diff: ${formatStatValue(hitter.xwOBA_diff)}`,
+        `  K%: ${formatPercentage(hitter.K_pct_cur)}  weighted baseline: ${formatPercentage(hitter.K_pct_l3)}  Diff: ${formatPercentage(hitter.K_pct_diff)}`,
+        `  BB%: ${formatPercentage(hitter.BB_pct_cur)}  weighted baseline: ${formatPercentage(hitter.BB_pct_l3)}  Diff: ${formatPercentage(hitter.BB_pct_diff)}`,
       ].join("\n");
     }
     const pitcher = player as PitcherRecord;
     return [
       `${pitcher.Name}:`,
       `  TBF: ${formatStatValue(pitcher.tbf, 0)}`,
-      `  ERA: ${formatEra(pitcher.era_cur)}  Last 3 Years: ${formatEra(pitcher.era_l3)}  Diff: ${formatEra(pitcher.era_diff)}`,
-      `  xERA: ${formatEra(pitcher.xera_cur)}  Last 3 Years: ${formatEra(pitcher.xera_l3)}  Diff: ${formatEra(pitcher.xera_diff)}`,
-      `  K%: ${formatPercentage(pitcher.k_percent_cur)}  Last 3 Years: ${formatPercentage(pitcher.k_percent_l3)}  Diff: ${formatPercentage(pitcher.k_percent_diff)}`,
-      `  BB%: ${formatPercentage(pitcher.bb_percent_cur)}  Last 3 Years: ${formatPercentage(pitcher.bb_percent_l3)}  Diff: ${formatPercentage(pitcher.bb_percent_diff)}`,
-      `  K-BB%: ${formatPercentage(pitcher.k_minus_bb_percent_cur)}  Last 3 Years: ${formatPercentage(pitcher.k_minus_bb_percent_l3)}  Diff: ${formatPercentage(pitcher.k_minus_bb_percent_diff)}`,
-      `  BABIP: ${formatStatValue(pitcher.babip_cur)}  Last 3 Years: ${formatStatValue(pitcher.babip_l3)}  Diff: ${formatStatValue(pitcher.babip_diff)}`,
-      `  LD%: ${formatPercentage(pitcher.ld_percent_cur)}  Last 3 Years: ${formatPercentage(pitcher.ld_percent_l3)}  Diff: ${formatPercentage(pitcher.ld_percent_diff)}`,
-      `  CSW%: ${formatPercentage(pitcher.csw_percent_cur)}  Last 3 Years: ${formatPercentage(pitcher.csw_percent_l3)}  Diff: ${formatPercentage(pitcher.csw_percent_diff)}`,
+      `  ERA: ${formatEra(pitcher.era_cur)}  weighted baseline: ${formatEra(pitcher.era_l3)}  Diff: ${formatEra(pitcher.era_diff)}`,
+      `  xERA: ${formatEra(pitcher.xera_cur)}  weighted baseline: ${formatEra(pitcher.xera_l3)}  Diff: ${formatEra(pitcher.xera_diff)}`,
+      `  K%: ${formatPercentage(pitcher.k_percent_cur)}  weighted baseline: ${formatPercentage(pitcher.k_percent_l3)}  Diff: ${formatPercentage(pitcher.k_percent_diff)}`,
+      `  BB%: ${formatPercentage(pitcher.bb_percent_cur)}  weighted baseline: ${formatPercentage(pitcher.bb_percent_l3)}  Diff: ${formatPercentage(pitcher.bb_percent_diff)}`,
+      `  K-BB%: ${formatPercentage(pitcher.k_minus_bb_percent_cur)}  weighted baseline: ${formatPercentage(pitcher.k_minus_bb_percent_l3)}  Diff: ${formatPercentage(pitcher.k_minus_bb_percent_diff)}`,
+      `  BABIP: ${formatStatValue(pitcher.babip_cur)}  weighted baseline: ${formatStatValue(pitcher.babip_l3)}  Diff: ${formatStatValue(pitcher.babip_diff)}`,
+      `  LD%: ${formatPercentage(pitcher.ld_percent_cur)}  weighted baseline: ${formatPercentage(pitcher.ld_percent_l3)}  Diff: ${formatPercentage(pitcher.ld_percent_diff)}`,
+      `  CSW%: ${formatPercentage(pitcher.csw_percent_cur)}  weighted baseline: ${formatPercentage(pitcher.csw_percent_l3)}  Diff: ${formatPercentage(pitcher.csw_percent_diff)}`,
     ].join("\n");
   });
 

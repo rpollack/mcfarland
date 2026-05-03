@@ -4,7 +4,7 @@
 
 McFARLAND is a baseball analysis app that turns current-season performance data into readable, shareable takes. It is built for the space between a spreadsheet and a group chat: enough statistical rigor to be useful, but written in plain English and customizable voices.
 
-The app compares a player's current-year stats against his recent baseline, highlights what has actually changed, and asks the question fans and fantasy players usually care about: should this get better, worse, or stay about the same?
+The app compares a player's current-year stats against his weighted baseline, highlights what has actually changed, and asks the question fans and fantasy players usually care about: should this get better, worse, or stay about the same?
 
 ## About The Project
 
@@ -12,7 +12,7 @@ McFARLAND exists because advanced baseball stats are useful, but they are often 
 
 What it does:
 
-- Builds single-player hitter and pitcher breakdowns using current-year stats, recent baselines, skill indicators, luck indicators, and sample-size context.
+- Builds single-player hitter and pitcher breakdowns using current-year stats, weighted baselines, skill indicators, luck indicators, and sample-size context.
 - Compares two or three hitters or pitchers side by side and recommends the stronger profile.
 - Lets users choose an analysis "vibe" so the same data can sound straightforward, analytical, fantasy-focused, Gen Z, Shakespearean, sensationalist, optimistic, old-school, or cranky old-timer.
 - Surfaces quick-link player groups like breakouts, on-fire players, ice-cold players, and out-of-character profiles.
