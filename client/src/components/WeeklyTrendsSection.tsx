@@ -223,7 +223,9 @@ export default function WeeklyTrendsSection({ playerType, onSelectPlayer, embedd
         {!trendsQuery.isLoading && !trendsQuery.isError && !trendingQuery.isLoading && !trendingQuery.isError && selectedIdeaGroup && (
           <section className={styles.ideaPanel} aria-label="More ideas">
             <div className={styles.ideaHeader}>
-              <p className={styles.rowLeadIn}>More Ideas:</p>
+              <p className={styles.rowLeadIn}>
+                <span aria-hidden="true">＋</span> More Ideas:
+              </p>
               <div className={styles.ideaTabs} role="tablist" aria-label="Choose quick-link category">
                 {quickIdeaGroups.map((group) => (
                   <button
