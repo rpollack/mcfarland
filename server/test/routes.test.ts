@@ -644,6 +644,7 @@ describe("McFARLAND API", () => {
     const response = await request(app).get("/api/trending");
 
     expect(response.status).toBe(200);
+    expect(response.body.newsworthy).toBeInstanceOf(Array);
     expect(response.body.hitters.trending).toHaveLength(3);
     expect(response.body.hitters.breakouts).toHaveLength(3);
     expect(response.body.pitchers.trending).toHaveLength(3);

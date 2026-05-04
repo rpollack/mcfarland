@@ -255,8 +255,11 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
         <WeeklyTrendsSection
           embedded
           playerType={playerType}
-          onSelectPlayer={({ playerId, source, analysisMode }) => {
+          onSelectPlayer={({ playerId, playerType: selectedPlayerType, source, analysisMode }) => {
             setSelectionSource(source);
+            if (selectedPlayerType && selectedPlayerType !== playerType) {
+              setPlayerType(selectedPlayerType);
+            }
             if (analysisMode && analysisMode !== mode) {
               setMode(analysisMode);
             }
