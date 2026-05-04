@@ -214,7 +214,7 @@ export default function WeeklyTrendsSection({ playerType, onSelectPlayer, embedd
         {(trendsQuery.isError || trendingQuery.isError) && <p className={styles.subhead}>Unable to load quick links right now.</p>}
         {!trendingQuery.isLoading && !trendingQuery.isError && newsworthyPlayers.length > 0 && (
           <TrendGroup
-            title="Start here"
+            title="In the News"
             emoji="📰"
             players={newsworthyPlayers}
             onSelectPlayer={onSelectPlayer}
@@ -223,7 +223,9 @@ export default function WeeklyTrendsSection({ playerType, onSelectPlayer, embedd
         {!trendsQuery.isLoading && !trendsQuery.isError && !trendingQuery.isLoading && !trendingQuery.isError && selectedIdeaGroup && (
           <section className={styles.ideaPanel} aria-label="More ideas">
             <div className={styles.ideaHeader}>
-              <p className={styles.rowLeadIn}>More ideas:</p>
+              <p className={styles.rowLeadIn}>
+                <span aria-hidden="true">＋</span> More Ideas:
+              </p>
               <div className={styles.ideaTabs} role="tablist" aria-label="Choose quick-link category">
                 {quickIdeaGroups.map((group) => (
                   <button
