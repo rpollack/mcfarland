@@ -2,9 +2,10 @@ import request from "supertest";
 import { describe, expect, it, beforeAll, beforeEach, afterEach, vi } from "vitest";
 import { createServer } from "../src/index.js";
 import { __setAnalysisCacheStoreForTests } from "../src/analysisCache.js";
-import { getDataFreshness, __setDataFreshnessForTests } from "../src/dataStore.js";
+import { getDataFreshness, getPlayerById, __setDataFreshnessForTests } from "../src/dataStore.js";
 import { __clearMlbMatchupCacheForTests } from "../src/mlbMatchups.js";
 import { __setFantasyDecisionHandlerForTests, __setOpenAiChatHandlerForTests } from "../src/openai.js";
+import { formatEra, formatPercentage, formatStatValue } from "../src/utils.js";
 
 const app = createServer();
 const originalFreshness = getDataFreshness();
@@ -194,6 +195,80 @@ describe("McFARLAND API", () => {
     expect(response.status).toBe(200);
     expect(response.body.prompt).toContain("Player: ");
     expect(response.body.analysis).toContain("OpenAI API key is not configured");
+  });
+
+  it("sends the selected hitter's loaded stats to the analysis prompt", async () => {
+    const openAiHandler = vi.fn(async (prompt: string, persona: string) => ({
+      prompt,
+      persona,
+      headline: "Hitter data headline",
+      analysis: "Hitter data analysis",
+      cached: false,
+    }));
+    __setOpenAiChatHandlerForTests(openAiHandler);
+
+    const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
+    const hitter = listBody.players[0];
+    const loadedPlayer = getPlayerById("hitter", hitter.id);
+
+    expect(loadedPlayer).not.toBeNull();
+
+    const response = await request(app)
+      .post("/api/analyze")
+      .send({ playerId: hitter.id, playerType: "hitter", analysisMode: "straightforward" });
+
+    expect(response.status).toBe(200);
+    expect(openAiHandler).toHaveBeenCalledTimes(1);
+
+    const prompt = openAiHandler.mock.calls[0][0];
+    const player = loadedPlayer!;
+    expect(prompt).toContain(`Player: ${player.Name} (Hitter)`);
+    expect(prompt).toContain(
+      `AVG: ${formatStatValue(player.AVG_cur)} | WB ${formatStatValue(player.AVG_l3)} | diff ${formatStatValue(player.AVG_diff)}`
+    );
+    expect(prompt).toContain(
+      `wOBA: ${formatStatValue(player.wOBA_cur)} | WB ${formatStatValue(player.wOBA_l3)} | diff ${formatStatValue(player.wOBA_diff)}`
+    );
+    expect(prompt).toContain(
+      `K%: ${formatPercentage(player.K_pct_cur)} | WB ${formatPercentage(player.K_pct_l3)} | diff ${formatPercentage(player.K_pct_diff)}`
+    );
+  });
+
+  it("sends the selected pitcher's loaded stats to the analysis prompt", async () => {
+    const openAiHandler = vi.fn(async (prompt: string, persona: string) => ({
+      prompt,
+      persona,
+      headline: "Pitcher data headline",
+      analysis: "Pitcher data analysis",
+      cached: false,
+    }));
+    __setOpenAiChatHandlerForTests(openAiHandler);
+
+    const { body: listBody } = await request(app).get("/api/players").query({ type: "pitcher", q: "Skubal" });
+    const pitcher = listBody.players[0];
+    const loadedPlayer = getPlayerById("pitcher", pitcher.id);
+
+    expect(loadedPlayer).not.toBeNull();
+
+    const response = await request(app)
+      .post("/api/analyze")
+      .send({ playerId: pitcher.id, playerType: "pitcher", analysisMode: "straightforward" });
+
+    expect(response.status).toBe(200);
+    expect(openAiHandler).toHaveBeenCalledTimes(1);
+
+    const prompt = openAiHandler.mock.calls[0][0];
+    const player = loadedPlayer!;
+    expect(prompt).toContain(`Player: ${player.Name} (Pitcher)`);
+    expect(prompt).toContain(
+      `ERA: ${formatEra(player.era_cur)} | WB ${formatEra(player.era_l3)} | diff ${formatEra(player.era_diff)}`
+    );
+    expect(prompt).toContain(
+      `xERA: ${formatEra(player.xera_cur)} | WB ${formatEra(player.xera_l3)} | diff ${formatEra(player.xera_diff)}`
+    );
+    expect(prompt).toContain(
+      `K-BB%: ${formatPercentage(player.k_minus_bb_percent_cur)} | WB ${formatPercentage(player.k_minus_bb_percent_l3)} | diff ${formatPercentage(player.k_minus_bb_percent_diff)}`
+    );
   });
 
   it("caches identical single-player analysis across sessions", async () => {
