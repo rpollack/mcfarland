@@ -214,7 +214,7 @@ export default function WeeklyTrendsSection({ playerType, onSelectPlayer, embedd
         {(trendsQuery.isError || trendingQuery.isError) && <p className={styles.subhead}>Unable to load quick links right now.</p>}
         {!trendingQuery.isLoading && !trendingQuery.isError && newsworthyPlayers.length > 0 && (
           <TrendGroup
-            title="Start here"
+            title="In the News"
             emoji="📰"
             players={newsworthyPlayers}
             onSelectPlayer={onSelectPlayer}
