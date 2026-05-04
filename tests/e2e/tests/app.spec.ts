@@ -62,21 +62,22 @@ test.describe("McFARLAND core experience", () => {
     await page.reload();
     await expect(singleSearchInput(page)).toBeVisible();
 
-    const onFireRow = page.locator("section[aria-label='On Fire']");
-    const iceColdRow = page.locator("section[aria-label='Ice Cold']");
+    const moreIdeasPanel = page.locator("section[aria-label='More ideas']");
     const analyzeAgainRow = page.locator("section[aria-label='Analyze again']");
     const analysisPanel = page.locator("section[aria-label='AI analysis']");
     const analysisHeadshot = analysisPanel.locator("img[alt$='headshot']").first();
 
-    await expect(onFireRow).toBeVisible();
-    await expect(iceColdRow).toBeVisible();
+    await expect(moreIdeasPanel).toBeVisible();
+    await moreIdeasPanel.getByRole("tab", { name: /Trends/ }).click();
+    const trendsRow = page.locator("section[aria-label='Trends']");
+    await expect(trendsRow).toBeVisible();
 
-    const onFireButton = onFireRow.locator("button").first();
-    const firstPlayerName = ((await onFireButton.textContent()) ?? "").trim();
+    const firstTrendButton = trendsRow.locator("button").first();
+    const firstPlayerName = ((await firstTrendButton.textContent()) ?? "").replace(/[🔥🥶]/g, "").trim();
     expect(firstPlayerName).not.toBe("");
 
     const firstAnalyzeFinished = waitForPostRequestFinished(page, "/api/analyze");
-    await onFireButton.click();
+    await firstTrendButton.click();
     await firstAnalyzeFinished;
     await expectAnalysisReady(page);
 
@@ -86,9 +87,9 @@ test.describe("McFARLAND core experience", () => {
     const firstHeadshotSrc = await analysisHeadshot.getAttribute("src");
     expect(firstHeadshotSrc).toBeTruthy();
 
-    const onFireButtons = onFireRow.locator("button");
-    const secondCandidateButton = (await onFireButtons.count()) > 1 ? onFireButtons.nth(1) : iceColdRow.locator("button").first();
-    const secondPlayerName = ((await secondCandidateButton.textContent()) ?? "").trim();
+    const trendButtons = trendsRow.locator("button");
+    const secondCandidateButton = trendButtons.nth(1);
+    const secondPlayerName = ((await secondCandidateButton.textContent()) ?? "").replace(/[🔥🥶]/g, "").trim();
     expect(secondPlayerName).not.toBe("");
     expect(secondPlayerName).not.toBe(firstPlayerName);
 
@@ -150,12 +151,13 @@ test.describe("McFARLAND core experience", () => {
     await page.goto("/");
     await expect(singleSearchInput(page)).toBeVisible();
 
-    const onFireRow = page.locator("section[aria-label='On Fire']");
-    const iceColdRow = page.locator("section[aria-label='Ice Cold']");
-    await expect(onFireRow).toBeVisible();
-    await expect(iceColdRow).toBeVisible();
+    const moreIdeasPanel = page.locator("section[aria-label='More ideas']");
+    await expect(moreIdeasPanel).toBeVisible();
+    await moreIdeasPanel.getByRole("tab", { name: /Breakouts/ }).click();
+    const breakoutsRow = page.locator("section[aria-label='Breakouts']");
+    await expect(breakoutsRow).toBeVisible();
 
-    const firstQuickLink = onFireRow.locator("button").first();
+    const firstQuickLink = breakoutsRow.locator("button").first();
     const clickedPlayerName = (await firstQuickLink.textContent())?.trim() ?? "";
     expect(clickedPlayerName).not.toBe("");
 
@@ -169,8 +171,8 @@ test.describe("McFARLAND core experience", () => {
     expect(singleAnalyzeRequests.at(-1)?.playerId).not.toBe("");
 
     await page.getByRole("tab", { name: "Compare Players" }).click();
-    await expect(page.locator("section[aria-label='On Fire']")).toHaveCount(0);
-    await expect(page.locator("section[aria-label='Ice Cold']")).toHaveCount(0);
+    await expect(page.locator("section[aria-label='More ideas']")).toHaveCount(0);
+    await expect(page.locator("section[aria-label='Breakouts']")).toHaveCount(0);
   });
 
   test("single analysis, vibe switch, compare three players, share link", async ({ page, context }) => {

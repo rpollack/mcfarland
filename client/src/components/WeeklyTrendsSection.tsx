@@ -22,22 +22,30 @@ type Props = {
   embedded?: boolean;
 };
 
+type QuickIdeaId = "breakouts" | "trends" | "out-of-character";
+
 function TrendGroup({
   title,
   emoji,
   players,
   onSelectPlayer,
+  getChipPrefix,
+  hideLeadIn = false,
 }: {
   title: string;
   emoji: string;
   players: TrendPlayer[];
   onSelectPlayer: Props["onSelectPlayer"];
+  getChipPrefix?: (player: TrendPlayer) => string | undefined;
+  hideLeadIn?: boolean;
 }) {
   return (
     <section className={styles.row} aria-label={title}>
-      <p className={styles.rowLeadIn}>
-        <span aria-hidden="true">{emoji}</span> {title}:
-      </p>
+      {!hideLeadIn && (
+        <p className={styles.rowLeadIn}>
+          <span aria-hidden="true">{emoji}</span> {title}:
+        </p>
+      )}
       <div className={styles.chipList}>
         {players.map((player) => (
           <button
@@ -56,6 +64,9 @@ function TrendGroup({
               mlbamid={player.mlbamid}
               size={20}
             />
+            {getChipPrefix?.(player) && (
+              <span className={styles.chipPrefix}>{getChipPrefix(player)}</span>
+            )}
             <span>{player.name}</span>
           </button>
         ))}
@@ -109,6 +120,7 @@ function RecentAnalysesGroup({
 
 export default function WeeklyTrendsSection({ playerType, onSelectPlayer, embedded = false }: Props) {
   const [collapsedOnMobile, setCollapsedOnMobile] = useState(false);
+  const [activeIdea, setActiveIdea] = useState<QuickIdeaId>("breakouts");
   const [recentAnalyses, setRecentAnalyses] = useState<RecentAnalysisEntry[]>([]);
 
   useEffect(() => {
@@ -159,6 +171,31 @@ export default function WeeklyTrendsSection({ playerType, onSelectPlayer, embedd
   const newsworthyPlayers = trendingQuery.data?.newsworthy ?? [];
   const onFirePlayers = trendBucket?.risers ?? [];
   const iceColdPlayers = trendBucket?.fallers ?? [];
+  const trendPlayers = [...onFirePlayers, ...iceColdPlayers];
+  const quickIdeaGroups = [
+    {
+      id: "breakouts" as const,
+      label: "Breakouts",
+      emoji: "🚀",
+      players: breakoutPlayers,
+    },
+    {
+      id: "trends" as const,
+      label: "Trends",
+      emoji: "📈",
+      players: trendPlayers,
+      getChipPrefix: (player: TrendPlayer) =>
+        onFirePlayers.some((entry) => entry.id === player.id) ? "🔥" : "🥶",
+    },
+    {
+      id: "out-of-character" as const,
+      label: "Out of Character",
+      emoji: "👀",
+      players: trendingPlayers,
+    },
+  ].filter((group) => group.players.length > 0);
+  const selectedIdeaGroup =
+    quickIdeaGroups.find((group) => group.id === activeIdea) ?? quickIdeaGroups[0];
 
   return (
     <section className={clsx(styles.wrapper, embedded && styles.embedded)} aria-label="Quick links">
@@ -177,43 +214,41 @@ export default function WeeklyTrendsSection({ playerType, onSelectPlayer, embedd
         {(trendsQuery.isError || trendingQuery.isError) && <p className={styles.subhead}>Unable to load quick links right now.</p>}
         {!trendingQuery.isLoading && !trendingQuery.isError && newsworthyPlayers.length > 0 && (
           <TrendGroup
-            title="In the News"
+            title="Start here"
             emoji="📰"
             players={newsworthyPlayers}
             onSelectPlayer={onSelectPlayer}
           />
         )}
-        {!trendingQuery.isLoading && !trendingQuery.isError && breakoutPlayers.length > 0 && (
-          <TrendGroup
-            title="Breakouts"
-            emoji="🚀"
-            players={breakoutPlayers}
-            onSelectPlayer={onSelectPlayer}
-          />
-        )}
-        {!trendingQuery.isLoading && !trendingQuery.isError && trendingPlayers.length > 0 && (
-          <TrendGroup
-            title="Out of Character"
-            emoji="👀"
-            players={trendingPlayers}
-            onSelectPlayer={onSelectPlayer}
-          />
-        )}
-        {!trendsQuery.isLoading && !trendsQuery.isError && (
-          <>
+        {!trendsQuery.isLoading && !trendsQuery.isError && !trendingQuery.isLoading && !trendingQuery.isError && selectedIdeaGroup && (
+          <section className={styles.ideaPanel} aria-label="More ideas">
+            <div className={styles.ideaHeader}>
+              <p className={styles.rowLeadIn}>More ideas:</p>
+              <div className={styles.ideaTabs} role="tablist" aria-label="Choose quick-link category">
+                {quickIdeaGroups.map((group) => (
+                  <button
+                    key={group.id}
+                    type="button"
+                    className={clsx(styles.ideaTab, selectedIdeaGroup.id === group.id && styles.ideaTabActive)}
+                    onClick={() => setActiveIdea(group.id)}
+                    role="tab"
+                    aria-selected={selectedIdeaGroup.id === group.id}
+                  >
+                    <span aria-hidden="true">{group.emoji}</span>
+                    <span>{group.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
             <TrendGroup
-              title="On Fire"
-              emoji="🔥"
-              players={onFirePlayers}
+              title={selectedIdeaGroup.label}
+              emoji={selectedIdeaGroup.emoji}
+              players={selectedIdeaGroup.players}
               onSelectPlayer={onSelectPlayer}
+              getChipPrefix={selectedIdeaGroup.getChipPrefix}
+              hideLeadIn
             />
-            <TrendGroup
-              title="Ice Cold"
-              emoji="🥶"
-              players={iceColdPlayers}
-              onSelectPlayer={onSelectPlayer}
-            />
-          </>
+          </section>
         )}
       </div>
     </section>

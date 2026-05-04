@@ -81,6 +81,12 @@
   gap: 0.35rem;
 }
 
+.chipPrefix {
+  color: #475569;
+  font-size: 0.74rem;
+  line-height: 1;
+}
+
 .chipButton {
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 999px;
@@ -96,6 +102,63 @@
   text-align: left;
   cursor: pointer;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.ideaPanel {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.ideaHeader {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.ideaTabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 0.55rem;
+  background: rgba(241, 245, 249, 0.86);
+  padding: 0.12rem;
+}
+
+.ideaTab {
+  border: 0;
+  border-radius: 0.38rem;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0.36rem 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  transition: background 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.ideaTab:hover,
+.ideaTab:focus-visible {
+  background: rgba(255, 255, 255, 0.7);
+  color: #1d4ed8;
+  outline: none;
+}
+
+.ideaTabActive {
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.16);
+}
+
+.ideaTabActive:hover,
+.ideaTabActive:focus-visible {
+  color: #0f172a;
 }
 
 .chipButton:hover,
