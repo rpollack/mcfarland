@@ -15,6 +15,7 @@ type Props = {
   playerType: PlayerType;
   onSelectPlayer: (selection: {
     playerId: string;
+    playerType?: PlayerType;
     source: "recent_analyze_again" | "main_ui";
     analysisMode?: string;
   }) => void;
@@ -45,6 +46,7 @@ function TrendGroup({
             className={styles.chipButton}
             onClick={() => onSelectPlayer({
               playerId: player.id,
+              playerType: player.type,
               source: "main_ui",
             })}
           >
@@ -154,6 +156,7 @@ export default function WeeklyTrendsSection({ playerType, onSelectPlayer, embedd
     (playerType === "hitter" ? trendingQuery.data.hitters : trendingQuery.data.pitchers);
   const trendingPlayers = trendingBucket?.trending ?? [];
   const breakoutPlayers = trendingBucket?.breakouts ?? [];
+  const newsworthyPlayers = trendingQuery.data?.newsworthy ?? [];
   const onFirePlayers = trendBucket?.risers ?? [];
   const iceColdPlayers = trendBucket?.fallers ?? [];
 
@@ -172,6 +175,14 @@ export default function WeeklyTrendsSection({ playerType, onSelectPlayer, embedd
         <RecentAnalysesGroup analyses={recentAnalyses} onSelectPlayer={onSelectPlayer} />
         {(trendsQuery.isLoading || trendingQuery.isLoading) && <p className={styles.subhead}>Loading…</p>}
         {(trendsQuery.isError || trendingQuery.isError) && <p className={styles.subhead}>Unable to load quick links right now.</p>}
+        {!trendingQuery.isLoading && !trendingQuery.isError && newsworthyPlayers.length > 0 && (
+          <TrendGroup
+            title="In the News"
+            emoji="📰"
+            players={newsworthyPlayers}
+            onSelectPlayer={onSelectPlayer}
+          />
+        )}
         {!trendingQuery.isLoading && !trendingQuery.isError && breakoutPlayers.length > 0 && (
           <TrendGroup
             title="Breakouts"

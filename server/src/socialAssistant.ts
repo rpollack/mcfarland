@@ -22,6 +22,21 @@ type NewsItem = {
   publishedAt?: string;
 };
 
+type NewsSearchItem = NewsItem & {
+  query: string;
+};
+
+type NewsDrivenCandidate = SocialCandidate & {
+  newsScore: number;
+};
+
+type NewsworthyQuickLinkCache = {
+  dataThroughDate: string;
+  players: { id: string; name: string; type: PlayerType; mlbamid?: string | null }[];
+};
+
+let newsworthyQuickLinkCache: NewsworthyQuickLinkCache | null = null;
+
 export type SocialDraftSuggestion = {
   playerId: string;
   playerType: PlayerType;
@@ -46,6 +61,7 @@ export type SocialSuggestionResponse = {
 
 export type TrendingQuickLinksResponse = {
   generatedAt: string;
+  newsworthy: { id: string; name: string; type: PlayerType; mlbamid?: string | null }[];
   hitters: {
     trending: { id: string; name: string; type: "hitter"; mlbamid?: string | null }[];
     breakouts: { id: string; name: string; type: "hitter"; mlbamid?: string | null }[];
@@ -91,6 +107,12 @@ function buildShareUrl(baseUrl: string, playerType: PlayerType, playerId: string
   url.searchParams.set("playerType", playerType);
   url.searchParams.set("playerId", playerId);
   return url.toString();
+}
+
+function buildCandidate(player: HitterRecord | PitcherRecord, baseUrl: string): SocialCandidate {
+  return player.player_type === "hitter"
+    ? buildHitterCandidate(player as HitterRecord, baseUrl)
+    : buildPitcherCandidate(player as PitcherRecord, baseUrl);
 }
 
 function buildHitterCandidate(player: HitterRecord, baseUrl: string): SocialCandidate {
@@ -310,13 +332,28 @@ function extractTag(block: string, tag: string): string | undefined {
   return match?.[1] ? decodeHtml(match[1]) : undefined;
 }
 
-async function fetchPlayerNews(playerName: string): Promise<NewsItem[]> {
+function parseNewsItems(xml: string, query: string, limit: number): NewsSearchItem[] {
+  return [...xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)]
+    .slice(0, limit)
+    .map((match) => {
+      const block = match[1];
+      return {
+        title: extractTag(block, "title") ?? "",
+        link: extractTag(block, "link") ?? "",
+        source: extractTag(block, "source"),
+        publishedAt: extractTag(block, "pubDate"),
+        query,
+      } satisfies NewsSearchItem;
+    })
+    .filter((item) => item.title && item.link);
+}
+
+async function fetchGoogleNewsRss(query: string, limit: number): Promise<NewsSearchItem[]> {
   if (process.env.NODE_ENV === "test") {
     return [];
   }
 
-  const query = encodeURIComponent(`"${playerName}" MLB OR baseball`);
-  const url = `https://news.google.com/rss/search?q=${query}&hl=en-US&gl=US&ceid=US:en`;
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
 
   try {
     const response = await fetch(url, {
@@ -330,23 +367,188 @@ async function fetchPlayerNews(playerName: string): Promise<NewsItem[]> {
     }
 
     const xml = await response.text();
-    const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)]
-      .slice(0, 3)
-      .map((match) => {
-        const block = match[1];
-        return {
-          title: extractTag(block, "title") ?? "",
-          link: extractTag(block, "link") ?? "",
-          source: extractTag(block, "source"),
-          publishedAt: extractTag(block, "pubDate"),
-        } satisfies NewsItem;
-      })
-      .filter((item) => item.title && item.link);
-
-    return items;
+    return parseNewsItems(xml, query, limit);
   } catch (_error) {
     return [];
   }
+}
+
+async function fetchPlayerNews(playerName: string): Promise<NewsItem[]> {
+  return fetchGoogleNewsRss(`"${playerName}" MLB OR baseball`, 3);
+}
+
+const NEWS_DISCOVERY_QUERIES = [
+  "MLB breakout player",
+  "MLB hot streak player",
+  "MLB slump player",
+  "MLB rookie debut",
+  "MLB call-up prospect",
+  "MLB walk-off homer",
+  "MLB strikeouts pitcher",
+  "fantasy baseball riser",
+] as const;
+
+function normalizeSearchText(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function containsName(text: string, playerName: string): boolean {
+  const normalizedText = ` ${normalizeSearchText(text)} `;
+  const normalizedName = normalizeSearchText(playerName);
+  if (!normalizedName.includes(" ")) {
+    return false;
+  }
+  return normalizedText.includes(` ${normalizedName} `);
+}
+
+function eventSpecificityScore(item: NewsSearchItem): number {
+  const text = normalizeSearchText(`${item.query} ${item.title}`);
+  const eventTerms = [
+    "breakout",
+    "hot streak",
+    "slump",
+    "rookie",
+    "debut",
+    "call up",
+    "prospect",
+    "walk off",
+    "homer",
+    "strikeouts",
+    "riser",
+    "sleeper",
+    "waiver",
+  ];
+  return eventTerms.filter((term) => text.includes(term)).length;
+}
+
+function freshnessScore(publishedAt?: string): number {
+  if (!publishedAt) {
+    return 0.5;
+  }
+  const publishedTime = Date.parse(publishedAt);
+  if (Number.isNaN(publishedTime)) {
+    return 0.5;
+  }
+  const ageHours = Math.max(0, (Date.now() - publishedTime) / 36e5);
+  if (ageHours <= 24) return 3;
+  if (ageHours <= 72) return 2;
+  if (ageHours <= 168) return 1;
+  return 0.25;
+}
+
+function sourceKeyFor(item: NewsItem): string {
+  if (item.source) {
+    return normalizeSearchText(item.source);
+  }
+  try {
+    return normalizeSearchText(new URL(item.link).hostname);
+  } catch {
+    return "unknown";
+  }
+}
+
+function buildPlayerIndex(baseUrl: string): SocialCandidate[] {
+  return [
+    ...listPlayers("hitter").map((player) => buildCandidate(player as HitterRecord, baseUrl)),
+    ...listPlayers("pitcher").map((player) => buildCandidate(player as PitcherRecord, baseUrl)),
+  ];
+}
+
+export function buildNewsDrivenCandidates(
+  newsItems: NewsSearchItem[],
+  playerIndex: SocialCandidate[]
+): NewsDrivenCandidate[] {
+  const byPlayer = new Map<string, { candidate: SocialCandidate; news: NewsSearchItem[]; score: number; sources: Set<string> }>();
+  const sourceUseCount = new Map<string, number>();
+
+  for (const item of newsItems) {
+    const sourceKey = sourceKeyFor(item);
+    if ((sourceUseCount.get(sourceKey) ?? 0) >= 8) {
+      continue;
+    }
+
+    const matchedPlayers = playerIndex.filter((candidate) => containsName(item.title, candidate.playerName)).slice(0, 3);
+    if (matchedPlayers.length === 0) {
+      continue;
+    }
+
+    sourceUseCount.set(sourceKey, (sourceUseCount.get(sourceKey) ?? 0) + 1);
+
+    for (const candidate of matchedPlayers) {
+      const key = `${candidate.playerType}:${candidate.playerId}`;
+      const existing = byPlayer.get(key) ?? {
+        candidate,
+        news: [],
+        score: 0,
+        sources: new Set<string>(),
+      };
+
+      if (existing.sources.has(sourceKey)) {
+        continue;
+      }
+
+      existing.sources.add(sourceKey);
+      if (existing.news.length < 3) {
+        existing.news.push(item);
+      }
+      existing.score += 5 + eventSpecificityScore(item) * 1.5 + freshnessScore(item.publishedAt);
+      byPlayer.set(key, existing);
+    }
+  }
+
+  return [...byPlayer.values()]
+    .map(({ candidate, news, score, sources }) => {
+      const sourceDiversity = sources.size;
+      const mcfarlandSignal = Math.min(Math.log1p(Math.max(candidate.score, 0)) * 2, 8);
+      const newsScore = score + sourceDiversity * 4 + mcfarlandSignal;
+      return {
+        ...candidate,
+        score: newsScore,
+        newsScore,
+        news: news.map(({ query: _query, ...item }) => item),
+        whyNow: `${candidate.playerName} is showing up in today's MLB news cycle, and McFARLAND adds this angle: ${candidate.whyNow}`,
+      };
+    })
+    .sort((a, b) => b.newsScore - a.newsScore);
+}
+
+type NewsDrivenCandidatePoolFetcher = (baseUrl: string) => Promise<SocialCandidate[]>;
+
+let newsDrivenCandidatePoolFetcher: NewsDrivenCandidatePoolFetcher | null = null;
+
+async function fetchNewsDrivenCandidatePool(baseUrl: string): Promise<SocialCandidate[]> {
+  if (newsDrivenCandidatePoolFetcher) {
+    return newsDrivenCandidatePoolFetcher(baseUrl);
+  }
+
+  const feeds = await Promise.all(
+    NEWS_DISCOVERY_QUERIES.map((query) => fetchGoogleNewsRss(query, 10))
+  );
+  const newsCandidates = buildNewsDrivenCandidates(feeds.flat(), buildPlayerIndex(baseUrl));
+  return newsCandidates.slice(0, 10);
+}
+
+function candidateKey(candidate: SocialCandidate): string {
+  return `${candidate.playerType}:${candidate.playerId}`;
+}
+
+function supplementCandidatePool(newsDrivenCandidates: SocialCandidate[], statCandidates: SocialCandidate[]): SocialCandidate[] {
+  const seen = new Set(newsDrivenCandidates.map(candidateKey));
+  const supplements = statCandidates.filter((candidate) => {
+    const key = candidateKey(candidate);
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+
+  return [...newsDrivenCandidates, ...supplements].slice(0, 10);
 }
 
 function buildPrompt(candidates: SocialCandidate[]): string {
@@ -373,8 +575,8 @@ function buildPrompt(candidates: SocialCandidate[]): string {
     "You are helping a solo builder decide what baseball player analysis to post on social media today.",
     `Data is current through games on ${freshness.dataThroughLabel}.`,
     "",
-    "Choose exactly 3 players from the candidate list below who are best for a timely social post today.",
-    "Prioritize players who feel timely because of a feat, hot start, cold start, notable team context, or interesting overreaction potential.",
+    "Choose exactly 3 players from the news-first candidate list below who are best for a timely social post today.",
+    "Prioritize players whose news hook and McFARLAND angle work together; do not reward fame or big-market volume by itself.",
     "Recommend exactly 1 of the 3 as the best post today and explain why it is better than the others.",
     "Then draft 2 X posts and 2 Bluesky posts for the recommended player.",
     "Use the provided share_url in every draft.",
@@ -449,6 +651,8 @@ function buildFallbackResponse(candidates: SocialCandidate[]): SocialSuggestionR
 }
 
 export async function generateSocialSuggestions(baseUrl: string): Promise<SocialSuggestionResponse> {
+  const newsDrivenCandidates = await fetchNewsDrivenCandidatePool(baseUrl);
+
   const hitterCandidates = listPlayers("hitter")
     .map((player) => buildHitterCandidate(player as HitterRecord, baseUrl))
     .sort((a, b) => b.score - a.score)
@@ -459,14 +663,17 @@ export async function generateSocialSuggestions(baseUrl: string): Promise<Social
     .sort((a, b) => b.score - a.score)
     .slice(0, 8);
 
-  const candidatePool = [...hitterCandidates, ...pitcherCandidates]
+  const statCandidates = [...hitterCandidates, ...pitcherCandidates]
     .sort((a, b) => b.score - a.score)
     .slice(0, 10);
+  const candidatePool = newsDrivenCandidates.length > 0
+    ? supplementCandidatePool(newsDrivenCandidates, statCandidates)
+    : statCandidates;
 
   const enriched = await Promise.all(
     candidatePool.map(async (candidate) => ({
       ...candidate,
-      news: await fetchPlayerNews(candidate.playerName),
+      news: candidate.news.length > 0 ? candidate.news : await fetchPlayerNews(candidate.playerName),
     }))
   );
 
@@ -524,7 +731,36 @@ export async function generateSocialSuggestions(baseUrl: string): Promise<Social
   };
 }
 
-export function getTrendingQuickLinks(baseUrl: string): TrendingQuickLinksResponse {
+function toTrendPlayer(candidate: SocialCandidate): { id: string; name: string; type: PlayerType; mlbamid?: string | null } {
+  return {
+    id: candidate.playerId,
+    name: candidate.playerName,
+    type: candidate.playerType,
+    mlbamid: candidate.mlbamid ?? null,
+  };
+}
+
+async function getDailyNewsworthyQuickLinks(baseUrl: string): Promise<{ id: string; name: string; type: PlayerType; mlbamid?: string | null }[]> {
+  const { dataThroughDate } = getDataFreshness();
+  if (newsworthyQuickLinkCache?.dataThroughDate === dataThroughDate) {
+    return newsworthyQuickLinkCache.players;
+  }
+
+  const players = (await fetchNewsDrivenCandidatePool(baseUrl))
+    .slice(0, 3)
+    .map(toTrendPlayer);
+
+  newsworthyQuickLinkCache = {
+    dataThroughDate,
+    players,
+  };
+
+  return players;
+}
+
+export async function getTrendingQuickLinks(baseUrl: string): Promise<TrendingQuickLinksResponse> {
+  const newsworthy = await getDailyNewsworthyQuickLinks(baseUrl);
+
   const hitters = topTrendingCandidates("hitter", baseUrl).map((candidate) => ({
     id: candidate.playerId,
     name: candidate.playerName,
@@ -553,7 +789,16 @@ export function getTrendingQuickLinks(baseUrl: string): TrendingQuickLinksRespon
 
   return {
     generatedAt: new Date().toISOString(),
+    newsworthy,
     hitters: { trending: hitters, breakouts: hitterBreakouts },
     pitchers: { trending: pitchers, breakouts: pitcherBreakouts },
   };
+}
+
+export function __clearNewsworthyQuickLinkCacheForTests(): void {
+  newsworthyQuickLinkCache = null;
+}
+
+export function __setNewsDrivenCandidatePoolFetcherForTests(fetcher: NewsDrivenCandidatePoolFetcher | null): void {
+  newsDrivenCandidatePoolFetcher = fetcher;
 }

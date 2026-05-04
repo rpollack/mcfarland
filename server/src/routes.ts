@@ -398,9 +398,9 @@ router.get("/api/about", (_req, res) => {
   res.json(buildAboutContent());
 });
 
-router.get("/api/trending", (req, res) => {
+router.get("/api/trending", async (req, res) => {
   const baseUrl = `${req.protocol}://${req.get("host")}`;
-  res.json(getTrendingQuickLinks(baseUrl));
+  res.json(await getTrendingQuickLinks(baseUrl));
 });
 
 router.get("/api/admin/social-suggestions", async (req, res) => {

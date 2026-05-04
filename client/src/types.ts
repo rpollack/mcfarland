@@ -207,6 +207,7 @@ export interface WeeklyTrendsResponse {
 
 export interface TrendingQuickLinksResponse {
   generatedAt: string;
+  newsworthy: TrendPlayer[];
   hitters: {
     trending: TrendPlayer[];
     breakouts: TrendPlayer[];

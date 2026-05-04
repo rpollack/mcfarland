@@ -14,6 +14,7 @@ const ABOUT_SECTIONS = [
   {
     title: "How quick links work",
     items: [
+      "\"In the News\" highlights players showing up in the current MLB news cycle, then uses McFARLAND stats to find the best analysis angle.",
       "\"Breakouts\" highlights players whose underlying skill stats look meaningfully better than their weighted baseline, while discounting tiny samples and obvious luck spikes.",
       "\"On Fire\" shows the players whose recent trend improved the most over the last 7 days compared to the 7 days before that.",
       "\"Ice Cold\" shows the players whose recent trend moved hardest in the wrong direction over that same window.",
