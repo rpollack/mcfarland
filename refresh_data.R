@@ -9,6 +9,94 @@ library(janitor)
 
 current_year <- 2026
 
+hitter_baseline_cache_file <- paste0("weighted_baselines_hitters_", current_year, ".csv")
+pitcher_baseline_cache_file <- paste0("weighted_baselines_pitchers_", current_year, ".csv")
+
+read_or_build_baseline <- function(cache_file, builder, label) {
+  if (file.exists(cache_file)) {
+    cached <- read_csv(cache_file, show_col_types = FALSE)
+    if ("baseline_for_year" %in% colnames(cached) && all(cached$baseline_for_year == current_year)) {
+      cat("Using cached", label, "weighted baselines from", cache_file, "\n")
+      return(cached |> select(-baseline_for_year))
+    }
+
+    cat("Ignoring stale", label, "weighted baseline cache:", cache_file, "\n")
+  }
+
+  cat("Building", label, "weighted baselines for", current_year, "\n")
+  baseline <- builder()
+  write_csv(baseline |> mutate(baseline_for_year = current_year), cache_file)
+  baseline
+}
+
+build_hitter_baselines <- function() {
+  bind_rows(
+    read_csv("fangraphs-leaderboards-2023.csv", show_col_types = FALSE) |> mutate(year = 2023),
+    read_csv("fangraphs-leaderboards-2024.csv", show_col_types = FALSE) |> mutate(year = 2024),
+    read_csv("fangraphs-leaderboards-2025.csv", show_col_types = FALSE) |> mutate(year = 2025)
+  ) |>
+    mutate(
+      TB = `1B` + 2 * `2B` + 3 * `3B` + 4 * HR,
+      Name = stri_trans_general(Name, id = "Latin-ASCII"),
+      baseline_weight = case_when(
+        year == current_year - 1 ~ 5,
+        year == current_year - 2 ~ 3,
+        year == current_year - 3 ~ 1,
+        TRUE ~ 0
+      )
+    ) |>
+    group_by(Name, PlayerId) |>
+    summarize(
+      AVG = sum(H * baseline_weight) / sum(AB * baseline_weight),
+      OBP = (sum(H * baseline_weight) + sum(BB * baseline_weight) + sum(HBP * baseline_weight)) / (sum(AB * baseline_weight) + sum(BB * baseline_weight) + sum(HBP * baseline_weight) + sum(SF * baseline_weight)),
+      SLG = sum(TB * baseline_weight) / sum(AB * baseline_weight),
+      K_pct = 100 * sum(SO * baseline_weight) / sum(PA * baseline_weight),
+      BB_pct = 100 * sum(BB * baseline_weight) / sum(PA * baseline_weight),
+      Barrel_pct = 100 * sum(Barrels * baseline_weight) / sum(PA * baseline_weight),
+      BABIP = (sum(H * baseline_weight) - sum(HR * baseline_weight)) / (sum(AB * baseline_weight) - sum(SO * baseline_weight) - sum(HR * baseline_weight) + sum(SF * baseline_weight)),
+      wOBA = weighted.mean(wOBA, w = PA * baseline_weight, na.rm = TRUE),
+      xwOBA = weighted.mean(xwOBA, w = PA * baseline_weight, na.rm = TRUE),
+      xwOBA_wOBA_gap = xwOBA - wOBA,
+      PA = sum(PA),
+      .groups = "drop"
+    )
+}
+
+build_pitcher_baselines <- function() {
+  bind_rows(
+    read_csv("pitcher-stats-2023.csv", show_col_types = FALSE) |> mutate(year = 2023),
+    read_csv("pitcher-stats-2024.csv", show_col_types = FALSE) |> mutate(year = 2024),
+    read_csv("pitcher-stats-2025.csv", show_col_types = FALSE) |> mutate(year = 2025)
+  ) |>
+    mutate(
+      baseline_weight = case_when(
+        year == current_year - 1 ~ 5,
+        year == current_year - 2 ~ 3,
+        year == current_year - 3 ~ 1,
+        TRUE ~ 0
+      )
+    ) |>
+    group_by(playerid, name, position) |>
+    summarize(
+      era = sum(er * baseline_weight) / sum(ip * baseline_weight) * 9,
+      k_percent = sum(so * baseline_weight) / sum(tbf * baseline_weight) * 100,
+      bb_percent = sum(bb * baseline_weight) / sum(tbf * baseline_weight) * 100,
+      k_minus_bb_percent = k_percent - bb_percent,
+      xera = weighted.mean(x_era, w = tbf * baseline_weight, na.rm = TRUE),
+      era_xera_gap = era - xera,
+      fip = weighted.mean(fip, w = tbf * baseline_weight, na.rm = TRUE),
+      era_fip_gap = era - fip,
+      barrel_percent = weighted.mean(barrel_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100,
+      ld_percent = weighted.mean(ld_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100,
+      o_swing_percent = weighted.mean(o_swing_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100,
+      babip = weighted.mean(babip, w = tbf * baseline_weight, na.rm = TRUE),
+      lob_percent = weighted.mean(lob_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100,
+      csw_percent = weighted.mean(c_sw_str_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100,
+      hr_fb = weighted.mean(hr_fb, w = tbf * baseline_weight, na.rm = TRUE),
+      .groups = "drop"
+    )
+}
+
 # =============================================================================
 # HITTERS DATA PROCESSING
 # =============================================================================
@@ -18,53 +106,19 @@ current_year <- 2026
 current_hitters <- fg_batter_leaders(pos = "np", startseason = current_year, endseason = current_year)
 cat("Available columns in fg_batter_leaders:", paste(colnames(current_hitters)[1:10], collapse = ", "), "...\n")
 
+hitters_last_3 <- read_or_build_baseline(hitter_baseline_cache_file, build_hitter_baselines, "hitter")
+
 hitter_stats <-
-  bind_rows(
-    read_csv("fangraphs-leaderboards-2023.csv", show_col_types = FALSE) |> mutate(year = 2023),
-    read_csv("fangraphs-leaderboards-2024.csv", show_col_types = FALSE) |> mutate(year = 2024),
-    read_csv("fangraphs-leaderboards-2025.csv", show_col_types = FALSE) |> mutate(year = 2025),
-    # Get current year data with MLB IDs
-    current_hitters |>
-      select(Name = PlayerName, Age, PlayerId = playerid, mlbamid = xMLBAMID, AB, PA, `1B`, `2B`, `3B`, HR, H, HBP, SF, wOBA, xwOBA, SO, BB, Barrels) |>
-      mutate(year = current_year)
-  ) |>
+  current_hitters |>
+  select(Name = PlayerName, Age, PlayerId = playerid, mlbamid = xMLBAMID, AB, PA, `1B`, `2B`, `3B`, HR, H, HBP, SF, wOBA, xwOBA, SO, BB, Barrels) |>
   mutate(
     TB = `1B` + 2 * `2B` + 3 * `3B` + 4 * HR,
     Name = stri_trans_general(Name, id = "Latin-ASCII")
   )
 
-# Compute weighted hitter baselines from the past 3 years
-hitters_last_3 <-
-  hitter_stats |>
-  filter(year != current_year) |>
-  mutate(
-    baseline_weight = case_when(
-      year == current_year - 1 ~ 5,
-      year == current_year - 2 ~ 3,
-      year == current_year - 3 ~ 1,
-      TRUE ~ 0
-    )
-  ) |>
-  group_by(Name, PlayerId) |>
-  summarize(
-    AVG = sum(H * baseline_weight) / sum(AB * baseline_weight),
-    OBP = (sum(H * baseline_weight) + sum(BB * baseline_weight) + sum(HBP * baseline_weight)) / (sum(AB * baseline_weight) + sum(BB * baseline_weight) + sum(HBP * baseline_weight) + sum(SF * baseline_weight)),
-    SLG = sum(TB * baseline_weight) / sum(AB * baseline_weight),
-    K_pct = 100 * sum(SO * baseline_weight) / sum(PA * baseline_weight),
-    BB_pct = 100 * sum(BB * baseline_weight) / sum(PA * baseline_weight),
-    Barrel_pct = 100 * sum(Barrels * baseline_weight) / sum(PA * baseline_weight),
-    BABIP = (sum(H * baseline_weight) - sum(HR * baseline_weight)) / (sum(AB * baseline_weight) - sum(SO * baseline_weight) - sum(HR * baseline_weight) + sum(SF * baseline_weight)),
-    wOBA = weighted.mean(wOBA, w = PA * baseline_weight, na.rm = TRUE),
-    xwOBA = weighted.mean(xwOBA, w = PA * baseline_weight, na.rm = TRUE),
-    xwOBA_wOBA_gap = xwOBA - wOBA,
-    PA = sum(PA),
-    .groups = "drop"
-  )
-
 # Compute hitter stats for current year
 hitters_this_year <-
   hitter_stats |>
-  filter(year == current_year) |>
   group_by(Name, PlayerId) |>
   summarize(
     AVG = sum(H) / sum(AB),
@@ -107,39 +161,7 @@ full_stats_hitters <-
 # =============================================================================
 
 # Load pitcher data for weighted baselines from the past 3 years
-pitching_stats_last_3 <-
-  bind_rows(
-    read_csv("pitcher-stats-2023.csv", show_col_types = FALSE) |> mutate(year = 2023),
-    read_csv("pitcher-stats-2024.csv", show_col_types = FALSE) |> mutate(year = 2024),
-    read_csv("pitcher-stats-2025.csv", show_col_types = FALSE) |> mutate(year = 2025)
-  ) |>
-  mutate(
-    baseline_weight = case_when(
-      year == current_year - 1 ~ 5,
-      year == current_year - 2 ~ 3,
-      year == current_year - 3 ~ 1,
-      TRUE ~ 0
-    )
-  ) |>
-  group_by(playerid, name, position) |>
-  summarize(
-    era = sum(er * baseline_weight) / sum(ip * baseline_weight) * 9,
-    k_percent = sum(so * baseline_weight) / sum(tbf * baseline_weight) * 100,
-    bb_percent = sum(bb * baseline_weight) / sum(tbf * baseline_weight) * 100,
-    k_minus_bb_percent = k_percent - bb_percent,
-    xera = weighted.mean(x_era, w = tbf * baseline_weight, na.rm = TRUE),
-    era_xera_gap = era - xera,
-    fip = weighted.mean(fip, w = tbf * baseline_weight, na.rm = TRUE),
-    era_fip_gap = era - fip,
-    barrel_percent = weighted.mean(barrel_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100,
-    ld_percent = weighted.mean(ld_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100,
-    o_swing_percent = weighted.mean(o_swing_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100,
-    babip = weighted.mean(babip, w = tbf * baseline_weight, na.rm = TRUE),
-    lob_percent = weighted.mean(lob_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100,
-    csw_percent = weighted.mean(c_sw_str_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100,
-    hr_fb = weighted.mean(hr_fb, w = tbf * baseline_weight, na.rm = TRUE),
-    .groups = "drop"
-  )
+pitching_stats_last_3 <- read_or_build_baseline(pitcher_baseline_cache_file, build_pitcher_baselines, "pitcher")
 
 # Get current year pitcher stats from FanGraphs API
 params <- list(

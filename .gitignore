@@ -27,6 +27,8 @@ playwright-report
 !full_stats_hitters.csv
 !full_stats_pitchers.csv
 !player_lookup.csv
+!weighted_baselines_hitters_*.csv
+!weighted_baselines_pitchers_*.csv
 
 # Keep other files
 *.Rproj
