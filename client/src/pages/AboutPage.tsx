@@ -26,7 +26,7 @@ const ABOUT_SECTIONS = [
     items: [
       "Advanced stats shouldn't require a graduate seminar. McFARLAND translates them into friendly stories you can drop in chats or fantasy forums.",
       "Fresh info every morning in-season, right after last night's games, so you're never flexing stale numbers.",
-      "Named for former Orioles swiss-army reliever T.J. McFarland, our mascot for adaptability. <a href=\"https://www.fangraphs.com/players/tj-mcfarland/3237/stats?position=P\" target=\"_blank\" rel=\"noreferrer\">Give the man his due</a>.",
+      "Named for former Orioles swiss-army reliever T.J. McFarland, our mascot for adaptability.",
     ],
   },
 ];
