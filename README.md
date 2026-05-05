@@ -157,4 +157,4 @@ npm run build
 
 ## License
 
-Educational and personal use only. Respect FanGraphs' and MLB's data/image terms.
+Educational and personal use only. Respect applicable baseball data and image terms.
