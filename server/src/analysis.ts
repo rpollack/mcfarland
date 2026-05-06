@@ -8,7 +8,7 @@ export function buildHitterPrompt(player: HitterRecord): string {
     "",
     "--- Key metrics to analyze ---",
     "Format: current | WB (weighted baseline) | diff",
-    `Age: ${formatStatValue(player.Age, 1)}`,
+    `Age: ${formatStatValue(player.Age, 0)}`,
     `Year: ${CURRENT_YEAR}`,
     `Plate Appearances (PA): ${formatStatValue(player.PA_cur, 0)}`,
     "",
@@ -43,7 +43,7 @@ export function buildPitcherPrompt(player: PitcherRecord): string {
     "",
     "--- Key metrics to analyze ---",
     "Format: current | WB (weighted baseline) | diff",
-    `Age: ${formatStatValue(player.Age, 1)}`,
+    `Age: ${formatStatValue(player.Age, 0)}`,
     `Year: ${CURRENT_YEAR}`,
     `Position: ${player.position ?? "Pitcher"}`,
     `Total Batters Faced: ${formatStatValue(player.tbf, 0)}`,
@@ -87,12 +87,34 @@ function buildGeneralInstructions(persona: string): string[] {
     "Use an inverted-pyramid structure: most important conclusion first, then strongest evidence, then caveats/context/ROS judgment.",
     "Use 3-5 short paragraphs separated by blank lines; do not return one solid block of text.",
     "Write complete, natural sentences with varied openings; avoid metric-first fragments and stock openers like 'the clearest read' or 'the biggest takeaway'. Explain baseball meaning before numbers.",
-    "Focus on 2-4 signals; include each key metric's direction and magnitude vs weighted baseline.",
+    "Choose the 2-4 most diagnostic signals for this specific player; do not default to the same metrics every time or mention a stat just because it is available.",
+    "Include each selected metric's direction and magnitude vs weighted baseline.",
     "Cover core skills and luck/regression indicators in prose, without repetition.",
     "Treat PA/TBF and sample size as major confidence inputs; small samples require caution.",
+    "Use age in the rest-of-season judgment when it changes the interpretation: younger players get more development upside, older players get less benefit of the doubt, and prime-age players need stronger skill evidence.",
     "Do not speculate beyond provided stats: injuries, mechanics, lineup role, or team context.",
     "No first person and no word 'thesis'.",
     `Maintain this persona throughout; tone must not override facts or sample-size caution: ${persona}`,
+  ];
+}
+
+function buildMetricSelectionInstructions(type: PlayerType): string[] {
+  if (type === "hitter") {
+    return [
+      "Metric selection guidance for hitters:",
+      "- Start from overall quality indicators: xwOBA and wOBA, especially when they disagree.",
+      "- Use K%, BB%, and Barrel% to explain whether the change is skill-based.",
+      "- Use BABIP and the xwOBA-wOBA gap for luck/regression; do not treat AVG/OBP/SLG as the whole story when skill indicators conflict.",
+      "- AVG, OBP, and SLG are supporting context, not automatic lead metrics.",
+    ];
+  }
+
+  return [
+    "Metric selection guidance for pitchers:",
+    "- Start from run-prevention quality and sustainability: xERA vs ERA, K-BB%, and Barrel Rate.",
+    "- Use K%, BB%, CSW%, and O-Swing% to explain whether the skill change is real.",
+    "- Use BABIP, LOB%, and ERA/xERA gaps for luck/regression; do not lead with ERA alone when estimators or skills disagree.",
+    "- Role and TBF should shape confidence: reliever samples need more caution than starter samples.",
   ];
 }
 
@@ -106,6 +128,8 @@ export function buildAnalysisPrompt(player: HitterRecord | PitcherRecord, type: 
     basePrompt,
     "",
     ...buildGeneralInstructions(persona),
+    "",
+    ...buildMetricSelectionInstructions(type),
   ].join("\n");
 }
 
@@ -134,6 +158,7 @@ export function buildComparisonPrompt(players: (HitterRecord | PitcherRecord)[],
       const hitter = player as HitterRecord;
       return [
         `${hitter.Name}:`,
+        `  Age: ${formatStatValue(hitter.Age, 0)}`,
         `  PA: ${formatStatValue(hitter.PA_cur, 0)}`,
         `  AVG: ${formatStatValue(hitter.AVG_cur)} | WB ${formatStatValue(hitter.AVG_l3)} | diff ${formatStatValue(hitter.AVG_diff)}`,
         `  OBP: ${formatStatValue(hitter.OBP_cur)} | WB ${formatStatValue(hitter.OBP_l3)} | diff ${formatStatValue(hitter.OBP_diff)}`,
@@ -147,6 +172,7 @@ export function buildComparisonPrompt(players: (HitterRecord | PitcherRecord)[],
     const pitcher = player as PitcherRecord;
     return [
       `${pitcher.Name}:`,
+      `  Age: ${formatStatValue(pitcher.Age, 0)}`,
       `  TBF: ${formatStatValue(pitcher.tbf, 0)}`,
       `  ERA: ${formatEra(pitcher.era_cur)} | WB ${formatEra(pitcher.era_l3)} | diff ${formatEra(pitcher.era_diff)}`,
       `  xERA: ${formatEra(pitcher.xera_cur)} | WB ${formatEra(pitcher.xera_l3)} | diff ${formatEra(pitcher.xera_diff)}`,
@@ -165,6 +191,8 @@ export function buildComparisonPrompt(players: (HitterRecord | PitcherRecord)[],
     "Metric format: current | WB (weighted baseline) | diff.",
     "",
     ...buildGeneralInstructions(persona),
+    "",
+    ...buildMetricSelectionInstructions(type),
     "",
     ...lines,
   ].join("\n");

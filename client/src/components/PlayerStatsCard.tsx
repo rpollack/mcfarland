@@ -58,7 +58,7 @@ function PlayerStatsCard({ type, player }: Props) {
       <header className={styles.header}>
         <h2>{player.Name}</h2>
         <p>
-          Age {formatValue((player as HitterRecord).Age ?? (player as PitcherRecord).Age, 1)} · {type === "hitter" ? `${formatValue((player as HitterRecord).PA_cur, 0)} PA` : `${formatValue((player as PitcherRecord).tbf, 0)} TBF`}
+          Age {formatValue((player as HitterRecord).Age ?? (player as PitcherRecord).Age, 0)} · {type === "hitter" ? `${formatValue((player as HitterRecord).PA_cur, 0)} PA` : `${formatValue((player as PitcherRecord).tbf, 0)} TBF`}
         </p>
       </header>
       <div className={styles.metricsGrid}>
