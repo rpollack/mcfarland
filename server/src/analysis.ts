@@ -55,7 +55,6 @@ export function buildPitcherPrompt(player: PitcherRecord): string {
     `xERA: ${formatEra(player.xera_cur)} | WB ${formatEra(player.xera_l3)} | diff ${formatEra(player.xera_diff)}`,
     `BABIP: ${formatStatValue(player.babip_cur)} | WB ${formatStatValue(player.babip_l3)} | diff ${formatStatValue(player.babip_diff)}`,
     `Barrel Rate: ${formatPercentage(player.barrel_percent_cur)} | WB ${formatPercentage(player.barrel_percent_l3)} | diff ${formatPercentage(player.barrel_percent_diff)}`,
-    `Line Drive Rate (LD%): ${formatPercentage(player.ld_percent_cur)} | WB ${formatPercentage(player.ld_percent_l3)} | diff ${formatPercentage(player.ld_percent_diff)}`,
     `Strikeout Rate (K%): ${formatPercentage(player.k_percent_cur)} | WB ${formatPercentage(player.k_percent_l3)} | diff ${formatPercentage(player.k_percent_diff)}`,
     `Called Strike & Whiff Rate (CSW%): ${formatPercentage(player.csw_percent_cur)} | WB ${formatPercentage(player.csw_percent_l3)} | diff ${formatPercentage(player.csw_percent_diff)}`,
     `Outside Zone Swing Rate (O-Swing%): ${formatPercentage(player.o_swing_percent_cur)} | WB ${formatPercentage(player.o_swing_percent_l3)} | diff ${formatPercentage(player.o_swing_percent_diff)}`,
@@ -155,7 +154,6 @@ export function buildComparisonPrompt(players: (HitterRecord | PitcherRecord)[],
       `  BB%: ${formatPercentage(pitcher.bb_percent_cur)} | WB ${formatPercentage(pitcher.bb_percent_l3)} | diff ${formatPercentage(pitcher.bb_percent_diff)}`,
       `  K-BB%: ${formatPercentage(pitcher.k_minus_bb_percent_cur)} | WB ${formatPercentage(pitcher.k_minus_bb_percent_l3)} | diff ${formatPercentage(pitcher.k_minus_bb_percent_diff)}`,
       `  BABIP: ${formatStatValue(pitcher.babip_cur)} | WB ${formatStatValue(pitcher.babip_l3)} | diff ${formatStatValue(pitcher.babip_diff)}`,
-      `  LD%: ${formatPercentage(pitcher.ld_percent_cur)} | WB ${formatPercentage(pitcher.ld_percent_l3)} | diff ${formatPercentage(pitcher.ld_percent_diff)}`,
       `  CSW%: ${formatPercentage(pitcher.csw_percent_cur)} | WB ${formatPercentage(pitcher.csw_percent_l3)} | diff ${formatPercentage(pitcher.csw_percent_diff)}`,
     ].join("\n");
   });

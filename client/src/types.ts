@@ -67,9 +67,6 @@ export interface PitcherRecord {
   barrel_percent_cur: number | null;
   barrel_percent_l3: number | null;
   barrel_percent_diff: number | null;
-  ld_percent_cur: number | null;
-  ld_percent_l3: number | null;
-  ld_percent_diff: number | null;
   k_percent_cur: number | null;
   k_percent_l3: number | null;
   k_percent_diff: number | null;
