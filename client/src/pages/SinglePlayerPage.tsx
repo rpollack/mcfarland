@@ -50,6 +50,13 @@ function formatEra(value: number | null | undefined): string {
   return Number(value).toFixed(2);
 }
 
+function formatAge(value: number | null | undefined): string | undefined {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return undefined;
+  }
+  return String(Math.round(value));
+}
+
 function buildQuickStatsLine(
   player: HitterRecord | PitcherRecord,
   playerType: PlayerType,
@@ -132,6 +139,7 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
     detailQuery.data && freshnessQuery.data
       ? buildQuickStatsLine(detailQuery.data.player, playerType, freshnessQuery.data.dataThroughLabel)
       : undefined;
+  const selectedPlayerAge = detailQuery.data ? formatAge(detailQuery.data.player.Age) : undefined;
 
   useEffect(() => {
     if (!selectedId) {
@@ -290,6 +298,7 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                       />
                       <div className={styles.playerMeta}>
                         <h2>{detailQuery.data.player.Name}</h2>
+                        {selectedPlayerAge && <p>Age {selectedPlayerAge}</p>}
                       </div>
                     </div>
                   </header>
