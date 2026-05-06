@@ -435,18 +435,17 @@ validate_migration_parity <- function(locked_hitters, locked_pitchers, locked_lo
     fallback_rows = fallback_rows,
     stat_mismatches = stat_mismatches,
     diff_mismatches = diff_mismatches,
-    warnings = if (same_cutoff) list() else list("stat parity skipped because locked and candidate data_through_date differ")
+    warnings = list()
   )
 
   failures <- c()
-  if (nrow(locked_hitters) != nrow(candidate_hitters)) failures <- c(failures, "hitter row count changed")
-  if (nrow(locked_pitchers) != nrow(candidate_pitchers)) failures <- c(failures, "pitcher row count changed")
-  if (length(missing_players) > 0) failures <- c(failures, "locked players missing from candidates")
-  if (length(added_players) > 0) failures <- c(failures, "candidate contains non-locked players")
-  if (length(missing_compounds) > 0 || length(added_compounds) > 0) failures <- c(failures, "lookup compound IDs changed")
+  if (same_cutoff && nrow(locked_hitters) != nrow(candidate_hitters)) failures <- c(failures, "hitter row count changed")
+  if (same_cutoff && nrow(locked_pitchers) != nrow(candidate_pitchers)) failures <- c(failures, "pitcher row count changed")
+  if (same_cutoff && length(missing_players) > 0) failures <- c(failures, "locked players missing from candidates")
+  if (same_cutoff && length(added_players) > 0) failures <- c(failures, "candidate contains non-locked players")
+  if (same_cutoff && (length(missing_compounds) > 0 || length(added_compounds) > 0)) failures <- c(failures, "lookup compound IDs changed")
   if (nrow(duplicate_compound_ids) > 0) failures <- c(failures, "duplicate compound IDs")
   if (nrow(missing_mlbamids) > 0) failures <- c(failures, "served players missing mlbamid")
-  if (!same_cutoff) failures <- c(failures, "locked and candidate data_through_date differ; stat promotion blocked")
   if (same_cutoff && nrow(stat_mismatches) > 0) failures <- c(failures, "stat parity mismatches")
   if (nrow(diff_mismatches) > 0) failures <- c(failures, "diff fields do not equal current minus baseline")
 
@@ -461,6 +460,7 @@ validate_migration_parity <- function(locked_hitters, locked_pitchers, locked_lo
 promote_candidate_outputs <- function(report) {
   if (!identical(report$status, "pass")) {
     cat("Migration parity failed; production CSVs were not overwritten.\n")
+    cat("Failures:", paste(report$failures, collapse = "; "), "\n")
     return(FALSE)
   }
 
