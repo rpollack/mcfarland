@@ -54,10 +54,16 @@ describe("analysis prompts", () => {
     expect(analysisPrompt).toContain("Use an inverted-pyramid structure");
     expect(analysisPrompt).toContain("most important conclusion first");
     expect(analysisPrompt).toContain("3-5 short paragraphs separated by blank lines");
+    expect(analysisPrompt).toContain("Choose the 2-4 most diagnostic signals");
+    expect(analysisPrompt).toContain("do not default to the same metrics every time");
+    expect(analysisPrompt).toContain("Use age in the rest-of-season judgment");
+    expect(analysisPrompt).toContain("Metric selection guidance for hitters");
+    expect(analysisPrompt).toContain("xwOBA and wOBA");
+    expect(analysisPrompt).toContain("AVG, OBP, and SLG are supporting context");
   });
 
   it("labels pitcher baselines as weighted baseline", () => {
-    const prompt = buildPitcherPrompt({
+    const pitcher = {
       Name: "Test Pitcher",
       PlayerId: "2",
       Age: 29,
@@ -93,10 +99,18 @@ describe("analysis prompts", () => {
       lob_percent_diff: -2,
       babip_diff: -0.01,
       player_type: "pitcher",
-    } satisfies PitcherRecord);
+    } satisfies PitcherRecord;
+
+    const prompt = buildPitcherPrompt(pitcher);
 
     expect(prompt).toContain("weighted baseline");
     expect(prompt).not.toContain("Last 3 Years");
+
+    const analysisPrompt = buildAnalysisPrompt(pitcher, "pitcher", "straightforward");
+    expect(analysisPrompt).toContain("Metric selection guidance for pitchers");
+    expect(analysisPrompt).toContain("xERA vs ERA, K-BB%, and Barrel Rate");
+    expect(analysisPrompt).toContain("Use K%, BB%, CSW%, and O-Swing%");
+    expect(analysisPrompt).toContain("Use age in the rest-of-season judgment");
   });
 
   it("tells comparison prompts not to dump metric rows into prose", () => {
@@ -184,5 +198,10 @@ describe("analysis prompts", () => {
     expect(prompt).toContain("do not copy the metric rows into the answer");
     expect(prompt).toContain("Do not write semicolon-separated stat dumps");
     expect(prompt).toContain("critical lines");
+    expect(prompt).toContain("Choose the 2-4 most diagnostic signals");
+    expect(prompt).toContain("Use age in the rest-of-season judgment");
+    expect(prompt).toContain("Metric selection guidance for hitters");
+    expect(prompt).toContain("  Age: 28.0");
+    expect(prompt).toContain("  Age: 30.0");
   });
 });
