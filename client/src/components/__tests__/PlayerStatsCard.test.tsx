@@ -70,9 +70,6 @@ describe("PlayerStatsCard", () => {
       barrel_percent_cur: 7,
       barrel_percent_l3: 8,
       barrel_percent_diff: -1,
-      ld_percent_cur: 18.4,
-      ld_percent_l3: 21.2,
-      ld_percent_diff: -2.8,
       k_percent_cur: 25,
       k_percent_l3: 24,
       k_percent_diff: 1,
@@ -98,9 +95,6 @@ describe("PlayerStatsCard", () => {
     expect(screen.getByText("26.1%")).toBeInTheDocument();
     expect(screen.getByText("29.4%")).toBeInTheDocument();
     expect(screen.getByText("-3.3%")).toBeInTheDocument();
-    expect(screen.getByText("LD%")).toBeInTheDocument();
-    expect(screen.getByText("18.4%")).toBeInTheDocument();
-    expect(screen.getByText("21.2%")).toBeInTheDocument();
-    expect(screen.getByText("-2.8%")).toBeInTheDocument();
+    expect(screen.queryByText("LD%")).not.toBeInTheDocument();
   });
 });
