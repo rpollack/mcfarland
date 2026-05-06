@@ -44,3 +44,4 @@ app/.Renviron
 .DS_Store
 tests/e2e/test-results/.last-run.json
 migration_parity_report.json
+DATA_SOURCE_MIGRATION_PLAN.md
