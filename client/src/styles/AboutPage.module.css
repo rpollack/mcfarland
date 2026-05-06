@@ -84,3 +84,20 @@
   color: #475569;
   font-weight: 500;
 }
+
+.attribution {
+  margin: -0.25rem 0 0;
+  color: #64748b;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.attribution a {
+  color: #1d4ed8;
+  text-decoration: none;
+}
+
+.attribution a:hover,
+.attribution a:focus-visible {
+  text-decoration: underline;
+}

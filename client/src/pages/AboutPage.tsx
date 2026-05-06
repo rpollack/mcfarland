@@ -114,6 +114,14 @@ function AboutPage() {
           </a>
         </p>
       </section>
+
+      <p className={styles.attribution}>
+        MLB data © MLB Advanced Media, L.P. Use of MLB data is subject to{" "}
+        <a href="http://gdx.mlb.com/components/copyright.txt" target="_blank" rel="noreferrer">
+          MLB&apos;s terms
+        </a>
+        .
+      </p>
     </article>
   );
 }
