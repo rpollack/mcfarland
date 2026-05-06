@@ -201,7 +201,9 @@ describe("analysis prompts", () => {
     expect(prompt).toContain("Choose the 2-4 most diagnostic signals");
     expect(prompt).toContain("Use age in the rest-of-season judgment");
     expect(prompt).toContain("Metric selection guidance for hitters");
-    expect(prompt).toContain("  Age: 28.0");
-    expect(prompt).toContain("  Age: 30.0");
+    expect(prompt).toContain("  Age: 28");
+    expect(prompt).toContain("  Age: 30");
+    expect(prompt).not.toContain("  Age: 28.0");
+    expect(prompt).not.toContain("  Age: 30.0");
   });
 });
