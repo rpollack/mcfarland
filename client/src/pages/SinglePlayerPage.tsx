@@ -13,7 +13,6 @@ import {
   fetchPlayerDetail,
   fetchPlayers,
   logShareAnalyticsEvent,
-  trackAnalysisRunAnalyticsEvent,
 } from "../api";
 import type { HitterRecord, PitcherRecord, PlayerType } from "../types";
 import { buildSharePreviewUrl } from "../utils/share";
@@ -179,7 +178,6 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
   const [playerType, setPlayerType] = useState<PlayerType>(initialPlayerType);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedId, setSelectedId] = useState<string | undefined>(initialPlayerId);
-  const [selectionSource, setSelectionSource] = useState<"recent_analyze_again" | "main_ui">("main_ui");
   const [shareStatus, setShareStatus] = useState<"idle" | "success" | "error">("idle");
   const syncingFromPropsRef = useRef(false);
 
@@ -272,14 +270,7 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
       analysisMode: mode,
     });
 
-    trackAnalysisRunAnalyticsEvent({
-      playerId: selectedId,
-      playerName: detailQuery.data.player.Name,
-      playerType,
-      analysisMode: mode,
-      selectionSource,
-    });
-  }, [analysisData?.analysis, analysisData?.prompt, detailQuery.data, mode, playerType, selectedId, selectionSource]);
+  }, [analysisData?.analysis, analysisData?.prompt, detailQuery.data, mode, playerType, selectedId]);
 
   useEffect(() => {
     if (syncingFromPropsRef.current) {
@@ -338,7 +329,6 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
           onTypeChange={(nextType) => {
             setPlayerType(nextType);
             setSelectedId(undefined);
-            setSelectionSource("main_ui");
             setSearchTerm("");
           }}
           searchTerm={searchTerm}
@@ -351,7 +341,6 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
           players={searchEnabled ? playersQuery.data ?? [] : []}
           selectedId={selectedId}
           onSelect={(playerId) => {
-            setSelectionSource("main_ui");
             setSelectedId(playerId);
           }}
           isLoading={searchEnabled && playersQuery.isLoading}
@@ -359,8 +348,7 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
         <WeeklyTrendsSection
           embedded
           playerType={playerType}
-          onSelectPlayer={({ playerId, playerType: selectedPlayerType, source, analysisMode }) => {
-            setSelectionSource(source);
+          onSelectPlayer={({ playerId, playerType: selectedPlayerType, analysisMode }) => {
             if (selectedPlayerType && selectedPlayerType !== playerType) {
               setPlayerType(selectedPlayerType);
             }

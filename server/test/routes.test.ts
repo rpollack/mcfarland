@@ -147,6 +147,7 @@ describe("McFARLAND API", () => {
   });
 
   afterEach(() => {
+    delete process.env.ADMIN_PASSWORD;
     __setAnalysisCacheStoreForTests(null);
     __setOpenAiChatHandlerForTests(null);
     __setFantasyDecisionHandlerForTests(null);
@@ -504,6 +505,44 @@ describe("McFARLAND API", () => {
       return payload.events[0].event_properties.mode;
     });
     expect(loggedModes).toEqual(["single", "single", "compare"]);
+  });
+
+  it("does not log session starts while admin mode is enabled", async () => {
+    process.env.ADMIN_PASSWORD = "top-secret";
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true } as Response);
+
+    const response = await request(app)
+      .post("/api/sessions?admin=top-secret")
+      .send({ sessionId: "admin-session" });
+
+    expect(response.status).toBe(204);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetchSpy).not.toHaveBeenCalled();
+    delete process.env.ADMIN_PASSWORD;
+  });
+
+  it("does not log analysis events while admin mode is enabled", async () => {
+    process.env.ADMIN_PASSWORD = "top-secret";
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true } as Response);
+    __setOpenAiChatHandlerForTests(async (prompt: string, persona: string) => ({
+      prompt,
+      persona,
+      headline: "Admin headline",
+      analysis: "Admin analysis",
+      cached: false,
+    }));
+
+    const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
+    const hitter = listBody.players[0];
+    const response = await request(app)
+      .post("/api/analyze?admin=top-secret")
+      .set("x-session-id", "admin-analysis")
+      .send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
+
+    expect(response.status).toBe(200);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetchSpy).not.toHaveBeenCalled();
+    delete process.env.ADMIN_PASSWORD;
   });
 
   it("prunes stale analysis cache rows after successful writes", async () => {
