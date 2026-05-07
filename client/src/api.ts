@@ -193,8 +193,6 @@ export async function logShareAnalyticsEvent({
   playerType?: PlayerType;
   shareUrl?: string;
 }): Promise<void> {
-  window.amplitude?.track("ShareEvent");
-
   const sessionId = getOrCreateSessionId();
   if (!sessionId) {
     return;
@@ -218,26 +216,4 @@ export async function logShareAnalyticsEvent({
   } catch (error) {
     console.warn("Failed to log share analytics event", error);
   }
-}
-
-export function trackAnalysisRunAnalyticsEvent({
-  playerId,
-  playerName,
-  playerType,
-  analysisMode,
-  selectionSource,
-}: {
-  playerId: string;
-  playerName: string;
-  playerType: PlayerType;
-  analysisMode: string;
-  selectionSource: "recent_analyze_again" | "main_ui";
-}): void {
-  window.amplitude?.track("analysis_run", {
-    player_id: playerId,
-    player_name: playerName,
-    player_type: playerType,
-    analysis_mode: analysisMode,
-    selection_source: selectionSource,
-  });
 }
