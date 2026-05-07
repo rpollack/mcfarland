@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import PlayerPicker from "../components/PlayerPicker";
 import AnalysisPanel from "../components/AnalysisPanel";
+import type { QuickStatSignal } from "../components/AnalysisPanel";
 import VibeSelector from "../components/VibeSelector";
 import PlayerHeadshot from "../components/PlayerHeadshot";
 import WeeklyTrendsSection from "../components/WeeklyTrendsSection";
@@ -9,7 +10,6 @@ import panelStyles from "../styles/AnalysisPanel.module.css";
 import { useVibe } from "../contexts/VibeContext";
 import {
   analyzePlayer,
-  fetchDataFreshness,
   fetchPlayerDetail,
   fetchPlayers,
   logShareAnalyticsEvent,
@@ -57,22 +57,121 @@ function formatAge(value: number | null | undefined): string | undefined {
   return String(Math.round(value));
 }
 
-function buildQuickStatsLine(
+function isFiniteNumber(value: number | null | undefined): value is number {
+  return value !== null && value !== undefined && Number.isFinite(value);
+}
+
+function formatSignedValue(value: number, digits: number): string {
+  const prefix = value > 0 ? "+" : "";
+  return `${prefix}${Number(value).toFixed(digits)}`.replace(/^([+-]?)0\./, "$1.");
+}
+
+type SignalCandidate = QuickStatSignal & {
+  score: number;
+};
+
+function buildSignal(
+  label: string,
+  value: number | null | undefined,
+  digits: number,
+  scoreMultiplier: number,
+  goodDirection: 1 | -1 | 0 = 1
+): SignalCandidate | null {
+  if (!isFiniteNumber(value) || Math.abs(value) < 0.0005) {
+    return null;
+  }
+
+  const tone =
+    goodDirection === 0
+      ? "neutral"
+      : value * goodDirection > 0
+        ? "positive"
+        : "negative";
+
+  return {
+    label: `${label} ${formatSignedValue(value, digits)}`,
+    score: Math.abs(value) * scoreMultiplier,
+    tone,
+  };
+}
+
+function formatCurrentValue(value: number, digits: number, suffix = ""): string {
+  return `${Number(value).toFixed(digits)}${suffix}`.replace(/^(-?)0\./, "$1.");
+}
+
+function buildCurrentSignal(label: string, value: number | null | undefined, digits: number, suffix = ""): QuickStatSignal | null {
+  if (!isFiniteNumber(value)) {
+    return null;
+  }
+
+  return {
+    label: `${label} ${formatCurrentValue(value, digits, suffix)}`,
+    tone: "neutral",
+  };
+}
+
+function buildQuickStatSignals(player: HitterRecord | PitcherRecord, playerType: PlayerType): QuickStatSignal[] {
+  const signals =
+    playerType === "hitter"
+      ? [
+          buildSignal("xwOBA", (player as HitterRecord).xwOBA_diff, 3, 100),
+          buildSignal("wOBA", (player as HitterRecord).wOBA_diff, 3, 100),
+          buildSignal("Barrel%", (player as HitterRecord).Barrel_pct_diff, 1, 1),
+          buildSignal("K%", (player as HitterRecord).K_pct_diff, 1, 1, -1),
+          buildSignal("BB%", (player as HitterRecord).BB_pct_diff, 1, 1),
+          buildSignal("BABIP", (player as HitterRecord).BABIP_diff, 3, 100, 0),
+          buildSignal("xwOBA-wOBA", (player as HitterRecord).xwOBA_wOBA_gap_diff, 3, 100),
+        ]
+      : [
+          buildSignal("xERA", (player as PitcherRecord).xera_diff, 2, 1, -1),
+          buildSignal("ERA", (player as PitcherRecord).era_diff, 2, 1, -1),
+          buildSignal("K-BB%", (player as PitcherRecord).k_minus_bb_percent_diff, 1, 1),
+          buildSignal("CSW%", (player as PitcherRecord).csw_percent_diff, 1, 1),
+          buildSignal("Barrel%", (player as PitcherRecord).barrel_percent_diff, 1, 1, -1),
+          buildSignal("BABIP", (player as PitcherRecord).babip_diff, 3, 100, 0),
+          buildSignal("LOB%", (player as PitcherRecord).lob_percent_diff, 1, 1, 0),
+        ];
+
+  const diffSignals = signals
+    .filter((signal): signal is SignalCandidate => Boolean(signal))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map(({ label, tone }) => ({ label, tone }));
+
+  if (diffSignals.length > 0) {
+    return diffSignals;
+  }
+
+  const fallbackSignals =
+    playerType === "hitter"
+      ? [
+          buildCurrentSignal("xwOBA", (player as HitterRecord).xwOBA_cur, 3),
+          buildCurrentSignal("wOBA", (player as HitterRecord).wOBA_cur, 3),
+          buildCurrentSignal("Barrel%", (player as HitterRecord).Barrel_pct_cur, 1, "%"),
+        ]
+      : [
+          buildCurrentSignal("xERA", (player as PitcherRecord).xera_cur, 2),
+          buildCurrentSignal("K-BB%", (player as PitcherRecord).k_minus_bb_percent_cur, 1, "%"),
+          buildCurrentSignal("CSW%", (player as PitcherRecord).csw_percent_cur, 1, "%"),
+        ];
+
+  return fallbackSignals.filter((signal): signal is QuickStatSignal => Boolean(signal));
+}
+
+function buildPlayerMetaLine(
   player: HitterRecord | PitcherRecord,
   playerType: PlayerType,
-  dataThroughLabel?: string
+  ageLabel?: string
 ): string | undefined {
-  if (!dataThroughLabel) {
-    return undefined;
-  }
+  const prefix = ageLabel ? `Age ${ageLabel} · ` : "";
 
   if (playerType === "hitter") {
     const hitter = player as HitterRecord;
-    return `Through ${dataThroughLabel}: ${formatInteger(hitter.PA_cur)} PA · ${formatSlashStat(hitter.AVG_cur)}/${formatSlashStat(hitter.OBP_cur)}/${formatSlashStat(hitter.SLG_cur)}`;
+    return `${prefix}${formatSlashStat(hitter.AVG_cur)}/${formatSlashStat(hitter.OBP_cur)}/${formatSlashStat(hitter.SLG_cur)} in ${formatInteger(hitter.PA_cur)} PA`;
   }
 
   const pitcher = player as PitcherRecord;
-  return `Through ${dataThroughLabel}: ${formatInteger(pitcher.tbf)} TBF · ${formatEra(pitcher.era_cur)} ERA · ${formatInteger(pitcher.so)} SO · ${formatInteger(pitcher.bb)} BB`;
+  return `${prefix}${formatEra(pitcher.era_cur)} ERA, ${formatInteger(pitcher.so)} SO, ${formatInteger(pitcher.bb)} BB in ${formatInteger(pitcher.tbf)} TBF`;
 }
 
 function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateChange }: Props) {
@@ -108,11 +207,6 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
     enabled: Boolean(selectedId),
   });
 
-  const freshnessQuery = useQuery({
-    queryKey: ["data-freshness"],
-    queryFn: fetchDataFreshness,
-  });
-
   const lastAnalysisKeyRef = useRef<string | null>(null);
   const {
     mutate: runAnalysis,
@@ -135,11 +229,13 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
   const hasSelectedPlayer = Boolean(selectedId);
   const hasPlayerProfile = Boolean(detailQuery.data);
   const analysisReady = Boolean(analysisData?.analysis);
-  const quickStatsLine =
-    detailQuery.data && freshnessQuery.data
-      ? buildQuickStatsLine(detailQuery.data.player, playerType, freshnessQuery.data.dataThroughLabel)
-      : undefined;
+  const quickStatSignals = detailQuery.data
+    ? buildQuickStatSignals(detailQuery.data.player, playerType)
+    : [];
   const selectedPlayerAge = detailQuery.data ? formatAge(detailQuery.data.player.Age) : undefined;
+  const selectedPlayerMetaLine = detailQuery.data
+    ? buildPlayerMetaLine(detailQuery.data.player, playerType, selectedPlayerAge)
+    : undefined;
 
   useEffect(() => {
     if (!selectedId) {
@@ -298,13 +394,13 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                       />
                       <div className={styles.playerMeta}>
                         <h2>{detailQuery.data.player.Name}</h2>
-                        {selectedPlayerAge && <p>Age {selectedPlayerAge}</p>}
+                        {selectedPlayerMetaLine && <p>{selectedPlayerMetaLine}</p>}
                       </div>
                     </div>
                   </header>
                 )}
                 quickInsight={detailQuery.data.quickInsight}
-                quickStatsLine={quickStatsLine}
+                quickStatSignals={quickStatSignals}
                 isAnalyzing={isAnalysisPending}
                 headline={analysisData?.headline}
                 analysis={analysisData?.analysis}
