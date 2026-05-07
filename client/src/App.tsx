@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import SinglePlayerPage from "./pages/SinglePlayerPage";
 import ComparePage from "./pages/ComparePage";
@@ -7,7 +8,7 @@ import AboutPage from "./pages/AboutPage";
 import SocialAssistantPage from "./pages/SocialAssistantPage";
 import { VibeProvider, useVibe } from "./contexts/VibeContext";
 import styles from "./styles/App.module.css";
-import { registerSession } from "./api";
+import { fetchDataFreshness, registerSession } from "./api";
 import type { PlayerType } from "./types";
 
 type ExperienceMode = "single" | "compare" | "fantasy";
@@ -47,6 +48,10 @@ function AppShell() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { mode: vibeMode, setMode: setVibeMode, vibes, defaultMode } = useVibe();
   const lastUrlVibeRef = useRef<string | null>(searchParams.get(VIBE_PARAM));
+  const freshnessQuery = useQuery({
+    queryKey: ["data-freshness"],
+    queryFn: fetchDataFreshness,
+  });
 
   const rawMode = searchParams.get(EXPERIENCE_PARAM);
   const urlMode: ExperienceMode = rawMode === "compare" || rawMode === "fantasy" ? rawMode : "single";
@@ -246,6 +251,11 @@ function AppShell() {
       </main>
 
       <footer className={styles.footer}>
+        {freshnessQuery.data && (
+          <p className={styles.footerTagline}>
+            All stats are through games on {freshnessQuery.data.dataThroughLabel}.
+          </p>
+        )}
         <button
           type="button"
           className={styles.linkButton}
