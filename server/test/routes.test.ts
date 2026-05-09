@@ -838,6 +838,9 @@ describe("McFARLAND API", () => {
     expect(response.headers["content-type"]).toContain("text/html");
     expect(response.text).toContain("og:title");
     expect(response.text).toContain("twitter:title");
+    expect(response.text).toContain("og:image");
+    expect(response.text).toContain("twitter:image");
+    expect(response.text).toContain("img.mlbstatic.com");
     expect(response.text).toContain("Judge");
     expect(response.text).toContain("/?mode=single");
   });
@@ -865,6 +868,18 @@ describe("McFARLAND API", () => {
     expect(response.status).toBe(200);
     expect(response.text).toContain('property="og:title" content="Judge keeps forcing the issue | McFARLAND"');
     expect(response.text).toContain('name="twitter:title" content="Judge keeps forcing the issue | McFARLAND"');
+  });
+
+  it("does not include image metadata for plain app URL shares", async () => {
+    const response = await request(app).get("/");
+
+    expect(response.status).toBe(200);
+    expect(response.headers["content-type"]).toContain("text/html");
+    expect(response.text).toContain('property="og:title" content="McFARLAND | Advanced Baseball Analysis"');
+    expect(response.text).toContain('name="twitter:card" content="summary"');
+    expect(response.text).not.toContain('property="og:image"');
+    expect(response.text).not.toContain('name="twitter:image"');
+    expect(response.text).not.toContain("generic:headshot");
   });
 
   it("injects OG tags into SPA HTML responses", async () => {
