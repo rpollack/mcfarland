@@ -2,6 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { __setDataFreshnessForTests, getDataFreshness } from "../src/dataStore.js";
 import {
   __clearNewsworthyQuickLinkCacheForTests,
+  __clearPreviousSeasonSampleCacheForTests,
+  __getBreakoutBaselineEligibilityForTests,
+  __getPitcherBreakoutPreviousSeasonThresholdForTests,
   __setNewsDrivenCandidatePoolFetcherForTests,
   buildNewsDrivenCandidates,
   getTrendingQuickLinks,
@@ -12,6 +15,7 @@ const originalFreshness = getDataFreshness();
 describe("social assistant news discovery", () => {
   afterEach(() => {
     __clearNewsworthyQuickLinkCacheForTests();
+    __clearPreviousSeasonSampleCacheForTests();
     __setNewsDrivenCandidatePoolFetcherForTests(null);
     __setDataFreshnessForTests(originalFreshness);
   });
@@ -154,5 +158,32 @@ describe("social assistant news discovery", () => {
     expect(first.newsworthy[0]).toMatchObject({ id: "1", name: "Aaron Judge" });
     expect(second.newsworthy[0]).toMatchObject({ id: "2", name: "Tarik Skubal" });
     expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it("requires half-season previous-year samples for breakout quick links", async () => {
+    const quickLinks = await getTrendingQuickLinks("https://example.test");
+
+    quickLinks.hitters.breakouts.forEach((player) => {
+      const eligibility = __getBreakoutBaselineEligibilityForTests("hitter", player.id);
+
+      expect(eligibility).not.toBeNull();
+      expect(eligibility?.qualified).toBe(true);
+      expect(eligibility?.sample).toBeGreaterThanOrEqual(300);
+      expect(eligibility?.threshold).toBe(300);
+    });
+
+    quickLinks.pitchers.breakouts.forEach((player) => {
+      const eligibility = __getBreakoutBaselineEligibilityForTests("pitcher", player.id);
+
+      expect(eligibility).not.toBeNull();
+      expect(eligibility?.qualified).toBe(true);
+      expect(eligibility?.sample).toBeGreaterThanOrEqual(eligibility?.threshold ?? Number.POSITIVE_INFINITY);
+      expect([125, 350]).toContain(eligibility?.threshold);
+    });
+  });
+
+  it("uses different previous-year TBF thresholds for starter and reliever breakouts", () => {
+    expect(__getPitcherBreakoutPreviousSeasonThresholdForTests(32, 32)).toBe(350);
+    expect(__getPitcherBreakoutPreviousSeasonThresholdForTests(65, 0)).toBe(125);
   });
 });
