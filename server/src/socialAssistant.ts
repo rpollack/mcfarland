@@ -1,7 +1,19 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { parse } from "csv-parse/sync";
 import { getDataFreshness, listPlayers } from "./dataStore.js";
 import { callOpenAiChat } from "./openai.js";
 import type { HitterRecord, PitcherRecord, PlayerType } from "./types.js";
 import { DEFAULT_ANALYSIS_MODE, type AnalysisMode } from "./vibes.js";
+
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const DATA_ROOT = path.resolve(currentDir, "..", "..");
+const HITTER_BREAKOUT_PREVIOUS_SEASON_MIN_PA = 300;
+const STARTER_BREAKOUT_PREVIOUS_SEASON_MIN_TBF = 350;
+const RELIEVER_BREAKOUT_PREVIOUS_SEASON_MIN_TBF = 125;
+const STARTER_MIN_PREVIOUS_SEASON_STARTS = 10;
+const STARTER_MIN_PREVIOUS_SEASON_START_RATE = 0.5;
 
 type SocialCandidate = {
   playerId: string;
@@ -35,7 +47,25 @@ type NewsworthyQuickLinkCache = {
   players: { id: string; name: string; type: PlayerType; mlbamid?: string | null }[];
 };
 
+type PreviousHitterSample = {
+  plateAppearances: number;
+};
+
+type PreviousPitcherSample = {
+  battersFaced: number;
+  games: number;
+  starts: number;
+  role: "starter" | "reliever";
+};
+
+type PreviousSeasonSampleCache = {
+  season: number;
+  hitters: Map<string, PreviousHitterSample>;
+  pitchers: Map<string, PreviousPitcherSample>;
+};
+
 let newsworthyQuickLinkCache: NewsworthyQuickLinkCache | null = null;
+let previousSeasonSampleCache: PreviousSeasonSampleCache | null = null;
 
 export type SocialDraftSuggestion = {
   playerId: string;
@@ -77,6 +107,143 @@ function valueOrZero(value: number | null | undefined): number {
     return 0;
   }
   return value;
+}
+
+function readCsvRows(filename: string): Record<string, string>[] {
+  const filePath = path.resolve(DATA_ROOT, filename);
+  if (!fs.existsSync(filePath)) {
+    return [];
+  }
+
+  return parse(fs.readFileSync(filePath, "utf8"), {
+    bom: true,
+    columns: true,
+    skip_empty_lines: true,
+    trim: true,
+  }) as Record<string, string>[];
+}
+
+function parseNumber(value: string | null | undefined): number {
+  if (!value) {
+    return 0;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getPreviousSeason(): number | null {
+  const year = Number(getDataFreshness().dataThroughDate.slice(0, 4));
+  return Number.isFinite(year) ? year - 1 : null;
+}
+
+function getPitcherPreviousSeasonRole(games: number, starts: number): PreviousPitcherSample["role"] {
+  if (starts >= STARTER_MIN_PREVIOUS_SEASON_STARTS) {
+    return "starter";
+  }
+  if (games > 0 && starts / games >= STARTER_MIN_PREVIOUS_SEASON_START_RATE) {
+    return "starter";
+  }
+  return "reliever";
+}
+
+function loadPreviousSeasonSamples(): PreviousSeasonSampleCache | null {
+  const season = getPreviousSeason();
+  if (!season) {
+    return null;
+  }
+  if (previousSeasonSampleCache?.season === season) {
+    return previousSeasonSampleCache;
+  }
+
+  const hitters = new Map<string, PreviousHitterSample>();
+  readCsvRows(`fangraphs-leaderboards-${season}.csv`).forEach((row) => {
+    const playerId = row.PlayerId;
+    if (!playerId) {
+      return;
+    }
+    hitters.set(String(playerId), {
+      plateAppearances: parseNumber(row.PA),
+    });
+  });
+
+  const pitchers = new Map<string, PreviousPitcherSample>();
+  readCsvRows(`pitcher-stats-${season}.csv`).forEach((row) => {
+    const playerId = row.PlayerId;
+    if (!playerId) {
+      return;
+    }
+    const games = parseNumber(row.G);
+    const starts = parseNumber(row.GS);
+    pitchers.set(String(playerId), {
+      battersFaced: parseNumber(row.TBF),
+      games,
+      starts,
+      role: getPitcherPreviousSeasonRole(games, starts),
+    });
+  });
+
+  previousSeasonSampleCache = { season, hitters, pitchers };
+  return previousSeasonSampleCache;
+}
+
+function getPreviousSeasonHitterSample(playerId: string): PreviousHitterSample | null {
+  return loadPreviousSeasonSamples()?.hitters.get(playerId) ?? null;
+}
+
+function getPreviousSeasonPitcherSample(playerId: string): PreviousPitcherSample | null {
+  return loadPreviousSeasonSamples()?.pitchers.get(playerId) ?? null;
+}
+
+function getPitcherBreakoutPreviousSeasonThreshold(sample: PreviousPitcherSample): number {
+  return sample.role === "starter" ? STARTER_BREAKOUT_PREVIOUS_SEASON_MIN_TBF : RELIEVER_BREAKOUT_PREVIOUS_SEASON_MIN_TBF;
+}
+
+function hasQualifiedHitterBreakoutBaseline(player: HitterRecord): boolean {
+  const previousSample = getPreviousSeasonHitterSample(String(player.PlayerId));
+  return Boolean(previousSample && previousSample.plateAppearances >= HITTER_BREAKOUT_PREVIOUS_SEASON_MIN_PA);
+}
+
+function hasQualifiedPitcherBreakoutBaseline(player: PitcherRecord): boolean {
+  const previousSample = getPreviousSeasonPitcherSample(String(player.PlayerId));
+  return Boolean(previousSample && previousSample.battersFaced >= getPitcherBreakoutPreviousSeasonThreshold(previousSample));
+}
+
+export function __clearPreviousSeasonSampleCacheForTests(): void {
+  previousSeasonSampleCache = null;
+}
+
+export function __getPitcherBreakoutPreviousSeasonThresholdForTests(games: number, starts: number): number {
+  const role = getPitcherPreviousSeasonRole(games, starts);
+  return role === "starter" ? STARTER_BREAKOUT_PREVIOUS_SEASON_MIN_TBF : RELIEVER_BREAKOUT_PREVIOUS_SEASON_MIN_TBF;
+}
+
+export function __getBreakoutBaselineEligibilityForTests(
+  playerType: PlayerType,
+  playerId: string
+): { qualified: boolean; sample: number; threshold: number; role?: PreviousPitcherSample["role"] } | null {
+  if (playerType === "hitter") {
+    const sample = getPreviousSeasonHitterSample(playerId);
+    if (!sample) {
+      return null;
+    }
+    return {
+      qualified: sample.plateAppearances >= HITTER_BREAKOUT_PREVIOUS_SEASON_MIN_PA,
+      sample: sample.plateAppearances,
+      threshold: HITTER_BREAKOUT_PREVIOUS_SEASON_MIN_PA,
+    };
+  }
+
+  const sample = getPreviousSeasonPitcherSample(playerId);
+  if (!sample) {
+    return null;
+  }
+  const threshold = getPitcherBreakoutPreviousSeasonThreshold(sample);
+  return {
+    qualified: sample.battersFaced >= threshold,
+    sample: sample.battersFaced,
+    threshold,
+    role: sample.role,
+  };
 }
 
 function absolute(value: number | null | undefined): number {
@@ -188,7 +355,7 @@ function buildHitterBreakoutCandidate(player: HitterRecord, baseUrl: string): So
   const babipDiff = valueOrZero(player.BABIP_diff);
   const wobaDiff = valueOrZero(player.wOBA_diff);
 
-  if (plateAppearances < 25 || (xwobaDiff <= 0 && barrelDiff <= 0)) {
+  if (!hasQualifiedHitterBreakoutBaseline(player) || plateAppearances < 25 || (xwobaDiff <= 0 && barrelDiff <= 0)) {
     return null;
   }
 
@@ -238,7 +405,7 @@ function buildPitcherBreakoutCandidate(player: PitcherRecord, baseUrl: string): 
   const babipDiff = valueOrZero(player.babip_diff);
   const lobDiff = valueOrZero(player.lob_percent_diff);
 
-  if (battersFaced < 30 || (xeraDiff >= 0 && kMinusBbDiff <= 0)) {
+  if (!hasQualifiedPitcherBreakoutBaseline(player) || battersFaced < 30 || (xeraDiff >= 0 && kMinusBbDiff <= 0)) {
     return null;
   }
 
