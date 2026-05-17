@@ -60,6 +60,11 @@ function buildFantasyPlayerLines(player: HitterRecord | PitcherRecord, type: Pla
       formatLine("Barrel%", formatPercentage(hitter.Barrel_pct_cur)),
       formatLine("xwOBA weighted baseline", formatStatValue(hitter.xwOBA_l3)),
       formatLine("xwOBA diff vs weighted baseline", formatStatValue(hitter.xwOBA_diff)),
+      formatLine("xwOBA league-adjusted diff", formatStatValue(hitter.xwOBA_lg_adj_diff)),
+      formatLine("wOBA league-adjusted diff", formatStatValue(hitter.wOBA_lg_adj_diff)),
+      formatLine("K% league-adjusted diff", formatPercentage(hitter.K_pct_lg_adj_diff)),
+      formatLine("BB% league-adjusted diff", formatPercentage(hitter.BB_pct_lg_adj_diff)),
+      formatLine("Barrel% league-adjusted diff", formatPercentage(hitter.Barrel_pct_lg_adj_diff)),
     ];
   }
 
@@ -77,6 +82,11 @@ function buildFantasyPlayerLines(player: HitterRecord | PitcherRecord, type: Pla
     formatLine("Barrel% allowed", formatPercentage(pitcher.barrel_percent_cur)),
     formatLine("xERA weighted baseline", formatEra(pitcher.xera_l3)),
     formatLine("xERA diff vs weighted baseline", formatEra(pitcher.xera_diff)),
+    formatLine("xERA league-adjusted diff", formatEra(pitcher.xera_lg_adj_diff)),
+    formatLine("K-BB% league-adjusted diff", formatPercentage(pitcher.k_minus_bb_percent_lg_adj_diff)),
+    formatLine("K% league-adjusted diff", formatPercentage(pitcher.k_percent_lg_adj_diff)),
+    formatLine("BB% league-adjusted diff", formatPercentage(pitcher.bb_percent_lg_adj_diff)),
+    formatLine("Barrel% allowed league-adjusted diff", formatPercentage(pitcher.barrel_percent_lg_adj_diff)),
   ];
 }
 
@@ -98,6 +108,8 @@ export function buildFantasyDailyMatchupPrompt(
     "- Do not mention confirmed lineup status in the headline; lineup has its own UI badge. Use lineup status in analysis only when it changes the recommendation or confidence.",
     "- If there is no game today, the game is postponed, the hitter is confirmed not in the lineup, or a pitcher is not today's probable starter, strongly prefer SIT and say why.",
     "- If key matchup facts are unavailable, still give a START or SIT decision and lower the confidence.",
+    "- Treat league-adjusted diffs as the best signal of whether the player's skills changed relative to this year's league environment.",
+    "- Keep stat density low in the analysis. State the fantasy takeaway first, then cite only the one or two numbers needed; do not stack current value, baseline, raw diff, and league-adjusted diff in the same sentence.",
     "- Keep analysis concise: 2 short paragraphs maximum.",
     "- Do not invent injuries, batting order, lineup status, weather, or opponent details that are not listed below.",
     "",

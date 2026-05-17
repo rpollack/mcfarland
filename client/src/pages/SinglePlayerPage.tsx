@@ -113,22 +113,22 @@ function buildQuickStatSignals(player: HitterRecord | PitcherRecord, playerType:
   const signals =
     playerType === "hitter"
       ? [
-          buildSignal("xwOBA", (player as HitterRecord).xwOBA_diff, 3, 100),
-          buildSignal("wOBA", (player as HitterRecord).wOBA_diff, 3, 100),
-          buildSignal("Barrel%", (player as HitterRecord).Barrel_pct_diff, 1, 1),
-          buildSignal("K%", (player as HitterRecord).K_pct_diff, 1, 1, -1),
-          buildSignal("BB%", (player as HitterRecord).BB_pct_diff, 1, 1),
-          buildSignal("BABIP", (player as HitterRecord).BABIP_diff, 3, 100, 0),
-          buildSignal("xwOBA-wOBA", (player as HitterRecord).xwOBA_wOBA_gap_diff, 3, 100),
+          buildSignal("xwOBA", (player as HitterRecord).xwOBA_lg_adj_diff ?? (player as HitterRecord).xwOBA_diff, 3, 100),
+          buildSignal("wOBA", (player as HitterRecord).wOBA_lg_adj_diff ?? (player as HitterRecord).wOBA_diff, 3, 100),
+          buildSignal("Barrel%", (player as HitterRecord).Barrel_pct_lg_adj_diff ?? (player as HitterRecord).Barrel_pct_diff, 1, 1),
+          buildSignal("K%", (player as HitterRecord).K_pct_lg_adj_diff ?? (player as HitterRecord).K_pct_diff, 1, 1, -1),
+          buildSignal("BB%", (player as HitterRecord).BB_pct_lg_adj_diff ?? (player as HitterRecord).BB_pct_diff, 1, 1),
+          buildSignal("BABIP", (player as HitterRecord).BABIP_lg_adj_diff ?? (player as HitterRecord).BABIP_diff, 3, 100, 0),
+          buildSignal("xwOBA-wOBA", (player as HitterRecord).xwOBA_wOBA_gap_lg_adj_diff ?? (player as HitterRecord).xwOBA_wOBA_gap_diff, 3, 100),
         ]
       : [
-          buildSignal("xERA", (player as PitcherRecord).xera_diff, 2, 1, -1),
-          buildSignal("ERA", (player as PitcherRecord).era_diff, 2, 1, -1),
-          buildSignal("K-BB%", (player as PitcherRecord).k_minus_bb_percent_diff, 1, 1),
-          buildSignal("CSW%", (player as PitcherRecord).csw_percent_diff, 1, 1),
-          buildSignal("Barrel%", (player as PitcherRecord).barrel_percent_diff, 1, 1, -1),
-          buildSignal("BABIP", (player as PitcherRecord).babip_diff, 3, 100, 0),
-          buildSignal("LOB%", (player as PitcherRecord).lob_percent_diff, 1, 1, 0),
+          buildSignal("xERA", (player as PitcherRecord).xera_lg_adj_diff ?? (player as PitcherRecord).xera_diff, 2, 1, -1),
+          buildSignal("ERA", (player as PitcherRecord).era_lg_adj_diff ?? (player as PitcherRecord).era_diff, 2, 1, -1),
+          buildSignal("K-BB%", (player as PitcherRecord).k_minus_bb_percent_lg_adj_diff ?? (player as PitcherRecord).k_minus_bb_percent_diff, 1, 1),
+          buildSignal("CSW%", (player as PitcherRecord).csw_percent_lg_adj_diff ?? (player as PitcherRecord).csw_percent_diff, 1, 1),
+          buildSignal("Barrel%", (player as PitcherRecord).barrel_percent_lg_adj_diff ?? (player as PitcherRecord).barrel_percent_diff, 1, 1, -1),
+          buildSignal("BABIP", (player as PitcherRecord).babip_lg_adj_diff ?? (player as PitcherRecord).babip_diff, 3, 100, 0),
+          buildSignal("LOB%", (player as PitcherRecord).lob_percent_lg_adj_diff ?? (player as PitcherRecord).lob_percent_diff, 1, 1, 0),
         ];
 
   const diffSignals = signals

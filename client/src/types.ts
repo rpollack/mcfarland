@@ -44,6 +44,16 @@ export interface HitterRecord {
   wOBA_diff: number | null;
   xwOBA_diff: number | null;
   xwOBA_wOBA_gap_diff: number | null;
+  AVG_lg_adj_diff?: number | null;
+  OBP_lg_adj_diff?: number | null;
+  SLG_lg_adj_diff?: number | null;
+  K_pct_lg_adj_diff?: number | null;
+  BB_pct_lg_adj_diff?: number | null;
+  Barrel_pct_lg_adj_diff?: number | null;
+  BABIP_lg_adj_diff?: number | null;
+  wOBA_lg_adj_diff?: number | null;
+  xwOBA_lg_adj_diff?: number | null;
+  xwOBA_wOBA_gap_lg_adj_diff?: number | null;
 }
 
 export interface PitcherRecord {
@@ -85,6 +95,16 @@ export interface PitcherRecord {
   lob_percent_cur: number | null;
   lob_percent_l3: number | null;
   lob_percent_diff: number | null;
+  era_lg_adj_diff?: number | null;
+  k_percent_lg_adj_diff?: number | null;
+  bb_percent_lg_adj_diff?: number | null;
+  k_minus_bb_percent_lg_adj_diff?: number | null;
+  xera_lg_adj_diff?: number | null;
+  o_swing_percent_lg_adj_diff?: number | null;
+  csw_percent_lg_adj_diff?: number | null;
+  barrel_percent_lg_adj_diff?: number | null;
+  lob_percent_lg_adj_diff?: number | null;
+  babip_lg_adj_diff?: number | null;
 }
 
 export type PlayerRecord = HitterRecord | PitcherRecord;

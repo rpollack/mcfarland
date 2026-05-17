@@ -283,20 +283,27 @@ function buildCandidate(player: HitterRecord | PitcherRecord, baseUrl: string): 
 }
 
 function buildHitterCandidate(player: HitterRecord, baseUrl: string): SocialCandidate {
+  const wobaDiff = player.wOBA_lg_adj_diff ?? player.wOBA_diff;
+  const xwobaDiff = player.xwOBA_lg_adj_diff ?? player.xwOBA_diff;
+  const slgDiff = player.SLG_lg_adj_diff ?? player.SLG_diff;
+  const obpDiff = player.OBP_lg_adj_diff ?? player.OBP_diff;
+  const barrelDiff = player.Barrel_pct_lg_adj_diff ?? player.Barrel_pct_diff;
+  const kDiff = player.K_pct_lg_adj_diff ?? player.K_pct_diff;
+  const bbDiff = player.BB_pct_lg_adj_diff ?? player.BB_pct_diff;
   const score =
-    (absolute(player.wOBA_diff) * 6 +
-      absolute(player.xwOBA_diff) * 6 +
-      absolute(player.SLG_diff) * 4 +
-      absolute(player.OBP_diff) * 3 +
-      absolute(player.Barrel_pct_diff) * 0.35 +
-      absolute(player.K_pct_diff) * 0.2 +
-      absolute(player.BB_pct_diff) * 0.2) *
+    (absolute(wobaDiff) * 6 +
+      absolute(xwobaDiff) * 6 +
+      absolute(slgDiff) * 4 +
+      absolute(obpDiff) * 3 +
+      absolute(barrelDiff) * 0.35 +
+      absolute(kDiff) * 0.2 +
+      absolute(bbDiff) * 0.2) *
     sampleWeight(player.PA_cur, 70);
 
   const headlineMetric =
-    absolute(player.wOBA_diff) >= absolute(player.SLG_diff)
-      ? `wOBA ${formatSigned(player.wOBA_diff)} vs weighted baseline`
-      : `SLG ${formatSigned(player.SLG_diff)} vs weighted baseline`;
+    absolute(wobaDiff) >= absolute(slgDiff)
+      ? `league-adjusted wOBA ${formatSigned(wobaDiff)}`
+      : `league-adjusted SLG ${formatSigned(slgDiff)}`;
 
   return {
     playerId: String(player.PlayerId),
@@ -305,27 +312,34 @@ function buildHitterCandidate(player: HitterRecord, baseUrl: string): SocialCand
     mlbamid: player.mlbamid ?? null,
     score,
     whyNow: `${player.Name} stands out because ${headlineMetric} over ${Math.round(player.PA_cur ?? 0)} PA.`,
-    statSnapshot: `${Math.round(player.PA_cur ?? 0)} PA · wOBA ${formatSigned(player.wOBA_diff)} · xwOBA ${formatSigned(player.xwOBA_diff)} · SLG ${formatSigned(player.SLG_diff)}`,
+    statSnapshot: `${Math.round(player.PA_cur ?? 0)} PA · lg-adj wOBA ${formatSigned(wobaDiff)} · xwOBA ${formatSigned(xwobaDiff)} · SLG ${formatSigned(slgDiff)}`,
     shareUrl: buildShareUrl(baseUrl, "hitter", String(player.PlayerId)),
     news: [],
   };
 }
 
 function buildPitcherCandidate(player: PitcherRecord, baseUrl: string): SocialCandidate {
+  const eraDiff = player.era_lg_adj_diff ?? player.era_diff;
+  const xeraDiff = player.xera_lg_adj_diff ?? player.xera_diff;
+  const kMinusBbDiff = player.k_minus_bb_percent_lg_adj_diff ?? player.k_minus_bb_percent_diff;
+  const kDiff = player.k_percent_lg_adj_diff ?? player.k_percent_diff;
+  const bbDiff = player.bb_percent_lg_adj_diff ?? player.bb_percent_diff;
+  const cswDiff = player.csw_percent_lg_adj_diff ?? player.csw_percent_diff;
+  const barrelDiff = player.barrel_percent_lg_adj_diff ?? player.barrel_percent_diff;
   const score =
-    (absolute(player.era_diff) * 5 +
-      absolute(player.xera_diff) * 5 +
-      absolute(player.k_minus_bb_percent_diff) * 0.3 +
-      absolute(player.k_percent_diff) * 0.2 +
-      absolute(player.bb_percent_diff) * 0.2 +
-      absolute(player.csw_percent_diff) * 0.18 +
-      absolute(player.barrel_percent_diff) * 0.2) *
+    (absolute(eraDiff) * 5 +
+      absolute(xeraDiff) * 5 +
+      absolute(kMinusBbDiff) * 0.3 +
+      absolute(kDiff) * 0.2 +
+      absolute(bbDiff) * 0.2 +
+      absolute(cswDiff) * 0.18 +
+      absolute(barrelDiff) * 0.2) *
     sampleWeight(player.tbf, 70);
 
   const headlineMetric =
-    absolute(player.era_diff) >= absolute(player.xera_diff)
-      ? `ERA ${formatSigned(player.era_diff, 2)} vs weighted baseline`
-      : `xERA ${formatSigned(player.xera_diff, 2)} vs weighted baseline`;
+    absolute(eraDiff) >= absolute(xeraDiff)
+      ? `league-adjusted ERA ${formatSigned(eraDiff, 2)}`
+      : `league-adjusted xERA ${formatSigned(xeraDiff, 2)}`;
 
   return {
     playerId: String(player.PlayerId),
@@ -334,7 +348,7 @@ function buildPitcherCandidate(player: PitcherRecord, baseUrl: string): SocialCa
     mlbamid: player.mlbamid ?? null,
     score,
     whyNow: `${player.Name} stands out because ${headlineMetric} over ${Math.round(player.tbf ?? 0)} TBF.`,
-    statSnapshot: `${Math.round(player.tbf ?? 0)} TBF · ERA ${formatSigned(player.era_diff, 2)} · xERA ${formatSigned(player.xera_diff, 2)} · K-BB% ${formatSigned(player.k_minus_bb_percent_diff, 1)}`,
+    statSnapshot: `${Math.round(player.tbf ?? 0)} TBF · lg-adj ERA ${formatSigned(eraDiff, 2)} · xERA ${formatSigned(xeraDiff, 2)} · K-BB% ${formatSigned(kMinusBbDiff, 1)}`,
     shareUrl: buildShareUrl(baseUrl, "pitcher", String(player.PlayerId)),
     news: [],
   };
@@ -346,14 +360,14 @@ function countImprovedSignals(signals: boolean[]): number {
 
 function buildHitterBreakoutCandidate(player: HitterRecord, baseUrl: string): SocialCandidate | null {
   const plateAppearances = valueOrZero(player.PA_cur);
-  const xwobaDiff = valueOrZero(player.xwOBA_diff);
-  const barrelDiff = valueOrZero(player.Barrel_pct_diff);
-  const bbDiff = valueOrZero(player.BB_pct_diff);
-  const kDiff = valueOrZero(player.K_pct_diff);
-  const slgDiff = valueOrZero(player.SLG_diff);
-  const obpDiff = valueOrZero(player.OBP_diff);
-  const babipDiff = valueOrZero(player.BABIP_diff);
-  const wobaDiff = valueOrZero(player.wOBA_diff);
+  const xwobaDiff = valueOrZero(player.xwOBA_lg_adj_diff ?? player.xwOBA_diff);
+  const barrelDiff = valueOrZero(player.Barrel_pct_lg_adj_diff ?? player.Barrel_pct_diff);
+  const bbDiff = valueOrZero(player.BB_pct_lg_adj_diff ?? player.BB_pct_diff);
+  const kDiff = valueOrZero(player.K_pct_lg_adj_diff ?? player.K_pct_diff);
+  const slgDiff = valueOrZero(player.SLG_lg_adj_diff ?? player.SLG_diff);
+  const obpDiff = valueOrZero(player.OBP_lg_adj_diff ?? player.OBP_diff);
+  const babipDiff = valueOrZero(player.BABIP_lg_adj_diff ?? player.BABIP_diff);
+  const wobaDiff = valueOrZero(player.wOBA_lg_adj_diff ?? player.wOBA_diff);
 
   if (!hasQualifiedHitterBreakoutBaseline(player) || plateAppearances < 25 || (xwobaDiff <= 0 && barrelDiff <= 0)) {
     return null;
@@ -386,8 +400,8 @@ function buildHitterBreakoutCandidate(player: HitterRecord, baseUrl: string): So
     playerName: player.Name,
     mlbamid: player.mlbamid ?? null,
     score,
-    whyNow: `${player.Name} looks like a real early breakout: xwOBA ${formatSigned(player.xwOBA_diff)} and Barrel% ${formatSigned(player.Barrel_pct_diff, 1)} over ${Math.round(plateAppearances)} PA.`,
-    statSnapshot: `${Math.round(plateAppearances)} PA · xwOBA ${formatSigned(player.xwOBA_diff)} · Barrel% ${formatSigned(player.Barrel_pct_diff, 1)} · BB% ${formatSigned(player.BB_pct_diff, 1)}`,
+    whyNow: `${player.Name} looks like a real early breakout: league-adjusted xwOBA ${formatSigned(xwobaDiff)} and Barrel% ${formatSigned(barrelDiff, 1)} over ${Math.round(plateAppearances)} PA.`,
+    statSnapshot: `${Math.round(plateAppearances)} PA · lg-adj xwOBA ${formatSigned(xwobaDiff)} · Barrel% ${formatSigned(barrelDiff, 1)} · BB% ${formatSigned(bbDiff, 1)}`,
     shareUrl: buildShareUrl(baseUrl, "hitter", String(player.PlayerId)),
     news: [],
   };
@@ -395,15 +409,15 @@ function buildHitterBreakoutCandidate(player: HitterRecord, baseUrl: string): So
 
 function buildPitcherBreakoutCandidate(player: PitcherRecord, baseUrl: string): SocialCandidate | null {
   const battersFaced = valueOrZero(player.tbf);
-  const xeraDiff = valueOrZero(player.xera_diff);
-  const kMinusBbDiff = valueOrZero(player.k_minus_bb_percent_diff);
-  const kDiff = valueOrZero(player.k_percent_diff);
-  const bbDiff = valueOrZero(player.bb_percent_diff);
-  const cswDiff = valueOrZero(player.csw_percent_diff);
-  const barrelDiff = valueOrZero(player.barrel_percent_diff);
-  const eraDiff = valueOrZero(player.era_diff);
-  const babipDiff = valueOrZero(player.babip_diff);
-  const lobDiff = valueOrZero(player.lob_percent_diff);
+  const xeraDiff = valueOrZero(player.xera_lg_adj_diff ?? player.xera_diff);
+  const kMinusBbDiff = valueOrZero(player.k_minus_bb_percent_lg_adj_diff ?? player.k_minus_bb_percent_diff);
+  const kDiff = valueOrZero(player.k_percent_lg_adj_diff ?? player.k_percent_diff);
+  const bbDiff = valueOrZero(player.bb_percent_lg_adj_diff ?? player.bb_percent_diff);
+  const cswDiff = valueOrZero(player.csw_percent_lg_adj_diff ?? player.csw_percent_diff);
+  const barrelDiff = valueOrZero(player.barrel_percent_lg_adj_diff ?? player.barrel_percent_diff);
+  const eraDiff = valueOrZero(player.era_lg_adj_diff ?? player.era_diff);
+  const babipDiff = valueOrZero(player.babip_lg_adj_diff ?? player.babip_diff);
+  const lobDiff = valueOrZero(player.lob_percent_lg_adj_diff ?? player.lob_percent_diff);
 
   if (!hasQualifiedPitcherBreakoutBaseline(player) || battersFaced < 30 || (xeraDiff >= 0 && kMinusBbDiff <= 0)) {
     return null;
@@ -446,8 +460,8 @@ function buildPitcherBreakoutCandidate(player: PitcherRecord, baseUrl: string): 
     playerName: player.Name,
     mlbamid: player.mlbamid ?? null,
     score,
-    whyNow: `${player.Name} has the look of a real pitching breakout: xERA ${formatSigned(player.xera_diff, 2)} and K-BB% ${formatSigned(player.k_minus_bb_percent_diff, 1)} over ${Math.round(battersFaced)} TBF.`,
-    statSnapshot: `${Math.round(battersFaced)} TBF · xERA ${formatSigned(player.xera_diff, 2)} · K-BB% ${formatSigned(player.k_minus_bb_percent_diff, 1)} · CSW% ${formatSigned(player.csw_percent_diff, 1)}`,
+    whyNow: `${player.Name} has the look of a real pitching breakout: league-adjusted xERA ${formatSigned(xeraDiff, 2)} and K-BB% ${formatSigned(kMinusBbDiff, 1)} over ${Math.round(battersFaced)} TBF.`,
+    statSnapshot: `${Math.round(battersFaced)} TBF · lg-adj xERA ${formatSigned(xeraDiff, 2)} · K-BB% ${formatSigned(kMinusBbDiff, 1)} · CSW% ${formatSigned(cswDiff, 1)}`,
     shareUrl: buildShareUrl(baseUrl, "pitcher", String(player.PlayerId)),
     news: [],
   };

@@ -15,10 +15,10 @@ const ABOUT_SECTIONS = [
     title: "How quick links work",
     items: [
       "\"In the News\" highlights players showing up in the current MLB news cycle, then uses McFARLAND stats to find the best analysis angle.",
-      "\"Breakouts\" highlights players whose underlying skill stats look meaningfully better than their weighted baseline, while discounting tiny samples and obvious luck spikes.",
+      "\"Breakouts\" highlights players whose underlying skill stats look meaningfully better than their weighted baseline and the league-wide trend, while discounting tiny samples and obvious luck spikes.",
       "\"On Fire\" shows the players whose recent trend improved the most over the last 7 days compared to the 7 days before that.",
       "\"Ice Cold\" shows the players whose recent trend moved hardest in the wrong direction over that same window.",
-      "\"Out of Character\" is a daily watch list of players whose current-year stats look the most different from their weighted baseline.",
+      "\"Out of Character\" is a daily watch list of players whose current-year stats look the most different from their weighted baseline after accounting for league-wide changes.",
     ],
   },
   {
@@ -68,7 +68,10 @@ function AboutPage() {
           The weighted baseline uses the previous three seasons with 5/3/1 recency weights: last year counts most, two years ago counts less, and three years ago counts least. It is also weighted by playing time, using PA for hitters and batters faced for pitchers.
         </p>
         <p className={styles.bodyCopy}>
-          From there, McFARLAND separates skill signals from luck signals, accounts for age and sample size, and turns the results into plain-English analysis.
+          McFARLAND also computes the league-wide version of that weighted baseline for the same metrics, then compares each player's change against the league's change. That helps separate player-specific growth or decline from broader shifts in the run environment, baseball, rules, scoring, or league-wide approach.
+        </p>
+        <p className={styles.bodyCopy}>
+          From there, McFARLAND separates skill signals from luck signals, accounts for age, sample size, and league-adjusted trends, and turns the results into plain-English analysis.
         </p>
         {freshnessQuery.data ? (
           <p className={styles.freshnessLine}>
