@@ -225,13 +225,13 @@ describe("McFARLAND API", () => {
     const player = loadedPlayer!;
     expect(prompt).toContain(`Player: ${player.Name} (Hitter)`);
     expect(prompt).toContain(
-      `AVG: ${formatStatValue(player.AVG_cur)} | WB ${formatStatValue(player.AVG_l3)} | diff ${formatStatValue(player.AVG_diff)}`
+      `AVG: ${formatStatValue(player.AVG_cur)} | WB ${formatStatValue(player.AVG_l3)} | diff ${formatStatValue(player.AVG_diff)} | diff from league-wide weighted baseline ${formatStatValue(player.AVG_lg_adj_diff)}`
     );
     expect(prompt).toContain(
-      `wOBA: ${formatStatValue(player.wOBA_cur)} | WB ${formatStatValue(player.wOBA_l3)} | diff ${formatStatValue(player.wOBA_diff)}`
+      `wOBA: ${formatStatValue(player.wOBA_cur)} | WB ${formatStatValue(player.wOBA_l3)} | diff ${formatStatValue(player.wOBA_diff)} | diff from league-wide weighted baseline ${formatStatValue(player.wOBA_lg_adj_diff)}`
     );
     expect(prompt).toContain(
-      `K%: ${formatPercentage(player.K_pct_cur)} | WB ${formatPercentage(player.K_pct_l3)} | diff ${formatPercentage(player.K_pct_diff)}`
+      `K%: ${formatPercentage(player.K_pct_cur)} | WB ${formatPercentage(player.K_pct_l3)} | diff ${formatPercentage(player.K_pct_diff)} | diff from league-wide weighted baseline ${formatPercentage(player.K_pct_lg_adj_diff)}`
     );
   });
 
@@ -262,13 +262,13 @@ describe("McFARLAND API", () => {
     const player = loadedPlayer!;
     expect(prompt).toContain(`Player: ${player.Name} (Pitcher)`);
     expect(prompt).toContain(
-      `ERA: ${formatEra(player.era_cur)} | WB ${formatEra(player.era_l3)} | diff ${formatEra(player.era_diff)}`
+      `ERA: ${formatEra(player.era_cur)} | WB ${formatEra(player.era_l3)} | diff ${formatEra(player.era_diff)} | diff from league-wide weighted baseline ${formatEra(player.era_lg_adj_diff)}`
     );
     expect(prompt).toContain(
-      `xERA: ${formatEra(player.xera_cur)} | WB ${formatEra(player.xera_l3)} | diff ${formatEra(player.xera_diff)}`
+      `xERA: ${formatEra(player.xera_cur)} | WB ${formatEra(player.xera_l3)} | diff ${formatEra(player.xera_diff)} | diff from league-wide weighted baseline ${formatEra(player.xera_lg_adj_diff)}`
     );
     expect(prompt).toContain(
-      `K-BB%: ${formatPercentage(player.k_minus_bb_percent_cur)} | WB ${formatPercentage(player.k_minus_bb_percent_l3)} | diff ${formatPercentage(player.k_minus_bb_percent_diff)}`
+      `K-BB%: ${formatPercentage(player.k_minus_bb_percent_cur)} | WB ${formatPercentage(player.k_minus_bb_percent_l3)} | diff ${formatPercentage(player.k_minus_bb_percent_diff)} | diff from league-wide weighted baseline ${formatPercentage(player.k_minus_bb_percent_lg_adj_diff)}`
     );
   });
 
@@ -612,6 +612,8 @@ describe("McFARLAND API", () => {
     expect(fantasyHandler).toHaveBeenCalledTimes(1);
     expect(fantasyHandler.mock.calls[0][0]).toContain("decision must be exactly START or SIT");
     expect(fantasyHandler.mock.calls[0][0]).toContain("Do not mention confirmed lineup status in the headline");
+    expect(fantasyHandler.mock.calls[0][0]).toContain("Keep stat density low in the analysis");
+    expect(fantasyHandler.mock.calls[0][0]).toContain("do not stack current value, baseline, raw diff, and league-adjusted diff");
     expect(fantasyHandler.mock.calls[0][0]).toContain("Fresh MLB matchup data");
     await vi.waitFor(() => {
       const amplitudeCall = fetchSpy.mock.calls.find(([input]) => String(input).includes("api2.amplitude.com"));

@@ -537,16 +537,140 @@ build_pitcher_baselines <- function() {
     )
 }
 
+hitter_metric_cols <- c("AVG", "OBP", "SLG", "K_pct", "BB_pct", "Barrel_pct", "BABIP", "wOBA", "xwOBA", "xwOBA_wOBA_gap")
+pitcher_metric_cols <- c("era", "k_percent", "bb_percent", "k_minus_bb_percent", "xera", "o_swing_percent", "csw_percent", "barrel_percent", "lob_percent", "babip")
+
+build_hitter_league_baseline <- function() {
+  bind_rows(
+    read_csv("fangraphs-leaderboards-2023.csv", show_col_types = FALSE) |> mutate(year = 2023),
+    read_csv("fangraphs-leaderboards-2024.csv", show_col_types = FALSE) |> mutate(year = 2024),
+    read_csv("fangraphs-leaderboards-2025.csv", show_col_types = FALSE) |> mutate(year = 2025)
+  ) |>
+    mutate(
+      TB = `1B` + 2 * `2B` + 3 * `3B` + 4 * HR,
+      baseline_weight = case_when(
+        year == current_year - 1 ~ 5,
+        year == current_year - 2 ~ 3,
+        year == current_year - 3 ~ 1,
+        TRUE ~ 0
+      )
+    ) |>
+    summarize(
+      AVG = sum(H * baseline_weight, na.rm = TRUE) / sum(AB * baseline_weight, na.rm = TRUE),
+      OBP = (sum(H * baseline_weight, na.rm = TRUE) + sum(BB * baseline_weight, na.rm = TRUE) + sum(HBP * baseline_weight, na.rm = TRUE)) / (sum(AB * baseline_weight, na.rm = TRUE) + sum(BB * baseline_weight, na.rm = TRUE) + sum(HBP * baseline_weight, na.rm = TRUE) + sum(SF * baseline_weight, na.rm = TRUE)),
+      SLG = sum(TB * baseline_weight, na.rm = TRUE) / sum(AB * baseline_weight, na.rm = TRUE),
+      K_pct = 100 * sum(SO * baseline_weight, na.rm = TRUE) / sum(PA * baseline_weight, na.rm = TRUE),
+      BB_pct = 100 * sum(BB * baseline_weight, na.rm = TRUE) / sum(PA * baseline_weight, na.rm = TRUE),
+      Barrel_pct = 100 * sum(Barrels * baseline_weight, na.rm = TRUE) / sum(PA * baseline_weight, na.rm = TRUE),
+      BABIP = (sum(H * baseline_weight, na.rm = TRUE) - sum(HR * baseline_weight, na.rm = TRUE)) / (sum(AB * baseline_weight, na.rm = TRUE) - sum(SO * baseline_weight, na.rm = TRUE) - sum(HR * baseline_weight, na.rm = TRUE) + sum(SF * baseline_weight, na.rm = TRUE)),
+      wOBA = weighted.mean(wOBA, w = PA * baseline_weight, na.rm = TRUE),
+      xwOBA = weighted.mean(xwOBA, w = PA * baseline_weight, na.rm = TRUE),
+      xwOBA_wOBA_gap = xwOBA - wOBA
+    )
+}
+
+build_hitter_league_current <- function(fg_contract, mlb_basics) {
+  fg_contract |>
+    left_join(mlb_basics, by = "mlbamid") |>
+    mutate(
+      AB_src = coalesce_joined(AB_mlb, AB),
+      PA_src = coalesce_joined(PA_mlb, PA),
+      H_src = coalesce_joined(H_mlb, H),
+      HR_src = coalesce_joined(HR_mlb, HR),
+      BB_src = coalesce_joined(BB_mlb, BB),
+      HBP_src = coalesce_joined(HBP_mlb, HBP),
+      SF_src = coalesce_joined(SF_mlb, SF),
+      SO_src = coalesce_joined(SO_mlb, SO),
+      TB_src = coalesce_joined(TB_mlb, TB)
+    ) |>
+    summarize(
+      AVG = safe_divide(sum(H_src, na.rm = TRUE), sum(AB_src, na.rm = TRUE)),
+      OBP = safe_divide(sum(H_src, na.rm = TRUE) + sum(BB_src, na.rm = TRUE) + sum(HBP_src, na.rm = TRUE), sum(AB_src, na.rm = TRUE) + sum(BB_src, na.rm = TRUE) + sum(HBP_src, na.rm = TRUE) + sum(SF_src, na.rm = TRUE)),
+      SLG = safe_divide(sum(TB_src, na.rm = TRUE), sum(AB_src, na.rm = TRUE)),
+      K_pct = 100 * safe_divide(sum(SO_src, na.rm = TRUE), sum(PA_src, na.rm = TRUE)),
+      BB_pct = 100 * safe_divide(sum(BB_src, na.rm = TRUE), sum(PA_src, na.rm = TRUE)),
+      Barrel_pct = 100 * safe_divide(sum(Barrels, na.rm = TRUE), sum(PA_src, na.rm = TRUE)),
+      BABIP = safe_divide(sum(H_src, na.rm = TRUE) - sum(HR_src, na.rm = TRUE), sum(AB_src, na.rm = TRUE) - sum(SO_src, na.rm = TRUE) - sum(HR_src, na.rm = TRUE) + sum(SF_src, na.rm = TRUE)),
+      wOBA = weighted.mean(wOBA, w = PA_src, na.rm = TRUE),
+      xwOBA = weighted.mean(xwOBA, w = PA_src, na.rm = TRUE),
+      xwOBA_wOBA_gap = xwOBA - wOBA
+    )
+}
+
+build_pitcher_league_baseline <- function() {
+  bind_rows(
+    read_csv("pitcher-stats-2023.csv", show_col_types = FALSE) |> mutate(year = 2023),
+    read_csv("pitcher-stats-2024.csv", show_col_types = FALSE) |> mutate(year = 2024),
+    read_csv("pitcher-stats-2025.csv", show_col_types = FALSE) |> mutate(year = 2025)
+  ) |>
+    mutate(
+      baseline_weight = case_when(
+        year == current_year - 1 ~ 5,
+        year == current_year - 2 ~ 3,
+        year == current_year - 3 ~ 1,
+        TRUE ~ 0
+      )
+    ) |>
+    summarize(
+      era = sum(er * baseline_weight, na.rm = TRUE) / sum(ip * baseline_weight, na.rm = TRUE) * 9,
+      k_percent = sum(so * baseline_weight, na.rm = TRUE) / sum(tbf * baseline_weight, na.rm = TRUE) * 100,
+      bb_percent = sum(bb * baseline_weight, na.rm = TRUE) / sum(tbf * baseline_weight, na.rm = TRUE) * 100,
+      k_minus_bb_percent = k_percent - bb_percent,
+      xera = weighted.mean(x_era, w = tbf * baseline_weight, na.rm = TRUE),
+      barrel_percent = weighted.mean(barrel_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100,
+      o_swing_percent = weighted.mean(o_swing_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100,
+      babip = weighted.mean(babip, w = tbf * baseline_weight, na.rm = TRUE),
+      lob_percent = weighted.mean(lob_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100,
+      csw_percent = weighted.mean(c_sw_str_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100
+    )
+}
+
+build_pitcher_league_current <- function(pitching_stats_current) {
+  pitching_stats_current |>
+    summarize(
+      era = 9 * safe_divide(sum(er, na.rm = TRUE), sum(ip, na.rm = TRUE)),
+      k_percent = 100 * safe_divide(sum(so, na.rm = TRUE), sum(tbf, na.rm = TRUE)),
+      bb_percent = 100 * safe_divide(sum(bb, na.rm = TRUE), sum(tbf, na.rm = TRUE)),
+      k_minus_bb_percent = k_percent - bb_percent,
+      xera = weighted.mean(xera, w = tbf, na.rm = TRUE),
+      o_swing_percent = weighted.mean(o_swing_percent, w = tbf, na.rm = TRUE),
+      csw_percent = weighted.mean(csw_percent, w = tbf, na.rm = TRUE),
+      barrel_percent = weighted.mean(barrel_percent, w = tbf, na.rm = TRUE),
+      lob_percent = weighted.mean(lob_percent, w = tbf, na.rm = TRUE),
+      babip = weighted.mean(babip, w = tbf, na.rm = TRUE)
+    )
+}
+
+build_league_diffs <- function(current, baseline, metric_cols) {
+  diffs <- list()
+  for (metric in metric_cols) {
+    diffs[[metric]] <- current[[metric]][1] - baseline[[metric]][1]
+  }
+  diffs
+}
+
+add_league_adjusted_diffs <- function(data, metric_cols, league_diffs) {
+  for (metric in metric_cols) {
+    diff_col <- paste0(metric, "_diff")
+    adjusted_col <- paste0(metric, "_lg_adj_diff")
+    data[[adjusted_col]] <- data[[diff_col]] - league_diffs[[metric]]
+  }
+  data
+}
+
 # =============================================================================
 # HITTERS DATA PROCESSING
 # =============================================================================
 
 hitters_last_3 <- read_or_build_baseline(hitter_baseline_cache_file, build_hitter_baselines, "hitter")
 hitters_last_3 <- hitters_last_3 |> mutate(PlayerId = as.character(PlayerId))
+hitter_league_baseline <- build_hitter_league_baseline()
 
 fangraphs_hitters <- fetch_fangraphs_hitter_current_contract(current_year)
 mlb_hitter_basics <- fetch_mlb_hitter_basics(current_year)
 hitters_this_year <- combine_hitter_current_stats(fangraphs_hitters, mlb_hitter_basics)
+hitter_league_current <- build_hitter_league_current(fangraphs_hitters, mlb_hitter_basics)
+hitter_league_diffs <- build_league_diffs(hitter_league_current, hitter_league_baseline, hitter_metric_cols)
 
 # Combine hitter data and compute differences
 full_stats_hitters <-
@@ -565,6 +689,7 @@ full_stats_hitters <-
     xwOBA_wOBA_gap_diff = xwOBA_wOBA_gap_cur - xwOBA_wOBA_gap_l3,
     player_type = "hitter"
   ) |>
+  add_league_adjusted_diffs(hitter_metric_cols, hitter_league_diffs) |>
   mutate(across(where(is.numeric), ~ round(.x, 3)))
 
 # =============================================================================
@@ -576,10 +701,13 @@ pitching_stats_last_3 <- read_or_build_baseline(pitcher_baseline_cache_file, bui
 pitching_stats_last_3 <- pitching_stats_last_3 |>
   mutate(playerid = as.character(playerid)) |>
   select(-any_of("ld_percent"))
+pitcher_league_baseline <- build_pitcher_league_baseline()
 
 fangraphs_pitchers <- fetch_fangraphs_pitcher_current_contract(current_year)
 mlb_pitcher_basics <- fetch_mlb_pitcher_basics(current_year)
 pitching_stats_current <- combine_pitcher_current_stats(fangraphs_pitchers, mlb_pitcher_basics)
+pitcher_league_current <- build_pitcher_league_current(pitching_stats_current)
+pitcher_league_diffs <- build_league_diffs(pitcher_league_current, pitcher_league_baseline, pitcher_metric_cols)
 
 # Combine pitcher data and compute differences
 full_stats_pitchers <-
@@ -598,6 +726,7 @@ full_stats_pitchers <-
     babip_diff = babip_cur - babip_l3,
     player_type = "pitcher"
   ) |>
+  add_league_adjusted_diffs(pitcher_metric_cols, pitcher_league_diffs) |>
   select(-matches("_mlb$"), -any_of(c("team", "primary_position", "r", "ab", "sf", "lob_denominator"))) |>
   mutate(across(where(is.numeric), ~ round(.x, 3))) |>
   rename(Name = name, PlayerId = playerid, Age = age)

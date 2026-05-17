@@ -40,11 +40,23 @@ describe("analysis prompts", () => {
       wOBA_diff: 0.02,
       xwOBA_diff: 0.02,
       xwOBA_wOBA_gap_diff: 0,
+      AVG_lg_adj_diff: 0.01,
+      OBP_lg_adj_diff: 0.015,
+      SLG_lg_adj_diff: 0.02,
+      K_pct_lg_adj_diff: -1.5,
+      BB_pct_lg_adj_diff: 0.4,
+      Barrel_pct_lg_adj_diff: 0.3,
+      BABIP_lg_adj_diff: 0.005,
+      wOBA_lg_adj_diff: 0.012,
+      xwOBA_lg_adj_diff: 0.014,
+      xwOBA_wOBA_gap_lg_adj_diff: 0.002,
       player_type: "hitter",
     } satisfies HitterRecord;
 
     const prompt = buildHitterPrompt(hitter);
     expect(prompt).toContain("weighted baseline");
+    expect(prompt).toContain("diff from league-wide weighted baseline");
+    expect(prompt).toContain("AVG: .300 | WB .280 | diff .020 | diff from league-wide weighted baseline .010");
     expect(prompt).not.toContain("Last 3 Years");
 
     const analysisPrompt = buildAnalysisPrompt(hitter, "hitter", "straightforward");
@@ -56,7 +68,11 @@ describe("analysis prompts", () => {
     expect(analysisPrompt).toContain("3-5 short paragraphs separated by blank lines");
     expect(analysisPrompt).toContain("Choose the 2-4 most diagnostic signals");
     expect(analysisPrompt).toContain("do not default to the same metrics every time");
+    expect(analysisPrompt).toContain("convey the takeaway first");
+    expect(analysisPrompt).toContain("avoid stat stacks");
+    expect(analysisPrompt).toContain("Mention raw diff only when it changes the interpretation");
     expect(analysisPrompt).toContain("Use age in the rest-of-season judgment");
+    expect(analysisPrompt).toContain("Use league-adjusted diff as the main read");
     expect(analysisPrompt).toContain("Metric selection guidance for hitters");
     expect(analysisPrompt).toContain("xwOBA and wOBA");
     expect(analysisPrompt).toContain("AVG, OBP, and SLG are supporting context");
@@ -98,19 +114,33 @@ describe("analysis prompts", () => {
       barrel_percent_diff: -1,
       lob_percent_diff: -2,
       babip_diff: -0.01,
+      era_lg_adj_diff: -0.25,
+      k_percent_lg_adj_diff: 0.2,
+      bb_percent_lg_adj_diff: 0.5,
+      k_minus_bb_percent_lg_adj_diff: -0.3,
+      xera_lg_adj_diff: -0.1,
+      o_swing_percent_lg_adj_diff: 0.6,
+      csw_percent_lg_adj_diff: 0.3,
+      barrel_percent_lg_adj_diff: -0.5,
+      lob_percent_lg_adj_diff: -1,
+      babip_lg_adj_diff: -0.005,
       player_type: "pitcher",
     } satisfies PitcherRecord;
 
     const prompt = buildPitcherPrompt(pitcher);
 
     expect(prompt).toContain("weighted baseline");
+    expect(prompt).toContain("diff from league-wide weighted baseline");
+    expect(prompt).toContain("xERA: 3.50 | WB 3.70 | diff -0.20 | diff from league-wide weighted baseline -0.10");
     expect(prompt).not.toContain("Last 3 Years");
 
     const analysisPrompt = buildAnalysisPrompt(pitcher, "pitcher", "straightforward");
     expect(analysisPrompt).toContain("Metric selection guidance for pitchers");
     expect(analysisPrompt).toContain("xERA vs ERA, K-BB%, and Barrel Rate");
     expect(analysisPrompt).toContain("Use K%, BB%, CSW%, and O-Swing%");
+    expect(analysisPrompt).toContain("Do not cram current value, weighted baseline, raw diff, and league-adjusted diff into one sentence");
     expect(analysisPrompt).toContain("Use age in the rest-of-season judgment");
+    expect(analysisPrompt).toContain("Use league-adjusted diff as the main read");
   });
 
   it("tells comparison prompts not to dump metric rows into prose", () => {
@@ -198,6 +228,7 @@ describe("analysis prompts", () => {
     expect(prompt).toContain("do not copy the metric rows into the answer");
     expect(prompt).toContain("Do not write semicolon-separated stat dumps");
     expect(prompt).toContain("critical lines");
+    expect(prompt).toContain("avoid stat stacks");
     expect(prompt).toContain("Choose the 2-4 most diagnostic signals");
     expect(prompt).toContain("Use age in the rest-of-season judgment");
     expect(prompt).toContain("Metric selection guidance for hitters");
