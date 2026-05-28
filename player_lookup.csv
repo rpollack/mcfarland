@@ -172,6 +172,7 @@ Cade Smith,27867,27,pitcher,671922,27867_pitcher,Cade Smith,RP,RP
 Cal Quantrill,19312,31,pitcher,615698,19312_pitcher,Cal Quantrill,RP,RP
 Cal Raleigh,21534,29,hitter,663728,21534_hitter,Cal Raleigh,Hitter,NA
 Caleb Durbin,29646,26,hitter,702332,29646_hitter,Caleb Durbin,Hitter,NA
+Caleb Ferguson,19349,29,pitcher,657571,19349_pitcher,Caleb Ferguson,RP,RP
 Caleb Kilian,26213,29,pitcher,668873,26213_pitcher,Caleb Kilian,RP,RP
 Caleb Thielbar,10078,39,pitcher,573204,10078_pitcher,Caleb Thielbar,RP,RP
 Calvin Faucher,20116,30,pitcher,676534,20116_pitcher,Calvin Faucher,RP,RP
@@ -293,6 +294,7 @@ David Fry,24934,30,hitter,681807,24934_hitter,David Fry,Hitter,NA
 David Hamilton,27531,28,hitter,666152,27531_hitter,David Hamilton,Hitter,NA
 David Morgan,31616,26,pitcher,688158,31616_pitcher,David Morgan,RP,RP
 David Peterson,20302,30,pitcher,656849,20302_pitcher,David Peterson,SP,SP
+David Sandlin,31743,25,pitcher,689818,31743_pitcher,David Sandlin,SP,SP
 Davis Martin,21448,29,pitcher,663436,21448_pitcher,Davis Martin,SP,SP
 Davis Schneider,23565,27,hitter,676914,23565_hitter,Davis Schneider,Hitter,NA
 Dax Fulton,27757,24,pitcher,690978,27757_pitcher,Dax Fulton,RP,RP
@@ -574,6 +576,7 @@ Jonah Heim,16930,31,hitter,641680,16930_hitter,Jonah Heim,Hitter,NA
 Jonah Tong,32157,23,pitcher,804636,32157_pitcher,Jonah Tong,RP,RP
 Jonathan Aranda,21837,28,hitter,666018,21837_hitter,Jonathan Aranda,Hitter,NA
 Jonathan Bowlan,24607,29,pitcher,680742,24607_pitcher,Jonathan Bowlan,RP,RP
+Jonathan Heasley,22224,29,pitcher,669169,22224_pitcher,Jonathan Heasley,RP,RP
 Jonathan Hernandez,17464,29,pitcher,642546,17464_pitcher,Jonathan Hernandez,RP,RP
 Jonathan India,21523,29,hitter,663697,21523_hitter,Jonathan India,Hitter,NA
 Jonathan Loaisiga,19753,31,pitcher,642528,19753_pitcher,Jonathan Loaisiga,RP,RP
@@ -841,7 +844,8 @@ Oliver Dunn,26295,28,hitter,686554,26295_hitter,Oliver Dunn,Hitter,NA
 Omar Martinez,25369,24,hitter,683079,25369_hitter,Omar Martinez,Hitter,NA
 Oneil Cruz,21711,27,hitter,665833,21711_hitter,Oneil Cruz,Hitter,NA
 Orion Kerkering,31776,25,pitcher,689147,31776_pitcher,Orion Kerkering,RP,RP
-Orlando Arcia,13185,31,hitter,606115,13185_hitter,Orlando Arcia,Hitter,NA
+Orlando Arcia,13185,31,hitter,606115,13185_hitter,Orlando Arcia (Hitter),Hitter,NA
+Orlando Arcia,13185,31,pitcher,606115,13185_pitcher,Orlando Arcia (RP),RP,RP
 Orlando Ribalta,26247,28,pitcher,687377,26247_pitcher,Orlando Ribalta,RP,RP
 Osvaldo Bido,23150,30,pitcher,674370,23150_pitcher,Osvaldo Bido,RP,RP
 Oswald Peraza,22823,26,hitter,672724,22823_hitter,Oswald Peraza,Hitter,NA
