@@ -36,6 +36,7 @@ Alex Hoppe,31880,27,pitcher,695380,31880_pitcher,Alex Hoppe,RP,RP
 Alex Jackson,17276,30,hitter,656577,17276_hitter,Alex Jackson,Hitter,NA
 Alex Lange,19883,30,pitcher,656638,19883_pitcher,Alex Lange,RP,RP
 Alex Vesia,25007,30,pitcher,681911,25007_pitcher,Alex Vesia,RP,RP
+Ali Sanchez,18551,29,hitter,645305,18551_hitter,Ali Sanchez,Hitter,NA
 Alika Williams,27604,27,hitter,675961,27604_hitter,Alika Williams,Hitter,NA
 Alimber Santa,28846,23,pitcher,695001,28846_pitcher,Alimber Santa,RP,RP
 Amed Rosario,15518,30,hitter,642708,15518_hitter,Amed Rosario,Hitter,NA
@@ -72,7 +73,8 @@ Antonio Senzatela,15488,31,pitcher,622608,15488_pitcher,Antonio Senzatela,RP,RP
 Aramis Garcia,16925,33,hitter,605244,16925_hitter,Aramis Garcia,Hitter,NA
 Aroldis Chapman,10233,38,pitcher,547973,10233_pitcher,Aroldis Chapman,RP,RP
 Austin Hays,19363,30,hitter,669720,19363_hitter,Austin Hays,Hitter,NA
-Austin Hedges,12976,33,hitter,595978,12976_hitter,Austin Hedges,Hitter,NA
+Austin Hedges,12976,33,hitter,595978,12976_hitter,Austin Hedges (Hitter),Hitter,NA
+Austin Hedges,12976,33,pitcher,595978,12976_pitcher,Austin Hedges (RP),RP,RP
 Austin Martin,27462,27,hitter,668885,27462_hitter,Austin Martin,Hitter,NA
 Austin Riley,18360,29,hitter,663586,18360_hitter,Austin Riley,Hitter,NA
 Austin Slater,16153,33,hitter,596103,16153_hitter,Austin Slater,Hitter,NA
@@ -314,6 +316,7 @@ David Peterson,20302,30,pitcher,656849,20302_pitcher,David Peterson,SP,SP
 David Sandlin,31743,25,pitcher,689818,31743_pitcher,David Sandlin,SP,SP
 Davis Martin,21448,29,pitcher,663436,21448_pitcher,Davis Martin,SP,SP
 Davis Schneider,23565,27,hitter,676914,23565_hitter,Davis Schneider,Hitter,NA
+Davis Wendzel,26469,29,hitter,673995,26469_hitter,Davis Wendzel,Hitter,NA
 Dax Fulton,27757,24,pitcher,690978,27757_pitcher,Dax Fulton,RP,RP
 Daylen Lile,29995,23,hitter,695734,29995_hitter,Daylen Lile,Hitter,NA
 Dean Kremer,19350,30,pitcher,665152,19350_pitcher,Dean Kremer,SP,SP
