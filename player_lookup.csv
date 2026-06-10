@@ -105,6 +105,7 @@ Bo Naylor,21865,26,hitter,666310,21865_hitter,Bo Naylor,Hitter,NA
 Bobby Witt Jr.,25764,26,hitter,677951,25764_hitter,Bobby Witt Jr.,Hitter,NA
 Brad Keller,15734,30,pitcher,641745,15734_pitcher,Brad Keller,RP,RP
 Brad Lord,31972,26,pitcher,695418,31972_pitcher,Brad Lord,RP,RP
+Braden Montgomery,35423,23,hitter,695731,35423_hitter,Braden Montgomery,Hitter,NA
 Braden Shewmake,25817,28,hitter,669699,25817_hitter,Braden Shewmake,Hitter,NA
 Bradgley Rodriguez,29107,22,pitcher,699134,29107_pitcher,Bradgley Rodriguez,RP,RP
 Brady Basso,25582,28,pitcher,669620,25582_pitcher,Brady Basso,RP,RP
@@ -261,6 +262,7 @@ Cody Freeman,25629,25,hitter,683227,25629_hitter,Cody Freeman,Hitter,NA
 Cody Laweryson,26429,28,pitcher,689520,26429_pitcher,Cody Laweryson,RP,RP
 Cody Ponce,17920,32,pitcher,664074,17920_pitcher,Cody Ponce,SP,SP
 Colby Thomas,31855,25,hitter,687515,31855_hitter,Colby Thomas,Hitter,NA
+Cole Carrigg,33253,24,hitter,694249,33253_hitter,Cole Carrigg,Hitter,NA
 Cole Henry,27570,26,pitcher,669371,27570_pitcher,Cole Henry,RP,RP
 Cole Ragans,21846,28,pitcher,666142,21846_pitcher,Cole Ragans,SP,SP
 Cole Sands,21461,28,pitcher,663485,21461_pitcher,Cole Sands,RP,RP
@@ -856,9 +858,9 @@ Nathan Eovaldi,9132,36,pitcher,543135,9132_pitcher,Nathan Eovaldi,SP,SP
 Nathan Lukes,18123,31,hitter,664770,18123_hitter,Nathan Lukes,Hitter,NA
 Nathaniel Lowe,19566,30,hitter,663993,19566_hitter,Nathaniel Lowe,Hitter,NA
 Nelson Velazquez,23359,27,hitter,676369,23359_hitter,Nelson Velazquez,Hitter,NA
-Nicholas Davila,27741,27,pitcher,689546,27741_pitcher,Nicholas Davila,RP,RP
 Nick Allen,22277,27,hitter,669397,22277_hitter,Nick Allen,Hitter,NA
 Nick Castellanos,11737,34,hitter,592206,11737_hitter,Nick Castellanos,Hitter,NA
+Nick Davila,27741,27,pitcher,689546,27741_pitcher,Nick Davila,RP,RP
 Nick Fortes,21538,29,hitter,663743,21538_hitter,Nick Fortes,Hitter,NA
 Nick Gonzales,27490,27,hitter,693304,27490_hitter,Nick Gonzales,Hitter,NA
 Nick Kurtz,35110,23,hitter,701762,35110_hitter,Nick Kurtz,Hitter,NA
@@ -1112,7 +1114,8 @@ Ty France,17982,31,hitter,664034,17982_hitter,Ty France,Hitter,NA
 Ty Madden,30140,26,pitcher,680744,30140_pitcher,Ty Madden,RP,RP
 Tyler Alexander,17735,31,pitcher,641302,17735_pitcher,Tyler Alexander,RP,RP
 Tyler Black,29949,25,hitter,672012,29949_hitter,Tyler Black,Hitter,NA
-Tyler Callihan,27497,26,hitter,682997,27497_hitter,Tyler Callihan,Hitter,NA
+Tyler Callihan,27497,26,hitter,682997,27497_hitter,Tyler Callihan (Hitter),Hitter,NA
+Tyler Callihan,27497,26,pitcher,682997,27497_pitcher,Tyler Callihan (RP),RP,RP
 Tyler Davis,34847,27,pitcher,699823,34847_pitcher,Tyler Davis,RP,RP
 Tyler Ferguson,19481,32,pitcher,621053,19481_pitcher,Tyler Ferguson,RP,RP
 Tyler Freeman,22532,27,hitter,671289,22532_hitter,Tyler Freeman,Hitter,NA
@@ -1165,6 +1168,7 @@ Will Dion,30061,26,pitcher,702021,30061_pitcher,Will Dion,RP,RP
 Will Klein,27787,26,pitcher,694361,27787_pitcher,Will Klein,RP,RP
 Will Smith,19197,31,hitter,669257,19197_hitter,Will Smith,Hitter,NA
 Will Vest,19769,31,pitcher,676684,19769_pitcher,Will Vest,RP,RP
+Will Wagner,29634,27,hitter,695238,29634_hitter,Will Wagner,Hitter,NA
 Will Warren,30182,27,pitcher,701542,30182_pitcher,Will Warren,SP,SP
 Will Wilson,25434,27,hitter,669717,25434_hitter,Will Wilson,Hitter,NA
 Willi Castro,17338,29,hitter,650489,17338_hitter,Willi Castro,Hitter,NA
