@@ -33,7 +33,8 @@ Alex Bregman,17678,32,hitter,608324,17678_hitter,Alex Bregman,Hitter,NA
 Alex Call,19296,31,hitter,669743,19296_hitter,Alex Call,Hitter,NA
 Alex Freeland,31665,24,hitter,690976,31665_hitter,Alex Freeland,Hitter,NA
 Alex Hoppe,31880,27,pitcher,695380,31880_pitcher,Alex Hoppe,RP,RP
-Alex Jackson,17276,30,hitter,656577,17276_hitter,Alex Jackson,Hitter,NA
+Alex Jackson,17276,30,hitter,656577,17276_hitter,Alex Jackson (Hitter),Hitter,NA
+Alex Jackson,17276,30,pitcher,656577,17276_pitcher,Alex Jackson (RP),RP,RP
 Alex Lange,19883,30,pitcher,656638,19883_pitcher,Alex Lange,RP,RP
 Alex Vesia,25007,30,pitcher,681911,25007_pitcher,Alex Vesia,RP,RP
 Ali Sanchez,18551,29,hitter,645305,18551_hitter,Ali Sanchez,Hitter,NA
@@ -1012,6 +1013,7 @@ Sam Hentges,18548,29,pitcher,656529,18548_pitcher,Sam Hentges,RP,RP
 Sam Huff,22209,28,hitter,669087,22209_hitter,Sam Huff,Hitter,NA
 Sam Moll,14874,34,pitcher,594580,14874_pitcher,Sam Moll,RP,RP
 Samad Taylor,22274,27,hitter,669392,22274_hitter,Samad Taylor,Hitter,NA
+Sammy Peralta,25589,28,pitcher,671111,25589_pitcher,Sammy Peralta,SP,SP
 Samuel Basallo,28824,21,hitter,694212,28824_hitter,Samuel Basallo,Hitter,NA
 Samuel Natera,31936,26,pitcher,696519,31936_pitcher,Samuel Natera,RP,RP
 Sandy Alcantara,18684,30,pitcher,645261,18684_pitcher,Sandy Alcantara,SP,SP
