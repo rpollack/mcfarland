@@ -373,6 +373,7 @@ Eduardo Rodriguez,13164,33,pitcher,593958,13164_pitcher,Eduardo Rodriguez,SP,SP
 Edward Cabrera,21690,28,pitcher,665795,21690_pitcher,Edward Cabrera,SP,SP
 Edwin Arroyo,29957,22,hitter,695490,29957_hitter,Edwin Arroyo,Hitter,NA
 Edwin Diaz,14710,32,pitcher,621242,14710_pitcher,Edwin Diaz,RP,RP
+Eiberson Castellano,28040,25,pitcher,682769,28040_pitcher,Eiberson Castellano,RP,RP
 Eli Morgan,20203,30,pitcher,669212,20203_pitcher,Eli Morgan,RP,RP
 Eli White,19346,32,hitter,642201,19346_hitter,Eli White,Hitter,NA
 Elias Diaz,11680,35,hitter,553869,11680_hitter,Elias Diaz,Hitter,NA
@@ -656,9 +657,11 @@ Jose Siri,17452,30,hitter,642350,17452_hitter,Jose Siri,Hitter,NA
 Jose Soriano,22100,27,pitcher,667755,22100_pitcher,Jose Soriano,SP,SP
 Jose Suarez,19911,28,pitcher,660761,19911_pitcher,Jose Suarez,RP,RP
 Jose Tena,23691,25,hitter,677588,23691_hitter,Jose Tena,Hitter,NA
-Jose Trevino,16725,33,pitcher,624431,16725_pitcher,Jose Trevino,RP,RP
+Jose Trevino,16725,33,hitter,624431,16725_hitter,Jose Trevino (Hitter),Hitter,NA
+Jose Trevino,16725,33,pitcher,624431,16725_pitcher,Jose Trevino (RP),RP,RP
 Jose Urquidy,18413,31,pitcher,664353,18413_pitcher,Jose Urquidy,RP,RP
 Josh Bell,13145,33,hitter,605137,13145_hitter,Josh Bell,Hitter,NA
+Josh Ekness,33785,24,pitcher,694795,33785_pitcher,Josh Ekness,RP,RP
 Josh Fleming,20418,30,pitcher,676596,20418_pitcher,Josh Fleming,RP,RP
 Josh Hader,14212,32,pitcher,623352,14212_pitcher,Josh Hader,RP,RP
 Josh Jung,26299,28,hitter,673962,26299_hitter,Josh Jung,Hitter,NA
@@ -668,7 +671,6 @@ Josh Rojas,19734,32,hitter,668942,19734_hitter,Josh Rojas,Hitter,NA
 Josh Simpson,25957,28,pitcher,681006,25957_pitcher,Josh Simpson,RP,RP
 Josh Smith,26396,28,hitter,669701,26396_hitter,Josh Smith,Hitter,NA
 Josh Walker,23617,31,pitcher,677020,23617_pitcher,Josh Walker,RP,RP
-Joshua Ekness,33785,24,pitcher,694795,33785_pitcher,Joshua Ekness,RP,RP
 Jovani Moran,20422,29,pitcher,663558,20422_pitcher,Jovani Moran,RP,RP
 Juan Brito,26693,24,hitter,682877,26693_hitter,Juan Brito,Hitter,NA
 Juan Mejia,23237,25,pitcher,675848,23237_pitcher,Juan Mejia,RP,RP
@@ -951,6 +953,7 @@ Randal Grichuk,10243,34,hitter,545341,10243_hitter,Randal Grichuk,Hitter,NA
 Randy Arozarena,19290,31,hitter,668227,19290_hitter,Randy Arozarena,Hitter,NA
 Randy Vasquez,24719,27,pitcher,681190,24719_pitcher,Randy Vasquez,SP,SP
 Ranger Suarez,17277,30,pitcher,624133,17277_pitcher,Ranger Suarez,SP,SP
+Raynel Delgado,22272,26,hitter,669384,22272_hitter,Raynel Delgado,Hitter,NA
 Rece Hinds,27493,25,hitter,677956,27493_hitter,Rece Hinds,Hitter,NA
 Reese McGuire,15674,31,hitter,624512,15674_hitter,Reese McGuire (Hitter),Hitter,NA
 Reese McGuire,15674,31,pitcher,624512,15674_pitcher,Reese McGuire (RP),RP,RP
