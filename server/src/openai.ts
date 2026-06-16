@@ -36,6 +36,7 @@ let testChatHandler: ChatHandler | null = null;
 let testFantasyDecisionHandler: FantasyDecisionHandler | null = null;
 const uncacheableResponses = new WeakSet<OpenAIResponse>();
 const uncacheableFantasyResponses = new WeakSet<FantasyDecisionResponse>();
+const DEFAULT_OPENAI_MODEL = "gpt-5.4-mini";
 
 export function buildStructuredAnalysisPrompt(prompt: string, persona: string, mode: AnalysisMode): string {
   const modeSpecificInstructions =
@@ -185,6 +186,7 @@ function buildFallbackHeadline(analysis: string): string {
 }
 
 async function runChatCompletion(apiKey: string, prompt: string): Promise<string> {
+  const model = process.env.OPENAI_MODEL?.trim() || DEFAULT_OPENAI_MODEL;
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -192,7 +194,7 @@ async function runChatCompletion(apiKey: string, prompt: string): Promise<string
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "gpt-5-mini",
+      model,
       messages: [
         {
           role: "system",

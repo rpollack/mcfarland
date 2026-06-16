@@ -105,6 +105,7 @@ The Express server serves the built React app at `http://localhost:3000`.
 | Name | Purpose | Default |
 | ---- | ------- | ------- |
 | `OPENAI_API_KEY` | Enables OpenAI-generated headline and analysis responses. | unset |
+| `OPENAI_MODEL` | Model used for OpenAI-generated headline and analysis responses. | `gpt-5.4-mini` |
 | `DATABASE_URL` | Enables Postgres-backed analysis cache and weekly trend storage. | unset |
 | `AMPLITUDE_API_KEY` | Sends analytics events to a specific Amplitude project. | built-in project key |
 | `ADMIN_PASSWORD` | Enables admin mode protection for social assistant endpoints. | unset |
