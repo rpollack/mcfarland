@@ -292,6 +292,7 @@ Connor Prielipp,31857,25,pitcher,687570,31857_pitcher,Connor Prielipp,SP,SP
 Connor Seabold,19695,30,pitcher,657756,19695_pitcher,Connor Seabold,RP,RP
 Connor Wong,19896,30,hitter,657136,19896_hitter,Connor Wong,Hitter,NA
 Cooper Criswell,24975,29,pitcher,681867,24975_pitcher,Cooper Criswell,RP,RP
+Cooper Pratt,33530,21,hitter,806198,33530_hitter,Cooper Pratt,Hitter,NA
 Corbin Carroll,25878,25,hitter,682998,25878_hitter,Corbin Carroll,Hitter,NA
 Corbin Martin,19884,30,pitcher,656686,19884_pitcher,Corbin Martin,RP,RP
 Corey Seager,13624,32,hitter,608369,13624_hitter,Corey Seager,Hitter,NA
@@ -727,7 +728,8 @@ Kyle Finnegan,15009,34,pitcher,640448,15009_pitcher,Kyle Finnegan,RP,RP
 Kyle Freeland,16256,33,pitcher,607536,16256_pitcher,Kyle Freeland,SP,SP
 Kyle Harrison,27758,24,pitcher,690986,27758_pitcher,Kyle Harrison,SP,SP
 Kyle Hart,19646,33,pitcher,606996,19646_pitcher,Kyle Hart,RP,RP
-Kyle Higashioka,5517,36,hitter,543309,5517_hitter,Kyle Higashioka,Hitter,NA
+Kyle Higashioka,5517,36,hitter,543309,5517_hitter,Kyle Higashioka (Hitter),Hitter,NA
+Kyle Higashioka,5517,36,pitcher,543309,5517_pitcher,Kyle Higashioka (RP),RP,RP
 Kyle Hurt,27514,28,pitcher,669165,27514_pitcher,Kyle Hurt,RP,RP
 Kyle Isbel,21614,29,hitter,664728,21614_hitter,Kyle Isbel,Hitter,NA
 Kyle Karros,33252,23,hitter,691720,33252_hitter,Kyle Karros,Hitter,NA
@@ -781,7 +783,8 @@ Luis Rengifo,19858,29,hitter,650859,19858_hitter,Luis Rengifo,Hitter,NA
 Luis Robert Jr.,20043,28,hitter,673357,20043_hitter,Luis Robert Jr.,Hitter,NA
 Luis Severino,15890,32,pitcher,622663,15890_pitcher,Luis Severino,SP,SP
 Luis Torrens,15905,30,hitter,620443,15905_hitter,Luis Torrens,Hitter,NA
-Luisangel Acuna,26548,24,hitter,682668,26548_hitter,Luisangel Acuna,Hitter,NA
+Luisangel Acuna,26548,24,hitter,682668,26548_hitter,Luisangel Acuna (Hitter),Hitter,NA
+Luisangel Acuna,26548,24,pitcher,682668,26548_pitcher,Luisangel Acuna (RP),RP,RP
 Luke Keaschall,33321,23,hitter,807712,33321_hitter,Luke Keaschall,Hitter,NA
 Luke Little,28036,25,pitcher,681432,28036_pitcher,Luke Little,RP,RP
 Luke Raley,19354,31,hitter,670042,19354_hitter,Luke Raley,Hitter,NA
@@ -825,6 +828,7 @@ Matthew Pushard,31870,28,pitcher,690155,31870_pitcher,Matthew Pushard,RP,RP
 Mauricio Dubon,16530,31,hitter,643289,16530_hitter,Mauricio Dubon,Hitter,NA
 Maverick Handley,26106,28,hitter,668974,26106_hitter,Maverick Handley,Hitter,NA
 Max Fried,13743,32,pitcher,608331,13743_pitcher,Max Fried,SP,SP
+Max Lazar,23426,27,pitcher,676661,23426_pitcher,Max Lazar,RP,RP
 Max Meyer,27474,27,pitcher,676974,27474_pitcher,Max Meyer,SP,SP
 Max Muncy,13301,35,hitter,571970,13301_hitter,Max Muncy,Hitter,NA
 Max Muncy,29779,23,hitter,691777,29779_hitter,Max Muncy,Hitter,NA
