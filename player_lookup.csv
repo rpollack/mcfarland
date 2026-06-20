@@ -97,6 +97,7 @@ Bennett Sousa,21345,31,pitcher,656986,21345_pitcher,Bennett Sousa,RP,RP
 Billy Cook,29573,27,hitter,695257,29573_hitter,Billy Cook,Hitter,NA
 Blade Tidwell,31701,25,pitcher,694918,31701_pitcher,Blade Tidwell,RP,RP
 Blake Dunn,29487,27,hitter,694362,29487_hitter,Blake Dunn,Hitter,NA
+Blake Hunt,23209,27,hitter,675448,23209_hitter,Blake Hunt,Hitter,NA
 Blake Perkins,19921,29,hitter,663368,19921_hitter,Blake Perkins,Hitter,NA
 Blake Snell,13543,33,pitcher,605483,13543_pitcher,Blake Snell,SP,SP
 Blake Treinen,12572,38,pitcher,595014,12572_pitcher,Blake Treinen,RP,RP
@@ -691,6 +692,7 @@ Junior Caminero,28163,22,hitter,691406,28163_hitter,Junior Caminero,Hitter,NA
 Junior Perez,23989,24,hitter,678577,23989_hitter,Junior Perez,Hitter,NA
 Justin Bruihl,23779,29,pitcher,677865,23779_pitcher,Justin Bruihl,RP,RP
 Justin Crawford,31791,22,hitter,702222,31791_hitter,Justin Crawford,Hitter,NA
+Justin Dean,25005,29,hitter,681909,25005_hitter,Justin Dean,Hitter,NA
 Justin Foscue,27501,27,hitter,679822,27501_hitter,Justin Foscue,Hitter,NA
 Justin Lawrence,17639,31,pitcher,664875,17639_pitcher,Justin Lawrence,RP,RP
 Justin Slaten,25648,28,pitcher,686580,25648_pitcher,Justin Slaten,RP,RP
@@ -880,7 +882,8 @@ Mitchell Parker,27636,26,pitcher,680730,27636_pitcher,Mitchell Parker,RP,RP
 Moises Ballesteros,28820,22,hitter,694208,28820_hitter,Moises Ballesteros,Hitter,NA
 Mookie Betts,13611,33,hitter,605141,13611_hitter,Mookie Betts,Hitter,NA
 Munetaka Murakami,37120,26,hitter,808959,37120_hitter,Munetaka Murakami,Hitter,NA
-Myles Straw,17620,31,hitter,664702,17620_hitter,Myles Straw,Hitter,NA
+Myles Straw,17620,31,hitter,664702,17620_hitter,Myles Straw (Hitter),Hitter,NA
+Myles Straw,17620,31,pitcher,664702,17620_pitcher,Myles Straw (RP),RP,RP
 Nasim Nunez,25979,25,hitter,683083,25979_hitter,Nasim Nunez,Hitter,NA
 Nate Eaton,25055,29,hitter,681987,25055_hitter,Nate Eaton,Hitter,NA
 Nate Pearson,20160,29,pitcher,663878,20160_pitcher,Nate Pearson,RP,RP
@@ -1131,6 +1134,7 @@ Travis Adams,30180,26,pitcher,701519,30180_pitcher,Travis Adams,RP,RP
 Travis Bazzana,34967,23,hitter,683953,34967_hitter,Travis Bazzana,Hitter,NA
 Travis d'Arnaud,7739,37,hitter,518595,7739_hitter,Travis d'Arnaud,Hitter,NA
 Trea Turner,16252,33,hitter,607208,16252_hitter,Trea Turner,Hitter,NA
+Trei Cruz,27569,27,hitter,669360,27569_hitter,Trei Cruz,Hitter,NA
 Trent Grisham,18564,29,hitter,663757,18564_hitter,Trent Grisham,Hitter,NA
 Trent Thornton,17948,32,pitcher,663423,17948_pitcher,Trent Thornton,RP,RP
 Trevor Larnach,21501,29,hitter,663616,21501_hitter,Trevor Larnach,Hitter,NA
