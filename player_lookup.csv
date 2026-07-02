@@ -47,7 +47,7 @@ Andres Chaparro,21797,27,hitter,665953,21797_hitter,Andres Chaparro,Hitter,NA
 Andres Gimenez,19950,27,hitter,665926,19950_hitter,Andres Gimenez,Hitter,NA
 Andres Munoz,20373,27,pitcher,662253,20373_pitcher,Andres Munoz,RP,RP
 Andrew Abbott,29911,27,pitcher,671096,29911_pitcher,Andrew Abbott,SP,SP
-Andrew Alvarez,29914,27,pitcher,674841,29914_pitcher,Andrew Alvarez,SP,SP
+Andrew Alvarez,29914,27,pitcher,674841,29914_pitcher,Andrew Alvarez,RP,RP
 Andrew Benintendi,17901,31,hitter,643217,17901_hitter,Andrew Benintendi,Hitter,NA
 Andrew Hoffmann,29633,26,pitcher,694851,29633_pitcher,Andrew Hoffmann,RP,RP
 Andrew Kittredge,12828,36,pitcher,552640,12828_pitcher,Andrew Kittredge,RP,RP
@@ -196,9 +196,9 @@ Caleb Kilian,26213,29,pitcher,668873,26213_pitcher,Caleb Kilian,RP,RP
 Caleb Thielbar,10078,39,pitcher,573204,10078_pitcher,Caleb Thielbar,RP,RP
 Calvin Faucher,20116,30,pitcher,676534,20116_pitcher,Calvin Faucher,RP,RP
 Cam Booser,16061,34,pitcher,592155,16061_pitcher,Cam Booser,RP,RP
+Cam Cauley,29710,23,hitter,695508,29710_hitter,Cam Cauley,Hitter,NA
 Cam Sanders,23479,29,pitcher,676742,23479_pitcher,Cam Sanders,RP,RP
 Cam Smith,35108,23,hitter,701358,35108_hitter,Cam Smith,Hitter,NA
-Cameron Cauley,29710,23,hitter,695508,29710_hitter,Cameron Cauley,Hitter,NA
 Cameron Foster,31942,27,pitcher,671382,31942_pitcher,Cameron Foster,RP,RP
 Cameron Schlittler,32095,25,pitcher,693645,32095_pitcher,Cameron Schlittler,SP,SP
 Cameron Weston,31696,25,pitcher,687721,31696_pitcher,Cameron Weston,RP,RP
@@ -671,6 +671,7 @@ Jose Butto,23313,28,pitcher,676130,23313_pitcher,Jose Butto,RP,RP
 Jose Caballero,23401,29,hitter,676609,23401_hitter,Jose Caballero,Hitter,NA
 Jose Cabrera,30412,24,pitcher,703615,30412_pitcher,Jose Cabrera,SP,SP
 Jose Corniell,27984,23,pitcher,692030,27984_pitcher,Jose Corniell,RP,RP
+Jose Cuas,17701,32,pitcher,621016,17701_pitcher,Jose Cuas,RP,RP
 Jose Espada,21131,29,pitcher,664744,21131_pitcher,Jose Espada,RP,RP
 Jose Fermin,21746,27,hitter,665877,21746_hitter,Jose Fermin (Hitter),Hitter,NA
 Jose Fermin,33908,24,pitcher,820862,33908_pitcher,Jose Fermin (RP),RP,RP
@@ -1255,6 +1256,7 @@ William Kempner,31615,25,pitcher,687531,31615_pitcher,William Kempner,RP,RP
 Willson Contreras,11609,34,hitter,575929,11609_hitter,Willson Contreras,Hitter,NA
 Willy Adames,15986,30,hitter,642715,15986_hitter,Willy Adames,Hitter,NA
 Wilyer Abreu,23772,27,hitter,677800,23772_hitter,Wilyer Abreu,Hitter,NA
+Winston Santos,28489,24,pitcher,692437,28489_pitcher,Winston Santos,RP,RP
 Wyatt Langford,33333,24,hitter,694671,33333_hitter,Wyatt Langford,Hitter,NA
 Wyatt Mills,20010,31,pitcher,670090,20010_pitcher,Wyatt Mills,RP,RP
 Xander Bogaerts,12161,33,hitter,593428,12161_hitter,Xander Bogaerts,Hitter,NA
