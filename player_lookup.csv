@@ -220,7 +220,7 @@ Carlos Narvaez,19722,27,hitter,665966,19722_hitter,Carlos Narvaez,Hitter,NA
 Carlos Rodon,16137,33,pitcher,607074,16137_pitcher,Carlos Rodon,SP,SP
 Carlos Rodriguez,30161,24,pitcher,692230,30161_pitcher,Carlos Rodriguez,RP,RP
 Carlos Santana,2396,40,hitter,467793,2396_hitter,Carlos Santana,Hitter,NA
-Carmen Mlodzinski,27572,27,pitcher,669387,27572_pitcher,Carmen Mlodzinski,SP,SP
+Carmen Mlodzinski,27572,27,pitcher,669387,27572_pitcher,Carmen Mlodzinski,RP,RP
 Carson Benge,35177,23,hitter,701807,35177_hitter,Carson Benge,Hitter,NA
 Carson Kelly,13620,31,hitter,608348,13620_hitter,Carson Kelly (Hitter),Hitter,NA
 Carson Kelly,13620,31,pitcher,608348,13620_pitcher,Carson Kelly (RP),RP,RP
@@ -262,6 +262,7 @@ Chris Murphy,26214,28,pitcher,669684,26214_pitcher,Chris Murphy,RP,RP
 Chris Paddack,20099,30,pitcher,663978,20099_pitcher,Chris Paddack,SP,SP
 Chris Roycroft,31261,29,pitcher,688297,31261_pitcher,Chris Roycroft,RP,RP
 Chris Sale,10603,37,pitcher,519242,10603_pitcher,Chris Sale,SP,SP
+Christian Encarnacion-Strand,30011,26,hitter,687952,30011_hitter,Christian Encarnacion-Strand,Hitter,NA
 Christian Koss,27653,28,hitter,683766,27653_hitter,Christian Koss (Hitter),Hitter,NA
 Christian Koss,27653,28,pitcher,683766,27653_pitcher,Christian Koss (RP),RP,RP
 Christian Moore,34979,23,hitter,695681,34979_hitter,Christian Moore,Hitter,NA
@@ -769,6 +770,7 @@ Kevin Gausman,14107,35,pitcher,592332,14107_pitcher,Kevin Gausman,SP,SP
 Kevin Ginkel,19876,32,pitcher,656464,19876_pitcher,Kevin Ginkel,RP,RP
 Kevin Kelly,25679,28,pitcher,687330,25679_pitcher,Kevin Kelly,RP,RP
 Kevin McGonigle,33572,21,hitter,805808,33572_hitter,Kevin McGonigle,Hitter,NA
+Khristian Curtis,33865,24,pitcher,694753,33865_pitcher,Khristian Curtis,SP,SP
 Kirby Yates,9073,39,pitcher,489446,9073_pitcher,Kirby Yates,RP,RP
 Kodai Senga,31838,33,pitcher,673540,31838_pitcher,Kodai Senga,SP,SP
 Kody Clemens,20572,30,hitter,665019,20572_hitter,Kody Clemens,Hitter,NA
@@ -811,7 +813,7 @@ Leo Jimenez,23782,25,hitter,677870,23782_hitter,Leo Jimenez,Hitter,NA
 Leo Rivas,21009,28,hitter,660844,21009_hitter,Leo Rivas,Hitter,NA
 Leody Taveras,18900,27,hitter,665750,18900_hitter,Leody Taveras,Hitter,NA
 Liam Hicks,29844,27,hitter,689414,29844_hitter,Liam Hicks,Hitter,NA
-Logan Allen,27589,27,pitcher,671106,27589_pitcher,Logan Allen,RP,RP
+Logan Allen,27589,27,pitcher,671106,27589_pitcher,Logan Allen,SP,SP
 Logan Gilbert,22250,29,pitcher,669302,22250_pitcher,Logan Gilbert,SP,SP
 Logan Henderson,31475,24,pitcher,701656,31475_pitcher,Logan Henderson,SP,SP
 Logan O'Hoppe,24729,26,hitter,681351,24729_hitter,Logan O'Hoppe,Hitter,NA
@@ -1134,7 +1136,7 @@ Seth Johnson,26020,27,pitcher,686751,26020_pitcher,Seth Johnson,RP,RP
 Seth Lugo,12447,36,pitcher,607625,12447_pitcher,Seth Lugo,SP,SP
 Shane Baz,22264,27,pitcher,669358,22264_pitcher,Shane Baz,SP,SP
 Shane Bieber,19427,31,pitcher,669456,19427_pitcher,Shane Bieber,SP,SP
-Shane Drohan,27814,27,pitcher,675660,27814_pitcher,Shane Drohan,RP,RP
+Shane Drohan,27814,27,pitcher,675660,27814_pitcher,Shane Drohan,SP,SP
 Shane McClanahan,21483,29,pitcher,663556,21483_pitcher,Shane McClanahan,SP,SP
 Shane Smith,31687,26,pitcher,681343,31687_pitcher,Shane Smith,SP,SP
 Shaun Anderson,19453,31,pitcher,641312,19453_pitcher,Shaun Anderson,RP,RP
@@ -1189,7 +1191,6 @@ Tayron Guerrero,11691,35,pitcher,594027,11691_pitcher,Tayron Guerrero,RP,RP
 Tejay Antone,16233,32,pitcher,622088,16233_pitcher,Tejay Antone,RP,RP
 Teoscar Hernandez,13066,33,hitter,606192,13066_hitter,Teoscar Hernandez,Hitter,NA
 Thomas Saggese,27883,24,hitter,695336,27883_hitter,Thomas Saggese,Hitter,NA
-Thomas White,35107,23,hitter,695720,35107_hitter,Thomas White,Hitter,NA
 Tim Herrin,25139,29,pitcher,682120,25139_pitcher,Tim Herrin,RP,RP
 Tim Hill,16814,36,pitcher,657612,16814_pitcher,Tim Hill,RP,RP
 Tim Mayza,15042,34,pitcher,641835,15042_pitcher,Tim Mayza,RP,RP
@@ -1201,6 +1202,7 @@ Tommy Kahnle,11384,36,pitcher,592454,11384_pitcher,Tommy Kahnle,RP,RP
 Tommy Nance,19178,35,pitcher,667297,19178_pitcher,Tommy Nance,RP,RP
 Tommy Pham,2967,38,hitter,502054,2967_hitter,Tommy Pham,Hitter,NA
 Tommy Troy,33279,24,hitter,694371,33279_hitter,Tommy Troy,Hitter,NA
+Tommy White,35107,23,hitter,695720,35107_hitter,Tommy White,Hitter,NA
 Tomoyuki Sugano,35321,36,pitcher,608372,35321_pitcher,Tomoyuki Sugano,SP,SP
 Tony Santillan,19926,29,pitcher,663574,19926_pitcher,Tony Santillan,RP,RP
 Travis Adams,30180,26,pitcher,701519,30180_pitcher,Travis Adams,RP,RP
