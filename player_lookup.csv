@@ -40,6 +40,7 @@ Alex Jackson,17276,30,hitter,656577,17276_hitter,Alex Jackson (Hitter),Hitter,NA
 Alex Jackson,17276,30,pitcher,656577,17276_pitcher,Alex Jackson (RP),RP,RP
 Alex Lange,19883,30,pitcher,656638,19883_pitcher,Alex Lange,RP,RP
 Alex Vesia,25007,30,pitcher,681911,25007_pitcher,Alex Vesia,RP,RP
+Alexander Cook,32015,25,pitcher,702047,32015_pitcher,Alexander Cook,RP,RP
 Alexander McFarlane,31773,25,pitcher,686934,31773_pitcher,Alexander McFarlane,RP,RP
 Ali Sanchez,18551,29,hitter,645305,18551_hitter,Ali Sanchez,Hitter,NA
 Alika Williams,27604,27,hitter,675961,27604_hitter,Alika Williams,Hitter,NA
@@ -76,6 +77,7 @@ Anthony Molina,26952,24,pitcher,683627,26952_pitcher,Anthony Molina,RP,RP
 Anthony Nunez,25796,24,pitcher,689296,25796_pitcher,Anthony Nunez,RP,RP
 Anthony Seigler,23802,27,hitter,678011,23802_hitter,Anthony Seigler,Hitter,NA
 Anthony Volpe,27647,25,hitter,683011,27647_hitter,Anthony Volpe,Hitter,NA
+Antoine Kelly,25611,26,pitcher,681520,25611_pitcher,Antoine Kelly,RP,RP
 Antonio Senzatela,15488,31,pitcher,622608,15488_pitcher,Antonio Senzatela,RP,RP
 Antwone Kelly,29000,22,pitcher,699008,29000_pitcher,Antwone Kelly,RP,RP
 Aramis Garcia,16925,33,hitter,605244,16925_hitter,Aramis Garcia,Hitter,NA
@@ -293,6 +295,7 @@ Cody Ponce,17920,32,pitcher,664074,17920_pitcher,Cody Ponce,SP,SP
 Colby Thomas,31855,25,hitter,687515,31855_hitter,Colby Thomas,Hitter,NA
 Cole Carrigg,33253,24,hitter,694249,33253_hitter,Cole Carrigg,Hitter,NA
 Cole Henry,27570,26,pitcher,669371,27570_pitcher,Cole Henry,RP,RP
+Cole Irvin,19244,32,pitcher,608344,19244_pitcher,Cole Irvin,SP,SP
 Cole Ragans,21846,28,pitcher,666142,21846_pitcher,Cole Ragans,SP,SP
 Cole Sands,21461,28,pitcher,663485,21461_pitcher,Cole Sands,RP,RP
 Cole Sulser,15256,36,pitcher,642121,15256_pitcher,Cole Sulser,RP,RP
@@ -685,6 +688,7 @@ Jonathan Heasley,22224,29,pitcher,669169,22224_pitcher,Jonathan Heasley,RP,RP
 Jonathan Hernandez,17464,29,pitcher,642546,17464_pitcher,Jonathan Hernandez,RP,RP
 Jonathan India,21523,29,hitter,663697,21523_hitter,Jonathan India,Hitter,NA
 Jonathan Loaisiga,19753,31,pitcher,642528,19753_pitcher,Jonathan Loaisiga,RP,RP
+Jonathan Ornelas,24597,26,hitter,680716,24597_hitter,Jonathan Ornelas,Hitter,NA
 Jonathan Pintaro,33980,28,pitcher,702752,33980_pitcher,Jonathan Pintaro,RP,RP
 Jonny DeLuca,26365,27,hitter,676356,26365_hitter,Jonny DeLuca,Hitter,NA
 Jorbit Vivas,23917,25,hitter,678391,23917_hitter,Jorbit Vivas (Hitter),Hitter,NA
@@ -864,6 +868,7 @@ Luisangel Acuna,26548,24,pitcher,682668,26548_pitcher,Luisangel Acuna (RP),RP,RP
 Luke Keaschall,33321,23,hitter,807712,33321_hitter,Luke Keaschall,Hitter,NA
 Luke Little,28036,25,pitcher,681432,28036_pitcher,Luke Little,RP,RP
 Luke Maile,13355,35,hitter,571912,13355_hitter,Luke Maile,Hitter,NA
+Luke Murphy,29952,26,pitcher,684665,29952_pitcher,Luke Murphy,RP,RP
 Luke Raley,19354,31,hitter,670042,19354_hitter,Luke Raley,Hitter,NA
 Luke Weaver,16918,32,pitcher,596133,16918_pitcher,Luke Weaver,RP,RP
 Luke Williams,19931,29,hitter,663897,19931_hitter,Luke Williams,Hitter,NA
@@ -908,6 +913,7 @@ Matthew Liberatore,22294,26,pitcher,669461,22294_pitcher,Matthew Liberatore,SP,S
 Matthew Pushard,31870,28,pitcher,690155,31870_pitcher,Matthew Pushard,RP,RP
 Mauricio Dubon,16530,31,hitter,643289,16530_hitter,Mauricio Dubon,Hitter,NA
 Maverick Handley,26106,28,hitter,668974,26106_hitter,Maverick Handley,Hitter,NA
+Max Clark,33381,21,hitter,703601,33381_hitter,Max Clark,Hitter,NA
 Max Fried,13743,32,pitcher,608331,13743_pitcher,Max Fried,SP,SP
 Max Kepler,12144,33,hitter,596146,12144_hitter,Max Kepler,Hitter,NA
 Max Kranick,22175,28,pitcher,668820,22175_pitcher,Max Kranick,RP,RP
@@ -988,7 +994,8 @@ Nick Sandlin,20517,29,pitcher,680704,20517_pitcher,Nick Sandlin,RP,RP
 Nick Sogard,25483,28,hitter,686765,25483_hitter,Nick Sogard,Hitter,NA
 Nick Solak,19294,31,hitter,669256,19294_hitter,Nick Solak,Hitter,NA
 Nick Yorke,27504,24,hitter,694377,27504_hitter,Nick Yorke,Hitter,NA
-Nicky Lopez,19339,31,hitter,670032,19339_hitter,Nicky Lopez,Hitter,NA
+Nicky Lopez,19339,31,hitter,670032,19339_hitter,Nicky Lopez (Hitter),Hitter,NA
+Nicky Lopez,19339,31,pitcher,670032,19339_pitcher,Nicky Lopez (RP),RP,RP
 Nico Hoerner,21479,29,hitter,663538,21479_hitter,Nico Hoerner,Hitter,NA
 Noah Cameron,30184,26,pitcher,702070,30184_pitcher,Noah Cameron,SP,SP
 Noah Murdock,27908,27,pitcher,668716,27908_pitcher,Noah Murdock,RP,RP
