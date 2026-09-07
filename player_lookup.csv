@@ -132,6 +132,7 @@ Blaze Alexander,23789,27,hitter,677942,23789_hitter,Blaze Alexander,Hitter,NA
 Blaze Jordan,28199,23,hitter,691458,28199_hitter,Blaze Jordan,Hitter,NA
 Bo Bichette,19612,28,hitter,666182,19612_hitter,Bo Bichette,Hitter,NA
 Bo Naylor,21865,26,hitter,666310,21865_hitter,Bo Naylor,Hitter,NA
+Bobby Miller,27483,27,pitcher,676272,27483_pitcher,Bobby Miller,RP,RP
 Bobby Witt Jr.,25764,26,hitter,677951,25764_hitter,Bobby Witt Jr.,Hitter,NA
 Brad Keller,15734,30,pitcher,641745,15734_pitcher,Brad Keller,RP,RP
 Brad Lord,31972,26,pitcher,695418,31972_pitcher,Brad Lord,RP,RP
@@ -270,7 +271,7 @@ Casey Mize,20492,29,pitcher,663554,20492_pitcher,Casey Mize,SP,SP
 Casey Schmitt,27577,27,hitter,669477,27577_hitter,Casey Schmitt,Hitter,NA
 Ceddanne Rafaela,24262,25,hitter,678882,24262_hitter,Ceddanne Rafaela,Hitter,NA
 Cedric Mullins,17929,31,hitter,656775,17929_hitter,Cedric Mullins,Hitter,NA
-Cesar Perdomo,30334,24,pitcher,702885,30334_pitcher,Cesar Perdomo,RP,RP
+Cesar Perdomo,30334,24,pitcher,702885,30334_pitcher,Cesar Perdomo,SP,SP
 Cesar Prieto,30163,27,hitter,693409,30163_hitter,Cesar Prieto,Hitter,NA
 Cesar Salazar,21587,30,hitter,663967,21587_hitter,Cesar Salazar (Hitter),Hitter,NA
 Cesar Salazar,21587,30,pitcher,663967,21587_pitcher,Cesar Salazar (RP),RP,RP
@@ -351,6 +352,7 @@ Connor Seabold,19695,30,pitcher,657756,19695_pitcher,Connor Seabold,RP,RP
 Connor Thomas,25873,28,pitcher,671162,25873_pitcher,Connor Thomas,RP,RP
 Connor Wong,19896,30,hitter,657136,19896_hitter,Connor Wong,Hitter,NA
 Cooper Criswell,24975,29,pitcher,681867,24975_pitcher,Cooper Criswell,RP,RP
+Cooper Hjerpe,31853,25,pitcher,687309,31853_pitcher,Cooper Hjerpe,RP,RP
 Cooper Ingle,33708,24,hitter,694876,33708_hitter,Cooper Ingle,Hitter,NA
 Cooper Pratt,33530,21,hitter,806198,33530_hitter,Cooper Pratt,Hitter,NA
 Corbin Carroll,25878,25,hitter,682998,25878_hitter,Corbin Carroll,Hitter,NA
@@ -1013,6 +1015,7 @@ Max Schuemann,24488,29,hitter,680474,24488_hitter,Max Schuemann (Hitter),Hitter,
 Max Schuemann,24488,29,pitcher,680474,24488_pitcher,Max Schuemann (RP),RP,RP
 Maxwel Rajcic,31873,24,pitcher,691008,31873_pitcher,Maxwel Rajcic,RP,RP
 Merrill Kelly,11156,37,pitcher,518876,11156_pitcher,Merrill Kelly,SP,SP
+Michael Arroyo,30384,21,hitter,703197,30384_hitter,Michael Arroyo,Hitter,NA
 Michael Busch,26319,28,hitter,683737,26319_hitter,Michael Busch,Hitter,NA
 Michael Conforto,16376,33,hitter,624424,16376_hitter,Michael Conforto,Hitter,NA
 Michael Fulmer,13218,33,pitcher,605242,13218_pitcher,Michael Fulmer,RP,RP
@@ -1369,6 +1372,7 @@ Tsung-Che Cheng,28344,24,hitter,691907,28344_hitter,Tsung-Che Cheng,Hitter,NA
 Turner Hill,32053,27,hitter,806367,32053_hitter,Turner Hill,Hitter,NA
 Ty Blach,14361,35,pitcher,621389,14361_pitcher,Ty Blach,RP,RP
 Ty France,17982,31,hitter,664034,17982_hitter,Ty France,Hitter,NA
+Ty Johnson,33862,24,pitcher,694494,33862_pitcher,Ty Johnson,RP,RP
 Ty Madden,30140,26,pitcher,680744,30140_pitcher,Ty Madden,RP,RP
 Tyler Alexander,17735,31,pitcher,641302,17735_pitcher,Tyler Alexander,RP,RP
 Tyler Black,29949,25,hitter,672012,29949_hitter,Tyler Black,Hitter,NA
@@ -1386,7 +1390,7 @@ Tyler Kinley,18297,35,pitcher,641755,18297_pitcher,Tyler Kinley,RP,RP
 Tyler Locklear,31396,25,hitter,682988,31396_hitter,Tyler Locklear,Hitter,NA
 Tyler Mahle,16358,31,pitcher,641816,16358_pitcher,Tyler Mahle,SP,SP
 Tyler O'Neill,15711,31,hitter,641933,15711_hitter,Tyler O'Neill,Hitter,NA
-Tyler Phillips,20629,28,pitcher,663969,20629_pitcher,Tyler Phillips,RP,RP
+Tyler Phillips,20629,28,pitcher,663969,20629_pitcher,Tyler Phillips,SP,SP
 Tyler Rogers,15541,35,pitcher,643511,15541_pitcher,Tyler Rogers,RP,RP
 Tyler Samaniego,30081,27,pitcher,701719,30081_pitcher,Tyler Samaniego,RP,RP
 Tyler Schweitzer,31920,25,pitcher,805326,31920_pitcher,Tyler Schweitzer,RP,RP
@@ -1409,6 +1413,7 @@ Victor Robles,18363,29,pitcher,645302,18363_pitcher,Victor Robles (RP),RP,RP
 Victor Scott II,31349,25,hitter,687363,31349_hitter,Victor Scott II,Hitter,NA
 Victor Vodnik,24614,26,pitcher,680767,24614_pitcher,Victor Vodnik,RP,RP
 Vidal Brujan,20536,28,hitter,660644,20536_hitter,Vidal Brujan,Hitter,NA
+Vimael Machin,17684,32,hitter,605353,17684_hitter,Vimael Machin,Hitter,NA
 Vince Velasquez,11189,34,pitcher,592826,11189_pitcher,Vince Velasquez,RP,RP
 Vinnie Pasquantino,27676,28,hitter,686469,27676_hitter,Vinnie Pasquantino,Hitter,NA
 Vladimir Guerrero Jr.,19611,27,hitter,665489,19611_hitter,Vladimir Guerrero Jr.,Hitter,NA
