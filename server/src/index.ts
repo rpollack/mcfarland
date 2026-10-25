@@ -259,6 +259,8 @@ export function createServer() {
   const allowedOrigins = process.env.CLIENT_ORIGIN?.split(",").map((origin) => origin.trim()).filter(Boolean);
   const corsOptions = allowedOrigins && allowedOrigins.length > 0 ? { origin: allowedOrigins } : undefined;
 
+  // HTTPS-only headers apply in production; Safari (unlike Chrome) also enforces them on http://localhost.
+  const isProduction = process.env.NODE_ENV === "production";
   app.use(
     helmet({
       contentSecurityPolicy: {
@@ -267,8 +269,10 @@ export function createServer() {
           "img-src": ["'self'", "data:", "https://img.mlbstatic.com"],
           "script-src": ["'self'", "'unsafe-inline'"],
           "connect-src": ["'self'"],
+          "upgrade-insecure-requests": isProduction ? [] : null,
         },
       },
+      strictTransportSecurity: isProduction,
     })
   );
   app.use(cors(corsOptions));
