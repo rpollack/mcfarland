@@ -50,7 +50,7 @@ The production server builds the React app and serves it from the Express API. D
 
 - The server loads baseball CSV data at startup from the repository root.
 - `/api/players`, `/api/players/:playerId`, `/api/trending`, and `/api/data-freshness` serve structured data to the client.
-- `/api/analyze` and `/api/compare/analyze` build prompts from the current stats and selected vibe, then use Claude (Claude Haiku 5.5 by default) for headline + analysis generation, with JSON structured outputs.
+- `/api/analyze` and `/api/compare/analyze` build prompts from the current stats and selected vibe, then use Claude (Claude Sonnet 5.5 by default) for headline + analysis generation, with JSON structured outputs and server-side refusal fallback.
 - Successful analysis responses are cached in PostgreSQL by prompt hash, cache version, mode, and `dataThroughDate`, so repeat requests across users can skip the model call.
 - Cache entries are valid only for the current `dataThroughDate`; stale rows are pruned opportunistically after successful writes.
 - Analytics events are sent to Amplitude for sessions, analysis runs, and share actions. Admin-mode requests are excluded from analytics.
@@ -105,7 +105,7 @@ The Express server serves the built React app at `http://localhost:3000`.
 | Name | Purpose | Default |
 | ---- | ------- | ------- |
 | `ANTHROPIC_API_KEY` | Enables Claude-generated headline and analysis responses. | unset |
-| `ANTHROPIC_MODEL` | Claude model used for generated headline and analysis responses. Non-Haiku models also get server-side refusal fallback. | `claude-haiku-5-5` |
+| `ANTHROPIC_MODEL` | Claude model used for generated headline and analysis responses. Non-Haiku models also get server-side refusal fallback. | `claude-sonnet-5-5` |
 | `DATABASE_URL` | Enables Postgres-backed analysis cache and weekly trend storage. | unset |
 | `AMPLITUDE_API_KEY` | Sends analytics events to a specific Amplitude project. | built-in project key |
 | `ADMIN_PASSWORD` | Enables admin mode protection for social assistant endpoints. | unset |

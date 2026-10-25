@@ -9,7 +9,7 @@ function mockAnthropicResponse(body: Record<string, unknown>) {
           id: "msg_test",
           type: "message",
           role: "assistant",
-          model: "claude-haiku-5-5",
+          model: "claude-sonnet-5-5",
           stop_sequence: null,
           usage: { input_tokens: 1, output_tokens: 1 },
           ...body,
@@ -26,7 +26,7 @@ describe("Claude analysis request", () => {
     delete process.env.ANTHROPIC_MODEL;
   });
 
-  it("sends a structured-output request to Claude Haiku 5.5 and parses the result", async () => {
+  it("sends a structured-output request to Claude Sonnet 5.5 with refusal fallback and parses the result", async () => {
     process.env.ANTHROPIC_API_KEY = "test-key";
     const fetchSpy = mockAnthropicResponse({
       content: [{ type: "text", text: JSON.stringify({ headline: "Judge keeps mashing", analysis: "Para one.\n\nPara two." }) }],
@@ -39,23 +39,23 @@ describe("Claude analysis request", () => {
     const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
     expect(String(url)).toContain("/v1/messages");
     const body = JSON.parse(String(init.body));
-    expect(body.model).toBe("claude-haiku-5-5");
-    expect(body.fallbacks).toBeUndefined();
+    expect(body.model).toBe("claude-sonnet-5-5");
+    expect(body.fallbacks).toBe("default");
     expect(body.output_config.format.type).toBe("json_schema");
     expect(body.output_config.format.schema.required).toEqual(["headline", "analysis"]);
     expect(body.messages[0].content).toContain("Analyze Player X.");
   });
 
-  it("honors ANTHROPIC_MODEL and reports refusals as uncacheable errors", async () => {
+  it("honors ANTHROPIC_MODEL, skips fallback for Haiku, and reports refusals as uncacheable errors", async () => {
     process.env.ANTHROPIC_API_KEY = "test-key";
-    process.env.ANTHROPIC_MODEL = "claude-sonnet-5-5";
+    process.env.ANTHROPIC_MODEL = "claude-haiku-5-5";
     const fetchSpy = mockAnthropicResponse({ content: [], stop_reason: "refusal" });
 
     const result = await callClaudeAnalysis("Analyze Player X.", "Straightforward", "straightforward");
 
     const body = JSON.parse(String((fetchSpy.mock.calls[0][1] as RequestInit).body));
-    expect(body.model).toBe("claude-sonnet-5-5");
-    expect(body.fallbacks).toBe("default");
+    expect(body.model).toBe("claude-haiku-5-5");
+    expect(body.fallbacks).toBeUndefined();
     expect(result.headline).toBe("Analysis unavailable");
     expect(result.analysis).toMatch(/^Anthropic API error: Request declined/);
   });

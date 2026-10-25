@@ -37,7 +37,7 @@ let testChatHandler: ChatHandler | null = null;
 let testFantasyDecisionHandler: FantasyDecisionHandler | null = null;
 const uncacheableResponses = new WeakSet<AnalysisResponse>();
 const uncacheableFantasyResponses = new WeakSet<FantasyDecisionResponse>();
-const DEFAULT_ANTHROPIC_MODEL = "claude-haiku-5-5";
+const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5-5";
 
 export function buildStructuredAnalysisPrompt(prompt: string, persona: string, mode: AnalysisMode): string {
   const modeSpecificInstructions =
