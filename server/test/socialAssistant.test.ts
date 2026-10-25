@@ -120,6 +120,33 @@ describe("social assistant news discovery", () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
+  it("does not cache an empty newsworthy list so failed news fetches retry", async () => {
+    __setDataFreshnessForTests({ dataThroughDate: "2026-05-04", dataThroughLabel: "May 4" });
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          playerId: "1",
+          playerType: "hitter" as const,
+          playerName: "Aaron Judge",
+          score: 10,
+          whyNow: "Aaron Judge is in the news.",
+          statSnapshot: "120 PA · wOBA +.050",
+          shareUrl: "https://example.test/share?playerId=1",
+          news: [],
+        },
+      ]);
+    __setNewsDrivenCandidatePoolFetcherForTests(fetcher);
+
+    const first = await getTrendingQuickLinks("https://example.test");
+    const second = await getTrendingQuickLinks("https://example.test");
+
+    expect(first.newsworthy).toEqual([]);
+    expect(second.newsworthy).toEqual([{ id: "1", name: "Aaron Judge", type: "hitter", mlbamid: null }]);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
   it("refreshes newsworthy quick links when data day changes", async () => {
     const fetcher = vi
       .fn()

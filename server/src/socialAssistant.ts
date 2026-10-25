@@ -529,6 +529,9 @@ function parseNewsItems(xml: string, query: string, limit: number): NewsSearchIt
     .filter((item) => item.title && item.link);
 }
 
+// Quick links wait on these feeds, so a slow or throttled Google must not stall the page.
+const NEWS_FETCH_TIMEOUT_MS = 2500;
+
 async function fetchGoogleNewsRss(query: string, limit: number): Promise<NewsSearchItem[]> {
   if (process.env.NODE_ENV === "test") {
     return [];
@@ -541,6 +544,7 @@ async function fetchGoogleNewsRss(query: string, limit: number): Promise<NewsSea
       headers: {
         "User-Agent": "McFARLAND Social Assistant/1.0",
       },
+      signal: AbortSignal.timeout(NEWS_FETCH_TIMEOUT_MS),
     });
 
     if (!response.ok) {
@@ -931,10 +935,13 @@ async function getDailyNewsworthyQuickLinks(baseUrl: string): Promise<{ id: stri
     .slice(0, 3)
     .map(toTrendPlayer);
 
-  newsworthyQuickLinkCache = {
-    dataThroughDate,
-    players,
-  };
+  // An empty list usually means the feeds failed or timed out; retry on the next request.
+  if (players.length > 0) {
+    newsworthyQuickLinkCache = {
+      dataThroughDate,
+      players,
+    };
+  }
 
   return players;
 }
