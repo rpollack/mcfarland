@@ -9,7 +9,7 @@ services:
     healthCheckPath: /health
     autoDeploy: true
     envVars:
-      - key: OPENAI_API_KEY
+      - key: ANTHROPIC_API_KEY
         sync: false
       - key: DATABASE_URL
         sync: false

@@ -1,6 +1,7 @@
+import Anthropic from "@anthropic-ai/sdk";
 import type { AnalysisMode } from "./vibes.js";
 
-interface OpenAIResponse {
+interface AnalysisResponse {
   prompt: string;
   persona: string;
   headline: string;
@@ -29,14 +30,14 @@ type ParsedFantasyPayload = {
   analysis: string;
 };
 
-type ChatHandler = (prompt: string, persona: string, mode: AnalysisMode) => Promise<OpenAIResponse>;
+type ChatHandler = (prompt: string, persona: string, mode: AnalysisMode) => Promise<AnalysisResponse>;
 type FantasyDecisionHandler = (prompt: string) => Promise<FantasyDecisionResponse>;
 
 let testChatHandler: ChatHandler | null = null;
 let testFantasyDecisionHandler: FantasyDecisionHandler | null = null;
-const uncacheableResponses = new WeakSet<OpenAIResponse>();
+const uncacheableResponses = new WeakSet<AnalysisResponse>();
 const uncacheableFantasyResponses = new WeakSet<FantasyDecisionResponse>();
-const DEFAULT_OPENAI_MODEL = "gpt-5.4-mini";
+const DEFAULT_ANTHROPIC_MODEL = "claude-opus-5-5";
 
 export function buildStructuredAnalysisPrompt(prompt: string, persona: string, mode: AnalysisMode): string {
   const modeSpecificInstructions =
@@ -185,51 +186,68 @@ function buildFallbackHeadline(analysis: string): string {
   return candidate || "Analysis available";
 }
 
-async function runChatCompletion(apiKey: string, prompt: string): Promise<string> {
-  const model = process.env.OPENAI_MODEL?.trim() || DEFAULT_OPENAI_MODEL;
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are an expert in advanced baseball statistics and in translating them for casual fans. Use only the stats provided in the prompt. Do not invent injuries, mechanics, lineup role, or other outside context. Let sample size affect your confidence, and do not let stylistic persona instructions override factual accuracy or statistical rigor. Write like a perceptive human baseball analyst, not like a template or an automated report.",
-        },
-        { role: "user", content: prompt },
-      ],
-    }),
+const SYSTEM_PROMPT =
+  "You are an expert in advanced baseball statistics and in translating them for casual fans. Use only the stats provided in the prompt. Do not invent injuries, mechanics, lineup role, or other outside context. Let sample size affect your confidence, and do not let stylistic persona instructions override factual accuracy or statistical rigor. Write like a perceptive human baseball analyst, not like a template or an automated report.";
+
+const ANALYSIS_OUTPUT_SCHEMA = {
+  type: "object",
+  properties: {
+    headline: { type: "string" },
+    analysis: { type: "string" },
+  },
+  required: ["headline", "analysis"],
+  additionalProperties: false,
+};
+
+const FANTASY_OUTPUT_SCHEMA = {
+  type: "object",
+  properties: {
+    decision: { type: "string", enum: ["START", "SIT"] },
+    confidence: { type: "string", enum: ["Low", "Medium", "High"] },
+    headline: { type: "string" },
+    analysis: { type: "string" },
+  },
+  required: ["decision", "confidence", "headline", "analysis"],
+  additionalProperties: false,
+};
+
+async function runMessage(apiKey: string, prompt: string, schema: Record<string, unknown>): Promise<string> {
+  const model = process.env.ANTHROPIC_MODEL?.trim() || DEFAULT_ANTHROPIC_MODEL;
+  const response = await new Anthropic({ apiKey }).beta.messages.create({
+    model,
+    max_tokens: 16000,
+    betas: ["server-side-fallback-2026-07-01"],
+    fallbacks: "default",
+    output_config: { effort: "medium", format: { type: "json_schema", schema } },
+    system: SYSTEM_PROMPT,
+    messages: [{ role: "user", content: prompt }],
   });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
-    throw new Error(error?.error?.message ?? response.statusText);
+  if (response.stop_reason === "refusal") {
+    throw new Error(`Request declined${response.stop_details?.category ? ` (${response.stop_details.category})` : ""}`);
   }
 
-  const payload = (await response.json()) as {
-    choices?: { message?: { content?: string } }[];
-  };
+  const text = response.content
+    .filter((block): block is Anthropic.Beta.BetaTextBlock => block.type === "text")
+    .map((block) => block.text)
+    .join("")
+    .trim();
 
-  return payload.choices?.[0]?.message?.content?.trim() || "No response returned from the OpenAI API.";
+  return text || "No response returned from the Anthropic API.";
 }
 
-export async function callOpenAiChat(prompt: string, persona: string, mode: AnalysisMode): Promise<OpenAIResponse> {
+export async function callClaudeAnalysis(prompt: string, persona: string, mode: AnalysisMode): Promise<AnalysisResponse> {
   if (testChatHandler) {
     return testChatHandler(prompt, persona, mode);
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     const response = {
       prompt,
       persona,
       headline: "Analysis unavailable",
-      analysis: "OpenAI API key is not configured. Provide an OPENAI_API_KEY environment variable to enable AI analysis.",
+      analysis: "Anthropic API key is not configured. Provide an ANTHROPIC_API_KEY environment variable to enable AI analysis.",
       cached: false,
     };
     uncacheableResponses.add(response);
@@ -237,7 +255,7 @@ export async function callOpenAiChat(prompt: string, persona: string, mode: Anal
   }
 
   try {
-    const payload = await runChatCompletion(apiKey, buildStructuredAnalysisPrompt(prompt, persona, mode));
+    const payload = await runMessage(apiKey, buildStructuredAnalysisPrompt(prompt, persona, mode), ANALYSIS_OUTPUT_SCHEMA);
     const parsed = parseJsonPayload(payload);
     const analysis = parsed?.analysis || payload;
     const headline = parsed?.headline || buildFallbackHeadline(analysis);
@@ -253,7 +271,7 @@ export async function callOpenAiChat(prompt: string, persona: string, mode: Anal
       prompt,
       persona,
       headline: "Analysis unavailable",
-      analysis: `OpenAI API error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      analysis: `Anthropic API error: ${error instanceof Error ? error.message : "Unknown error"}`,
       cached: false,
     };
     uncacheableResponses.add(response);
@@ -261,19 +279,19 @@ export async function callOpenAiChat(prompt: string, persona: string, mode: Anal
   }
 }
 
-export async function callOpenAiFantasyDecision(prompt: string): Promise<FantasyDecisionResponse> {
+export async function callClaudeFantasyDecision(prompt: string): Promise<FantasyDecisionResponse> {
   if (testFantasyDecisionHandler) {
     return testFantasyDecisionHandler(prompt);
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     const response = {
       prompt,
       decision: "SIT" as const,
       confidence: "Low" as const,
       headline: "Fantasy decision unavailable",
-      analysis: "OpenAI API key is not configured. Provide an OPENAI_API_KEY environment variable to enable fantasy matchup decisions.",
+      analysis: "Anthropic API key is not configured. Provide an ANTHROPIC_API_KEY environment variable to enable fantasy matchup decisions.",
       cached: false,
     };
     uncacheableFantasyResponses.add(response);
@@ -281,7 +299,7 @@ export async function callOpenAiFantasyDecision(prompt: string): Promise<Fantasy
   }
 
   try {
-    const payload = await runChatCompletion(
+    const payload = await runMessage(
       apiKey,
       [
         "Return raw JSON only. Do not wrap the response in markdown fences.",
@@ -289,7 +307,8 @@ export async function callOpenAiFantasyDecision(prompt: string): Promise<Fantasy
         '{"decision":"START|SIT","confidence":"Low|Medium|High","headline":"...","analysis":"..."}',
         "",
         prompt,
-      ].join("\n")
+      ].join("\n"),
+      FANTASY_OUTPUT_SCHEMA
     );
     const parsed = parseFantasyJsonPayload(payload);
     if (!parsed) {
@@ -312,7 +331,7 @@ export async function callOpenAiFantasyDecision(prompt: string): Promise<Fantasy
       decision: "SIT" as const,
       confidence: "Low" as const,
       headline: "Fantasy decision unavailable",
-      analysis: `OpenAI API error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      analysis: `Anthropic API error: ${error instanceof Error ? error.message : "Unknown error"}`,
       cached: false,
     };
     uncacheableFantasyResponses.add(response);
@@ -320,11 +339,11 @@ export async function callOpenAiFantasyDecision(prompt: string): Promise<Fantasy
   }
 }
 
-export function isCacheableOpenAiResponse(response: OpenAIResponse): boolean {
+export function isCacheableAnalysisResponse(response: AnalysisResponse): boolean {
   return (
     !uncacheableResponses.has(response) &&
     response.headline !== "Analysis unavailable" &&
-    !response.analysis.startsWith("OpenAI API error:")
+    !response.analysis.startsWith("Anthropic API error:")
   );
 }
 
@@ -332,11 +351,11 @@ export function isCacheableFantasyDecision(response: FantasyDecisionResponse): b
   return (
     !uncacheableFantasyResponses.has(response) &&
     response.headline !== "Fantasy decision unavailable" &&
-    !response.analysis.startsWith("OpenAI API error:")
+    !response.analysis.startsWith("Anthropic API error:")
   );
 }
 
-export function __setOpenAiChatHandlerForTests(handler: ChatHandler | null): void {
+export function __setAnalysisHandlerForTests(handler: ChatHandler | null): void {
   testChatHandler = handler;
 }
 

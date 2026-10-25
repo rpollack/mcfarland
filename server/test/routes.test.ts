@@ -4,7 +4,7 @@ import { createServer } from "../src/index.js";
 import { __setAnalysisCacheStoreForTests } from "../src/analysisCache.js";
 import { getDataFreshness, getPlayerById, __setDataFreshnessForTests } from "../src/dataStore.js";
 import { __clearMlbMatchupCacheForTests } from "../src/mlbMatchups.js";
-import { __setFantasyDecisionHandlerForTests, __setOpenAiChatHandlerForTests } from "../src/openai.js";
+import { __setFantasyDecisionHandlerForTests, __setAnalysisHandlerForTests } from "../src/claude.js";
 import { formatEra, formatPercentage, formatStatValue } from "../src/utils.js";
 
 const app = createServer();
@@ -133,13 +133,13 @@ function mockMlbApi({
 
 describe("McFARLAND API", () => {
   beforeAll(() => {
-    process.env.OPENAI_API_KEY = ""; // ensure offline tests do not call the API
+    process.env.ANTHROPIC_API_KEY = ""; // ensure offline tests do not call the API
   });
 
   beforeEach(() => {
-    process.env.OPENAI_API_KEY = "";
+    process.env.ANTHROPIC_API_KEY = "";
     __setAnalysisCacheStoreForTests(null);
-    __setOpenAiChatHandlerForTests(null);
+    __setAnalysisHandlerForTests(null);
     __setFantasyDecisionHandlerForTests(null);
     __clearMlbMatchupCacheForTests();
     __setDataFreshnessForTests(originalFreshness);
@@ -149,7 +149,7 @@ describe("McFARLAND API", () => {
   afterEach(() => {
     delete process.env.ADMIN_PASSWORD;
     __setAnalysisCacheStoreForTests(null);
-    __setOpenAiChatHandlerForTests(null);
+    __setAnalysisHandlerForTests(null);
     __setFantasyDecisionHandlerForTests(null);
     __clearMlbMatchupCacheForTests();
     __setDataFreshnessForTests(originalFreshness);
@@ -186,7 +186,7 @@ describe("McFARLAND API", () => {
     expect(response.body.dataThroughLabel).toMatch(/[A-Za-z]+\s+\d{1,2}/);
   });
 
-  it("builds analysis prompts without calling OpenAI when key missing", async () => {
+  it("builds analysis prompts without calling Claude when key missing", async () => {
     const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
     const hitter = listBody.players[0];
     const response = await request(app)
@@ -195,18 +195,18 @@ describe("McFARLAND API", () => {
 
     expect(response.status).toBe(200);
     expect(response.body.prompt).toContain("Player: ");
-    expect(response.body.analysis).toContain("OpenAI API key is not configured");
+    expect(response.body.analysis).toContain("Anthropic API key is not configured");
   });
 
   it("sends the selected hitter's loaded stats to the analysis prompt", async () => {
-    const openAiHandler = vi.fn(async (prompt: string, persona: string) => ({
+    const analysisHandler = vi.fn(async (prompt: string, persona: string) => ({
       prompt,
       persona,
       headline: "Hitter data headline",
       analysis: "Hitter data analysis",
       cached: false,
     }));
-    __setOpenAiChatHandlerForTests(openAiHandler);
+    __setAnalysisHandlerForTests(analysisHandler);
 
     const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
     const hitter = listBody.players[0];
@@ -219,9 +219,9 @@ describe("McFARLAND API", () => {
       .send({ playerId: hitter.id, playerType: "hitter", analysisMode: "straightforward" });
 
     expect(response.status).toBe(200);
-    expect(openAiHandler).toHaveBeenCalledTimes(1);
+    expect(analysisHandler).toHaveBeenCalledTimes(1);
 
-    const prompt = openAiHandler.mock.calls[0][0];
+    const prompt = analysisHandler.mock.calls[0][0];
     const player = loadedPlayer!;
     expect(prompt).toContain(`Player: ${player.Name} (Hitter)`);
     expect(prompt).toContain(
@@ -236,14 +236,14 @@ describe("McFARLAND API", () => {
   });
 
   it("sends the selected pitcher's loaded stats to the analysis prompt", async () => {
-    const openAiHandler = vi.fn(async (prompt: string, persona: string) => ({
+    const analysisHandler = vi.fn(async (prompt: string, persona: string) => ({
       prompt,
       persona,
       headline: "Pitcher data headline",
       analysis: "Pitcher data analysis",
       cached: false,
     }));
-    __setOpenAiChatHandlerForTests(openAiHandler);
+    __setAnalysisHandlerForTests(analysisHandler);
 
     const { body: listBody } = await request(app).get("/api/players").query({ type: "pitcher", q: "Skubal" });
     const pitcher = listBody.players[0];
@@ -256,9 +256,9 @@ describe("McFARLAND API", () => {
       .send({ playerId: pitcher.id, playerType: "pitcher", analysisMode: "straightforward" });
 
     expect(response.status).toBe(200);
-    expect(openAiHandler).toHaveBeenCalledTimes(1);
+    expect(analysisHandler).toHaveBeenCalledTimes(1);
 
-    const prompt = openAiHandler.mock.calls[0][0];
+    const prompt = analysisHandler.mock.calls[0][0];
     const player = loadedPlayer!;
     expect(prompt).toContain(`Player: ${player.Name} (Pitcher)`);
     expect(prompt).toContain(
@@ -275,14 +275,14 @@ describe("McFARLAND API", () => {
   it("caches identical single-player analysis across sessions", async () => {
     const memoryCache = createMemoryCacheStore();
     __setAnalysisCacheStoreForTests(memoryCache.store);
-    const openAiHandler = vi.fn(async (prompt: string, persona: string) => ({
+    const analysisHandler = vi.fn(async (prompt: string, persona: string) => ({
       prompt,
       persona,
       headline: "Cached Judge headline",
       analysis: "Cached Judge analysis",
       cached: false,
     }));
-    __setOpenAiChatHandlerForTests(openAiHandler);
+    __setAnalysisHandlerForTests(analysisHandler);
 
     const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
     const hitter = listBody.players[0];
@@ -300,40 +300,40 @@ describe("McFARLAND API", () => {
     expect(second.status).toBe(200);
     expect(second.body.cached).toBe(true);
     expect(second.body.headline).toBe("Cached Judge headline");
-    expect(openAiHandler).toHaveBeenCalledTimes(1);
+    expect(analysisHandler).toHaveBeenCalledTimes(1);
   });
 
   it("misses the analysis cache when vibe changes", async () => {
     const memoryCache = createMemoryCacheStore();
     __setAnalysisCacheStoreForTests(memoryCache.store);
-    const openAiHandler = vi.fn(async (prompt: string, persona: string) => ({
+    const analysisHandler = vi.fn(async (prompt: string, persona: string) => ({
       prompt,
       persona,
       headline: "Fresh headline",
       analysis: "Fresh analysis",
       cached: false,
     }));
-    __setOpenAiChatHandlerForTests(openAiHandler);
+    __setAnalysisHandlerForTests(analysisHandler);
 
     const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
     const hitter = listBody.players[0];
     await request(app).post("/api/analyze").send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
     await request(app).post("/api/analyze").send({ playerId: hitter.id, playerType: "hitter", analysisMode: "shakespeare" });
 
-    expect(openAiHandler).toHaveBeenCalledTimes(2);
+    expect(analysisHandler).toHaveBeenCalledTimes(2);
   });
 
   it("misses the analysis cache when data freshness changes", async () => {
     const memoryCache = createMemoryCacheStore();
     __setAnalysisCacheStoreForTests(memoryCache.store);
-    const openAiHandler = vi.fn(async (prompt: string, persona: string) => ({
+    const analysisHandler = vi.fn(async (prompt: string, persona: string) => ({
       prompt,
       persona,
       headline: "Fresh headline",
       analysis: "Fresh analysis",
       cached: false,
     }));
-    __setOpenAiChatHandlerForTests(openAiHandler);
+    __setAnalysisHandlerForTests(analysisHandler);
 
     const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
     const hitter = listBody.players[0];
@@ -342,20 +342,20 @@ describe("McFARLAND API", () => {
     const second = await request(app).post("/api/analyze").send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
 
     expect(second.body.cached).toBe(false);
-    expect(openAiHandler).toHaveBeenCalledTimes(2);
+    expect(analysisHandler).toHaveBeenCalledTimes(2);
   });
 
   it("caches ordered comparison analysis separately from single-player analysis", async () => {
     const memoryCache = createMemoryCacheStore();
     __setAnalysisCacheStoreForTests(memoryCache.store);
-    const openAiHandler = vi.fn(async (prompt: string, persona: string) => ({
+    const analysisHandler = vi.fn(async (prompt: string, persona: string) => ({
       prompt,
       persona,
       headline: "Comparison headline",
       analysis: "Comparison analysis",
       cached: false,
     }));
-    __setOpenAiChatHandlerForTests(openAiHandler);
+    __setAnalysisHandlerForTests(analysisHandler);
 
     const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter" });
     const playerIds = listBody.players.slice(0, 2).map((p: any) => p.id);
@@ -371,38 +371,50 @@ describe("McFARLAND API", () => {
     expect(second.status).toBe(200);
     expect(second.body.cached).toBe(true);
     expect(second.body.players).toHaveLength(2);
-    expect(openAiHandler).toHaveBeenCalledTimes(1);
+    expect(analysisHandler).toHaveBeenCalledTimes(1);
   });
 
-  it("does not cache unavailable OpenAI responses", async () => {
+  it("does not cache unavailable Claude responses", async () => {
     const memoryCache = createMemoryCacheStore();
     __setAnalysisCacheStoreForTests(memoryCache.store);
-    const openAiHandler = vi.fn(async (prompt: string, persona: string) => ({
+    const analysisHandler = vi.fn(async (prompt: string, persona: string) => ({
       prompt,
       persona,
       headline: "Analysis unavailable",
-      analysis: "OpenAI API error: temporarily unavailable",
+      analysis: "Anthropic API error: temporarily unavailable",
       cached: false,
     }));
-    __setOpenAiChatHandlerForTests(openAiHandler);
+    __setAnalysisHandlerForTests(analysisHandler);
 
     const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
     const hitter = listBody.players[0];
     await request(app).post("/api/analyze").send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
     await request(app).post("/api/analyze").send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
 
-    expect(openAiHandler).toHaveBeenCalledTimes(2);
+    expect(analysisHandler).toHaveBeenCalledTimes(2);
     expect(memoryCache.rows.size).toBe(0);
   });
 
-  it("does not cache malformed OpenAI responses", async () => {
-    process.env.OPENAI_API_KEY = "test-key";
+  it("does not cache malformed Claude responses", async () => {
+    process.env.ANTHROPIC_API_KEY = "test-key";
     const memoryCache = createMemoryCacheStore();
     __setAnalysisCacheStoreForTests(memoryCache.store);
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: true,
-      json: async () => ({ choices: [{ message: { content: "not json" } }] }),
-    } as Response);
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(
+      async () =>
+        new Response(
+          JSON.stringify({
+            id: "msg_test",
+            type: "message",
+            role: "assistant",
+            model: "claude-opus-5-5",
+            content: [{ type: "text", text: "not json" }],
+            stop_reason: "end_turn",
+            stop_sequence: null,
+            usage: { input_tokens: 1, output_tokens: 1 },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } }
+        )
+    );
 
     const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
     const hitter = listBody.players[0];
@@ -413,7 +425,7 @@ describe("McFARLAND API", () => {
     expect(memoryCache.rows.size).toBe(0);
   });
 
-  it("falls back to OpenAI when cache reads fail", async () => {
+  it("falls back to Claude when cache reads fail", async () => {
     __setAnalysisCacheStoreForTests({
       async get() {
         throw new Error("read failed");
@@ -421,14 +433,14 @@ describe("McFARLAND API", () => {
       async set() {},
       async prune() {},
     });
-    const openAiHandler = vi.fn(async (prompt: string, persona: string) => ({
+    const analysisHandler = vi.fn(async (prompt: string, persona: string) => ({
       prompt,
       persona,
       headline: "Fresh headline",
       analysis: "Fresh analysis",
       cached: false,
     }));
-    __setOpenAiChatHandlerForTests(openAiHandler);
+    __setAnalysisHandlerForTests(analysisHandler);
 
     const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
     const hitter = listBody.players[0];
@@ -438,7 +450,7 @@ describe("McFARLAND API", () => {
 
     expect(response.status).toBe(200);
     expect(response.body.analysis).toBe("Fresh analysis");
-    expect(openAiHandler).toHaveBeenCalledTimes(1);
+    expect(analysisHandler).toHaveBeenCalledTimes(1);
   });
 
   it("returns generated analysis when cache writes fail", async () => {
@@ -451,14 +463,14 @@ describe("McFARLAND API", () => {
       },
       async prune() {},
     });
-    const openAiHandler = vi.fn(async (prompt: string, persona: string) => ({
+    const analysisHandler = vi.fn(async (prompt: string, persona: string) => ({
       prompt,
       persona,
       headline: "Fresh headline",
       analysis: "Fresh analysis",
       cached: false,
     }));
-    __setOpenAiChatHandlerForTests(openAiHandler);
+    __setAnalysisHandlerForTests(analysisHandler);
 
     const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
     const hitter = listBody.players[0];
@@ -474,7 +486,7 @@ describe("McFARLAND API", () => {
     const memoryCache = createMemoryCacheStore();
     __setAnalysisCacheStoreForTests(memoryCache.store);
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true } as Response);
-    __setOpenAiChatHandlerForTests(async (prompt: string, persona: string) => ({
+    __setAnalysisHandlerForTests(async (prompt: string, persona: string) => ({
       prompt,
       persona,
       headline: "Tracked headline",
@@ -524,7 +536,7 @@ describe("McFARLAND API", () => {
   it("does not log analysis events while admin mode is enabled", async () => {
     process.env.ADMIN_PASSWORD = "top-secret";
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true } as Response);
-    __setOpenAiChatHandlerForTests(async (prompt: string, persona: string) => ({
+    __setAnalysisHandlerForTests(async (prompt: string, persona: string) => ({
       prompt,
       persona,
       headline: "Admin headline",
@@ -553,7 +565,7 @@ describe("McFARLAND API", () => {
       analysis: "Old analysis",
     });
     __setAnalysisCacheStoreForTests(memoryCache.store);
-    __setOpenAiChatHandlerForTests(async (prompt: string, persona: string) => ({
+    __setAnalysisHandlerForTests(async (prompt: string, persona: string) => ({
       prompt,
       persona,
       headline: "Fresh headline",
@@ -850,7 +862,7 @@ describe("McFARLAND API", () => {
   it("uses a cached generated headline in share social preview titles", async () => {
     const memoryCache = createMemoryCacheStore();
     __setAnalysisCacheStoreForTests(memoryCache.store);
-    __setOpenAiChatHandlerForTests(async (prompt: string, persona: string) => ({
+    __setAnalysisHandlerForTests(async (prompt: string, persona: string) => ({
       prompt,
       persona,
       headline: "Judge keeps forcing the issue",

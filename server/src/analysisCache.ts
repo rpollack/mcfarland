@@ -3,7 +3,7 @@ import { Pool } from "pg";
 import type { PlayerType } from "./types.js";
 import type { AnalysisMode } from "./vibes.js";
 
-const ANALYSIS_CACHE_VERSION = "analysis-json-v1";
+const ANALYSIS_CACHE_VERSION = "analysis-claude-v1";
 
 type CachedAnalysis = {
   headline: string;
