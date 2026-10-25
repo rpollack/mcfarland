@@ -27,7 +27,7 @@ The name is a tribute to former Orioles lefty T.J. McFarland, patron saint of ad
 McFARLAND is a TypeScript monorepo with three npm workspaces:
 
 - `client`: React 18, Vite, React Router, TanStack React Query, React Markdown, CSS modules, Vitest, Testing Library.
-- `server`: Node.js, Express, TypeScript, Zod validation, Helmet, CORS, rate limiting, OpenAI chat completions, PostgreSQL via `pg`, CSV parsing, Vitest, Supertest.
+- `server`: Node.js, Express, TypeScript, Zod validation, Helmet, CORS, rate limiting, Anthropic Claude via `@anthropic-ai/sdk` (Messages API with structured outputs), PostgreSQL via `pg`, CSV parsing, Vitest, Supertest.
 - `tests/e2e`: Playwright end-to-end tests.
 
 The production server builds the React app and serves it from the Express API. Development runs Vite and the API side by side.
@@ -50,8 +50,8 @@ The production server builds the React app and serves it from the Express API. D
 
 - The server loads baseball CSV data at startup from the repository root.
 - `/api/players`, `/api/players/:playerId`, `/api/trending`, and `/api/data-freshness` serve structured data to the client.
-- `/api/analyze` and `/api/compare/analyze` build prompts from the current stats and selected vibe, then use OpenAI for headline + analysis generation.
-- Successful analysis responses are cached in PostgreSQL by prompt hash, cache version, mode, and `dataThroughDate`, so repeat requests across users can skip OpenAI.
+- `/api/analyze` and `/api/compare/analyze` build prompts from the current stats and selected vibe, then use Claude (Claude Sonnet 5.5 by default) for headline + analysis generation, with JSON structured outputs and server-side refusal fallback.
+- Successful analysis responses are cached in PostgreSQL by prompt hash, cache version, mode, and `dataThroughDate`, so repeat requests across users can skip the model call.
 - Cache entries are valid only for the current `dataThroughDate`; stale rows are pruned opportunistically after successful writes.
 - Analytics events are sent to Amplitude for sessions, analysis runs, and share actions. Admin-mode requests are excluded from analytics.
 - Weekly trend storage uses PostgreSQL when `DATABASE_URL` is configured, with fallback behavior when storage is unavailable.
@@ -60,7 +60,7 @@ The production server builds the React app and serves it from the Express API. D
 
 - Node.js 18+
 - npm 9+
-- Optional: OpenAI API key for generated analysis.
+- Optional: Anthropic API key for generated analysis.
 - Optional: PostgreSQL 17 or compatible Postgres database for shared analysis cache and weekly trend persistence.
 - Optional: R runtime for running `refresh_data.R` locally.
 
@@ -72,10 +72,10 @@ Install dependencies:
 npm install
 ```
 
-For local AI responses, set an OpenAI key:
+For local AI responses, set an Anthropic API key:
 
 ```bash
-export OPENAI_API_KEY="your-openai-key"
+export ANTHROPIC_API_KEY="your-anthropic-key"
 ```
 
 For Postgres-backed cache and trend storage, set:
@@ -104,8 +104,8 @@ The Express server serves the built React app at `http://localhost:3000`.
 
 | Name | Purpose | Default |
 | ---- | ------- | ------- |
-| `OPENAI_API_KEY` | Enables OpenAI-generated headline and analysis responses. | unset |
-| `OPENAI_MODEL` | Model used for OpenAI-generated headline and analysis responses. | `gpt-5.4-mini` |
+| `ANTHROPIC_API_KEY` | Enables Claude-generated headline and analysis responses. | unset |
+| `ANTHROPIC_MODEL` | Claude model used for generated headline and analysis responses. Non-Haiku models also get server-side refusal fallback. | `claude-sonnet-5-5` |
 | `DATABASE_URL` | Enables Postgres-backed analysis cache and weekly trend storage. | unset |
 | `AMPLITUDE_API_KEY` | Sends analytics events to a specific Amplitude project. | built-in project key |
 | `ADMIN_PASSWORD` | Enables admin mode protection for social assistant endpoints. | unset |
@@ -152,7 +152,7 @@ npm run build
 - The app's baseball data comes from the CSV files in the repository root plus `data_freshness.json`.
 - `refresh_data.R` is the data refresh entrypoint and is intended to be run on a schedule during the season.
 - Analysis cache validity follows `dataThroughDate`, not wall-clock date.
-- Only successful structured OpenAI responses are cached. API errors, unavailable responses, and malformed model responses are not cached.
+- Only successful structured Claude responses are cached. API errors, unavailable responses, and malformed model responses are not cached.
 - The analysis cache is shared across users and sessions when Postgres is configured.
 - Without `DATABASE_URL`, analysis still works, but shared cache and persisted weekly trend storage are disabled.
 
