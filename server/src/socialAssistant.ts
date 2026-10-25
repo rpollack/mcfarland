@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "csv-parse/sync";
 import { getDataFreshness, listPlayers } from "./dataStore.js";
-import { callOpenAiChat } from "./openai.js";
+import { callClaudeAnalysis } from "./claude.js";
 import type { HitterRecord, PitcherRecord, PlayerType } from "./types.js";
 import { DEFAULT_ANALYSIS_MODE, type AnalysisMode } from "./vibes.js";
 
@@ -860,7 +860,7 @@ export async function generateSocialSuggestions(baseUrl: string): Promise<Social
 
   const fallback = buildFallbackResponse(enriched);
   const prompt = buildPrompt(enriched);
-  const model = await callOpenAiChat(prompt, "Internal social assistant", DEFAULT_ANALYSIS_MODE as AnalysisMode);
+  const model = await callClaudeAnalysis(prompt, "Internal social assistant", DEFAULT_ANALYSIS_MODE as AnalysisMode);
   const parsed = parseJsonPayload(model.analysis);
 
   if (!parsed || !Array.isArray(parsed.candidates) || !Array.isArray(parsed.xPosts) || !Array.isArray(parsed.blueskyPosts)) {

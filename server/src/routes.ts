@@ -4,7 +4,7 @@ import { z } from "zod";
 import { buildAboutContent, buildAnalysisPrompt, buildComparisonPrompt, generateQuickInsight, recommendBestPlayer } from "./analysis.js";
 import { buildFantasyDailyMatchupPrompt, parseFantasyCachedPayload, serializeFantasyCachedPayload } from "./fantasy.js";
 import { getDailyMatchupContext } from "./mlbMatchups.js";
-import { callOpenAiChat, callOpenAiFantasyDecision, isCacheableFantasyDecision, isCacheableOpenAiResponse } from "./openai.js";
+import { callClaudeAnalysis, callClaudeFantasyDecision, isCacheableFantasyDecision, isCacheableAnalysisResponse } from "./claude.js";
 import { buildAnalysisCacheKey, getCachedAnalysis, saveCachedAnalysis } from "./analysisCache.js";
 import { getDataFreshness, getPlayerById, getPlayerSummaries } from "./dataStore.js";
 import { logAnalysisEvent, logSessionStart, logShareEvent } from "./analytics.js";
@@ -44,8 +44,8 @@ async function getAnalysisResponse(params: {
     };
   }
 
-  const response = await callOpenAiChat(params.prompt, params.persona, params.mode);
-  if (isCacheableOpenAiResponse(response)) {
+  const response = await callClaudeAnalysis(params.prompt, params.persona, params.mode);
+  if (isCacheableAnalysisResponse(response)) {
     await saveCachedAnalysis({
       cacheKey,
       dataThroughDate: freshness.dataThroughDate,
@@ -168,7 +168,7 @@ router.post("/api/analyze", analyzeLimiter, async (req, res) => {
       });
     }
   } catch (error) {
-    console.error("[api/analyze] OpenAI request failed", error);
+    console.error("[api/analyze] Anthropic request failed", error);
     res.status(502).json({ error: "Analysis service temporarily unavailable" });
   }
 });
@@ -247,7 +247,7 @@ router.post("/api/compare/analyze", analyzeLimiter, async (req, res) => {
       });
     }
   } catch (error) {
-    console.error("[api/compare/analyze] OpenAI request failed", error);
+    console.error("[api/compare/analyze] Anthropic request failed", error);
     res.status(502).json({ error: "Analysis service temporarily unavailable" });
   }
 });
@@ -303,7 +303,7 @@ router.post("/api/fantasy/daily-matchup/analyze", analyzeLimiter, async (req, re
       }
     }
 
-    const decision = await callOpenAiFantasyDecision(prompt);
+    const decision = await callClaudeFantasyDecision(prompt);
     if (isCacheableFantasyDecision(decision)) {
       await saveCachedAnalysis({
         cacheKey,
