@@ -15,7 +15,7 @@ function CopyButton({ text }: { text: string }) {
           await navigator.clipboard.writeText(text);
           setCopied(true);
           window.setTimeout(() => setCopied(false), 1800);
-        } catch (_error) {
+        } catch {
           setCopied(false);
         }
       }}
@@ -32,19 +32,20 @@ function SocialAssistantPage() {
   });
 
   const recommendedId = query.data?.recommended.playerId;
+  const generatedAt = query.data?.generatedAt;
   const generatedLabel = useMemo(() => {
-    if (!query.data?.generatedAt) {
+    if (!generatedAt) {
       return undefined;
     }
 
-    const date = new Date(query.data.generatedAt);
+    const date = new Date(generatedAt);
     return new Intl.DateTimeFormat("en-US", {
       month: "short",
       day: "numeric",
       hour: "numeric",
       minute: "2-digit",
     }).format(date);
-  }, [query.data?.generatedAt]);
+  }, [generatedAt]);
 
   if (query.isLoading) {
     return (

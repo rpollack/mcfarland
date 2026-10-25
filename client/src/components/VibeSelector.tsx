@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useVibe } from "../contexts/VibeContext";
+import { useVibe } from "../contexts/vibe";
 import styles from "../styles/VibeSelector.module.css";
 
 function VibeSelector() {

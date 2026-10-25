@@ -60,7 +60,6 @@ function TrendGroup({
           >
             <PlayerHeadshot
               name={player.name}
-              playerId={player.id}
               mlbamid={player.mlbamid}
               size={20}
             />
@@ -106,7 +105,6 @@ function RecentAnalysesGroup({
           >
             <PlayerHeadshot
               name={analysis.playerName}
-              playerId={analysis.playerId}
               mlbamid={analysis.mlbamid}
               size={20}
             />
@@ -119,16 +117,14 @@ function RecentAnalysesGroup({
 }
 
 export default function WeeklyTrendsSection({ playerType, onSelectPlayer, embedded = false }: Props) {
-  const [collapsedOnMobile, setCollapsedOnMobile] = useState(false);
+  const [collapsedOnMobile, setCollapsedOnMobile] = useState(
+    () => typeof window !== "undefined" && window.innerWidth < 640
+  );
   const [activeIdea, setActiveIdea] = useState<QuickIdeaId>("breakouts");
-  const [recentAnalyses, setRecentAnalyses] = useState<RecentAnalysisEntry[]>([]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    setCollapsedOnMobile(window.innerWidth < 640);
-  }, []);
+  const [allRecentAnalyses, setAllRecentAnalyses] = useState<RecentAnalysisEntry[]>(() =>
+    typeof window === "undefined" ? [] : readRecentAnalyses()
+  );
+  const recentAnalyses = allRecentAnalyses.filter((analysis) => analysis.playerType === playerType);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -136,17 +132,14 @@ export default function WeeklyTrendsSection({ playerType, onSelectPlayer, embedd
     }
     const eventName = getRecentAnalysesUpdatedEventName();
     const syncRecentAnalyses = () => {
-      setRecentAnalyses(
-        readRecentAnalyses().filter((analysis) => analysis.playerType === playerType)
-      );
+      setAllRecentAnalyses(readRecentAnalyses());
     };
 
-    syncRecentAnalyses();
     window.addEventListener(eventName, syncRecentAnalyses);
     return () => {
       window.removeEventListener(eventName, syncRecentAnalyses);
     };
-  }, [playerType]);
+  }, []);
 
   const trendsQuery = useQuery({
     queryKey: ["weekly-trends"],

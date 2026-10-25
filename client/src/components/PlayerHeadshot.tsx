@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { CSSProperties } from "react";
 import clsx from "clsx";
 import styles from "../styles/PlayerHeadshot.module.css";
@@ -6,20 +6,16 @@ import { buildFallbackHeadshotUrl, buildHeadshotUrl } from "../utils/headshots";
 
 type Props = {
   name: string;
-  playerId: string;
   mlbamid?: string | null;
   size?: number;
   className?: string;
 };
 
-export default function PlayerHeadshot({ name, playerId, mlbamid, size = 64, className }: Props) {
-  const [src, setSrc] = useState(() => buildHeadshotUrl({ mlbamid, playerId }));
+export default function PlayerHeadshot({ name, mlbamid, size = 64, className }: Props) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const fallbackSrc = buildFallbackHeadshotUrl();
-  const desiredSrc = buildHeadshotUrl({ mlbamid, playerId });
-
-  useEffect(() => {
-    setSrc(desiredSrc);
-  }, [desiredSrc]);
+  const desiredSrc = buildHeadshotUrl(mlbamid);
+  const src = failedSrc === desiredSrc ? fallbackSrc : desiredSrc;
 
   return (
     <div
@@ -35,7 +31,7 @@ export default function PlayerHeadshot({ name, playerId, mlbamid, size = 64, cla
         crossOrigin="anonymous"
         onError={() => {
           if (src !== fallbackSrc) {
-            setSrc(fallbackSrc);
+            setFailedSrc(desiredSrc);
           }
         }}
       />
