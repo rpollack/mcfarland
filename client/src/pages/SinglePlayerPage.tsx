@@ -7,7 +7,7 @@ import VibeSelector from "../components/VibeSelector";
 import PlayerHeadshot from "../components/PlayerHeadshot";
 import WeeklyTrendsSection from "../components/WeeklyTrendsSection";
 import panelStyles from "../styles/AnalysisPanel.module.css";
-import { useVibe } from "../contexts/VibeContext";
+import { useVibe } from "../contexts/vibe";
 import {
   analyzePlayer,
   fetchPlayerDetail,
@@ -179,16 +179,17 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedId, setSelectedId] = useState<string | undefined>(initialPlayerId);
   const [shareStatus, setShareStatus] = useState<"idle" | "success" | "error">("idle");
-  const syncingFromPropsRef = useRef(false);
+  const [syncedProps, setSyncedProps] = useState({ playerType: initialPlayerType, playerId: initialPlayerId });
 
-  useEffect(() => {
-    syncingFromPropsRef.current = true;
+  // Adopt URL-driven changes during render instead of via an effect.
+  if (syncedProps.playerType !== initialPlayerType || syncedProps.playerId !== initialPlayerId) {
+    setSyncedProps({ playerType: initialPlayerType, playerId: initialPlayerId });
     setPlayerType(initialPlayerType);
     setSelectedId(initialPlayerId);
     if (initialPlayerId) {
       setSearchTerm("");
     }
-  }, [initialPlayerType, initialPlayerId]);
+  }
 
   const trimmedSearch = searchTerm.trim();
   const searchEnabled = trimmedSearch.length >= SEARCH_MIN_LENGTH;
@@ -273,12 +274,12 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
   }, [analysisData?.analysis, analysisData?.prompt, detailQuery.data, mode, playerType, selectedId]);
 
   useEffect(() => {
-    if (syncingFromPropsRef.current) {
-      syncingFromPropsRef.current = false;
+    // Only report local changes; state that already matches the URL came from it.
+    if (playerType === initialPlayerType && selectedId === initialPlayerId) {
       return;
     }
     onStateChange({ playerType, playerId: selectedId });
-  }, [playerType, selectedId, onStateChange]);
+  }, [playerType, selectedId, initialPlayerType, initialPlayerId, onStateChange]);
 
   useEffect(() => {
     if (shareStatus === "idle") {
@@ -375,7 +376,6 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                     <div className={styles.playerHeaderContent}>
                       <PlayerHeadshot
                         name={detailQuery.data.player.Name}
-                        playerId={detailQuery.data.player.PlayerId}
                         mlbamid={detailQuery.data.player.mlbamid}
                         size={56}
                         className={styles.analysisHeadshot}
@@ -392,7 +392,6 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                 isAnalyzing={isAnalysisPending}
                 headline={analysisData?.headline}
                 analysis={analysisData?.analysis}
-                persona={analysisData?.persona}
                 modeLabel={vibeLabel}
                 nextSteps={
                   analysisReady ? (

@@ -18,7 +18,6 @@ interface Props {
   isAnalyzing?: boolean;
   headline?: string;
   analysis?: string;
-  persona?: string;
   disabled?: boolean;
   modeLabel?: string;
 }
@@ -34,7 +33,6 @@ function AnalysisPanel({
   isAnalyzing = false,
   headline,
   analysis,
-  persona,
   disabled,
   modeLabel,
 }: Props) {

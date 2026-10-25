@@ -28,6 +28,8 @@ export default tseslint.config(
     },
     rules: {
       "react/prop-types": "off",
+      // Apostrophes in prose copy are fine; still catch the characters that are usually JSX typos.
+      "react/no-unescaped-entities": ["error", { forbid: [">", "}", '"'] }],
     },
   },
 );

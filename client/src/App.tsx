@@ -6,7 +6,8 @@ import ComparePage from "./pages/ComparePage";
 import FantasyToolsPage from "./pages/FantasyToolsPage";
 import AboutPage from "./pages/AboutPage";
 import SocialAssistantPage from "./pages/SocialAssistantPage";
-import { VibeProvider, useVibe } from "./contexts/VibeContext";
+import { VibeProvider } from "./contexts/VibeContext";
+import { useVibe } from "./contexts/vibe";
 import styles from "./styles/App.module.css";
 import { fetchDataFreshness, registerSession } from "./api";
 import type { PlayerType } from "./types";
@@ -57,14 +58,18 @@ function AppShell() {
   const urlMode: ExperienceMode = rawMode === "compare" || rawMode === "fantasy" ? rawMode : "single";
   const [experienceMode, setExperienceMode] = useState<ExperienceMode>(urlMode);
   const [view, setView] = useState<View>(searchParams.get(TOOL_PARAM) === "social" ? "social" : "experience");
+  const [syncedUrlMode, setSyncedUrlMode] = useState(urlMode);
+  const [syncedSearchParams, setSyncedSearchParams] = useState(searchParams);
 
-  useEffect(() => {
+  // Follow URL changes (back/forward, shared links) without an extra effect-driven render.
+  if (urlMode !== syncedUrlMode) {
+    setSyncedUrlMode(urlMode);
     setExperienceMode(urlMode);
-  }, [urlMode]);
-
-  useEffect(() => {
+  }
+  if (searchParams !== syncedSearchParams) {
+    setSyncedSearchParams(searchParams);
     setView(searchParams.get(TOOL_PARAM) === "social" ? "social" : "experience");
-  }, [searchParams]);
+  }
 
   const applySearchParams = useCallback(
     (updates: Record<string, string | null | undefined>) => {
