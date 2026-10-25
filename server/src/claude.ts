@@ -37,7 +37,7 @@ let testChatHandler: ChatHandler | null = null;
 let testFantasyDecisionHandler: FantasyDecisionHandler | null = null;
 const uncacheableResponses = new WeakSet<AnalysisResponse>();
 const uncacheableFantasyResponses = new WeakSet<FantasyDecisionResponse>();
-const DEFAULT_ANTHROPIC_MODEL = "claude-opus-5-5";
+const DEFAULT_ANTHROPIC_MODEL = "claude-haiku-5-5";
 
 export function buildStructuredAnalysisPrompt(prompt: string, persona: string, mode: AnalysisMode): string {
   const modeSpecificInstructions =
@@ -213,11 +213,14 @@ const FANTASY_OUTPUT_SCHEMA = {
 
 async function runMessage(apiKey: string, prompt: string, schema: Record<string, unknown>): Promise<string> {
   const model = process.env.ANTHROPIC_MODEL?.trim() || DEFAULT_ANTHROPIC_MODEL;
+  // Haiku has no server-side refusal fallback; other current models retry declines on Anthropic's recommended model.
+  const fallbackOptions = model.startsWith("claude-haiku")
+    ? {}
+    : { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const };
   const response = await new Anthropic({ apiKey }).beta.messages.create({
     model,
     max_tokens: 16000,
-    betas: ["server-side-fallback-2026-07-01"],
-    fallbacks: "default",
+    ...fallbackOptions,
     output_config: { effort: "medium", format: { type: "json_schema", schema } },
     system: SYSTEM_PROMPT,
     messages: [{ role: "user", content: prompt }],

@@ -406,7 +406,7 @@ describe("McFARLAND API", () => {
             id: "msg_test",
             type: "message",
             role: "assistant",
-            model: "claude-opus-5-5",
+            model: "claude-haiku-5-5",
             content: [{ type: "text", text: "not json" }],
             stop_reason: "end_turn",
             stop_sequence: null,
