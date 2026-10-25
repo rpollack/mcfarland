@@ -1,17 +1,7 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchVibes } from "../api";
-import type { Vibe } from "../types";
-
-type VibeContextValue = {
-  vibes: Vibe[];
-  mode: string;
-  setMode: (mode: string) => void;
-  isLoading: boolean;
-  defaultMode: string;
-};
-
-const VibeContext = createContext<VibeContextValue | undefined>(undefined);
+import { VibeContext } from "./vibe";
 
 export function VibeProvider({
   children,
@@ -25,32 +15,24 @@ export function VibeProvider({
     queryFn: fetchVibes,
   });
 
-  const fallbackMode = "straightforward";
-  const defaultMode = data?.defaultMode ?? fallbackMode;
-  const [mode, setModeState] = useState<string>(() => initialMode ?? defaultMode);
-  const prevInitialModeRef = useRef<string | null>(initialMode ?? null);
+  const defaultMode = data?.defaultMode ?? "straightforward";
+  // null means "no explicit choice yet", so the server default applies once it loads.
+  const [selectedMode, setSelectedMode] = useState<string | null>(initialMode ?? null);
+  const [syncedInitialMode, setSyncedInitialMode] = useState<string | null>(initialMode ?? null);
+  const mode = selectedMode ?? defaultMode;
 
-  useEffect(() => {
-    if (!initialMode && mode === fallbackMode && defaultMode !== fallbackMode) {
-      setModeState(defaultMode);
-    }
-  }, [defaultMode, fallbackMode, initialMode, mode]);
-
-  useEffect(() => {
-    if (initialMode === prevInitialModeRef.current) {
-      return;
-    }
-    prevInitialModeRef.current = initialMode ?? null;
+  if ((initialMode ?? null) !== syncedInitialMode) {
+    setSyncedInitialMode(initialMode ?? null);
     if (initialMode && initialMode !== mode) {
-      setModeState(initialMode);
+      setSelectedMode(initialMode);
     }
-  }, [initialMode, mode]);
+  }
 
   const value = useMemo(
     () => ({
       vibes: data?.vibes ?? [],
       mode,
-      setMode: setModeState,
+      setMode: setSelectedMode,
       isLoading,
       defaultMode,
     }),
@@ -58,12 +40,4 @@ export function VibeProvider({
   );
 
   return <VibeContext.Provider value={value}>{children}</VibeContext.Provider>;
-}
-
-export function useVibe() {
-  const context = useContext(VibeContext);
-  if (!context) {
-    throw new Error("useVibe must be used within a VibeProvider");
-  }
-  return context;
 }

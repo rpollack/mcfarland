@@ -241,17 +241,18 @@ function FantasyToolsPage({ initialPlayerType, initialPlayerId, onStateChange }:
   const [playerType, setPlayerType] = useState<PlayerType>(initialPlayerType);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedId, setSelectedId] = useState<string | undefined>(initialPlayerId);
-  const syncingFromPropsRef = useRef(false);
   const lastRequestKeyRef = useRef<string | null>(null);
+  const [syncedProps, setSyncedProps] = useState({ playerType: initialPlayerType, playerId: initialPlayerId });
 
-  useEffect(() => {
-    syncingFromPropsRef.current = true;
+  // Adopt URL-driven changes during render instead of via an effect.
+  if (syncedProps.playerType !== initialPlayerType || syncedProps.playerId !== initialPlayerId) {
+    setSyncedProps({ playerType: initialPlayerType, playerId: initialPlayerId });
     setPlayerType(initialPlayerType);
     setSelectedId(initialPlayerId);
     if (initialPlayerId) {
       setSearchTerm("");
     }
-  }, [initialPlayerType, initialPlayerId]);
+  }
 
   const trimmedSearch = searchTerm.trim();
   const searchEnabled = trimmedSearch.length >= SEARCH_MIN_LENGTH;
@@ -292,12 +293,12 @@ function FantasyToolsPage({ initialPlayerType, initialPlayerId, onStateChange }:
   }, [playerType, selectedId, runDailyMatchup, reset]);
 
   useEffect(() => {
-    if (syncingFromPropsRef.current) {
-      syncingFromPropsRef.current = false;
+    // Only report local changes; state that already matches the URL came from it.
+    if (playerType === initialPlayerType && selectedId === initialPlayerId) {
       return;
     }
     onStateChange({ playerType, playerId: selectedId });
-  }, [playerType, selectedId, onStateChange]);
+  }, [playerType, selectedId, initialPlayerType, initialPlayerId, onStateChange]);
 
   const availablePlayers = useMemo(() => (searchEnabled ? playersQuery.data ?? [] : []), [playersQuery.data, searchEnabled]);
 
@@ -354,7 +355,6 @@ function FantasyToolsPage({ initialPlayerType, initialPlayerId, onStateChange }:
               <section className={styles.identityCard}>
                 <PlayerHeadshot
                   name={result.player.Name}
-                  playerId={result.player.PlayerId}
                   mlbamid={result.player.mlbamid}
                   size={56}
                   className={styles.headshot}

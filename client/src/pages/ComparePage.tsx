@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { analyzeComparison, fetchPlayers, logShareAnalyticsEvent } from "../api";
-import { useVibe } from "../contexts/VibeContext";
+import { useVibe } from "../contexts/vibe";
 import type { PlayerSummary, PlayerType } from "../types";
 import { buildSharePreviewUrl } from "../utils/share";
 import AnalysisPanel from "../components/AnalysisPanel";
@@ -62,15 +62,18 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
   const hasHydratedFromUrl = useRef(false);
   const skipNextAutoCompareRef = useRef(false);
 
-  useEffect(() => {
-    setPlayerType(initialPlayerType);
-  }, [initialPlayerType]);
+  // Compare by value: initialPlayerIds is a new array whenever any URL param changes.
+  const initialSelectionKey = `${initialPlayerType}|${initialPlayerIds.slice(0, MAX_PLAYERS).join(",")}`;
+  const [syncedSelectionKey, setSyncedSelectionKey] = useState(initialSelectionKey);
 
-  useEffect(() => {
-    setSelectedPlayers((current) =>
-      hydrateSelectedPlayers(current, initialPlayerIds.slice(0, MAX_PLAYERS), initialPlayerType)
+  // Adopt URL-driven changes during render instead of via an effect.
+  if (syncedSelectionKey !== initialSelectionKey) {
+    setSyncedSelectionKey(initialSelectionKey);
+    setPlayerType(initialPlayerType);
+    setSelectedPlayers(
+      hydrateSelectedPlayers(selectedPlayers, initialPlayerIds.slice(0, MAX_PLAYERS), initialPlayerType)
     );
-  }, [initialPlayerIds, initialPlayerType]);
+  }
 
   const trimmedSearch = searchTerm.trim();
   const searchEnabled = trimmedSearch.length >= SEARCH_MIN_LENGTH;
@@ -397,7 +400,6 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
                     <div className={styles.playerListItem}>
                       <PlayerHeadshot
                         name={player.Name}
-                        playerId={player.PlayerId}
                         mlbamid={player.mlbamid}
                         size={44}
                         className={styles.compareHeadshot}
@@ -426,7 +428,6 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
             isAnalyzing={isAnalysisPending}
             headline={analysisData?.headline}
             analysis={analysisData?.analysis}
-            persona={analysisData?.persona}
             modeLabel={vibeLabel}
             nextSteps={
               analysisReady ? (
