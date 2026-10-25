@@ -1,6 +1,6 @@
 # Build & runtime image for the McFarland Node/React application
 
-FROM node:20-bookworm-slim AS builder
+FROM node:24-bookworm-slim AS builder
 WORKDIR /app
 
 # Install workspace dependencies (with hoisted node_modules)
@@ -17,7 +17,7 @@ RUN npm run build
 # Prune devDependencies to slim the runtime layer
 RUN npm prune --omit=dev
 
-FROM node:20-bookworm-slim AS runner
+FROM node:24-bookworm-slim AS runner
 ENV NODE_ENV=production
 WORKDIR /app
 

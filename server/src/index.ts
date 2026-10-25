@@ -302,7 +302,7 @@ export function createServer() {
     });
 
     app.use(express.static(clientDistPath, { index: false }));
-    app.get("*", async (req, res) => {
+    app.get("/{*splat}", async (req, res) => {
       const card = await buildCardMetadata(req);
       const dynamicIndexHtml = injectMetaTags(indexTemplate, buildSocialMetaTags(card));
       res.setHeader("Content-Type", "text/html; charset=utf-8").send(dynamicIndexHtml);
