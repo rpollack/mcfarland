@@ -392,7 +392,9 @@ function HomePage() {
               {singleAnalysisRequest.isPending && <p className={styles.helperText}>Generating fresh analysis…</p>}
               {singleAnalysis && !singleAnalysisRequest.isPending && (
                 <div className={styles.analysisContent}>
-                  <ReactMarkdown className={styles.markdown}>{singleAnalysis.analysis}</ReactMarkdown>
+                  <div className={styles.markdown}>
+                    <ReactMarkdown>{singleAnalysis.analysis}</ReactMarkdown>
+                  </div>
                 </div>
               )}
             </div>
@@ -437,7 +439,9 @@ function HomePage() {
               {compareAnalysisRequest.isPending && <p className={styles.helperText}>Crunching the matchup…</p>}
               {compareAnalysis && !compareAnalysisRequest.isPending && (
                 <div className={styles.analysisContent}>
-                  <ReactMarkdown className={styles.markdown}>{compareAnalysis.analysis}</ReactMarkdown>
+                  <div className={styles.markdown}>
+                    <ReactMarkdown>{compareAnalysis.analysis}</ReactMarkdown>
+                  </div>
                 </div>
               )}
             </div>
