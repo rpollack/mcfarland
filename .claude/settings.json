@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git branch*)",
+      "Bash(git checkout*)",
+      "Bash(git switch*)",
+      "Bash(git fetch*)",
+      "Bash(git merge --ff-only*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git push -u origin*)",
+      "Bash(git push origin*)",
+      "Bash(git push)",
+      "Bash(git stash*)",
+      "Bash(git rev-parse*)",
+      "Bash(gh pr *)",
+      "Bash(gh run *)",
+      "Bash(gh repo view*)",
+      "Bash(npm run *)",
+      "Bash(npm test*)",
+      "Bash(npm ci*)",
+      "Bash(npm install*)",
+      "Bash(npx vitest*)",
+      "Bash(npx playwright*)",
+      "Bash(npx tsc*)"
+    ],
+    "ask": [
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git push origin master*)",
+      "Bash(git reset --hard*)",
+      "Bash(gh pr merge*)"
+    ]
+  }
+}
