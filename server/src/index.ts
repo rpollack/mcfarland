@@ -288,6 +288,7 @@ export function createServer() {
   if (fs.existsSync(clientDistPath)) {
     const indexHtmlPath = path.join(clientDistPath, "index.html");
     const indexTemplate = fs.readFileSync(indexHtmlPath, "utf8");
+    const assetsPath = path.join(clientDistPath, "assets");
 
     app.get("/share", async (req, res) => {
       const card = await buildCardMetadata(req);
@@ -295,16 +296,35 @@ export function createServer() {
       const target = params.toString() ? `/?${params.toString()}` : "/";
       res
         .setHeader("Content-Type", "text/html; charset=utf-8")
+        .setHeader("Cache-Control", "no-cache")
         .send(buildSharePreviewHtml(card, target));
     });
 
     app.get("/", async (req, res) => {
       const card = await buildCardMetadata(req);
       const dynamicIndexHtml = injectMetaTags(indexTemplate, buildSocialMetaTags(card));
-      res.setHeader("Content-Type", "text/html; charset=utf-8").send(dynamicIndexHtml);
+      res
+        .setHeader("Content-Type", "text/html; charset=utf-8")
+        .setHeader("Cache-Control", "no-cache")
+        .send(dynamicIndexHtml);
     });
 
-    app.use(express.static(clientDistPath, { index: false }));
+    app.use(
+      express.static(clientDistPath, {
+        index: false,
+        setHeaders(res, filePath) {
+          if (path.relative(assetsPath, filePath).startsWith("..")) {
+            // Outside assets/ nothing is content-hashed; HTML must always revalidate so deploys take effect immediately.
+            if (filePath.endsWith(".html")) {
+              res.setHeader("Cache-Control", "no-cache");
+            }
+            return;
+          }
+          // Vite emits content-hashed filenames under assets/, so they never change.
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        },
+      })
+    );
     // A missing hashed asset (e.g. from a stale tab after a deploy) should 404, not fall through to the HTML shell.
     app.use("/assets", (_req, res) => {
       res.status(404).type("text/plain").send("Not found");
@@ -312,7 +332,10 @@ export function createServer() {
     app.get("/{*splat}", async (req, res) => {
       const card = await buildCardMetadata(req);
       const dynamicIndexHtml = injectMetaTags(indexTemplate, buildSocialMetaTags(card));
-      res.setHeader("Content-Type", "text/html; charset=utf-8").send(dynamicIndexHtml);
+      res
+        .setHeader("Content-Type", "text/html; charset=utf-8")
+        .setHeader("Cache-Control", "no-cache")
+        .send(dynamicIndexHtml);
     });
   }
 
