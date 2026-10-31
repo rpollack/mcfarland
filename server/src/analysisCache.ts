@@ -32,6 +32,7 @@ type AnalysisCacheStore = {
 
 let initialized = false;
 let testStore: AnalysisCacheStore | null = null;
+let lastPrunedDate: string | null = null;
 
 export function buildAnalysisCacheKey(mode: AnalysisMode, prompt: string): string {
   return crypto
@@ -83,12 +84,10 @@ async function getStore(): Promise<AnalysisCacheStore | null> {
     async get({ cacheKey, dataThroughDate }) {
       const result = await pool.query(
         `
-          UPDATE analysis_cache
-          SET last_accessed_at = NOW(),
-              hit_count = hit_count + 1
+          SELECT headline, analysis
+          FROM analysis_cache
           WHERE cache_key = $1
             AND data_through_date = $2
-          RETURNING headline, analysis
         `,
         [cacheKey, dataThroughDate]
       );
@@ -158,7 +157,10 @@ export async function saveCachedAnalysis(entry: CacheWrite): Promise<void> {
       return;
     }
     await store.set(entry);
-    await store.prune(entry.dataThroughDate);
+    if (entry.dataThroughDate !== lastPrunedDate) {
+      await store.prune(entry.dataThroughDate);
+      lastPrunedDate = entry.dataThroughDate;
+    }
   } catch (error) {
     console.warn("[analysis-cache] write failed; continuing without cache", error);
   }
@@ -166,4 +168,5 @@ export async function saveCachedAnalysis(entry: CacheWrite): Promise<void> {
 
 export function __setAnalysisCacheStoreForTests(store: AnalysisCacheStore | null): void {
   testStore = store;
+  lastPrunedDate = null;
 }
