@@ -64,7 +64,15 @@ type PreviousSeasonSampleCache = {
   pitchers: Map<string, PreviousPitcherSample>;
 };
 
+type StatQuickLinks = Omit<TrendingQuickLinksResponse, "generatedAt" | "newsworthy">;
+
+const NEWS_EMPTY_RETRY_MS = 60_000;
+const STAT_QUICK_LINKS_TTL_MS = 5 * 60_000;
+
 let newsworthyQuickLinkCache: NewsworthyQuickLinkCache | null = null;
+let newsworthyInFlight: Promise<NewsworthyQuickLinkCache["players"]> | null = null;
+let newsworthyRetryAfter = 0;
+let statQuickLinkCache: { dataThroughDate: string; expiresAt: number; links: StatQuickLinks } | null = null;
 let previousSeasonSampleCache: PreviousSeasonSampleCache | null = null;
 
 export type SocialDraftSuggestion = {
@@ -931,60 +939,85 @@ async function getDailyNewsworthyQuickLinks(baseUrl: string): Promise<{ id: stri
     return newsworthyQuickLinkCache.players;
   }
 
-  const players = (await fetchNewsDrivenCandidatePool(baseUrl))
-    .slice(0, 3)
-    .map(toTrendPlayer);
-
-  // An empty list usually means the feeds failed or timed out; retry on the next request.
-  if (players.length > 0) {
-    newsworthyQuickLinkCache = {
-      dataThroughDate,
-      players,
-    };
+  // An empty list usually means the feeds failed or timed out; skip them briefly so each request doesn't wait on the timeout.
+  if (Date.now() < newsworthyRetryAfter) {
+    return [];
   }
 
-  return players;
+  // Concurrent callers share one fetch.
+  if (!newsworthyInFlight) {
+    newsworthyInFlight = (async () => {
+      try {
+        const players = (await fetchNewsDrivenCandidatePool(baseUrl))
+          .slice(0, 3)
+          .map(toTrendPlayer);
+
+        if (players.length > 0) {
+          newsworthyQuickLinkCache = {
+            dataThroughDate,
+            players,
+          };
+          newsworthyRetryAfter = 0;
+        } else {
+          newsworthyRetryAfter = Date.now() + NEWS_EMPTY_RETRY_MS;
+        }
+
+        return players;
+      } finally {
+        newsworthyInFlight = null;
+      }
+    })();
+  }
+
+  return newsworthyInFlight;
+}
+
+// The stat-derived lists don't depend on the request's base URL (it only feeds share URLs that this response omits).
+function getStatQuickLinks(baseUrl: string): StatQuickLinks {
+  const { dataThroughDate } = getDataFreshness();
+  const now = Date.now();
+  if (statQuickLinkCache && statQuickLinkCache.dataThroughDate === dataThroughDate && statQuickLinkCache.expiresAt > now) {
+    return statQuickLinkCache.links;
+  }
+
+  const toLink = <T extends PlayerType>(type: T) => (candidate: SocialCandidate) => ({
+    id: candidate.playerId,
+    name: candidate.playerName,
+    type,
+    mlbamid: candidate.mlbamid ?? null,
+  });
+
+  const links: StatQuickLinks = {
+    hitters: {
+      trending: topTrendingCandidates("hitter", baseUrl).map(toLink("hitter")),
+      breakouts: topBreakoutCandidates("hitter", baseUrl).map(toLink("hitter")),
+    },
+    pitchers: {
+      trending: topTrendingCandidates("pitcher", baseUrl).map(toLink("pitcher")),
+      breakouts: topBreakoutCandidates("pitcher", baseUrl).map(toLink("pitcher")),
+    },
+  };
+  statQuickLinkCache = { dataThroughDate, expiresAt: now + STAT_QUICK_LINKS_TTL_MS, links };
+  return links;
 }
 
 export async function getTrendingQuickLinks(baseUrl: string): Promise<TrendingQuickLinksResponse> {
   const newsworthy = await getDailyNewsworthyQuickLinks(baseUrl);
-
-  const hitters = topTrendingCandidates("hitter", baseUrl).map((candidate) => ({
-    id: candidate.playerId,
-    name: candidate.playerName,
-    type: "hitter" as const,
-    mlbamid: candidate.mlbamid ?? null,
-  }));
-  const hitterBreakouts = topBreakoutCandidates("hitter", baseUrl).map((candidate) => ({
-    id: candidate.playerId,
-    name: candidate.playerName,
-    type: "hitter" as const,
-    mlbamid: candidate.mlbamid ?? null,
-  }));
-
-  const pitchers = topTrendingCandidates("pitcher", baseUrl).map((candidate) => ({
-    id: candidate.playerId,
-    name: candidate.playerName,
-    type: "pitcher" as const,
-    mlbamid: candidate.mlbamid ?? null,
-  }));
-  const pitcherBreakouts = topBreakoutCandidates("pitcher", baseUrl).map((candidate) => ({
-    id: candidate.playerId,
-    name: candidate.playerName,
-    type: "pitcher" as const,
-    mlbamid: candidate.mlbamid ?? null,
-  }));
+  const { hitters, pitchers } = getStatQuickLinks(baseUrl);
 
   return {
     generatedAt: new Date().toISOString(),
     newsworthy,
-    hitters: { trending: hitters, breakouts: hitterBreakouts },
-    pitchers: { trending: pitchers, breakouts: pitcherBreakouts },
+    hitters,
+    pitchers,
   };
 }
 
 export function __clearNewsworthyQuickLinkCacheForTests(): void {
   newsworthyQuickLinkCache = null;
+  newsworthyInFlight = null;
+  newsworthyRetryAfter = 0;
+  statQuickLinkCache = null;
 }
 
 export function __setNewsDrivenCandidatePoolFetcherForTests(fetcher: NewsDrivenCandidatePoolFetcher | null): void {

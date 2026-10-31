@@ -865,6 +865,24 @@ describe("McFARLAND API", () => {
     expect(response.body.blueskyPosts).toHaveLength(2);
   });
 
+  it("returns a JSON 404 for unknown API routes", async () => {
+    const getResponse = await request(app).get("/api/nope");
+    const postResponse = await request(app).post("/api/nope").send({});
+
+    expect(getResponse.status).toBe(404);
+    expect(getResponse.headers["content-type"]).toContain("application/json");
+    expect(getResponse.body).toEqual({ error: "Not found" });
+    expect(postResponse.status).toBe(404);
+  });
+
+  it("rejects oversized request bodies", async () => {
+    const response = await request(app)
+      .post("/api/sessions")
+      .send({ sessionId: "x".repeat(64 * 1024) });
+
+    expect(response.status).toBe(413);
+  });
+
   it("returns trending quick links for hitters and pitchers", async () => {
     const response = await request(app).get("/api/trending");
 
