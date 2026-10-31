@@ -1,8 +1,8 @@
+import crypto from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
 
 const ADMIN_QUERY_PARAM = "admin";
 const ADMIN_COOKIE_NAME = "mcfarland_admin_mode";
-const ADMIN_COOKIE_VALUE = "1";
 const ADMIN_COOKIE_MAX_AGE_MS = 12 * 60 * 60 * 1000; // 12 hours
 const ADMIN_DISABLE_VALUES = new Set(["logout", "off", "false", "0"]);
 
@@ -14,6 +14,19 @@ export function getAdminPassword(): string | undefined {
 
   const password = raw.trim();
   return password.length > 0 ? password : undefined;
+}
+
+function adminCookieToken(password: string): string {
+  return crypto.createHmac("sha256", password).update("mcfarland-admin-mode-v1").digest("hex");
+}
+
+function safeEqual(a: string, b: string): boolean {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  if (left.length !== right.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(left, right);
 }
 
 export function containsAdminSecret(value: string | null | undefined): boolean {
@@ -82,8 +95,10 @@ export function adminModeMiddleware(req: Request, res: Response, next: NextFunct
     return;
   }
 
+  const adminToken = adminCookieToken(adminPassword);
   const existingCookies = parseCookies(req.headers.cookie);
-  let isAdminMode = existingCookies[ADMIN_COOKIE_NAME] === ADMIN_COOKIE_VALUE;
+  const hasValidCookie = safeEqual(existingCookies[ADMIN_COOKIE_NAME] ?? "", adminToken);
+  let isAdminMode = hasValidCookie;
   let shouldClearCookie = false;
 
   if (!isAdminMode) {
@@ -95,7 +110,7 @@ export function adminModeMiddleware(req: Request, res: Response, next: NextFunct
         shouldClearCookie = Boolean(existingCookies[ADMIN_COOKIE_NAME]);
         isAdminMode = false;
       } else {
-        isAdminMode = queryValues.some((value) => value === adminPassword);
+        isAdminMode = queryValues.some((value) => safeEqual(value, adminPassword));
       }
     }
   } else {
@@ -113,8 +128,8 @@ export function adminModeMiddleware(req: Request, res: Response, next: NextFunct
 
   if (isAdminMode) {
     req.isAdminMode = true;
-    if (existingCookies[ADMIN_COOKIE_NAME] !== ADMIN_COOKIE_VALUE) {
-      res.cookie(ADMIN_COOKIE_NAME, ADMIN_COOKIE_VALUE, {
+    if (!hasValidCookie) {
+      res.cookie(ADMIN_COOKIE_NAME, adminToken, {
         httpOnly: true,
         sameSite: "lax",
         secure: isSecureRequest(req),
