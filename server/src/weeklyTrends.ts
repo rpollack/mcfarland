@@ -25,7 +25,12 @@ export type WeeklyTrends = {
 
 const DEFAULT_TIMEZONE = process.env.TRENDS_TIMEZONE?.trim() || "America/Chicago";
 
+const WEEKLY_TRENDS_TTL_MS = 5 * 60_000;
+
 let initialized = false;
+// Weekly trends come from ranking rows written by refreshDailyTrendData, so they're cached by TTL (not data date) and cleared on refresh.
+let weeklyTrendsCache: { expiresAt: number; trends: WeeklyTrends } | null = null;
+let weeklyTrendsGeneration = 0;
 
 type PlayerScore = TrendPlayer & { score: number };
 type RankedPlayer = TrendPlayer & { momentum: number };
@@ -507,13 +512,38 @@ export async function refreshDailyTrendData(snapshotDate?: string): Promise<Tren
   await ensureRankingsForDate(pool, targetDate);
 
   const rankingRows = await readRankingsForDate(pool, targetDate);
+  clearWeeklyTrendsCache();
   return {
     snapshotDate: targetDate,
     rankingsDate: rankingRows.length > 0 ? targetDate : null,
   };
 }
 
+function clearWeeklyTrendsCache(): void {
+  weeklyTrendsCache = null;
+  weeklyTrendsGeneration += 1;
+}
+
+export function __clearWeeklyTrendsCacheForTests(): void {
+  clearWeeklyTrendsCache();
+}
+
 export async function getWeeklyTrends(): Promise<WeeklyTrends> {
+  const now = Date.now();
+  if (weeklyTrendsCache && weeklyTrendsCache.expiresAt > now) {
+    return weeklyTrendsCache.trends;
+  }
+
+  const generation = weeklyTrendsGeneration;
+  const trends = await computeWeeklyTrends();
+  // Skip caching if a refresh landed while this was computing, since the result may predate it.
+  if (generation === weeklyTrendsGeneration) {
+    weeklyTrendsCache = { expiresAt: now + WEEKLY_TRENDS_TTL_MS, trends };
+  }
+  return trends;
+}
+
+async function computeWeeklyTrends(): Promise<WeeklyTrends> {
   const localDate = getLocalDate(new Date(), DEFAULT_TIMEZONE);
   const pool = await getPool();
 
