@@ -1,4 +1,5 @@
-import { Pool } from "pg";
+import type { Pool } from "pg";
+import { getPool } from "./db.js";
 import { listPlayers } from "./dataStore.js";
 import { HitterRecord, PitcherRecord } from "./types.js";
 
@@ -24,7 +25,6 @@ export type WeeklyTrends = {
 
 const DEFAULT_TIMEZONE = process.env.TRENDS_TIMEZONE?.trim() || "America/Chicago";
 
-let poolPromise: Promise<Pool | null> | null = null;
 let initialized = false;
 
 type PlayerScore = TrendPlayer & { score: number };
@@ -184,30 +184,6 @@ function fallbackFromCurrentScores(localDate: string): WeeklyTrends {
     hitters,
     pitchers,
   };
-}
-
-async function getPool(): Promise<Pool | null> {
-  if (!poolPromise) {
-    poolPromise = (async () => {
-      const databaseUrl = process.env.DATABASE_URL?.trim();
-      if (!databaseUrl) {
-        return null;
-      }
-
-      const pool = new Pool({
-        connectionString: databaseUrl,
-        ssl:
-          databaseUrl.includes("render.com") || process.env.NODE_ENV === "production"
-            ? { rejectUnauthorized: false }
-            : undefined,
-      });
-
-      await pool.query("SELECT 1");
-      return pool;
-    })();
-  }
-
-  return poolPromise;
 }
 
 async function initializeTables(pool: Pool): Promise<void> {

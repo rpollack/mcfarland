@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
-import { Pool } from "pg";
+import type { Pool } from "pg";
+import { getPool } from "./db.js";
 import type { PlayerType } from "./types.js";
 import type { AnalysisMode } from "./vibes.js";
 
@@ -29,7 +30,6 @@ type AnalysisCacheStore = {
   prune: (dataThroughDate: string) => Promise<void>;
 };
 
-let poolPromise: Promise<Pool | null> | null = null;
 let initialized = false;
 let testStore: AnalysisCacheStore | null = null;
 
@@ -38,30 +38,6 @@ export function buildAnalysisCacheKey(mode: AnalysisMode, prompt: string): strin
     .createHash("sha256")
     .update(`${ANALYSIS_CACHE_VERSION}:${mode}:${prompt}`)
     .digest("hex");
-}
-
-async function getPool(): Promise<Pool | null> {
-  if (!poolPromise) {
-    poolPromise = (async () => {
-      const databaseUrl = process.env.DATABASE_URL?.trim();
-      if (!databaseUrl) {
-        return null;
-      }
-
-      const pool = new Pool({
-        connectionString: databaseUrl,
-        ssl:
-          databaseUrl.includes("render.com") || process.env.NODE_ENV === "production"
-            ? { rejectUnauthorized: false }
-            : undefined,
-      });
-
-      await pool.query("SELECT 1");
-      return pool;
-    })();
-  }
-
-  return poolPromise;
 }
 
 async function initializeTable(pool: Pool): Promise<void> {

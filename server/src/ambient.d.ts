@@ -2,21 +2,16 @@ declare module "pg" {
   export interface PoolConfig {
     connectionString?: string;
     ssl?: unknown;
+    max?: number;
+    idleTimeoutMillis?: number;
+    connectionTimeoutMillis?: number;
   }
   export class Pool {
     constructor(config?: PoolConfig);
     query: (text: string, params?: unknown[]) => Promise<{ rows: unknown[]; rowCount: number }>;
     connect: () => Promise<{ query: Pool["query"]; release: () => void }>;
     end: () => Promise<void>;
-  }
-}
-
-declare module "sqlite3" {
-  type StatementCallback = (err: Error | null) => void;
-  export function verbose(): void;
-  export class Database {
-    constructor(filename: string);
-    run(sql: string, params: unknown[], callback: StatementCallback): void;
+    on: (event: "error", listener: (err: Error) => void) => Pool;
   }
 }
 
