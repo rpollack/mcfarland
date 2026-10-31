@@ -14,6 +14,7 @@ const originalFreshness = getDataFreshness();
 
 describe("social assistant news discovery", () => {
   afterEach(() => {
+    vi.useRealTimers();
     __clearNewsworthyQuickLinkCacheForTests();
     __clearPreviousSeasonSampleCacheForTests();
     __setNewsDrivenCandidatePoolFetcherForTests(null);
@@ -120,7 +121,9 @@ describe("social assistant news discovery", () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
-  it("does not cache an empty newsworthy list so failed news fetches retry", async () => {
+  it("retries an empty newsworthy list only after the negative cache expires", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-05-04T12:00:00Z"));
     __setDataFreshnessForTests({ dataThroughDate: "2026-05-04", dataThroughLabel: "May 4" });
     const fetcher = vi
       .fn()
@@ -140,11 +143,76 @@ describe("social assistant news discovery", () => {
     __setNewsDrivenCandidatePoolFetcherForTests(fetcher);
 
     const first = await getTrendingQuickLinks("https://example.test");
+    vi.setSystemTime(new Date("2026-05-04T12:00:59Z"));
     const second = await getTrendingQuickLinks("https://example.test");
+    vi.setSystemTime(new Date("2026-05-04T12:01:01Z"));
+    const third = await getTrendingQuickLinks("https://example.test");
 
     expect(first.newsworthy).toEqual([]);
-    expect(second.newsworthy).toEqual([{ id: "1", name: "Aaron Judge", type: "hitter", mlbamid: null }]);
+    expect(second.newsworthy).toEqual([]);
     expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(third.newsworthy).toEqual([{ id: "1", name: "Aaron Judge", type: "hitter", mlbamid: null }]);
+  });
+
+  it("shares one news fetch between concurrent requests", async () => {
+    __setDataFreshnessForTests({ dataThroughDate: "2026-05-04", dataThroughLabel: "May 4" });
+    let resolveFetch: (value: unknown[]) => void = () => {};
+    const fetcher = vi.fn(() => new Promise<any[]>((resolve) => (resolveFetch = resolve)));
+    __setNewsDrivenCandidatePoolFetcherForTests(fetcher);
+
+    const pending = [
+      getTrendingQuickLinks("https://example.test"),
+      getTrendingQuickLinks("https://example.test"),
+      getTrendingQuickLinks("https://example.test"),
+    ];
+    resolveFetch([
+      {
+        playerId: "1",
+        playerType: "hitter" as const,
+        playerName: "Aaron Judge",
+        score: 10,
+        whyNow: "Aaron Judge is in the news.",
+        statSnapshot: "120 PA · wOBA +.050",
+        shareUrl: "https://example.test/share?playerId=1",
+        news: [],
+      },
+    ]);
+    const results = await Promise.all(pending);
+
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    results.forEach((result) => {
+      expect(result.newsworthy).toEqual([{ id: "1", name: "Aaron Judge", type: "hitter", mlbamid: null }]);
+    });
+  });
+
+  it("allows a new news fetch after an in-flight fetch fails", async () => {
+    __setDataFreshnessForTests({ dataThroughDate: "2026-05-04", dataThroughLabel: "May 4" });
+    const fetcher = vi.fn().mockRejectedValueOnce(new Error("boom")).mockResolvedValueOnce([]);
+    __setNewsDrivenCandidatePoolFetcherForTests(fetcher);
+
+    await expect(getTrendingQuickLinks("https://example.test")).rejects.toThrow("boom");
+    const retry = await getTrendingQuickLinks("https://example.test");
+
+    expect(retry.newsworthy).toEqual([]);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it("caches stat-derived quick links for a few minutes", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-05-04T12:00:00Z"));
+    __setDataFreshnessForTests({ dataThroughDate: "2026-05-04", dataThroughLabel: "May 4" });
+    __setNewsDrivenCandidatePoolFetcherForTests(async () => []);
+
+    const first = await getTrendingQuickLinks("https://a.example.test");
+    const withinTtl = await getTrendingQuickLinks("https://b.example.test");
+    vi.setSystemTime(new Date("2026-05-04T12:05:01Z"));
+    const afterTtl = await getTrendingQuickLinks("https://a.example.test");
+
+    expect(first.hitters.trending).toHaveLength(3);
+    expect(withinTtl.hitters).toBe(first.hitters);
+    expect(afterTtl.hitters).not.toBe(first.hitters);
+    expect(afterTtl.hitters).toEqual(first.hitters);
+    expect(afterTtl.pitchers).toEqual(first.pitchers);
   });
 
   it("refreshes newsworthy quick links when data day changes", async () => {
