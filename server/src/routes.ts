@@ -20,6 +20,16 @@ const analyzeLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const lightLimiter = () =>
+  rateLimit({
+    windowMs: 60_000,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+const trendingLimiter = lightLimiter();
+const eventLimiter = lightLimiter();
+
 const adminLimiter = rateLimit({
   windowMs: 60_000,
   max: 10,
@@ -71,7 +81,7 @@ router.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
-router.post("/api/sessions", async (req, res) => {
+router.post("/api/sessions", eventLimiter, async (req, res) => {
   const schema = z.object({
     sessionId: z.string().min(1).max(128),
   });
@@ -355,7 +365,7 @@ router.post("/api/fantasy/daily-matchup/analyze", analyzeLimiter, async (req, re
   }
 });
 
-router.post("/api/share-events", async (req, res) => {
+router.post("/api/share-events", eventLimiter, async (req, res) => {
   const schema = z.object({
     sessionId: z.string().min(1).max(128),
     playerName: z.string().min(1).max(256),
@@ -405,7 +415,7 @@ router.get("/api/about", (_req, res) => {
   res.json(buildAboutContent());
 });
 
-router.get("/api/trending", async (req, res) => {
+router.get("/api/trending", trendingLimiter, async (req, res) => {
   const baseUrl = `${req.protocol}://${req.get("host")}`;
   res.json(await getTrendingQuickLinks(baseUrl));
 });

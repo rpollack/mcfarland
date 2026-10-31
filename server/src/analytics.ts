@@ -38,6 +38,7 @@ async function sendAmplitudeEvent(event: AmplitudeEvent): Promise<void> {
         api_key: apiKey,
         events: [event],
       }),
+      signal: AbortSignal.timeout(5000),
     });
 
     if (!response.ok) {
