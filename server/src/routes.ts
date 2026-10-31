@@ -53,7 +53,7 @@ async function getAnalysisResponse(params: {
 
   const response = await callClaudeAnalysis(params.prompt, params.persona, params.mode);
   if (isCacheableAnalysisResponse(response)) {
-    await saveCachedAnalysis({
+    void saveCachedAnalysis({
       cacheKey,
       dataThroughDate: freshness.dataThroughDate,
       analysisMode: params.mode,
@@ -312,7 +312,7 @@ router.post("/api/fantasy/daily-matchup/analyze", analyzeLimiter, async (req, re
 
     const decision = await callClaudeFantasyDecision(prompt);
     if (isCacheableFantasyDecision(decision)) {
-      await saveCachedAnalysis({
+      void saveCachedAnalysis({
         cacheKey,
         dataThroughDate: freshness.dataThroughDate,
         analysisMode: cacheMode,

@@ -40,6 +40,11 @@ function createMemoryCacheStore() {
   };
 }
 
+// Cache writes are fire-and-forget, so let them finish before asserting on (or relying on) cache state.
+async function settleCacheWrites() {
+  await new Promise((resolve) => setImmediate(resolve));
+}
+
 function jsonResponse(body: unknown): Response {
   return {
     ok: true,
@@ -290,6 +295,7 @@ describe("McFARLAND API", () => {
       .post("/api/analyze")
       .set("x-session-id", "user-a")
       .send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
+    await settleCacheWrites();
     const second = await request(app)
       .post("/api/analyze")
       .set("x-session-id", "user-b")
@@ -338,6 +344,7 @@ describe("McFARLAND API", () => {
     const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
     const hitter = listBody.players[0];
     await request(app).post("/api/analyze").send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
+    await settleCacheWrites();
     __setDataFreshnessForTests({ dataThroughDate: "2099-04-22", dataThroughLabel: "April 22" });
     const second = await request(app).post("/api/analyze").send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
 
@@ -362,6 +369,7 @@ describe("McFARLAND API", () => {
     const first = await request(app)
       .post("/api/compare/analyze")
       .send({ playerType: "hitter", playerIds, analysisMode: "straightforward" });
+    await settleCacheWrites();
     const second = await request(app)
       .post("/api/compare/analyze")
       .send({ playerType: "hitter", playerIds, analysisMode: "straightforward" });
@@ -391,6 +399,7 @@ describe("McFARLAND API", () => {
     await request(app).post("/api/analyze").send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
     await request(app).post("/api/analyze").send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
 
+    await settleCacheWrites();
     expect(analysisHandler).toHaveBeenCalledTimes(2);
     expect(memoryCache.rows.size).toBe(0);
   });
@@ -421,6 +430,7 @@ describe("McFARLAND API", () => {
     await request(app).post("/api/analyze").send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
     await request(app).post("/api/analyze").send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
 
+    await settleCacheWrites();
     expect(fetchSpy).toHaveBeenCalledTimes(2);
     expect(memoryCache.rows.size).toBe(0);
   });
@@ -502,6 +512,7 @@ describe("McFARLAND API", () => {
       .post("/api/analyze")
       .set("x-session-id", "tracked-a")
       .send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
+    await settleCacheWrites();
     await request(app)
       .post("/api/analyze")
       .set("x-session-id", "tracked-b")
@@ -577,7 +588,40 @@ describe("McFARLAND API", () => {
     const hitter = listBody.players[0];
     await request(app).post("/api/analyze").send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
 
-    expect(memoryCache.rows.has("old-cache-key")).toBe(false);
+    await vi.waitFor(() => expect(memoryCache.rows.has("old-cache-key")).toBe(false));
+    expect(memoryCache.rows.size).toBe(1);
+  });
+
+  it("prunes stale analysis cache rows once per data date", async () => {
+    const memoryCache = createMemoryCacheStore();
+    const pruneSpy = vi.spyOn(memoryCache.store, "prune");
+    __setAnalysisCacheStoreForTests(memoryCache.store);
+    __setAnalysisHandlerForTests(async (prompt: string, persona: string) => ({
+      prompt,
+      persona,
+      headline: "Fresh headline",
+      analysis: "Fresh analysis",
+      cached: false,
+    }));
+
+    const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter" });
+    const [first, second] = listBody.players;
+    const analyze = (playerId: string) =>
+      request(app).post("/api/analyze").send({ playerId, playerType: "hitter", analysisMode: "gen_z" });
+
+    await analyze(first.id);
+    await settleCacheWrites();
+    await analyze(second.id);
+    await settleCacheWrites();
+    expect(memoryCache.rows.size).toBe(2);
+    expect(pruneSpy).toHaveBeenCalledTimes(1);
+
+    __setDataFreshnessForTests({ dataThroughDate: "2099-04-22", dataThroughLabel: "April 22" });
+    await analyze(first.id);
+    await settleCacheWrites();
+    expect(pruneSpy).toHaveBeenCalledTimes(2);
+    expect(pruneSpy).toHaveBeenLastCalledWith("2099-04-22");
+    expect(memoryCache.rows.size).toBe(1);
   });
 
   it("recommends a comparison winner", async () => {
@@ -928,6 +972,7 @@ describe("McFARLAND API", () => {
     await request(app)
       .post("/api/analyze")
       .send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
+    await settleCacheWrites();
     const response = await request(app)
       .get("/share")
       .query({ mode: "single", playerType: "hitter", playerId: hitter.id, vibe: "gen_z" });
