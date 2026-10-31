@@ -112,7 +112,7 @@ The Express server serves the built React app at `http://localhost:3000`.
 | `TRENDS_REFRESH_SECRET` | Required secret for `/api/trends/refresh`. | unset |
 | `TRENDS_TIMEZONE` | Timezone used for trend date calculations. | `America/Chicago` |
 | `CLIENT_ORIGIN` | Comma-separated allowed CORS origins. | unset |
-| `TRUST_PROXY` | Express trust proxy setting for deployed environments. | `1` |
+| `TRUST_PROXY` | Express trust proxy setting for deployed environments. A number is the count of proxies in front of the app (e.g. `2` for Cloudflare plus Render); it determines the client IP used by rate limits. | `1` |
 | `PORT` | API/server port. | `3000` |
 
 ## Testing

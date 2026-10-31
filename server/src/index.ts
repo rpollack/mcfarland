@@ -253,8 +253,9 @@ export function createServer() {
   const app = express();
 
   // Allow Express to respect proxy headers (Render/Heroku set X-Forwarded-For)
-  const trustProxy = process.env.TRUST_PROXY ?? "1";
-  app.set("trust proxy", trustProxy);
+  // Env values are strings, but Express reads the string "2" as an IP address, not a hop count, so convert numbers.
+  const trustProxy = process.env.TRUST_PROXY?.trim() || "1";
+  app.set("trust proxy", /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy);
 
   const allowedOrigins = process.env.CLIENT_ORIGIN?.split(",").map((origin) => origin.trim()).filter(Boolean);
   const corsOptions = allowedOrigins && allowedOrigins.length > 0 ? { origin: allowedOrigins } : undefined;
