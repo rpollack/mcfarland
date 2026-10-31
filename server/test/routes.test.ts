@@ -756,6 +756,59 @@ describe("McFARLAND API", () => {
     delete process.env.ADMIN_PASSWORD;
   });
 
+  it("rejects the old unsigned admin cookie and wrong cookie values", async () => {
+    process.env.ADMIN_PASSWORD = "top-secret";
+
+    const forged = await request(app).get("/api/admin/social-suggestions").set("Cookie", "mcfarland_admin_mode=1");
+    const wrong = await request(app).get("/api/admin/social-suggestions").set("Cookie", "mcfarland_admin_mode=not-the-token");
+
+    expect(forged.status).toBe(403);
+    expect(wrong.status).toBe(403);
+  });
+
+  it("issues a signed admin cookie that works on later requests", async () => {
+    process.env.ADMIN_PASSWORD = "top-secret";
+
+    const login = await request(app).get("/api/admin/social-suggestions?admin=top-secret");
+    expect(login.status).toBe(200);
+
+    const setCookie = ([] as string[]).concat(login.headers["set-cookie"] ?? []);
+    const adminCookie = setCookie.find((cookie) => cookie.startsWith("mcfarland_admin_mode="));
+    expect(adminCookie).toBeDefined();
+    const cookieValue = adminCookie!.split(";")[0].split("=")[1];
+    expect(cookieValue).not.toBe("1");
+    expect(cookieValue).not.toContain("top-secret");
+
+    const replay = await request(app).get("/api/admin/social-suggestions").set("Cookie", `mcfarland_admin_mode=${cookieValue}`);
+    expect(replay.status).toBe(200);
+  });
+
+  it("invalidates admin cookies when the admin password changes", async () => {
+    process.env.ADMIN_PASSWORD = "top-secret";
+    const login = await request(app).get("/api/admin/social-suggestions?admin=top-secret");
+    const setCookie = ([] as string[]).concat(login.headers["set-cookie"] ?? []);
+    const cookie = setCookie.find((entry) => entry.startsWith("mcfarland_admin_mode="))!.split(";")[0];
+
+    process.env.ADMIN_PASSWORD = "rotated-secret";
+    const response = await request(app).get("/api/admin/social-suggestions").set("Cookie", cookie);
+
+    expect(response.status).toBe(403);
+  });
+
+  it("fails closed for social suggestions in production without an admin password", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    delete process.env.ADMIN_PASSWORD;
+
+    try {
+      const response = await request(app).get("/api/admin/social-suggestions");
+
+      expect(response.status).toBe(503);
+      expect(response.body.error).toContain("Admin access is not configured");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("returns fallback social suggestions when admin password is not configured", async () => {
     delete process.env.ADMIN_PASSWORD;
 

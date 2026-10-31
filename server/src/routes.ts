@@ -20,6 +20,13 @@ const analyzeLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const adminLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 const router = express.Router();
 
 const playerTypeSchema = z.enum(["hitter", "pitcher"]);
@@ -403,8 +410,11 @@ router.get("/api/trending", async (req, res) => {
   res.json(await getTrendingQuickLinks(baseUrl));
 });
 
-router.get("/api/admin/social-suggestions", async (req, res) => {
+router.get("/api/admin/social-suggestions", adminLimiter, async (req, res) => {
   const adminPassword = getAdminPassword();
+  if (!adminPassword && process.env.NODE_ENV === "production") {
+    return res.status(503).json({ error: "Admin access is not configured" });
+  }
   if (adminPassword && !isAdminModeRequest(req)) {
     return res.status(403).json({ error: "Admin access required" });
   }
