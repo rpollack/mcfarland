@@ -21,7 +21,6 @@
     "concurrently": "^10.0.6"
   },
   "dependencies": {
-    "pg": "^8.23.1",
-    "sqlite3": "^6.0.1"
+    "pg": "^8.23.1"
   }
 }
