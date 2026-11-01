@@ -219,6 +219,25 @@ export interface RelatedPlayers {
   rival: RelatedPlayer | null;
 }
 
+export interface MirageRow {
+  id: string;
+  name: string;
+  mlbamid: string | null;
+  /** wOBA for hitters, ERA for pitchers. */
+  actual: number;
+  /** xwOBA for hitters, xERA for pitchers. */
+  expected: number;
+  /** Positive when results trail expectations; negative when they ran ahead. */
+  gap: number;
+}
+
+export interface MirageBoard {
+  season: number;
+  playerType: PlayerType;
+  lucky: MirageRow[];
+  unlucky: MirageRow[];
+}
+
 export interface AboutContent {
   heading: string;
   paragraphs: string[];
