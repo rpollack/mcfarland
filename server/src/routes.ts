@@ -7,7 +7,7 @@ import { getDailyMatchupContext } from "./mlbMatchups.js";
 import { callClaudeAnalysis, callClaudeFantasyDecision, isCacheableFantasyDecision, isCacheableAnalysisResponse } from "./claude.js";
 import { buildAnalysisCacheKey, getCachedAnalysis, saveCachedAnalysis } from "./analysisCache.js";
 import { getDataFreshness, getPlayerById, getPlayerSummaries } from "./dataStore.js";
-import { logAnalysisEvent, logSessionStart, logShareEvent } from "./analytics.js";
+import { logAnalysisEvent, logAnnouncementEvent, logSessionStart, logShareEvent } from "./analytics.js";
 import { AnalysisMode, ANALYSIS_VIBE_LABELS, ANALYSIS_VIBES, DEFAULT_ANALYSIS_MODE } from "./vibes.js";
 import { getAdminPassword, isAdminModeRequest } from "./admin.js";
 import { getWeeklyTrends, refreshDailyTrendData } from "./weeklyTrends.js";
@@ -388,6 +388,27 @@ router.post("/api/share-events", eventLimiter, async (req, res) => {
     eventType: parseResult.data.eventType,
     playerType: parseResult.data.playerType,
     shareUrl: parseResult.data.shareUrl,
+    referer: req.get("referer"),
+  });
+});
+
+router.post("/api/announcement-events", eventLimiter, async (req, res) => {
+  const schema = z.object({
+    sessionId: z.string().min(1).max(128),
+    announcementId: z.string().min(1).max(128),
+    action: z.enum(["viewed", "clicked", "dismissed"]),
+  });
+
+  const parseResult = schema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res.status(400).json({ error: "Invalid request body" });
+  }
+
+  res.status(204).end();
+  void logAnnouncementEvent({
+    sessionId: parseResult.data.sessionId,
+    announcementId: parseResult.data.announcementId,
+    action: parseResult.data.action,
     referer: req.get("referer"),
   });
 });
