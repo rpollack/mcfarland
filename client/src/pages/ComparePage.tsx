@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { analyzeComparison, fetchPlayers, logShareAnalyticsEvent } from "../api";
 import { useVibe } from "../contexts/vibe";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import type { PlayerSummary, PlayerType } from "../types";
 import { buildSharePreviewUrl } from "../utils/share";
 import AnalysisPanel from "../components/AnalysisPanel";
@@ -29,6 +30,7 @@ interface Props {
 const MAX_PLAYERS = 3;
 const SEARCH_MIN_LENGTH = 2;
 const SEARCH_RESULT_LIMIT = 8;
+const SEARCH_DEBOUNCE_MS = 175;
 
 function buildAnalysisKey(payload: ActiveComparison & { vibe: string }) {
   return `${payload.type}|${payload.ids.join(",")}|${payload.vibe}`;
@@ -76,13 +78,19 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
   }
 
   const trimmedSearch = searchTerm.trim();
-  const searchEnabled = trimmedSearch.length >= SEARCH_MIN_LENGTH;
+  const debouncedSearch = useDebouncedValue(trimmedSearch, SEARCH_DEBOUNCE_MS);
+  const searchEnabled = debouncedSearch.length >= SEARCH_MIN_LENGTH;
+  // Results are only trustworthy once the debounced term has caught up with what's typed.
+  const resultsReady = searchEnabled && trimmedSearch === debouncedSearch;
+  // Inside the debounce window the query for the current text hasn't started, so report loading rather than an empty result.
+  const searchPending = trimmedSearch !== debouncedSearch && trimmedSearch.length >= SEARCH_MIN_LENGTH;
 
   const playersQuery = useQuery({
-    queryKey: ["compare-players", playerType, trimmedSearch],
-    queryFn: () => fetchPlayers(playerType, trimmedSearch, SEARCH_RESULT_LIMIT),
+    queryKey: ["compare-players", playerType, debouncedSearch],
+    queryFn: () => fetchPlayers(playerType, debouncedSearch, SEARCH_RESULT_LIMIT),
     enabled: searchEnabled,
   });
+  const searchLoading = searchPending || (resultsReady && playersQuery.isLoading);
 
   const {
     mutateAsync: runAnalysis,
@@ -266,7 +274,7 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
   const analysisReady = Boolean(analysisData?.analysis);
   const recommendedPlayerId = comparisonResult?.recommendedPlayerId ?? null;
 
-  const availablePlayers = searchEnabled ? playersQuery.data ?? [] : [];
+  const availablePlayers = resultsReady ? playersQuery.data ?? [] : [];
   const canAddMore = selectedPlayers.length < MAX_PLAYERS;
   const hasSelection = selectedPlayers.length > 0;
   const recommendedPlayerName = recommendedPlayerId
@@ -335,11 +343,11 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
         />
 
         <ul className={styles.searchResults} aria-live="polite">
-          {playersQuery.isLoading && trimmedSearch && <li className={styles.helper}>Loading players…</li>}
-          {!playersQuery.isLoading && trimmedSearch && availablePlayers.length === 0 && (
+          {searchLoading && trimmedSearch && <li className={styles.helper}>Loading players…</li>}
+          {!searchLoading && trimmedSearch && availablePlayers.length === 0 && (
             <li className={styles.helper}>No matches found.</li>
           )}
-          {!playersQuery.isLoading &&
+          {!searchLoading &&
             trimmedSearch &&
             availablePlayers.slice(0, 8).map((player) => (
               <li key={player.id}>

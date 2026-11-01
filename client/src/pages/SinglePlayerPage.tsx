@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import PlayerPicker from "../components/PlayerPicker";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import AnalysisPanel from "../components/AnalysisPanel";
 import type { QuickStatSignal } from "../components/AnalysisPanel";
 import VibeSelector from "../components/VibeSelector";
@@ -27,6 +28,7 @@ interface Props {
 
 const SEARCH_MIN_LENGTH = 2;
 const SEARCH_RESULT_LIMIT = 8;
+const SEARCH_DEBOUNCE_MS = 175;
 
 function formatSlashStat(value: number | null | undefined): string {
   if (value === null || value === undefined || Number.isNaN(value)) {
@@ -192,13 +194,19 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
   }
 
   const trimmedSearch = searchTerm.trim();
-  const searchEnabled = trimmedSearch.length >= SEARCH_MIN_LENGTH;
+  const debouncedSearch = useDebouncedValue(trimmedSearch, SEARCH_DEBOUNCE_MS);
+  const searchEnabled = debouncedSearch.length >= SEARCH_MIN_LENGTH;
+  // Results are only trustworthy once the debounced term has caught up with what's typed.
+  const resultsReady = searchEnabled && trimmedSearch === debouncedSearch;
+  // Inside the debounce window the query for the current text hasn't started, so report loading rather than an empty result.
+  const searchPending = trimmedSearch !== debouncedSearch && trimmedSearch.length >= SEARCH_MIN_LENGTH;
 
   const playersQuery = useQuery({
-    queryKey: ["players", playerType, trimmedSearch],
-    queryFn: () => fetchPlayers(playerType, trimmedSearch, SEARCH_RESULT_LIMIT),
+    queryKey: ["players", playerType, debouncedSearch],
+    queryFn: () => fetchPlayers(playerType, debouncedSearch, SEARCH_RESULT_LIMIT),
     enabled: searchEnabled,
   });
+  const searchLoading = searchPending || (resultsReady && playersQuery.isLoading);
 
   const detailQuery = useQuery({
     queryKey: ["player-detail", playerType, selectedId],
@@ -339,12 +347,12 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
               setSelectedId(undefined);
             }
           }}
-          players={searchEnabled ? playersQuery.data ?? [] : []}
+          players={resultsReady ? playersQuery.data ?? [] : []}
           selectedId={selectedId}
           onSelect={(playerId) => {
             setSelectedId(playerId);
           }}
-          isLoading={searchEnabled && playersQuery.isLoading}
+          isLoading={searchLoading}
         />
         <WeeklyTrendsSection
           embedded
