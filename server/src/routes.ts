@@ -7,6 +7,7 @@ import { getDailyMatchupContext } from "./mlbMatchups.js";
 import { callClaudeAnalysis, callClaudeFantasyDecision, isCacheableFantasyDecision, isCacheableAnalysisResponse } from "./claude.js";
 import { buildAnalysisCacheKey, getCachedAnalysis, saveCachedAnalysis } from "./analysisCache.js";
 import { getDataFreshness, getPlayerById, getPlayerSummaries } from "./dataStore.js";
+import { castVote, getVoteState } from "./compareVotes.js";
 import { logAnalysisEvent, logSessionStart, logShareEvent } from "./analytics.js";
 import { AnalysisMode, ANALYSIS_VIBE_LABELS, ANALYSIS_VIBES, DEFAULT_ANALYSIS_MODE } from "./vibes.js";
 import { getAdminPassword, isAdminModeRequest } from "./admin.js";
@@ -29,6 +30,7 @@ const lightLimiter = () =>
   });
 const trendingLimiter = lightLimiter();
 const eventLimiter = lightLimiter();
+const voteLimiter = lightLimiter();
 
 const adminLimiter = rateLimit({
   windowMs: 60_000,
@@ -209,6 +211,67 @@ router.post("/api/compare", (req, res) => {
   const recommendedPlayerId = recommendBestPlayer(players, playerType);
 
   res.json({ players, recommendedPlayerId });
+});
+
+const voteIdsSchema = z
+  .array(z.string().min(1).max(64))
+  .min(2)
+  .max(3)
+  .refine((ids) => new Set(ids).size === ids.length, "Players must be different");
+const voterIdSchema = z.string().min(16).max(128);
+
+router.get("/api/compare/votes", voteLimiter, async (req, res) => {
+  const parseResult = z
+    .object({
+      type: playerTypeSchema,
+      ids: z.string().transform((value) => value.split(",").map((id) => id.trim()).filter(Boolean)).pipe(voteIdsSchema),
+      voterId: voterIdSchema,
+    })
+    .safeParse({ type: req.query.type, ids: req.query.ids, voterId: req.get("x-voter-id") });
+  if (!parseResult.success) {
+    return res.status(400).json({ error: "Invalid vote lookup" });
+  }
+
+  const { type, ids, voterId } = parseResult.data;
+  if (!ids.every((id) => getPlayerById(type, id))) {
+    return res.status(404).json({ error: "Player not found" });
+  }
+
+  try {
+    res.json(await getVoteState(type, ids, voterId));
+  } catch (error) {
+    console.error("[api/compare/votes] lookup failed", error);
+    res.status(503).json({ error: "Voting is temporarily unavailable" });
+  }
+});
+
+router.post("/api/compare/votes", voteLimiter, async (req, res) => {
+  const parseResult = z
+    .object({
+      playerType: playerTypeSchema,
+      playerIds: voteIdsSchema,
+      choice: z.string().min(1).max(64),
+      voterId: voterIdSchema,
+    })
+    .safeParse({ ...req.body, voterId: req.get("x-voter-id") });
+  if (!parseResult.success) {
+    return res.status(400).json({ error: "Invalid vote" });
+  }
+
+  const { playerType, playerIds, choice, voterId } = parseResult.data;
+  if (!playerIds.includes(choice)) {
+    return res.status(400).json({ error: "Vote must be for one of the compared players" });
+  }
+  if (!playerIds.every((id) => getPlayerById(playerType, id))) {
+    return res.status(404).json({ error: "Player not found" });
+  }
+
+  try {
+    res.json(await castVote(playerType, playerIds, choice, voterId));
+  } catch (error) {
+    console.error("[api/compare/votes] vote failed", error);
+    res.status(503).json({ error: "Voting is temporarily unavailable" });
+  }
 });
 
 router.post("/api/compare/analyze", analyzeLimiter, async (req, res) => {

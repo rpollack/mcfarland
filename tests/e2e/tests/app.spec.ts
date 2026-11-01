@@ -273,6 +273,36 @@ test.describe("McFARLAND core experience", () => {
     await sharePage.close();
   });
 
+  test("compare asks who you would take and shows the split after you vote", async ({ page }) => {
+    await page.goto("/?mode=compare");
+    await page.evaluate(() => window.localStorage.clear());
+    await page.reload();
+
+    const compareSearch = compareSearchInput(page);
+    for (const fullName of ["Aaron Judge", "Juan Soto"]) {
+      await compareSearch.fill(fullName);
+      await page.getByRole("button", { name: new RegExp(`^${fullName}$`, "i") }).first().click();
+    }
+
+    const compareRequestFinished = waitForPostRequestFinished(page, "/api/compare/analyze");
+    await page.getByRole("button", { name: "Compare", exact: true }).click();
+    await compareRequestFinished;
+    await expectAnalysisReady(page);
+
+    const vote = page.getByRole("group", { name: "Who would you take?" });
+    await expect(vote).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/%/)).toHaveCount(0);
+
+    await vote.getByRole("button", { name: "Aaron Judge" }).click();
+    const results = page.getByRole("group", { name: "How people voted" });
+    await expect(results).toBeVisible();
+    await expect(results.getByText(/^\d+%$/).first()).toBeVisible();
+    await expect(results.getByText(/your pick/)).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByRole("group", { name: "How people voted" })).toBeVisible({ timeout: 30000 });
+  });
+
   test("fantasy daily matchup selects a hitter and renders start sit context", async ({ page }) => {
     const fantasyAnalyzeRequests: { playerId: string; playerType: string; date?: string }[] = [];
 

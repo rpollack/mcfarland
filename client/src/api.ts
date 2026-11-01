@@ -3,6 +3,7 @@ import {
   AnalysisResponse,
   CompareAnalysisResponse,
   ComparisonResponse,
+  CompareVoteState,
   DataFreshness,
   FantasyDailyMatchupResponse,
   HitterRecord,
@@ -16,6 +17,7 @@ import {
   Vibe,
   WeeklyTrendsResponse,
 } from "./types";
+import { getOrCreateVoterId } from "./utils/voterId";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ??
@@ -73,6 +75,21 @@ export async function fetchPlayers(type: PlayerType, query?: string, limit?: num
 export async function fetchPlayerDetail<T extends PlayerRecord>(type: PlayerType, playerId: string): Promise<PlayerDetail<T>> {
   const params = new URLSearchParams({ type });
   return request<PlayerDetail<T>>(`/api/players/${playerId}?${params.toString()}`);
+}
+
+export async function fetchCompareVotes(type: PlayerType, playerIds: string[]): Promise<CompareVoteState> {
+  const params = new URLSearchParams({ type, ids: playerIds.join(",") });
+  return request<CompareVoteState>(`/api/compare/votes?${params.toString()}`, {
+    headers: { "X-Voter-Id": getOrCreateVoterId() },
+  });
+}
+
+export async function castCompareVote(type: PlayerType, playerIds: string[], choice: string): Promise<CompareVoteState> {
+  return request<CompareVoteState>(`/api/compare/votes`, {
+    method: "POST",
+    headers: { "X-Voter-Id": getOrCreateVoterId() },
+    body: JSON.stringify({ playerType: type, playerIds, choice }),
+  });
 }
 
 export async function analyzePlayer(playerId: string, playerType: PlayerType, analysisMode: string): Promise<AnalysisResponse> {

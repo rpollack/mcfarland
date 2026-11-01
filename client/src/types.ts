@@ -198,6 +198,13 @@ export interface Vibe {
   description: string;
 }
 
+export interface CompareVoteState {
+  yourVote: string | null;
+  /** Votes per player id; null until this browser has voted. */
+  counts: Record<string, number> | null;
+  total: number;
+}
+
 export interface AboutContent {
   heading: string;
   paragraphs: string[];
