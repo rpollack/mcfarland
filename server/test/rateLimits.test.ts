@@ -46,4 +46,38 @@ describe("rate limits on public endpoints", () => {
 
     expect(blocked.status).toBe(429);
   });
+
+  describe("client IP detection behind proxies", () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    async function remaining(app: ReturnType<typeof createServer>, forwardedFor: string) {
+      const response = await request(app).get("/api/trending").set("X-Forwarded-For", forwardedFor);
+      return Number(response.headers["ratelimit-remaining"]);
+    }
+
+    it("treats TRUST_PROXY=2 as two proxy hops, so each real client gets its own budget", async () => {
+      vi.stubEnv("TRUST_PROXY", "2");
+      const app = createServer();
+
+      // X-Forwarded-For is "<client>, <edge proxy>": the edge address is shared by everyone.
+      const first = await remaining(app, "203.0.113.1, 198.51.100.7");
+      const second = await remaining(app, "203.0.113.1, 198.51.100.7");
+      const otherClient = await remaining(app, "203.0.113.2, 198.51.100.7");
+
+      expect(second).toBe(first - 1);
+      expect(otherClient).toBe(first);
+    });
+
+    it("defaults to one proxy hop", async () => {
+      vi.stubEnv("TRUST_PROXY", "");
+      const app = createServer();
+
+      const first = await remaining(app, "203.0.113.3, 198.51.100.8");
+      const second = await remaining(app, "203.0.113.4, 198.51.100.8");
+
+      expect(second).toBe(first - 1);
+    });
+  });
 });
