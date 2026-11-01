@@ -145,3 +145,30 @@ export async function logShareEvent(event: ShareLogEvent): Promise<void> {
     },
   });
 }
+
+type AnnouncementLogEvent = {
+  sessionId: string;
+  announcementId: string;
+  action: "viewed" | "clicked" | "dismissed";
+  referer?: string | null;
+};
+
+export async function logAnnouncementEvent(event: AnnouncementLogEvent): Promise<void> {
+  if (!event.sessionId) {
+    return;
+  }
+  if (shouldSkipLogging(event.referer)) {
+    return;
+  }
+
+  await sendAmplitudeEvent({
+    event_type: "announcement_event_logged",
+    user_id: event.sessionId,
+    time: Date.now(),
+    event_properties: {
+      announcement_id: truncate(event.announcementId, 128),
+      action: event.action,
+      referer: truncate(event.referer, 512),
+    },
+  });
+}

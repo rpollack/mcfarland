@@ -217,3 +217,22 @@ export async function logShareAnalyticsEvent({
     console.warn("Failed to log share analytics event", error);
   }
 }
+
+export async function logAnnouncementEvent(announcementId: string, action: "viewed" | "clicked" | "dismissed"): Promise<void> {
+  const sessionId = getOrCreateSessionId();
+  if (!sessionId) {
+    return;
+  }
+
+  try {
+    await fetch(buildUrl("/api/announcement-events"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ sessionId, announcementId, action }),
+    });
+  } catch (error) {
+    console.warn("Failed to log announcement event", error);
+  }
+}
