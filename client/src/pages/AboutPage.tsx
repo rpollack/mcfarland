@@ -1,5 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
+import { ANNOUNCEMENTS } from "../announcements";
 import { fetchDataFreshness } from "../api";
+import { getAnnouncementHistory } from "../utils/announcements";
 import styles from "../styles/AboutPage.module.css";
 
 const ABOUT_SECTIONS = [
@@ -43,11 +46,21 @@ const VIBE_BLURBS = [
   "🎭 Shakespeare brings dramatic flair without losing the thread.",
 ];
 
+function formatAnnouncementDate(startsAt: string): string {
+  return new Date(`${startsAt}T00:00:00Z`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 function AboutPage() {
   const freshnessQuery = useQuery({
     queryKey: ["data-freshness"],
     queryFn: fetchDataFreshness,
   });
+  const announcementHistory = getAnnouncementHistory(ANNOUNCEMENTS, new Date());
 
   return (
     <article className={styles.article}>
@@ -102,6 +115,25 @@ function AboutPage() {
           ))}
         </ul>
       </section>
+
+      {announcementHistory.length > 0 && (
+        <section className={styles.section} aria-label="What's new">
+          <h3>What&apos;s new</h3>
+          <ul>
+            {announcementHistory.map((announcement) => (
+              <li key={announcement.id}>
+                <strong>{formatAnnouncementDate(announcement.startsAt)}.</strong> {announcement.text}
+                {announcement.link && (
+                  <>
+                    {" "}
+                    <Link to={announcement.link.to}>{announcement.link.label}</Link>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className={styles.section}>
         <h3>Help shape McFARLAND</h3>
