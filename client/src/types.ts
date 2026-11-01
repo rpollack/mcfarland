@@ -198,6 +198,27 @@ export interface Vibe {
   description: string;
 }
 
+export interface CompareVoteState {
+  yourVote: string | null;
+  /** Votes per player id; null until this browser has voted. */
+  counts: Record<string, number> | null;
+  total: number;
+}
+
+export interface RelatedPlayer {
+  id: string;
+  name: string;
+  type: PlayerType;
+  mlbamid?: string | null;
+  /** Results vs. expectations, positive when results trail expectations. */
+  gap: number | null;
+}
+
+export interface RelatedPlayers {
+  similarGap: RelatedPlayer[];
+  rival: RelatedPlayer | null;
+}
+
 export interface AboutContent {
   heading: string;
   paragraphs: string[];
