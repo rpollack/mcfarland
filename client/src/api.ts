@@ -11,6 +11,7 @@ import {
   PlayerRecord,
   PlayerSummary,
   PlayerType,
+  RelatedPlayers,
   SocialSuggestionResponse,
   TrendingQuickLinksResponse,
   Vibe,
@@ -73,6 +74,12 @@ export async function fetchPlayers(type: PlayerType, query?: string, limit?: num
 export async function fetchPlayerDetail<T extends PlayerRecord>(type: PlayerType, playerId: string): Promise<PlayerDetail<T>> {
   const params = new URLSearchParams({ type });
   return request<PlayerDetail<T>>(`/api/players/${playerId}?${params.toString()}`);
+}
+
+export async function fetchRelatedPlayers(type: PlayerType, playerId: string): Promise<RelatedPlayers> {
+  const params = new URLSearchParams({ type });
+  const data = await request<{ related: RelatedPlayers }>(`/api/players/${encodeURIComponent(playerId)}/related?${params.toString()}`);
+  return data.related;
 }
 
 export async function analyzePlayer(playerId: string, playerType: PlayerType, analysisMode: string): Promise<AnalysisResponse> {
