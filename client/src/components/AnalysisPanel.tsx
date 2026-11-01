@@ -41,6 +41,21 @@ function AnalysisPanel({
   const showAnalysisBody = Boolean(isAnalyzing || analysis);
   const normalizedHeadline = headline?.replace(/\s+/g, " ").trim();
   const showContext = Boolean(quickStatsLine || quickStatSignals.length > 0);
+  // The stats are known before the analysis arrives, so the same block shows while it loads.
+  const analysisContext = showContext ? (
+    <div className={styles.analysisContext}>
+      {quickStatsLine && <p className={styles.freshness}>{quickStatsLine}</p>}
+      {quickStatSignals.length > 0 && (
+        <div className={styles.signalChips} aria-label="Key signals">
+          {quickStatSignals.map((signal) => (
+            <span key={signal.label} className={`${styles.signalChip} ${styles[signal.tone ?? "neutral"]}`}>
+              {signal.label}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  ) : null;
 
   return (
     <section className={styles.panel} aria-label="AI analysis">
@@ -59,30 +74,25 @@ function AnalysisPanel({
       )}
 
       {showAnalysisBody && (
-        <article className={styles.analysis} aria-live="polite">
+        <article className={styles.analysis} aria-live="polite" aria-busy={isAnalyzing}>
           {isAnalyzing ? (
-            <p className={styles.loading}>Generating the latest scouting notes…</p>
+            <>
+              <div className={`${styles.skeleton} ${styles.skeletonHeadline}`} aria-hidden="true" />
+              {analysisContext}
+              <div className={styles.skeletonBody} aria-hidden="true">
+                <div className={styles.skeleton} />
+                <div className={styles.skeleton} />
+                <div className={`${styles.skeleton} ${styles.skeletonShort}`} />
+              </div>
+              <p className={styles.loading}>
+                {modeLabel ? `Writing the ${modeLabel.replace(/\s*\(.*\)\s*$/, "")} take…` : "Generating the latest scouting notes…"}
+              </p>
+            </>
           ) : (
             analysis && (
               <>
                 {normalizedHeadline && <h3 className={styles.headline}>{normalizedHeadline}</h3>}
-                {showContext && (
-                  <div className={styles.analysisContext}>
-                    {quickStatsLine && <p className={styles.freshness}>{quickStatsLine}</p>}
-                    {quickStatSignals.length > 0 && (
-                      <div className={styles.signalChips} aria-label="Key signals">
-                        {quickStatSignals.map((signal) => (
-                          <span
-                            key={signal.label}
-                            className={`${styles.signalChip} ${styles[signal.tone ?? "neutral"]}`}
-                          >
-                            {signal.label}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                {analysisContext}
                 <Suspense fallback={<p>{analysis}</p>}>
                   <Markdown>{analysis}</Markdown>
                 </Suspense>

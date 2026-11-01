@@ -115,6 +115,42 @@
   font-style: italic;
 }
 
+.skeleton {
+  height: 0.8rem;
+  border-radius: 0.4rem;
+  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s linear infinite;
+}
+
+.skeletonHeadline {
+  width: min(28rem, 80%);
+  height: 1.2rem;
+  margin: 0 0 0.9rem;
+}
+
+.skeletonBody {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0 0 1rem;
+}
+
+.skeletonShort {
+  width: 65%;
+}
+
+@keyframes skeleton-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
 .analysis :global(p) {
   margin: 0 0 0.75rem;
 }
