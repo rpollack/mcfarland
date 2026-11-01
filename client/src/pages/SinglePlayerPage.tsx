@@ -413,6 +413,10 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                 nextSteps={
                   analysisReady ? (
                     <>
+                      <div className={`${panelStyles.nextStepCard} ${panelStyles.nextStepCardWide}`}>
+                        <VibeSelector />
+                      </div>
+
                       {selectedId && (
                         <div className={`${panelStyles.nextStepCard} ${panelStyles.nextStepCardWide}`}>
                           <KeepGoing playerId={selectedId} playerType={playerType} onSelectPlayer={handleKeepGoingSelect} />
@@ -426,10 +430,6 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                         </button>
                         {shareStatus === "success" && <span className={panelStyles.status}>Link copied.</span>}
                         {shareStatus === "error" && <span className={panelStyles.status}>Couldn't copy link.</span>}
-                      </div>
-
-                      <div className={panelStyles.nextStepCard}>
-                        <VibeSelector />
                       </div>
 
                       <div className={panelStyles.nextStepCard}>

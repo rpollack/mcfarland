@@ -16,12 +16,12 @@ async function waitForPostRequestFinished(
 async function expectAnalysisReady(page: Page) {
   const panel = page.locator("section[aria-label='AI analysis']");
   const article = panel.locator("article[aria-live='polite']");
-  const vibeButton = page.getByRole("button", { name: "Change the vibe" }).first();
+  const vibePicker = page.getByRole("group", { name: "Hear it as" }).first();
 
   await expect(panel).toBeVisible({ timeout: 15000 });
   await expect(article).toBeVisible({ timeout: 15000 });
   await expect(article).not.toHaveText(/^\s*$/, { timeout: 15000 });
-  await expect(vibeButton).toBeVisible({ timeout: 15000 });
+  await expect(vibePicker).toBeVisible({ timeout: 15000 });
 }
 
 function singleSearchInput(page: Page) {
@@ -249,7 +249,6 @@ test.describe("McFARLAND core experience", () => {
       "/api/analyze",
       (request) => (request.postData() ?? "").includes("analytics_dork")
     );
-    await page.getByRole("button", { name: "Change the vibe" }).first().click();
     await page.getByRole("button", { name: "Analytics Nerd" }).click();
     await vibeSwitchFinished;
     await expectAnalysisReady(page);
