@@ -404,6 +404,10 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                 nextSteps={
                   analysisReady ? (
                     <>
+                      <div className={`${panelStyles.nextStepCard} ${panelStyles.nextStepCardWide}`}>
+                        <VibeSelector />
+                      </div>
+
                       <div className={panelStyles.nextStepCard}>
                         <button type="button" className={panelStyles.nextStepButton} onClick={() => void handleShare()}>
                           <span aria-hidden className={panelStyles.icon}>🔗</span>
@@ -411,10 +415,6 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                         </button>
                         {shareStatus === "success" && <span className={panelStyles.status}>Link copied.</span>}
                         {shareStatus === "error" && <span className={panelStyles.status}>Couldn't copy link.</span>}
-                      </div>
-
-                      <div className={panelStyles.nextStepCard}>
-                        <VibeSelector />
                       </div>
 
                       <div className={panelStyles.nextStepCard}>
