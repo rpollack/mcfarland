@@ -4,10 +4,11 @@ import { z } from "zod";
 import { buildAboutContent, buildAnalysisPrompt, buildComparisonPrompt, generateQuickInsight, recommendBestPlayer } from "./analysis.js";
 import { buildFantasyDailyMatchupPrompt, parseFantasyCachedPayload, serializeFantasyCachedPayload } from "./fantasy.js";
 import { getDailyMatchupContext } from "./mlbMatchups.js";
-import { callClaudeAnalysis, callClaudeFantasyDecision, isCacheableFantasyDecision, isCacheableAnalysisResponse } from "./claude.js";
+import { ANALYSIS_UNAVAILABLE_HEADLINE, callClaudeAnalysis, callClaudeFantasyDecision, isCacheableFantasyDecision, isCacheableAnalysisResponse } from "./claude.js";
 import { buildAnalysisCacheKey, getCachedAnalysis, saveCachedAnalysis } from "./analysisCache.js";
 import { getDataFreshness, getPlayerById, getPlayerSummaries } from "./dataStore.js";
 import { castVote, getVoteState } from "./compareVotes.js";
+import { buildMirageBoard, buildMirageBoardPrompt } from "./mirageBoard.js";
 import { findRelatedPlayers } from "./relatedPlayers.js";
 import { logAnalysisEvent, logAnnouncementEvent, logSessionStart, logShareEvent } from "./analytics.js";
 import { AnalysisMode, ANALYSIS_VIBE_LABELS, ANALYSIS_VIBES, DEFAULT_ANALYSIS_MODE } from "./vibes.js";
@@ -152,6 +153,53 @@ router.get("/api/players/:playerId/related", (req, res) => {
   }
 
   res.json({ related });
+});
+
+router.get("/api/mirage-board", (req, res) => {
+  const parseResult = z.object({ type: playerTypeSchema.default("hitter") }).safeParse(req.query);
+  if (!parseResult.success) {
+    return res.status(400).json({ error: "Invalid query parameters" });
+  }
+
+  res.json({ board: buildMirageBoard(parseResult.data.type) });
+});
+
+router.post("/api/mirage-board/intro", analyzeLimiter, async (req, res) => {
+  const parseResult = z
+    .object({
+      playerType: playerTypeSchema,
+      analysisMode: z.string().default(DEFAULT_ANALYSIS_MODE),
+    })
+    .safeParse(req.body);
+  if (!parseResult.success) {
+    return res.status(400).json({ error: "Invalid request body" });
+  }
+
+  const { playerType, analysisMode } = parseResult.data;
+  const board = buildMirageBoard(playerType);
+  if (board.lucky.length === 0 && board.unlucky.length === 0) {
+    return res.status(404).json({ error: "Not enough data for a mirage board yet" });
+  }
+
+  const mode = (analysisMode in ANALYSIS_VIBES ? analysisMode : DEFAULT_ANALYSIS_MODE) as AnalysisMode;
+
+  try {
+    const response = await getAnalysisResponse({
+      prompt: buildMirageBoardPrompt(board),
+      persona: ANALYSIS_VIBES[mode],
+      mode,
+      playerType,
+      playerIds: [...board.lucky, ...board.unlucky].map((row) => row.id),
+    });
+    // The board is still useful without its intro, so a missing intro is an error, not text to display.
+    if (response.headline === ANALYSIS_UNAVAILABLE_HEADLINE) {
+      return res.status(502).json({ error: "Analysis service temporarily unavailable" });
+    }
+    res.json(response);
+  } catch (error) {
+    console.error("[api/mirage-board/intro] Anthropic request failed", error);
+    res.status(502).json({ error: "Analysis service temporarily unavailable" });
+  }
 });
 
 router.get("/api/data-freshness", (_req, res) => {
