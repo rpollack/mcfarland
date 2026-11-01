@@ -5,6 +5,7 @@ import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import AnalysisPanel from "../components/AnalysisPanel";
 import type { QuickStatSignal } from "../components/AnalysisPanel";
 import VibeSelector from "../components/VibeSelector";
+import KeepGoing from "../components/KeepGoing";
 import PlayerHeadshot from "../components/PlayerHeadshot";
 import StarButton from "../components/StarButton";
 import WeeklyTrendsSection from "../components/WeeklyTrendsSection";
@@ -216,6 +217,7 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
   });
 
   const lastAnalysisKeyRef = useRef<string | null>(null);
+  const resultsRef = useRef<HTMLDivElement | null>(null);
   const {
     mutate: runAnalysis,
     data: analysisData,
@@ -323,6 +325,13 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
     }
   }, [detailQuery.data, mode, playerType]);
 
+  const handleKeepGoingSelect = useCallback((playerId: string) => {
+    setSearchTerm("");
+    setShareStatus("idle");
+    setSelectedId(playerId);
+    resultsRef.current?.scrollIntoView?.({ block: "start", behavior: "smooth" });
+  }, []);
+
   const handleAnalyzeAnother = useCallback(() => {
     setSelectedId(undefined);
     setSearchTerm("");
@@ -372,7 +381,7 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
       </div>
 
       {hasSelectedPlayer && (
-        <div className={styles.results}>
+        <div className={styles.results} ref={resultsRef}>
           {!hasPlayerProfile || !detailQuery.data ? (
             <div className={styles.loadingCard}>
               <p>{detailQuery.isError ? "We couldn't load that player. Try another search." : "Loading player profile…"}</p>
@@ -411,6 +420,16 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                 nextSteps={
                   analysisReady ? (
                     <>
+                      <div className={`${panelStyles.nextStepCard} ${panelStyles.nextStepCardWide}`}>
+                        <VibeSelector />
+                      </div>
+
+                      {selectedId && (
+                        <div className={`${panelStyles.nextStepCard} ${panelStyles.nextStepCardWide}`}>
+                          <KeepGoing playerId={selectedId} playerType={playerType} onSelectPlayer={handleKeepGoingSelect} />
+                        </div>
+                      )}
+
                       <div className={panelStyles.nextStepCard}>
                         <button type="button" className={panelStyles.nextStepButton} onClick={() => void handleShare()}>
                           <span aria-hidden className={panelStyles.icon}>🔗</span>
@@ -418,10 +437,6 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                         </button>
                         {shareStatus === "success" && <span className={panelStyles.status}>Link copied.</span>}
                         {shareStatus === "error" && <span className={panelStyles.status}>Couldn't copy link.</span>}
-                      </div>
-
-                      <div className={panelStyles.nextStepCard}>
-                        <VibeSelector />
                       </div>
 
                       <div className={panelStyles.nextStepCard}>

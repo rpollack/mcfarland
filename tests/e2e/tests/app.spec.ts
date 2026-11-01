@@ -16,12 +16,12 @@ async function waitForPostRequestFinished(
 async function expectAnalysisReady(page: Page) {
   const panel = page.locator("section[aria-label='AI analysis']");
   const article = panel.locator("article[aria-live='polite']");
-  const vibeButton = page.getByRole("button", { name: "Change the vibe" }).first();
+  const vibePicker = page.getByRole("group", { name: "Hear it as" }).first();
 
   await expect(panel).toBeVisible({ timeout: 15000 });
   await expect(article).toBeVisible({ timeout: 15000 });
   await expect(article).not.toHaveText(/^\s*$/, { timeout: 15000 });
-  await expect(vibeButton).toBeVisible({ timeout: 15000 });
+  await expect(vibePicker).toBeVisible({ timeout: 15000 });
 }
 
 function singleSearchInput(page: Page) {
@@ -130,6 +130,25 @@ test.describe("McFARLAND core experience", () => {
     expect(headshotAfterAnalyzeAgain).not.toBe(secondHeadshotSrc);
   });
 
+  test("keep going suggests a similar player and a compare after a take", async ({ page }) => {
+    await page.goto("/");
+    await singleSearchInput(page).fill("Aaron Judge");
+    await page.getByRole("button", { name: /^Aaron Judge$/i }).first().click();
+    await expectAnalysisReady(page);
+
+    const keepGoing = page.getByRole("group", { name: "Keep going" });
+    await expect(keepGoing).toBeVisible({ timeout: 15000 });
+
+    const similarPlayer = keepGoing.getByRole("button", { name: /^Similar luck gap:/ }).first();
+    await expect(similarPlayer).toBeVisible();
+    const compareLink = keepGoing.getByRole("link", { name: /^Compare with / });
+    await expect(compareLink).toBeVisible();
+
+    await compareLink.click();
+    await expect(page).toHaveURL(/mode=compare/);
+    await expect(page.getByRole("tab", { name: "Compare Players" })).toHaveAttribute("aria-selected", "true");
+  });
+
   test("single-player quick links trigger matching analysis and stay out of compare mode", async ({ page }) => {
     const singleAnalyzeRequests: { mode: string; playerId: string }[] = [];
 
@@ -230,7 +249,6 @@ test.describe("McFARLAND core experience", () => {
       "/api/analyze",
       (request) => (request.postData() ?? "").includes("analytics_dork")
     );
-    await page.getByRole("button", { name: "Change the vibe" }).first().click();
     await page.getByRole("button", { name: "Analytics Nerd" }).click();
     await vibeSwitchFinished;
     await expectAnalysisReady(page);
@@ -271,6 +289,36 @@ test.describe("McFARLAND core experience", () => {
     await expectAnalysisReady(sharePage);
 
     await sharePage.close();
+  });
+
+  test("compare asks who you would take and shows the split after you vote", async ({ page }) => {
+    await page.goto("/?mode=compare");
+    await page.evaluate(() => window.localStorage.clear());
+    await page.reload();
+
+    const compareSearch = compareSearchInput(page);
+    for (const fullName of ["Aaron Judge", "Juan Soto"]) {
+      await compareSearch.fill(fullName);
+      await page.getByRole("button", { name: new RegExp(`^${fullName}$`, "i") }).first().click();
+    }
+
+    const compareRequestFinished = waitForPostRequestFinished(page, "/api/compare/analyze");
+    await page.getByRole("button", { name: "Compare", exact: true }).click();
+    await compareRequestFinished;
+    await expectAnalysisReady(page);
+
+    const vote = page.getByRole("group", { name: "Who would you take?" });
+    await expect(vote).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/%/)).toHaveCount(0);
+
+    await vote.getByRole("button", { name: "Aaron Judge" }).click();
+    const results = page.getByRole("group", { name: "How people voted" });
+    await expect(results).toBeVisible();
+    await expect(results.getByText(/^\d+%$/).first()).toBeVisible();
+    await expect(results.getByText(/your pick/)).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByRole("group", { name: "How people voted" })).toBeVisible({ timeout: 30000 });
   });
 
   test("fantasy daily matchup selects a hitter and renders start sit context", async ({ page }) => {

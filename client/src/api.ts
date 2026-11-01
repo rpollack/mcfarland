@@ -3,6 +3,7 @@ import {
   AnalysisResponse,
   CompareAnalysisResponse,
   ComparisonResponse,
+  CompareVoteState,
   DataFreshness,
   FantasyDailyMatchupResponse,
   HitterRecord,
@@ -11,11 +12,13 @@ import {
   PlayerRecord,
   PlayerSummary,
   PlayerType,
+  RelatedPlayers,
   SocialSuggestionResponse,
   TrendingQuickLinksResponse,
   Vibe,
   WeeklyTrendsResponse,
 } from "./types";
+import { getOrCreateVoterId } from "./utils/voterId";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ??
@@ -73,6 +76,27 @@ export async function fetchPlayers(type: PlayerType, query?: string, limit?: num
 export async function fetchPlayerDetail<T extends PlayerRecord>(type: PlayerType, playerId: string): Promise<PlayerDetail<T>> {
   const params = new URLSearchParams({ type });
   return request<PlayerDetail<T>>(`/api/players/${playerId}?${params.toString()}`);
+}
+
+export async function fetchCompareVotes(type: PlayerType, playerIds: string[]): Promise<CompareVoteState> {
+  const params = new URLSearchParams({ type, ids: playerIds.join(",") });
+  return request<CompareVoteState>(`/api/compare/votes?${params.toString()}`, {
+    headers: { "X-Voter-Id": getOrCreateVoterId() },
+  });
+}
+
+export async function castCompareVote(type: PlayerType, playerIds: string[], choice: string): Promise<CompareVoteState> {
+  return request<CompareVoteState>(`/api/compare/votes`, {
+    method: "POST",
+    headers: { "X-Voter-Id": getOrCreateVoterId() },
+    body: JSON.stringify({ playerType: type, playerIds, choice }),
+  });
+}
+
+export async function fetchRelatedPlayers(type: PlayerType, playerId: string): Promise<RelatedPlayers> {
+  const params = new URLSearchParams({ type });
+  const data = await request<{ related: RelatedPlayers }>(`/api/players/${encodeURIComponent(playerId)}/related?${params.toString()}`);
+  return data.related;
 }
 
 export async function analyzePlayer(playerId: string, playerType: PlayerType, analysisMode: string): Promise<AnalysisResponse> {
@@ -215,5 +239,24 @@ export async function logShareAnalyticsEvent({
     });
   } catch (error) {
     console.warn("Failed to log share analytics event", error);
+  }
+}
+
+export async function logAnnouncementEvent(announcementId: string, action: "viewed" | "clicked" | "dismissed"): Promise<void> {
+  const sessionId = getOrCreateSessionId();
+  if (!sessionId) {
+    return;
+  }
+
+  try {
+    await fetch(buildUrl("/api/announcement-events"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ sessionId, announcementId, action }),
+    });
+  } catch (error) {
+    console.warn("Failed to log announcement event", error);
   }
 }

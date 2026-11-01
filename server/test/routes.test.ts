@@ -924,6 +924,22 @@ describe("McFARLAND API", () => {
     expect(response.status).toBe(204);
   });
 
+  it("accepts announcement analytics events", async () => {
+    const response = await request(app)
+      .post("/api/announcement-events")
+      .send({ sessionId: "test-session", announcementId: "2026-11-search-ranking", action: "dismissed" });
+
+    expect(response.status).toBe(204);
+  });
+
+  it("rejects announcement events with an unknown action", async () => {
+    const response = await request(app)
+      .post("/api/announcement-events")
+      .send({ sessionId: "test-session", announcementId: "2026-11-search-ranking", action: "exploded" });
+
+    expect(response.status).toBe(400);
+  });
+
   it("returns weekly hitter and pitcher risers/fallers", async () => {
     const response = await request(app).get("/api/trends/weekly");
 
