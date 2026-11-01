@@ -441,11 +441,15 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
             nextSteps={
               analysisReady ? (
                 <>
-                  <div className={panelStyles.nextStepCard} style={{ gridColumn: "1 / -1" }}>
+                  <div className={`${panelStyles.nextStepCard} ${panelStyles.nextStepCardWide}`}>
                     <PickASide
                       playerType={playerType}
                       players={comparisonResult.players.map((player) => ({ id: player.PlayerId, name: player.Name }))}
                     />
+                  </div>
+
+                  <div className={`${panelStyles.nextStepCard} ${panelStyles.nextStepCardWide}`}>
+                    <VibeSelector />
                   </div>
 
                   <div className={panelStyles.nextStepCard}>
@@ -455,10 +459,6 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
                     </button>
                     {shareStatus === "success" && <span className={panelStyles.status}>Link copied.</span>}
                     {shareStatus === "error" && <span className={panelStyles.status}>Couldn't copy link.</span>}
-                  </div>
-
-                  <div className={panelStyles.nextStepCard}>
-                    <VibeSelector />
                   </div>
 
                   <div className={panelStyles.nextStepCard}>

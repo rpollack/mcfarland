@@ -6,6 +6,7 @@ import ComparePage from "./pages/ComparePage";
 import FantasyToolsPage from "./pages/FantasyToolsPage";
 import AboutPage from "./pages/AboutPage";
 import SocialAssistantPage from "./pages/SocialAssistantPage";
+import AnnouncementBanner from "./components/AnnouncementBanner";
 import { VibeProvider } from "./contexts/VibeContext";
 import { useVibe } from "./contexts/vibe";
 import styles from "./styles/App.module.css";
@@ -198,6 +199,8 @@ function AppShell() {
           </h1>
         </div>
       </header>
+
+      {view === "experience" && <AnnouncementBanner />}
 
       {view === "experience" && (
         <div className={styles.switcher} role="tablist" aria-label="Analysis mode">
