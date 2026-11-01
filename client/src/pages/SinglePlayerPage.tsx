@@ -6,6 +6,7 @@ import AnalysisPanel from "../components/AnalysisPanel";
 import type { QuickStatSignal } from "../components/AnalysisPanel";
 import VibeSelector from "../components/VibeSelector";
 import PlayerHeadshot from "../components/PlayerHeadshot";
+import StarButton from "../components/StarButton";
 import WeeklyTrendsSection from "../components/WeeklyTrendsSection";
 import panelStyles from "../styles/AnalysisPanel.module.css";
 import { useVibe } from "../contexts/vibe";
@@ -392,6 +393,12 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                         <h2>{detailQuery.data.player.Name}</h2>
                         {selectedPlayerMetaLine && <p>{selectedPlayerMetaLine}</p>}
                       </div>
+                      <StarButton
+                        playerId={String(detailQuery.data.player.PlayerId)}
+                        playerName={detailQuery.data.player.Name}
+                        playerType={playerType}
+                        mlbamid={detailQuery.data.player.mlbamid}
+                      />
                     </div>
                   </header>
                 )}
