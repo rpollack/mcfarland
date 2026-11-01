@@ -7,6 +7,7 @@ import { getDailyMatchupContext } from "./mlbMatchups.js";
 import { callClaudeAnalysis, callClaudeFantasyDecision, isCacheableFantasyDecision, isCacheableAnalysisResponse } from "./claude.js";
 import { buildAnalysisCacheKey, getCachedAnalysis, saveCachedAnalysis } from "./analysisCache.js";
 import { getDataFreshness, getPlayerById, getPlayerSummaries } from "./dataStore.js";
+import { findRelatedPlayers } from "./relatedPlayers.js";
 import { logAnalysisEvent, logSessionStart, logShareEvent } from "./analytics.js";
 import { AnalysisMode, ANALYSIS_VIBE_LABELS, ANALYSIS_VIBES, DEFAULT_ANALYSIS_MODE } from "./vibes.js";
 import { getAdminPassword, isAdminModeRequest } from "./admin.js";
@@ -135,6 +136,20 @@ router.get("/api/players/:playerId", (req, res) => {
 
   const quickInsight = generateQuickInsight(player, type);
   res.json({ player, quickInsight });
+});
+
+router.get("/api/players/:playerId/related", (req, res) => {
+  const parseResult = z.object({ type: playerTypeSchema }).safeParse(req.query);
+  if (!parseResult.success) {
+    return res.status(400).json({ error: "Player type is required" });
+  }
+
+  const related = findRelatedPlayers(parseResult.data.type, req.params.playerId);
+  if (!related) {
+    return res.status(404).json({ error: "Player not found" });
+  }
+
+  res.json({ related });
 });
 
 router.get("/api/data-freshness", (_req, res) => {

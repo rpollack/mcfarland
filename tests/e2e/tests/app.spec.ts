@@ -130,6 +130,25 @@ test.describe("McFARLAND core experience", () => {
     expect(headshotAfterAnalyzeAgain).not.toBe(secondHeadshotSrc);
   });
 
+  test("keep going suggests a similar player and a compare after a take", async ({ page }) => {
+    await page.goto("/");
+    await singleSearchInput(page).fill("Aaron Judge");
+    await page.getByRole("button", { name: /^Aaron Judge$/i }).first().click();
+    await expectAnalysisReady(page);
+
+    const keepGoing = page.getByRole("group", { name: "Keep going" });
+    await expect(keepGoing).toBeVisible({ timeout: 15000 });
+
+    const similarPlayer = keepGoing.getByRole("button", { name: /^Similar luck gap:/ }).first();
+    await expect(similarPlayer).toBeVisible();
+    const compareLink = keepGoing.getByRole("link", { name: /^Compare with / });
+    await expect(compareLink).toBeVisible();
+
+    await compareLink.click();
+    await expect(page).toHaveURL(/mode=compare/);
+    await expect(page.getByRole("tab", { name: "Compare Players" })).toHaveAttribute("aria-selected", "true");
+  });
+
   test("single-player quick links trigger matching analysis and stay out of compare mode", async ({ page }) => {
     const singleAnalyzeRequests: { mode: string; playerId: string }[] = [];
 
