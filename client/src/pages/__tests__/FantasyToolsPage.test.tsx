@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import FantasyToolsPage from "../FantasyToolsPage";
 import { analyzeDailyMatchup, fetchPlayers } from "../../api";
 
@@ -21,6 +21,8 @@ function renderWithClient(ui: ReactNode) {
 }
 
 describe("FantasyToolsPage", () => {
+  afterEach(cleanup);
+
   it("selects a player and renders daily matchup recommendation", async () => {
     vi.mocked(fetchPlayers).mockResolvedValue([
       { id: "15640", name: "Aaron Judge", type: "hitter", mlbamid: "592450" },
@@ -110,4 +112,51 @@ describe("FantasyToolsPage", () => {
     expect(screen.getByText(/✓ Yes/)).toBeInTheDocument();
     expect(screen.getByText("RHB vs LHP")).toBeInTheDocument();
   });
+
+  it("waits for typing to pause before searching and never flashes an empty result", async () => {
+    vi.mocked(fetchPlayers).mockClear();
+    vi.mocked(fetchPlayers).mockResolvedValue([
+      { id: "15640", name: "Aaron Judge", type: "hitter", mlbamid: "592450" },
+    ]);
+
+    renderWithClient(
+      <FantasyToolsPage initialPlayerType="hitter" onStateChange={() => {}} />
+    );
+
+    const search = screen.getByRole("searchbox");
+    for (const value of ["Ju", "Jud", "Judg", "Judge"]) {
+      fireEvent.change(search, { target: { value } });
+      expect(screen.queryByText("No players found.")).not.toBeInTheDocument();
+    }
+
+    expect(fetchPlayers).not.toHaveBeenCalled();
+    expect(screen.getByText("Loading players…")).toBeInTheDocument();
+
+    expect(await screen.findByRole("button", { name: "Aaron Judge" })).toBeInTheDocument();
+    expect(fetchPlayers).toHaveBeenCalledTimes(1);
+    expect(fetchPlayers).toHaveBeenCalledWith("hitter", "Judge", 8);
+    expect(screen.queryByText("Loading players…")).not.toBeInTheDocument();
+    expect(screen.queryByText("No players found.")).not.toBeInTheDocument();
+  });
+
+  it("does not show results for the previous search while the next one is pending", async () => {
+    vi.mocked(fetchPlayers).mockClear();
+    vi.mocked(fetchPlayers).mockImplementation(async (_type, query = "") => [
+      { id: query, name: `Match ${query}`, type: "hitter", mlbamid: null },
+    ]);
+
+    renderWithClient(
+      <FantasyToolsPage initialPlayerType="hitter" onStateChange={() => {}} />
+    );
+
+    const search = screen.getByRole("searchbox");
+    fireEvent.change(search, { target: { value: "Ju" } });
+    expect(await screen.findByRole("button", { name: "Match Ju" })).toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: "Jud" } });
+    expect(screen.queryByRole("button", { name: "Match Ju" })).not.toBeInTheDocument();
+    expect(screen.getByText("Loading players…")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Match Jud" })).toBeInTheDocument();
+  });
 });
+

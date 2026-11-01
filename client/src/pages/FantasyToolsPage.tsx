@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import ReactMarkdown from "react-markdown";
 import { analyzeDailyMatchup, fetchPlayers } from "../api";
 import PlayerHeadshot from "../components/PlayerHeadshot";
 import PlayerPicker from "../components/PlayerPicker";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import type { DailyMatchupContext, FantasyDailyMatchupResponse, PlayerRecord, PlayerType } from "../types";
 import styles from "../styles/FantasyToolsPage.module.css";
 
@@ -15,6 +15,9 @@ interface Props {
 
 const SEARCH_MIN_LENGTH = 2;
 const SEARCH_RESULT_LIMIT = 8;
+const SEARCH_DEBOUNCE_MS = 175;
+
+const Markdown = lazy(() => import("../components/Markdown"));
 
 type PlatoonAdvantage = {
   label: "Yes" | "No" | "Unknown";
@@ -255,13 +258,19 @@ function FantasyToolsPage({ initialPlayerType, initialPlayerId, onStateChange }:
   }
 
   const trimmedSearch = searchTerm.trim();
-  const searchEnabled = trimmedSearch.length >= SEARCH_MIN_LENGTH;
+  const debouncedSearch = useDebouncedValue(trimmedSearch, SEARCH_DEBOUNCE_MS);
+  const searchEnabled = debouncedSearch.length >= SEARCH_MIN_LENGTH;
+  // Results are only trustworthy once the debounced term has caught up with what's typed.
+  const resultsReady = searchEnabled && trimmedSearch === debouncedSearch;
+  // Inside the debounce window the query for the current text hasn't started, so report loading rather than an empty result.
+  const searchPending = trimmedSearch !== debouncedSearch && trimmedSearch.length >= SEARCH_MIN_LENGTH;
 
   const playersQuery = useQuery({
-    queryKey: ["fantasy-players", playerType, trimmedSearch],
-    queryFn: () => fetchPlayers(playerType, trimmedSearch, SEARCH_RESULT_LIMIT),
+    queryKey: ["fantasy-players", playerType, debouncedSearch],
+    queryFn: () => fetchPlayers(playerType, debouncedSearch, SEARCH_RESULT_LIMIT),
     enabled: searchEnabled,
   });
+  const searchLoading = searchPending || (resultsReady && playersQuery.isLoading);
 
   const {
     mutate: runDailyMatchup,
@@ -300,7 +309,7 @@ function FantasyToolsPage({ initialPlayerType, initialPlayerId, onStateChange }:
     onStateChange({ playerType, playerId: selectedId });
   }, [playerType, selectedId, initialPlayerType, initialPlayerId, onStateChange]);
 
-  const availablePlayers = useMemo(() => (searchEnabled ? playersQuery.data ?? [] : []), [playersQuery.data, searchEnabled]);
+  const availablePlayers = useMemo(() => (resultsReady ? playersQuery.data ?? [] : []), [playersQuery.data, resultsReady]);
 
   const handleTypeChange = useCallback((nextType: PlayerType) => {
     setPlayerType(nextType);
@@ -334,7 +343,7 @@ function FantasyToolsPage({ initialPlayerType, initialPlayerId, onStateChange }:
           players={availablePlayers}
           selectedId={selectedId}
           onSelect={setSelectedId}
-          isLoading={searchEnabled && playersQuery.isLoading}
+          isLoading={searchLoading}
         />
       </section>
 
@@ -374,7 +383,9 @@ function FantasyToolsPage({ initialPlayerType, initialPlayerId, onStateChange }:
                   </div>
                 </div>
                 <h3>{result.headline}</h3>
-                <ReactMarkdown>{result.analysis}</ReactMarkdown>
+                <Suspense fallback={<p>{result.analysis}</p>}>
+                  <Markdown>{result.analysis}</Markdown>
+                </Suspense>
               </section>
 
               <MatchupCard matchup={result.matchup} playerType={playerType} />

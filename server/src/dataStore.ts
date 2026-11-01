@@ -5,11 +5,18 @@ import { parse } from "csv-parse/sync";
 import { DataFreshness, HitterRecord, PitcherRecord, PlayerLookupRecord, PlayerSummary, PlayerType } from "./types.js";
 import { safeNumber } from "./utils.js";
 
+interface PlayerSearchEntry {
+  summary: PlayerSummary;
+  name: string;
+  lastName: string;
+}
+
 interface BaseballDataStore {
   hitters: Map<string, HitterRecord>;
   pitchers: Map<string, PitcherRecord>;
   lookup: PlayerLookupRecord[];
   summaries: PlayerSummary[];
+  searchIndex: PlayerSearchEntry[];
   dataFreshness: DataFreshness;
 }
 
@@ -98,6 +105,39 @@ function readDataFreshness(): DataFreshness {
   }
 }
 
+const NAME_SUFFIXES = new Set(["jr", "jr.", "sr", "sr.", "ii", "iii", "iv", "v"]);
+
+// Lowercased once at load so searches don't re-lowercase every name on every keystroke.
+function buildSearchEntry(summary: PlayerSummary): PlayerSearchEntry {
+  const name = summary.name.toLowerCase();
+  const words = name.split(/\s+/).filter(Boolean);
+  while (words.length > 1 && NAME_SUFFIXES.has(words[words.length - 1])) {
+    words.pop();
+  }
+  return { summary, name, lastName: words[words.length - 1] ?? name };
+}
+
+function isWordChar(char: string | undefined): boolean {
+  return char !== undefined && /[\p{L}\p{N}]/u.test(char);
+}
+
+// 0: name or last name starts with the query, 1: a later word starts with it, 2: appears mid-word; null: no match.
+function matchTier(entry: PlayerSearchEntry, query: string): 0 | 1 | 2 | null {
+  const first = entry.name.indexOf(query);
+  if (first === -1) {
+    return null;
+  }
+  if (first === 0 || entry.lastName.startsWith(query)) {
+    return 0;
+  }
+  for (let index = first; index !== -1; index = entry.name.indexOf(query, index + 1)) {
+    if (!isWordChar(entry.name[index - 1])) {
+      return 1;
+    }
+  }
+  return 2;
+}
+
 function buildDataStore(): BaseballDataStore {
   const hitters = readCsv<HitterRecord>("full_stats_hitters.csv");
   const pitchers = readCsv<PitcherRecord>("full_stats_pitchers.csv");
@@ -134,6 +174,7 @@ function buildDataStore(): BaseballDataStore {
     pitchers: pitchersMap,
     lookup,
     summaries,
+    searchIndex: summaries.map(buildSearchEntry),
     dataFreshness: readDataFreshness(),
   };
 }
@@ -144,17 +185,22 @@ export function getPlayerSummaries(type: PlayerType | "all", query?: string, lim
   const targetType = type === "all" ? undefined : type;
   const normalizedQuery = query?.toLowerCase().trim();
 
-  return store.summaries
-    .filter((summary) => {
-      if (targetType && summary.type !== targetType) {
-        return false;
-      }
-      if (!normalizedQuery) {
-        return true;
-      }
-      return summary.name.toLowerCase().includes(normalizedQuery);
-    })
-    .slice(0, limit);
+  if (!normalizedQuery) {
+    return store.summaries.filter((summary) => !targetType || summary.type === targetType).slice(0, limit);
+  }
+
+  // Best matches first; file order is kept within each tier.
+  const tiers: PlayerSummary[][] = [[], [], []];
+  for (const entry of store.searchIndex) {
+    if (targetType && entry.summary.type !== targetType) {
+      continue;
+    }
+    const tier = matchTier(entry, normalizedQuery);
+    if (tier !== null) {
+      tiers[tier].push(entry.summary);
+    }
+  }
+  return tiers.flat().slice(0, limit);
 }
 
 export function getPlayerById(type: PlayerType, playerId: string): HitterRecord | PitcherRecord | null {

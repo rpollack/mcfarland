@@ -24,4 +24,12 @@ describe("AnalysisPanel", () => {
     expect(screen.getByText("Barrel% +3.2")).toBeInTheDocument();
     expect(screen.getByText("BABIP +.062")).toBeInTheDocument();
   });
+
+  it("renders markdown in the analysis once the markdown renderer has loaded", async () => {
+    render(<AnalysisPanel headline="Takeaway" analysis="He is **locked in** at the plate." />);
+
+    const emphasized = await screen.findByText("locked in");
+    expect(emphasized.tagName).toBe("STRONG");
+  });
 });
+

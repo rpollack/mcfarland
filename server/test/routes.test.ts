@@ -865,6 +865,19 @@ describe("McFARLAND API", () => {
     expect(response.body.blueskyPosts).toHaveLength(2);
   });
 
+  it("returns the best name matches first for player searches", async () => {
+    const response = await request(app).get("/api/players").query({ type: "hitter", q: "ma", limit: 8 });
+
+    expect(response.status).toBe(200);
+    expect(response.body.players).toHaveLength(8);
+    for (const player of response.body.players) {
+      const words = player.name.toLowerCase().split(/\s+/);
+      const lastName = /^(jr\.?|sr\.?|ii|iii|iv|v)$/.test(words[words.length - 1]) ? words[words.length - 2] : words[words.length - 1];
+      expect(player.name.toLowerCase().startsWith("ma") || lastName.startsWith("ma")).toBe(true);
+    }
+    expect(Object.keys(response.body.players[0]).sort()).toEqual(["id", "mlbamid", "name", "type"]);
+  });
+
   it("returns a JSON 404 for unknown API routes", async () => {
     const getResponse = await request(app).get("/api/nope");
     const postResponse = await request(app).post("/api/nope").send({});

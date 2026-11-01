@@ -1,6 +1,8 @@
-import ReactMarkdown from "react-markdown";
+import { lazy, Suspense } from "react";
 import type { ReactNode } from "react";
 import styles from "../styles/AnalysisPanel.module.css";
+
+const Markdown = lazy(() => import("./Markdown"));
 
 export type QuickStatSignal = {
   label: string;
@@ -81,7 +83,9 @@ function AnalysisPanel({
                     )}
                   </div>
                 )}
-                <ReactMarkdown>{analysis}</ReactMarkdown>
+                <Suspense fallback={<p>{analysis}</p>}>
+                  <Markdown>{analysis}</Markdown>
+                </Suspense>
               </>
             )
           )}
