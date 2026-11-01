@@ -25,6 +25,7 @@
 }
 
 .playerHeaderContent {
+  width: 100%;
   display: flex;
   align-items: center;
   gap: clamp(0.85rem, 2vw, 1.25rem);

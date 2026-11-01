@@ -1,0 +1,33 @@
+.star,
+.starActive {
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-left: auto;
+  border-radius: 50%;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: rgba(255, 255, 255, 0.9);
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.star:hover {
+  color: #b7791f;
+  border-color: rgba(202, 138, 4, 0.5);
+}
+
+.starActive {
+  color: #ca8a04;
+  background: #fef9e7;
+  border-color: rgba(202, 138, 4, 0.55);
+}
+
+.star:focus-visible,
+.starActive:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35);
+}
