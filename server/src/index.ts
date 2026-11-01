@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
+import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import cors from "cors";
 import router from "./routes.js";
@@ -10,16 +11,21 @@ import { adminModeMiddleware } from "./admin.js";
 import { buildAnalysisPrompt, buildComparisonPrompt } from "./analysis.js";
 import { buildAnalysisCacheKey, getCachedAnalysis } from "./analysisCache.js";
 import { getDataFreshness, getPlayerById } from "./dataStore.js";
-import { ANALYSIS_VIBES, DEFAULT_ANALYSIS_MODE } from "./vibes.js";
+import { ANALYSIS_VIBE_LABELS, ANALYSIS_VIBES, DEFAULT_ANALYSIS_MODE } from "./vibes.js";
 import type { PlayerType } from "./types.js";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const APP_NAME = "McFARLAND";
 const DEFAULT_TITLE = "McFARLAND | Advanced Baseball Analysis";
 const DEFAULT_DESCRIPTION = "Advanced baseball analysis in plain English. Compare players, explore trends, and share insights.";
-const MLB_PHOTO_BASE =
-  "https://img.mlbstatic.com/mlb-photos/image/upload/w_1200,d_people:generic:headshot:silo:current.png,q_auto:best,f_auto/v1/people";
-const MLB_GENERIC_HEADSHOT = `${MLB_PHOTO_BASE}/0/headshot/67/current`;
+const SHARE_IMAGE_PATH = "/share-image.png";
+
+const shareImageLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 type CardMetadata = {
   title: string;
@@ -56,14 +62,14 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function buildMlbHeadshotUrl(mlbamid?: string | null): string {
-  if (mlbamid && mlbamid.trim().length > 0 && mlbamid !== "0") {
-    return `${MLB_PHOTO_BASE}/${encodeURIComponent(mlbamid)}/headshot/67/current`;
-  }
-  return MLB_GENERIC_HEADSHOT;
+function buildShareImageUrl(req: express.Request): string {
+  return `${getBaseUrl(req)}${SHARE_IMAGE_PATH}?${getAppStateParams(req.query).toString()}`;
 }
 
 function toReadableVibe(mode: string): string {
+  if (mode in ANALYSIS_VIBE_LABELS) {
+    return ANALYSIS_VIBE_LABELS[mode as keyof typeof ANALYSIS_VIBE_LABELS];
+  }
   return mode
     .split("_")
     .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
@@ -152,7 +158,7 @@ async function buildCardMetadata(req: express.Request): Promise<CardMetadata> {
     const versus = names.join(" vs ");
     const title = cachedHeadline ? `${cachedHeadline} | ${APP_NAME}` : `${versus} | ${APP_NAME} Comparison`;
     const description = `AI comparison in ${vibeLabel} mode for ${versus}. Stats, trends, and a clear recommendation.`;
-    const imageUrl = buildMlbHeadshotUrl(players[0].mlbamid ?? null);
+    const imageUrl = buildShareImageUrl(req);
     return { title, description, imageUrl, canonicalUrl };
   }
 
@@ -161,7 +167,7 @@ async function buildCardMetadata(req: express.Request): Promise<CardMetadata> {
     const subject = playerType === "pitcher" ? "Pitching" : "Hitting";
     const title = cachedHeadline ? `${cachedHeadline} | ${APP_NAME}` : `${player.Name} ${subject} Breakdown | ${APP_NAME}`;
     const description = `${subject} analysis for ${player.Name} in ${vibeLabel} mode. Data-backed takeaways in plain English.`;
-    const imageUrl = buildMlbHeadshotUrl(player.mlbamid ?? null);
+    const imageUrl = buildShareImageUrl(req);
     return { title, description, imageUrl, canonicalUrl };
   }
 
@@ -179,6 +185,8 @@ function buildSocialMetaTags(card: CardMetadata): string {
   const imageTags = card.imageUrl
     ? [
         `<meta property="og:image" content="${escapeHtml(card.imageUrl)}" />`,
+        `<meta property="og:image:width" content="1200" />`,
+        `<meta property="og:image:height" content="630" />`,
         `<meta name="twitter:image" content="${escapeHtml(card.imageUrl)}" />`,
       ].join("\n    ")
     : "";
@@ -216,6 +224,8 @@ function buildSharePreviewHtml(card: CardMetadata, redirectTo: string): string {
   const imageTags = card.imageUrl
     ? [
         `<meta property="og:image" content="${escapeHtml(card.imageUrl)}" />`,
+        `<meta property="og:image:width" content="1200" />`,
+        `<meta property="og:image:height" content="630" />`,
         `<meta name="twitter:image" content="${escapeHtml(card.imageUrl)}" />`,
       ].join("\n    ")
     : "";
@@ -283,6 +293,32 @@ export function createServer() {
   app.use(router);
   app.use("/api", (_req, res) => {
     res.status(404).json({ error: "Not found" });
+  });
+
+  app.get(SHARE_IMAGE_PATH, shareImageLimiter, async (req, res) => {
+    const state = resolveCardState(req);
+    const hasSubjects = state.mode === "compare" ? state.players.length >= 2 : state.players.length === 1;
+    if (!hasSubjects) {
+      return res.status(404).type("text/plain").send("Not found");
+    }
+
+    try {
+      // Loaded on first use so a problem with the native renderer can only ever break this route, never startup.
+      const { buildShareImageModel, renderShareImage } = await import("./shareImage.js");
+      const model = buildShareImageModel({
+        mode: state.mode,
+        playerType: state.playerType,
+        vibeLabel: state.vibeLabel,
+        players: state.players,
+        headline: await getCachedShareHeadline(state),
+        dataThroughLabel: getDataFreshness().dataThroughLabel,
+      });
+      const png = await renderShareImage(model);
+      res.setHeader("Content-Type", "image/png").setHeader("Cache-Control", "public, max-age=3600").send(png);
+    } catch (error) {
+      console.error("[share-image] render failed", error);
+      res.status(500).type("text/plain").send("Could not render image");
+    }
   });
 
   const clientDistPath = path.resolve(currentDir, "..", "..", "client", "dist");

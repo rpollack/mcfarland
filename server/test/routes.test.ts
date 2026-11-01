@@ -998,7 +998,8 @@ describe("McFARLAND API", () => {
     expect(response.text).toContain("twitter:title");
     expect(response.text).toContain("og:image");
     expect(response.text).toContain("twitter:image");
-    expect(response.text).toContain("img.mlbstatic.com");
+    expect(response.text).toContain("/share-image.png?");
+    expect(response.text).toContain('property="og:image:width" content="1200"');
     expect(response.text).toContain("Judge");
     expect(response.text).toContain("/?mode=single");
   });
@@ -1038,7 +1039,7 @@ describe("McFARLAND API", () => {
     expect(response.text).toContain('name="twitter:card" content="summary"');
     expect(response.text).not.toContain('property="og:image"');
     expect(response.text).not.toContain('name="twitter:image"');
-    expect(response.text).not.toContain("generic:headshot");
+    expect(response.text).not.toContain("share-image.png");
   });
 
   it("injects OG tags into SPA HTML responses", async () => {
