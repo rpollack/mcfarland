@@ -9,9 +9,23 @@ const ABOUT_SECTIONS = [
   {
     title: "What you'll find",
     items: [
-      "Single-player scouting notes that mix quick-hit insights with your chosen vibe.",
-      "Compare mode that lines up hitters or pitchers so you know who gets the nod and who hits the pine.",
-      "Personality toggles (aka vibes) that let the same data sound like a front office nerd, a hype broadcast, or Shakespeare with pine tar.",
+      "<strong>Single-player takes</strong> with a headline, the key stat signals, and a plain-English read in the vibe you choose.",
+      "<strong>The mirage board</strong> on the home screen lists the hitters or pitchers whose season results ran furthest ahead of, or behind, what their skills earned. A short intro is written in your vibe, and tapping a player opens their take.",
+      "<strong>Keep going</strong> suggestions at the end of a take: players with a similar luck gap, and a natural rival to compare against.",
+      "<strong>Compare mode</strong> lines up two or three hitters or pitchers so you know who gets the nod and who hits the pine. Then pick who you'd take and see how everyone else voted.",
+      "<strong>Fantasy Tools</strong> give you a start/sit call for a player using today's MLB matchup.",
+      "<strong>Vibes</strong> (personality toggles) let the same data sound like a front office nerd, a hype broadcast, or Shakespeare with pine tar. Tap any voice under a take, or hit Surprise me.",
+      "<strong>Stars</strong> let you mark players you care about. Your starred players are saved in this browser only.",
+      "<strong>Share cards</strong>: a shared link previews with the headline, the player or players, and the voice it was written in.",
+    ],
+  },
+  {
+    title: "Reading the luck numbers",
+    items: [
+      "Hitters: <strong>wOBA</strong> is what a hitter actually produced, and <strong>xwOBA</strong> is what his quality of contact says he should have produced.",
+      "Pitchers: <strong>ERA</strong> is what a pitcher actually allowed, and <strong>xERA</strong> is what the quality of contact and his strikeouts and walks say he should have allowed.",
+      "The <strong>luck gap</strong> is the difference between the two. A positive gap means the results trail the skills, and a negative gap means the results ran ahead of them.",
+      "Gaps often shrink over time, which is why they are useful, but one season of results is still a small sample. Treat a big gap as a reason to look closer, not a prediction.",
     ],
   },
   {
@@ -30,6 +44,14 @@ const ABOUT_SECTIONS = [
       "Advanced stats shouldn't require a graduate seminar. McFARLAND translates them into friendly stories you can drop in chats or fantasy forums.",
       "Fresh info every morning in-season, right after last night's games, so you're never flexing stale numbers.",
       "Named for former Orioles swiss-army reliever T.J. McFarland, our mascot for adaptability.",
+    ],
+  },
+  {
+    title: "Your data",
+    items: [
+      "You never need an account. Starred players are saved in your browser and nowhere else.",
+      "Votes are one per browser. Your browser keeps a random id, and the server stores only a scrambled version of it with your vote. It is not your name, and it is separate from the id used for visit counts.",
+      "We use Amplitude to count visits and which features get used, such as takes run, links shared, and announcement views and clicks, so we know what to improve.",
     ],
   },
 ];
@@ -107,7 +129,7 @@ function AboutPage() {
       <section className={styles.vibes}>
         <h3>Pick a vibe, change the story</h3>
         <p>
-          The data stays the same. The storyteller changes. Try every vibe to see how the voice shifts—from a hype squad to a stat lab to a bard with a glove.
+          The data stays the same. The storyteller changes. Tap any voice under a take to hear it again, or let Surprise me pick one. The voice shifts from a hype squad to a stat lab to a bard with a glove.
         </p>
         <ul>
           {VIBE_BLURBS.map((blurb) => (
