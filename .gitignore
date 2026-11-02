@@ -1,5 +1,10 @@
 node_modules
 client/dist
+# tsc must never leave compiled configs next to the .ts ones: Vite and Vitest prefer .js and would ignore edits to the .ts
+client/vite.config.js
+client/vite.config.d.ts
+client/vitest.config.js
+client/vitest.config.d.ts
 server/dist
 *.tsbuildinfo
 analytics*.db
