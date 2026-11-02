@@ -18,6 +18,14 @@ export type Announcement = {
  */
 export const ANNOUNCEMENTS: Announcement[] = [
   {
+    id: "2026-11-mirage-board",
+    lead: "New:",
+    text: "The 2026 mirage board shows which hitters and pitchers ran lucky or unlucky this season.",
+    link: { label: "See the board", to: "/" },
+    startsAt: "2026-11-01",
+    endsAt: "2026-11-30",
+  },
+  {
     id: "2026-11-search-ranking",
     lead: "New:",
     text: "Player search now puts exact name and last-name matches first, so the right player shows up sooner.",

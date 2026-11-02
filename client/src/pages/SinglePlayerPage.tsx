@@ -6,6 +6,7 @@ import AnalysisPanel from "../components/AnalysisPanel";
 import type { QuickStatSignal } from "../components/AnalysisPanel";
 import VibeSelector from "../components/VibeSelector";
 import KeepGoing from "../components/KeepGoing";
+import MirageBoard from "../components/MirageBoard";
 import PlayerHeadshot from "../components/PlayerHeadshot";
 import StarButton from "../components/StarButton";
 import WeeklyTrendsSection from "../components/WeeklyTrendsSection";
@@ -379,6 +380,16 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
           }}
         />
       </div>
+
+      {!hasSelectedPlayer && trimmedSearch.length === 0 && (
+        <MirageBoard
+          playerType={playerType}
+          onSelectPlayer={(playerId) => {
+            setSearchTerm("");
+            setSelectedId(playerId);
+          }}
+        />
+      )}
 
       {hasSelectedPlayer && (
         <div className={styles.results} ref={resultsRef}>
