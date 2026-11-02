@@ -1,8 +1,7 @@
 import { listPlayers, getPlayerById } from "./dataStore.js";
+import { getLuckStats, getSampleSize, MIN_FEATURED_SAMPLE } from "./luckGap.js";
 import type { HitterRecord, PitcherRecord, PlayerType } from "./types.js";
 
-const MIN_HITTER_PA = 300;
-const MIN_PITCHER_TBF = 300;
 const SIMILAR_GAP_COUNT = 2;
 
 export interface RelatedPlayer {
@@ -30,28 +29,8 @@ interface Profile {
   eligible: boolean;
 }
 
-function finite(value: number | null | undefined): number | null {
-  return value !== null && value !== undefined && Number.isFinite(value) ? value : null;
-}
-
 function buildProfile(type: PlayerType, record: HitterRecord | PitcherRecord): Profile {
-  let gap: number | null;
-  let expected: number | null;
-  let eligible: boolean;
-
-  if (type === "hitter") {
-    const hitter = record as HitterRecord;
-    const actual = finite(hitter.wOBA_cur);
-    expected = finite(hitter.xwOBA_cur);
-    gap = actual !== null && expected !== null ? expected - actual : null;
-    eligible = (finite(hitter.PA_cur) ?? 0) >= MIN_HITTER_PA;
-  } else {
-    const pitcher = record as PitcherRecord;
-    const actual = finite(pitcher.era_cur);
-    expected = finite(pitcher.xera_cur);
-    gap = actual !== null && expected !== null ? actual - expected : null;
-    eligible = (finite(pitcher.tbf) ?? 0) >= MIN_PITCHER_TBF;
-  }
+  const { expected, gap } = getLuckStats(type, record);
 
   return {
     player: {
@@ -63,7 +42,7 @@ function buildProfile(type: PlayerType, record: HitterRecord | PitcherRecord): P
     },
     gap,
     expected,
-    eligible,
+    eligible: getSampleSize(type, record) >= MIN_FEATURED_SAMPLE,
   };
 }
 

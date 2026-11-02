@@ -7,6 +7,7 @@ import {
   DataFreshness,
   FantasyDailyMatchupResponse,
   HitterRecord,
+  MirageBoard,
   PitcherRecord,
   PlayerDetail,
   PlayerRecord,
@@ -97,6 +98,19 @@ export async function fetchRelatedPlayers(type: PlayerType, playerId: string): P
   const params = new URLSearchParams({ type });
   const data = await request<{ related: RelatedPlayers }>(`/api/players/${encodeURIComponent(playerId)}/related?${params.toString()}`);
   return data.related;
+}
+
+export async function fetchMirageBoard(type: PlayerType): Promise<MirageBoard> {
+  const params = new URLSearchParams({ type });
+  const data = await request<{ board: MirageBoard }>(`/api/mirage-board?${params.toString()}`);
+  return data.board;
+}
+
+export async function fetchMirageBoardIntro(playerType: PlayerType, analysisMode: string): Promise<AnalysisResponse> {
+  return request<AnalysisResponse>(`/api/mirage-board/intro`, {
+    method: "POST",
+    body: JSON.stringify({ playerType, analysisMode }),
+  });
 }
 
 export async function analyzePlayer(playerId: string, playerType: PlayerType, analysisMode: string): Promise<AnalysisResponse> {

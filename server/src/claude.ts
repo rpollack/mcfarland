@@ -38,6 +38,8 @@ let testFantasyDecisionHandler: FantasyDecisionHandler | null = null;
 const uncacheableResponses = new WeakSet<AnalysisResponse>();
 const uncacheableFantasyResponses = new WeakSet<FantasyDecisionResponse>();
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5-5";
+/** Headline used when no analysis could be produced (missing API key or a failed model call). */
+export const ANALYSIS_UNAVAILABLE_HEADLINE = "Analysis unavailable";
 
 export function buildStructuredAnalysisPrompt(prompt: string, persona: string, mode: AnalysisMode): string {
   const modeSpecificInstructions =
@@ -249,7 +251,7 @@ export async function callClaudeAnalysis(prompt: string, persona: string, mode: 
     const response = {
       prompt,
       persona,
-      headline: "Analysis unavailable",
+      headline: ANALYSIS_UNAVAILABLE_HEADLINE,
       analysis: "Anthropic API key is not configured. Provide an ANTHROPIC_API_KEY environment variable to enable AI analysis.",
       cached: false,
     };
@@ -273,7 +275,7 @@ export async function callClaudeAnalysis(prompt: string, persona: string, mode: 
     const response = {
       prompt,
       persona,
-      headline: "Analysis unavailable",
+      headline: ANALYSIS_UNAVAILABLE_HEADLINE,
       analysis: `Anthropic API error: ${error instanceof Error ? error.message : "Unknown error"}`,
       cached: false,
     };
@@ -345,7 +347,7 @@ export async function callClaudeFantasyDecision(prompt: string): Promise<Fantasy
 export function isCacheableAnalysisResponse(response: AnalysisResponse): boolean {
   return (
     !uncacheableResponses.has(response) &&
-    response.headline !== "Analysis unavailable" &&
+    response.headline !== ANALYSIS_UNAVAILABLE_HEADLINE &&
     !response.analysis.startsWith("Anthropic API error:")
   );
 }

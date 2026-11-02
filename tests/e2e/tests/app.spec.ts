@@ -130,6 +130,29 @@ test.describe("McFARLAND core experience", () => {
     expect(headshotAfterAnalyzeAgain).not.toBe(secondHeadshotSrc);
   });
 
+  test("mirage board lists lucky and unlucky players and opens a take", async ({ page }) => {
+    await page.goto("/");
+
+    const board = page.getByRole("region", { name: "Mirage board" });
+    await expect(board).toBeVisible({ timeout: 15000 });
+    const lucky = board.getByRole("region", { name: "Ran lucky" });
+    const unlucky = board.getByRole("region", { name: "Ran unlucky" });
+    await expect(lucky.getByRole("button")).not.toHaveCount(0);
+    await expect(unlucky.getByRole("button")).not.toHaveCount(0);
+
+    const firstRow = unlucky.getByRole("button").first();
+    const name = (await firstRow.locator("span").nth(1).textContent())?.trim() ?? "";
+    expect(name).not.toBe("");
+    await firstRow.click();
+
+    await expectAnalysisReady(page);
+    await expect(page.locator("h2").filter({ hasText: name }).first()).toBeVisible();
+    await expect(page.getByRole("region", { name: "Mirage board" })).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Pick another player" }).click();
+    await expect(page.getByRole("region", { name: "Mirage board" })).toBeVisible({ timeout: 15000 });
+  });
+
   test("keep going suggests a similar player and a compare after a take", async ({ page }) => {
     await page.goto("/");
     await singleSearchInput(page).fill("Aaron Judge");
