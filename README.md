@@ -12,13 +12,17 @@ McFARLAND exists because advanced baseball stats are useful, but they are often 
 
 What it does:
 
-- Builds single-player hitter and pitcher breakdowns using current-year stats, weighted baselines, skill indicators, luck indicators, and sample-size context.
-- Compares two or three hitters or pitchers side by side and recommends the stronger profile.
-- Lets users choose an analysis "vibe" so the same data can sound straightforward, analytical, fantasy-focused, Gen Z, Shakespearean, sensationalist, optimistic, old-school, or cranky old-timer.
+- Builds single-player hitter and pitcher breakdowns using current-year stats, weighted baselines, skill indicators, luck indicators, and sample-size context. While a take is being written, the key stat signals show immediately with a loading skeleton.
+- Compares two or three hitters or pitchers side by side and recommends the stronger profile. After a comparison, visitors can vote on who they would take and see how everyone else voted.
+- Lets users choose an analysis "vibe" so the same data can sound straightforward, analytical, fantasy-focused, Gen Z, Shakespearean, sensationalist, optimistic, old-school, or cranky old-timer. Every vibe is a one-tap chip under a take, and "Surprise me" picks one at random.
+- Ends each single-player take with "Keep going" suggestions: two players with a similar luck gap (expected vs. actual results) and a natural rival to compare against.
+- Provides a Fantasy Tools page with a daily start/sit recommendation for a player, using that day's MLB matchup (lineup status, probable pitchers, venue, and weather).
+- Lets visitors star players. Stars are stored in the browser only.
 - Surfaces quick-link player groups like breakouts, on-fire players, ice-cold players, and out-of-character profiles.
 - Provides weekly trend views based on stored daily trend snapshots.
+- Shows a dismissable "What's new" banner for announcements, with a history on the About page.
 - Includes an admin-only social assistant that suggests timely player links and draft posts for X and Bluesky.
-- Produces share-friendly URLs and dynamic Open Graph/Twitter metadata for player and comparison links.
+- Produces share-friendly URLs, dynamic Open Graph/Twitter metadata, and a generated 1200x630 preview image for player and comparison links.
 
 The name is a tribute to former Orioles lefty T.J. McFarland, patron saint of adapting to the situation and doing useful work without needing the spotlight.
 
@@ -26,8 +30,8 @@ The name is a tribute to former Orioles lefty T.J. McFarland, patron saint of ad
 
 McFARLAND is a TypeScript monorepo with three npm workspaces:
 
-- `client`: React 18, Vite, React Router, TanStack React Query, React Markdown, CSS modules, Vitest, Testing Library.
-- `server`: Node.js, Express, TypeScript, Zod validation, Helmet, CORS, rate limiting, Anthropic Claude via `@anthropic-ai/sdk` (Messages API with structured outputs), PostgreSQL via `pg`, CSV parsing, Vitest, Supertest.
+- `client`: React 19, Vite, React Router, TanStack React Query, React Markdown, CSS modules, Vitest, Testing Library.
+- `server`: Node.js, Express, TypeScript, Zod validation, Helmet, CORS, rate limiting, Anthropic Claude via `@anthropic-ai/sdk` (Messages API with structured outputs), PostgreSQL via `pg`, CSV parsing, share-image rendering with `satori` and `@resvg/resvg-js` (Inter from `@fontsource/inter`), Vitest, Supertest.
 - `tests/e2e`: Playwright end-to-end tests.
 
 The production server builds the React app and serves it from the Express API. Development runs Vite and the API side by side.
@@ -50,15 +54,20 @@ The production server builds the React app and serves it from the Express API. D
 
 - The server loads baseball CSV data at startup from the repository root.
 - `/api/players`, `/api/players/:playerId`, `/api/trending`, and `/api/data-freshness` serve structured data to the client.
+- `/api/players/:playerId/related` returns players with a similar luck gap and a rival to compare, computed from the current stats among players with a meaningful sample (300+ PA or batters faced).
+- `/api/compare/votes` (GET and POST) records and tallies "who would you take" votes. One vote per browser, and the split is only returned to someone who has voted.
+- `/api/announcement-events` logs views, clicks, and dismissals of the announcement banner.
+- `/share` serves link-preview HTML, and `/share-image.png` renders the preview card (headline, players, vibe, and the stat behind the take). The renderer is loaded lazily and results are cached in memory.
 - `/api/analyze` and `/api/compare/analyze` build prompts from the current stats and selected vibe, then use Claude (Claude Sonnet 5.5 by default) for headline + analysis generation, with JSON structured outputs and server-side refusal fallback.
 - Successful analysis responses are cached in PostgreSQL by prompt hash, cache version, mode, and `dataThroughDate`, so repeat requests across users can skip the model call.
 - Cache entries are valid only for the current `dataThroughDate`; stale rows are pruned opportunistically after successful writes.
-- Analytics events are sent to Amplitude for sessions, analysis runs, and share actions. Admin-mode requests are excluded from analytics.
+- Analytics events are sent to Amplitude for sessions, analysis runs, share actions, and announcement views, clicks, and dismissals. Admin-mode requests are excluded from analytics.
+- Compare votes are stored in the `compare_votes` table (one row per matchup and voter). The voter id is a random per-browser id kept separate from the analytics session id, sent in an `X-Voter-Id` header, and stored only as a SHA-256 hash.
 - Weekly trend storage uses PostgreSQL when `DATABASE_URL` is configured, with fallback behavior when storage is unavailable.
 
 ## Prerequisites
 
-- Node.js 18+
+- Node.js 24 (what CI and the Docker image use)
 - npm 9+
 - Optional: Anthropic API key for generated analysis.
 - Optional: PostgreSQL 17 or compatible Postgres database for shared analysis cache and weekly trend persistence.
@@ -115,6 +124,23 @@ The Express server serves the built React app at `http://localhost:3000`.
 | `TRUST_PROXY` | Express trust proxy setting for deployed environments. A number is the count of proxies in front of the app (e.g. `2` for Cloudflare plus Render); it determines the client IP used by rate limits. | `1` |
 | `PORT` | API/server port. | `3000` |
 
+## Announcements
+
+Announcements are plain data in `client/src/announcements.ts` and ship with the deploy, so there is no extra request and nothing shifts after load. To announce something, add an entry to the top of the list:
+
+```ts
+{
+  id: "2026-12-my-feature", // never reuse an id: dismissals are remembered by id
+  lead: "New:",
+  text: "One sentence about the feature.",
+  link: { label: "See it", to: "/?mode=compare" }, // optional, in-app only
+  startsAt: "2026-12-01", // UTC, inclusive
+  endsAt: "2026-12-31",   // UTC, inclusive
+},
+```
+
+Only one shows at a time: the most recently started one that is active and not dismissed. Dismissal is remembered per browser. Every announcement that has started also appears under "What's new" on the About page.
+
 ## Testing
 
 Run server and client unit/API tests:
@@ -135,6 +161,8 @@ Run Playwright e2e tests:
 npm run test:e2e
 ```
 
+The e2e command builds the app and starts the server itself, and it does not need an Anthropic key or a database. Without a key the AI responses fall back to an "unavailable" message, and votes use the in-memory store. If Playwright reports missing browsers, run `npx playwright install` first.
+
 Run the server build only:
 
 ```bash
@@ -154,7 +182,7 @@ npm run build
 - Analysis cache validity follows `dataThroughDate`, not wall-clock date.
 - Only successful structured Claude responses are cached. API errors, unavailable responses, and malformed model responses are not cached.
 - The analysis cache is shared across users and sessions when Postgres is configured.
-- Without `DATABASE_URL`, analysis still works, but shared cache and persisted weekly trend storage are disabled.
+- Without `DATABASE_URL`, analysis still works, but shared cache and persisted weekly trend storage are disabled. Compare votes fall back to a bounded in-memory store that resets on restart.
 
 ## License
 
