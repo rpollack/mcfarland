@@ -10,6 +10,7 @@ const ABOUT_SECTIONS = [
     title: "What you'll find",
     items: [
       "<strong>Single-player takes</strong> with a headline, the key stat signals, and a plain-English read in the vibe you choose.",
+      "<strong>The mirage board</strong> on the home screen lists the hitters or pitchers whose season results ran furthest ahead of, or behind, what their skills earned. A short intro is written in your vibe, and tapping a player opens their take.",
       "<strong>Keep going</strong> suggestions at the end of a take: players with a similar luck gap, and a natural rival to compare against.",
       "<strong>Compare mode</strong> lines up two or three hitters or pitchers so you know who gets the nod and who hits the pine. Then pick who you'd take and see how everyone else voted.",
       "<strong>Fantasy Tools</strong> give you a start/sit call for a player using today's MLB matchup.",

@@ -30,7 +30,7 @@ describe("AboutPage", () => {
     }
 
     const findings = screen.getByRole("heading", { name: "What you'll find" }).closest("section")!;
-    for (const feature of ["Single-player takes", "Keep going", "Compare mode", "Fantasy Tools", "Vibes", "Stars", "Share cards"]) {
+    for (const feature of ["Single-player takes", "The mirage board", "Keep going", "Compare mode", "Fantasy Tools", "Vibes", "Stars", "Share cards"]) {
       expect(within(findings).getByText(feature)).toBeInTheDocument();
     }
   });
