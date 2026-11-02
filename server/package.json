@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -29,7 +29,7 @@
     "@types/express": "^5.0.6",
     "@types/node": "^24.19.2",
     "supertest": "^7.3.1",
-    "ts-node-dev": "^2.0.0",
+    "tsx": "^4.23.15",
     "typescript": "~6.0",
     "vitest": "^5.0.5"
   }
