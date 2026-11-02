@@ -15,6 +15,7 @@ What it does:
 - Builds single-player hitter and pitcher breakdowns using current-year stats, weighted baselines, skill indicators, luck indicators, and sample-size context. While a take is being written, the key stat signals show immediately with a loading skeleton.
 - Compares two or three hitters or pitchers side by side and recommends the stronger profile. After a comparison, visitors can vote on who they would take and see how everyone else voted.
 - Lets users choose an analysis "vibe" so the same data can sound straightforward, analytical, fantasy-focused, Gen Z, Shakespearean, sensationalist, optimistic, old-school, or cranky old-timer. Every vibe is a one-tap chip under a take, and "Surprise me" picks one at random.
+- Shows a mirage board under the search box: the five hitters or pitchers whose season results ran furthest ahead of, and furthest behind, their expected stats (wOBA vs. xwOBA, ERA vs. xERA), with a short intro written in the reader's chosen vibe.
 - Ends each single-player take with "Keep going" suggestions: two players with a similar luck gap (expected vs. actual results) and a natural rival to compare against.
 - Provides a Fantasy Tools page with a daily start/sit recommendation for a player, using that day's MLB matchup (lineup status, probable pitchers, venue, and weather).
 - Lets visitors star players. Stars are stored in the browser only.
@@ -54,7 +55,8 @@ The production server builds the React app and serves it from the Express API. D
 
 - The server loads baseball CSV data at startup from the repository root.
 - `/api/players`, `/api/players/:playerId`, `/api/trending`, and `/api/data-freshness` serve structured data to the client.
-- `/api/players/:playerId/related` returns players with a similar luck gap and a rival to compare, computed from the current stats among players with a meaningful sample (300+ PA or batters faced).
+- `/api/players/:playerId/related` returns players with a similar luck gap and a rival to compare, computed from the current stats among players with a meaningful sample (300+ PA or batters faced). The luck-gap math lives in `server/src/luckGap.ts` and is shared with the mirage board.
+- `/api/mirage-board` returns the board for hitters or pitchers (players with 300+ PA or batters faced, five per side). `/api/mirage-board/intro` writes its intro in the requested vibe through the same analysis cache as takes, so it costs one model call per vibe per data update, shared by everyone. If the intro cannot be written it returns a 502 and the board still renders without it.
 - `/api/compare/votes` (GET and POST) records and tallies "who would you take" votes. One vote per browser, and the split is only returned to someone who has voted.
 - `/api/announcement-events` logs views, clicks, and dismissals of the announcement banner.
 - `/share` serves link-preview HTML, and `/share-image.png` renders the preview card (headline, players, vibe, and the stat behind the take). The renderer is loaded lazily and results are cached in memory.
