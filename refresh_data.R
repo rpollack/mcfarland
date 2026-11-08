@@ -710,9 +710,17 @@ pitcher_league_current <- build_pitcher_league_current(pitching_stats_current)
 pitcher_league_diffs <- build_league_diffs(pitcher_league_current, pitcher_league_baseline, pitcher_metric_cols)
 
 # Combine pitcher data and compute differences
+# Baselines are role-specific (SP vs RP), so match on playerid and position. Names are not part of the key
+# because the same player can be spelled differently across sources (for example "Jake Latz" and "Jacob Latz"),
+# which silently dropped their baseline. If a spelling variant ever produces two baseline rows for one player
+# and role, keep the first so the join cannot duplicate current-season rows.
+pitching_stats_last_3_by_role <- pitching_stats_last_3 |>
+  select(-name) |>
+  distinct(playerid, position, .keep_all = TRUE)
+
 full_stats_pitchers <-
   pitching_stats_current |>
-  left_join(pitching_stats_last_3, by = c("playerid", "name", "position"), suffix = c("_cur", "_l3")) |>
+  left_join(pitching_stats_last_3_by_role, by = c("playerid", "position"), suffix = c("_cur", "_l3")) |>
   mutate(
     era_diff = era_cur - era_l3,
     k_percent_diff = k_percent_cur - k_percent_l3,
