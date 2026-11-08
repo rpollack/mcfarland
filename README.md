@@ -182,6 +182,7 @@ npm run build
 
 - The app's baseball data comes from the CSV files in the repository root plus `data_freshness.json`.
 - `refresh_data.R` is the data refresh entrypoint and is intended to be run on a schedule during the season.
+- The daily refresh workflow only opens a PR when the stat files (`full_stats_*.csv`, `player_lookup.csv`) actually change. In the offseason nothing changes, so the data and `dataThroughDate` stay frozen and nothing is regenerated.
 - Analysis cache validity follows `dataThroughDate`, not wall-clock date.
 - Only successful structured Claude responses are cached. API errors, unavailable responses, and malformed model responses are not cached.
 - The analysis cache is shared across users and sessions when Postgres is configured.
