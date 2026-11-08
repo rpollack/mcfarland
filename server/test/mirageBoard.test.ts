@@ -100,7 +100,7 @@ describe("mirage board routes", () => {
   });
 
   it("writes the intro once per voice and serves repeats from the cache", async () => {
-    const handler = vi.fn(async (prompt: string, persona: string) => ({
+    const handler = vi.fn(async (prompt: string, persona: string, _mode: string, _kind: string) => ({
       prompt,
       persona,
       headline: "Luck evens out",
@@ -118,6 +118,7 @@ describe("mirage board routes", () => {
     const second = await request(app).post("/api/mirage-board/intro").send({ playerType: "hitter", analysisMode: "gen_z" });
     expect(second.body.cached).toBe(true);
     expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler.mock.calls[0][3]).toBe("mirage_intro");
 
     await request(app).post("/api/mirage-board/intro").send({ playerType: "hitter", analysisMode: "old_coot" });
     expect(handler).toHaveBeenCalledTimes(2);

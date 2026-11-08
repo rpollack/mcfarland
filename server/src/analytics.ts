@@ -210,3 +210,21 @@ export async function logUiEvent(event: UiLogEvent): Promise<void> {
     },
   });
 }
+
+/**
+ * Cost telemetry for one model call. These are server-side events with no session, player or user data,
+ * so they use a constant user id and are not subject to admin-mode exclusion.
+ */
+export async function logModelCall(record: Record<string, string | number | boolean | null>): Promise<void> {
+  const eventProperties: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(record)) {
+    eventProperties[toSnakeCase(key)] = value;
+  }
+
+  await sendAmplitudeEvent({
+    event_type: "model_call_completed",
+    user_id: "server",
+    time: Date.now(),
+    event_properties: eventProperties,
+  });
+}
