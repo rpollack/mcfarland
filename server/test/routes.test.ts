@@ -940,6 +940,68 @@ describe("McFARLAND API", () => {
     expect(response.status).toBe(400);
   });
 
+  it("forwards mirage board and search events to Amplitude with snake_case properties", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true } as Response);
+
+    const clicked = await request(app).post("/api/ui-events").send({
+      sessionId: "ui-session",
+      event: "mirage_board_player_clicked",
+      playerType: "hitter",
+      list: "unlucky",
+      rank: 2,
+      playerId: "abc",
+      playerName: "Test Player",
+    });
+    const searched = await request(app).post("/api/ui-events").send({
+      sessionId: "ui-session",
+      event: "player_search_performed",
+      surface: "compare",
+      playerType: "pitcher",
+      query: "skub",
+      resultCount: 0,
+    });
+
+    expect(clicked.status).toBe(204);
+    expect(searched.status).toBe(204);
+    await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2));
+    const events = fetchSpy.mock.calls.map(([, init]) => JSON.parse(String(init?.body ?? "{}")).events[0]);
+    expect(events[0]).toMatchObject({
+      event_type: "mirage_board_player_clicked",
+      user_id: "ui-session",
+      event_properties: { player_type: "hitter", list: "unlucky", rank: 2, player_id: "abc", player_name: "Test Player" },
+    });
+    expect(events[1]).toMatchObject({
+      event_type: "player_search_performed",
+      event_properties: { surface: "compare", player_type: "pitcher", query: "skub", result_count: 0 },
+    });
+  });
+
+  it("does not forward UI events from admin mode", async () => {
+    process.env.ADMIN_PASSWORD = "top-secret";
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true } as Response);
+
+    const response = await request(app)
+      .post("/api/ui-events?admin=top-secret")
+      .send({ sessionId: "ui-session", event: "mirage_board_viewed", playerType: "hitter" });
+
+    expect(response.status).toBe(204);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetchSpy).not.toHaveBeenCalled();
+    delete process.env.ADMIN_PASSWORD;
+  });
+
+  it("rejects UI events with an unknown name or missing fields", async () => {
+    const unknown = await request(app)
+      .post("/api/ui-events")
+      .send({ sessionId: "ui-session", event: "exploded", playerType: "hitter" });
+    const incomplete = await request(app)
+      .post("/api/ui-events")
+      .send({ sessionId: "ui-session", event: "player_search_performed", surface: "single", playerType: "hitter" });
+
+    expect(unknown.status).toBe(400);
+    expect(incomplete.status).toBe(400);
+  });
+
   it("returns weekly hitter and pitcher risers/fallers", async () => {
     const response = await request(app).get("/api/trends/weekly");
 

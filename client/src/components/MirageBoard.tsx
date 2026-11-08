@@ -1,5 +1,6 @@
+import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchMirageBoard, fetchMirageBoardIntro } from "../api";
+import { fetchMirageBoard, fetchMirageBoardIntro, logUiEvent } from "../api";
 import { useVibe } from "../contexts/vibe";
 import type { MirageRow, PlayerType } from "../types";
 import { formatLuckGap, formatStatValue, gapBarPercent } from "../utils/keepGoing";
@@ -35,9 +36,23 @@ function MirageList({
       <h3 className={styles.listTitle}>{title}</h3>
       <p className={styles.listSubtitle}>{subtitle}</p>
       <ul className={styles.rows}>
-        {rows.map((row) => (
+        {rows.map((row, index) => (
           <li key={row.id}>
-            <button type="button" className={styles.row} onClick={() => onSelectPlayer(row.id)}>
+            <button
+              type="button"
+              className={styles.row}
+              onClick={() => {
+                void logUiEvent({
+                  event: "mirage_board_player_clicked",
+                  playerType,
+                  list: tone,
+                  rank: index + 1,
+                  playerId: row.id,
+                  playerName: row.name,
+                });
+                onSelectPlayer(row.id);
+              }}
+            >
               <PlayerHeadshot name={row.name} mlbamid={row.mlbamid} size={32} />
               <span className={styles.rowText}>
                 <span className={styles.rowName}>{row.name}</span>
@@ -78,6 +93,19 @@ function MirageBoard({ playerType, onSelectPlayer }: Props) {
   });
 
   const board = boardQuery.data;
+  const hasBoard = Boolean(board && (board.lucky.length > 0 || board.unlucky.length > 0));
+  const lastViewedTypeRef = useRef<PlayerType | null>(null);
+  useEffect(() => {
+    if (!hasBoard) {
+      return;
+    }
+    if (lastViewedTypeRef.current === playerType) {
+      return;
+    }
+    lastViewedTypeRef.current = playerType;
+    void logUiEvent({ event: "mirage_board_viewed", playerType });
+  }, [hasBoard, playerType]);
+
   if (!board || (board.lucky.length === 0 && board.unlucky.length === 0)) {
     return null;
   }

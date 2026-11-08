@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import PlayerPicker from "../components/PlayerPicker";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
+import { toLoggedQuery, useSearchLogging } from "../hooks/useSearchLogging";
 import AnalysisPanel from "../components/AnalysisPanel";
 import type { QuickStatSignal } from "../components/AnalysisPanel";
 import VibeSelector from "../components/VibeSelector";
@@ -17,6 +18,7 @@ import {
   fetchPlayerDetail,
   fetchPlayers,
   logShareAnalyticsEvent,
+  logUiEvent,
 } from "../api";
 import type { HitterRecord, PitcherRecord, PlayerType } from "../types";
 import { buildSharePreviewUrl } from "../utils/share";
@@ -210,6 +212,12 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
     enabled: searchEnabled,
   });
   const searchLoading = searchPending || (resultsReady && playersQuery.isLoading);
+  useSearchLogging({
+    surface: "single",
+    playerType,
+    term: debouncedSearch,
+    resultCount: resultsReady ? playersQuery.data?.length : undefined,
+  });
 
   const detailQuery = useQuery({
     queryKey: ["player-detail", playerType, selectedId],
@@ -362,6 +370,18 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
           selectedId={selectedId}
           onSelect={(playerId) => {
             setSelectedId(playerId);
+            const rank = (playersQuery.data ?? []).findIndex((player) => player.id === playerId);
+            if (playerId && rank >= 0) {
+              void logUiEvent({
+                event: "player_search_result_selected",
+                surface: "single",
+                playerType,
+                query: toLoggedQuery(debouncedSearch),
+                rank: rank + 1,
+                playerId,
+                playerName: playersQuery.data![rank].name,
+              });
+            }
           }}
           isLoading={searchLoading}
         />

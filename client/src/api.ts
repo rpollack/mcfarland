@@ -256,6 +256,54 @@ export async function logShareAnalyticsEvent({
   }
 }
 
+export type SearchSurface = "single" | "compare";
+
+export type UiEvent =
+  | { event: "mirage_board_viewed"; playerType: PlayerType }
+  | {
+      event: "mirage_board_player_clicked";
+      playerType: PlayerType;
+      list: "lucky" | "unlucky";
+      rank: number;
+      playerId: string;
+      playerName: string;
+    }
+  | {
+      event: "player_search_performed";
+      surface: SearchSurface;
+      playerType: PlayerType;
+      query: string;
+      resultCount: number;
+    }
+  | {
+      event: "player_search_result_selected";
+      surface: SearchSurface;
+      playerType: PlayerType;
+      query: string;
+      rank: number;
+      playerId: string;
+      playerName: string;
+    };
+
+export async function logUiEvent(event: UiEvent): Promise<void> {
+  const sessionId = getOrCreateSessionId();
+  if (!sessionId) {
+    return;
+  }
+
+  try {
+    await fetch(buildUrl("/api/ui-events"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ sessionId, ...event }),
+    });
+  } catch (error) {
+    console.warn("Failed to log UI event", error);
+  }
+}
+
 export async function logAnnouncementEvent(announcementId: string, action: "viewed" | "clicked" | "dismissed"): Promise<void> {
   const sessionId = getOrCreateSessionId();
   if (!sessionId) {
