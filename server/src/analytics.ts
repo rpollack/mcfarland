@@ -172,3 +172,41 @@ export async function logAnnouncementEvent(event: AnnouncementLogEvent): Promise
     },
   });
 }
+
+type UiLogEvent = {
+  sessionId: string;
+  eventType: string;
+  properties: Record<string, string | number | null | undefined>;
+  referer?: string | null;
+};
+
+function toSnakeCase(key: string): string {
+  return key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+}
+
+export async function logUiEvent(event: UiLogEvent): Promise<void> {
+  if (!event.sessionId) {
+    return;
+  }
+  const stringProperties = Object.values(event.properties).filter(
+    (value): value is string => typeof value === "string"
+  );
+  if (shouldSkipLogging(event.referer, ...stringProperties)) {
+    return;
+  }
+
+  const eventProperties: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(event.properties)) {
+    eventProperties[toSnakeCase(key)] = typeof value === "string" ? truncate(value, 256) : (value ?? null);
+  }
+
+  await sendAmplitudeEvent({
+    event_type: event.eventType,
+    user_id: event.sessionId,
+    time: Date.now(),
+    event_properties: {
+      ...eventProperties,
+      referer: truncate(event.referer, 512),
+    },
+  });
+}

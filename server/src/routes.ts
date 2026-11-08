@@ -10,7 +10,7 @@ import { getDataFreshness, getPlayerById, getPlayerSummaries } from "./dataStore
 import { castVote, getVoteState } from "./compareVotes.js";
 import { buildMirageBoard, buildMirageBoardPrompt } from "./mirageBoard.js";
 import { findRelatedPlayers } from "./relatedPlayers.js";
-import { logAnalysisEvent, logAnnouncementEvent, logSessionStart, logShareEvent } from "./analytics.js";
+import { logAnalysisEvent, logAnnouncementEvent, logSessionStart, logShareEvent, logUiEvent } from "./analytics.js";
 import { AnalysisMode, ANALYSIS_VIBE_LABELS, ANALYSIS_VIBES, DEFAULT_ANALYSIS_MODE } from "./vibes.js";
 import { getAdminPassword, isAdminModeRequest } from "./admin.js";
 import { getWeeklyTrends, refreshDailyTrendData } from "./weeklyTrends.js";
@@ -537,6 +537,59 @@ router.post("/api/announcement-events", eventLimiter, async (req, res) => {
     action: parseResult.data.action,
     referer: req.get("referer"),
   });
+});
+
+const uiEventSurfaceSchema = z.enum(["single", "compare"]);
+const uiEventPlayerSchema = {
+  playerId: z.string().min(1).max(128),
+  playerName: z.string().min(1).max(256),
+  rank: z.number().int().min(1).max(50),
+};
+const uiEventSearchSchema = {
+  surface: uiEventSurfaceSchema,
+  playerType: playerTypeSchema,
+  query: z.string().min(1).max(100),
+};
+const uiEventSchema = z.discriminatedUnion("event", [
+  z.object({
+    event: z.literal("mirage_board_viewed"),
+    sessionId: z.string().min(1).max(128),
+    playerType: playerTypeSchema,
+  }),
+  z.object({
+    event: z.literal("mirage_board_player_clicked"),
+    sessionId: z.string().min(1).max(128),
+    playerType: playerTypeSchema,
+    list: z.enum(["lucky", "unlucky"]),
+    ...uiEventPlayerSchema,
+  }),
+  z.object({
+    event: z.literal("player_search_performed"),
+    sessionId: z.string().min(1).max(128),
+    ...uiEventSearchSchema,
+    resultCount: z.number().int().min(0).max(100),
+  }),
+  z.object({
+    event: z.literal("player_search_result_selected"),
+    sessionId: z.string().min(1).max(128),
+    ...uiEventSearchSchema,
+    ...uiEventPlayerSchema,
+  }),
+]);
+
+router.post("/api/ui-events", eventLimiter, async (req, res) => {
+  const parseResult = uiEventSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res.status(400).json({ error: "Invalid request body" });
+  }
+
+  res.status(204).end();
+  if (isAdminModeRequest(req)) {
+    return;
+  }
+
+  const { event, sessionId, ...properties } = parseResult.data;
+  void logUiEvent({ sessionId, eventType: event, properties, referer: req.get("referer") });
 });
 
 router.get("/api/vibes", (_req, res) => {

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { analyzeComparison, fetchPlayers, logShareAnalyticsEvent } from "../api";
+import { analyzeComparison, fetchPlayers, logShareAnalyticsEvent, logUiEvent } from "../api";
 import { useVibe } from "../contexts/vibe";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
+import { toLoggedQuery, useSearchLogging } from "../hooks/useSearchLogging";
 import type { PlayerSummary, PlayerType } from "../types";
 import { buildSharePreviewUrl } from "../utils/share";
 import AnalysisPanel from "../components/AnalysisPanel";
@@ -92,6 +93,12 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
     enabled: searchEnabled,
   });
   const searchLoading = searchPending || (resultsReady && playersQuery.isLoading);
+  useSearchLogging({
+    surface: "compare",
+    playerType,
+    term: debouncedSearch,
+    resultCount: resultsReady ? playersQuery.data?.length : undefined,
+  });
 
   const {
     mutateAsync: runAnalysis,
@@ -350,11 +357,22 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
           )}
           {!searchLoading &&
             trimmedSearch &&
-            availablePlayers.slice(0, 8).map((player) => (
+            availablePlayers.slice(0, 8).map((player, index) => (
               <li key={player.id}>
                 <button
                   type="button"
-                  onClick={() => handleAddPlayer(player)}
+                  onClick={() => {
+                    void logUiEvent({
+                      event: "player_search_result_selected",
+                      surface: "compare",
+                      playerType,
+                      query: toLoggedQuery(debouncedSearch),
+                      rank: index + 1,
+                      playerId: player.id,
+                      playerName: player.name,
+                    });
+                    handleAddPlayer(player);
+                  }}
                   className={styles.resultButton}
                   disabled={!canAddMore || selectedPlayers.some((entry) => entry.id === player.id)}
                 >

@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import MirageBoard from "../MirageBoard";
 import * as api from "../../api";
 import { VibeContext } from "../../contexts/vibe";
@@ -37,6 +37,12 @@ function renderBoard(onSelectPlayer = vi.fn(), playerType: "hitter" | "pitcher" 
 }
 
 describe("MirageBoard", () => {
+  let logSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    logSpy = vi.spyOn(api, "logUiEvent").mockResolvedValue();
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -120,5 +126,46 @@ describe("MirageBoard", () => {
 
     await vi.waitFor(() => expect(spy).toHaveBeenCalled());
     expect(screen.queryByRole("region", { name: "Mirage board" })).not.toBeInTheDocument();
+  });
+
+  it("logs a single view once the board shows", async () => {
+    vi.spyOn(api, "fetchMirageBoard").mockResolvedValue(board);
+    vi.spyOn(api, "fetchMirageBoardIntro").mockRejectedValue(new Error("down"));
+    renderBoard();
+
+    await screen.findByRole("region", { name: "Ran lucky" });
+    expect(logSpy).toHaveBeenCalledTimes(1);
+    expect(logSpy).toHaveBeenCalledWith({ event: "mirage_board_viewed", playerType: "hitter" });
+  });
+
+  it("does not log a view when there is no board", async () => {
+    const spy = vi
+      .spyOn(api, "fetchMirageBoard")
+      .mockResolvedValue({ season: 2026, playerType: "hitter", lucky: [], unlucky: [] });
+    renderBoard();
+
+    await vi.waitFor(() => expect(spy).toHaveBeenCalled());
+    expect(logSpy).not.toHaveBeenCalled();
+  });
+
+  it("logs which list and rank a clicked player came from", async () => {
+    vi.spyOn(api, "fetchMirageBoard").mockResolvedValue(board);
+    vi.spyOn(api, "fetchMirageBoardIntro").mockRejectedValue(new Error("down"));
+    renderBoard();
+
+    fireEvent.click(await screen.findByRole("button", { name: /Ty France/ }));
+    expect(logSpy).toHaveBeenCalledWith({
+      event: "mirage_board_player_clicked",
+      playerType: "hitter",
+      list: "lucky",
+      rank: 2,
+      playerId: "2",
+      playerName: "Ty France",
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /J\.T\. Realmuto/ }));
+    expect(logSpy).toHaveBeenLastCalledWith(
+      expect.objectContaining({ event: "mirage_board_player_clicked", list: "unlucky", rank: 1, playerId: "3" })
+    );
   });
 });
