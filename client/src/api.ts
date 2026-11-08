@@ -292,6 +292,16 @@ export type UiEvent =
       choiceRank: number;
       choiceId: string;
       choiceName: string;
+    }
+  | { event: "player_star_toggled"; playerType: PlayerType; playerId: string; playerName: string; starred: boolean }
+  | {
+      event: "keep_going_clicked";
+      playerType: PlayerType;
+      kind: "similar_gap" | "rival_compare";
+      rank: number;
+      sourcePlayerId: string;
+      targetPlayerId: string;
+      targetPlayerName: string;
     };
 
 export async function logUiEvent(event: UiEvent): Promise<void> {

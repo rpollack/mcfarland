@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import KeepGoing from "../KeepGoing";
 import * as api from "../../api";
 import type { RelatedPlayers } from "../../types";
@@ -27,6 +27,12 @@ function renderKeepGoing(onSelectPlayer = vi.fn()) {
 }
 
 describe("KeepGoing", () => {
+  let logSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    logSpy = vi.spyOn(api, "logUiEvent").mockResolvedValue();
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -50,6 +56,39 @@ describe("KeepGoing", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: /Mike Trout/ }));
     expect(onSelectPlayer).toHaveBeenCalledWith("2");
+  });
+
+  it("logs which suggestion was chosen and where it sat in the list", async () => {
+    vi.spyOn(api, "fetchRelatedPlayers").mockResolvedValue(related);
+    renderKeepGoing();
+
+    expect(logSpy).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole("button", { name: /Shohei Ohtani/ }));
+    expect(logSpy).toHaveBeenCalledWith({
+      event: "keep_going_clicked",
+      playerType: "hitter",
+      kind: "similar_gap",
+      rank: 2,
+      sourcePlayerId: "1",
+      targetPlayerId: "3",
+      targetPlayerName: "Shohei Ohtani",
+    });
+  });
+
+  it("logs the rival compare link separately", async () => {
+    vi.spyOn(api, "fetchRelatedPlayers").mockResolvedValue(related);
+    renderKeepGoing();
+
+    fireEvent.click(await screen.findByRole("link", { name: "Compare with Juan Soto" }));
+    expect(logSpy).toHaveBeenCalledWith({
+      event: "keep_going_clicked",
+      playerType: "hitter",
+      kind: "rival_compare",
+      rank: 1,
+      sourcePlayerId: "1",
+      targetPlayerId: "4",
+      targetPlayerName: "Juan Soto",
+    });
   });
 
   it("renders nothing when there are no suggestions or the request fails", async () => {

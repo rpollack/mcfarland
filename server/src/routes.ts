@@ -591,6 +591,24 @@ const uiEventSchema = z.discriminatedUnion("event", [
     choiceId: z.string().min(1).max(128),
     choiceName: z.string().min(1).max(256),
   }),
+  z.object({
+    event: z.literal("player_star_toggled"),
+    sessionId: z.string().min(1).max(128),
+    playerType: playerTypeSchema,
+    playerId: z.string().min(1).max(128),
+    playerName: z.string().min(1).max(256),
+    starred: z.boolean(),
+  }),
+  z.object({
+    event: z.literal("keep_going_clicked"),
+    sessionId: z.string().min(1).max(128),
+    playerType: playerTypeSchema,
+    kind: z.enum(["similar_gap", "rival_compare"]),
+    rank: z.number().int().min(1).max(10),
+    sourcePlayerId: z.string().min(1).max(128),
+    targetPlayerId: z.string().min(1).max(128),
+    targetPlayerName: z.string().min(1).max(256),
+  }),
 ]);
 
 router.post("/api/ui-events", eventLimiter, async (req, res) => {
