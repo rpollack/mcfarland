@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import PickASide from "../PickASide";
 import * as api from "../../api";
 
@@ -19,6 +19,12 @@ function renderPickASide() {
 }
 
 describe("PickASide", () => {
+  let logSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    logSpy = vi.spyOn(api, "logUiEvent").mockResolvedValue();
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -48,6 +54,36 @@ describe("PickASide", () => {
     expect(screen.getByText("25%")).toBeInTheDocument();
     expect(screen.getByText(/your pick/)).toBeInTheDocument();
     expect(screen.getByText("4 votes so far.")).toBeInTheDocument();
+  });
+
+  it("logs which player was picked once the vote is recorded", async () => {
+    vi.spyOn(api, "fetchCompareVotes").mockResolvedValue({ yourVote: null, counts: null, total: 0 });
+    vi.spyOn(api, "castCompareVote").mockResolvedValue({ yourVote: "2", counts: { "2": 1 }, total: 1 });
+    renderPickASide();
+
+    expect(logSpy).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole("button", { name: "Shohei Ohtani" }));
+
+    await vi.waitFor(() => expect(logSpy).toHaveBeenCalledTimes(1));
+    expect(logSpy).toHaveBeenCalledWith({
+      event: "compare_vote_cast",
+      playerType: "hitter",
+      playerCount: 2,
+      choiceRank: 2,
+      choiceId: "2",
+      choiceName: "Shohei Ohtani",
+    });
+  });
+
+  it("does not log a vote that failed to record", async () => {
+    vi.spyOn(api, "fetchCompareVotes").mockResolvedValue({ yourVote: null, counts: null, total: 0 });
+    vi.spyOn(api, "castCompareVote").mockRejectedValue(new Error("down"));
+    renderPickASide();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Aaron Judge" }));
+
+    expect(await screen.findByText(/Couldn.t record that vote/)).toBeInTheDocument();
+    expect(logSpy).not.toHaveBeenCalled();
   });
 
   it("shows the results straight away for someone who already voted", async () => {

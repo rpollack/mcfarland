@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { logUiEvent } from "../api";
 import { useVibe } from "../contexts/vibe";
 import { pickSurpriseVibe } from "../utils/vibes";
 import styles from "../styles/VibeSelector.module.css";
@@ -25,8 +26,16 @@ function VibeSelector() {
       mode
     );
     if (next) {
+      void logUiEvent({ event: "vibe_selected", source: "surprise", vibe: next, previousVibe: mode });
       setMode(next);
     }
+  };
+
+  const handleChip = (vibe: string) => {
+    if (vibe !== mode) {
+      void logUiEvent({ event: "vibe_selected", source: "chip", vibe, previousVibe: mode });
+    }
+    setMode(vibe);
   };
 
   return (
@@ -40,7 +49,7 @@ function VibeSelector() {
             className={option.id === mode ? styles.chipActive : styles.chip}
             aria-pressed={option.id === mode}
             disabled={isLoading}
-            onClick={() => setMode(option.id)}
+            onClick={() => handleChip(option.id)}
           >
             {option.label}
           </button>

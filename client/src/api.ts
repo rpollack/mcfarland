@@ -283,6 +283,15 @@ export type UiEvent =
       rank: number;
       playerId: string;
       playerName: string;
+    }
+  | { event: "vibe_selected"; source: "chip" | "surprise"; vibe: string; previousVibe: string }
+  | {
+      event: "compare_vote_cast";
+      playerType: PlayerType;
+      playerCount: number;
+      choiceRank: number;
+      choiceId: string;
+      choiceName: string;
     };
 
 export async function logUiEvent(event: UiEvent): Promise<void> {

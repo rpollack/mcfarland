@@ -976,6 +976,59 @@ describe("McFARLAND API", () => {
     });
   });
 
+  it("forwards vibe picks and votes to Amplitude", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true } as Response);
+
+    const vibe = await request(app).post("/api/ui-events").send({
+      sessionId: "ui-session",
+      event: "vibe_selected",
+      source: "surprise",
+      vibe: "gen_z",
+      previousVibe: "straightforward",
+    });
+    const vote = await request(app).post("/api/ui-events").send({
+      sessionId: "ui-session",
+      event: "compare_vote_cast",
+      playerType: "hitter",
+      playerCount: 3,
+      choiceRank: 2,
+      choiceId: "abc",
+      choiceName: "Test Player",
+    });
+
+    expect(vibe.status).toBe(204);
+    expect(vote.status).toBe(204);
+    await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2));
+    const events = fetchSpy.mock.calls.map(([, init]) => JSON.parse(String(init?.body ?? "{}")).events[0]);
+    expect(events[0]).toMatchObject({
+      event_type: "vibe_selected",
+      event_properties: { source: "surprise", vibe: "gen_z", previous_vibe: "straightforward" },
+    });
+    expect(events[1]).toMatchObject({
+      event_type: "compare_vote_cast",
+      event_properties: { player_type: "hitter", player_count: 3, choice_rank: 2, choice_id: "abc", choice_name: "Test Player" },
+    });
+    expect(JSON.stringify(events)).not.toContain("voter");
+  });
+
+  it("rejects vibe picks from an unknown source and votes for a matchup of one", async () => {
+    const badSource = await request(app)
+      .post("/api/ui-events")
+      .send({ sessionId: "ui-session", event: "vibe_selected", source: "keyboard", vibe: "gen_z", previousVibe: "x" });
+    const badVote = await request(app).post("/api/ui-events").send({
+      sessionId: "ui-session",
+      event: "compare_vote_cast",
+      playerType: "hitter",
+      playerCount: 1,
+      choiceRank: 1,
+      choiceId: "abc",
+      choiceName: "Test Player",
+    });
+
+    expect(badSource.status).toBe(400);
+    expect(badVote.status).toBe(400);
+  });
+
   it("does not forward UI events from admin mode", async () => {
     process.env.ADMIN_PASSWORD = "top-secret";
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true } as Response);

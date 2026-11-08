@@ -50,8 +50,8 @@ const ABOUT_SECTIONS = [
     title: "Your data",
     items: [
       "You never need an account. Starred players are saved in your browser and nowhere else.",
-      "Votes are one per browser. Your browser keeps a random id, and the server stores only a scrambled version of it with your vote. It is not your name, and it is separate from the id used for visit counts.",
-      "We use Amplitude to count visits and which features get used, such as takes run, links shared, player searches (what you typed and how many matches it found), mirage board views and clicks, and announcement views and clicks, so we know what to improve.",
+      "Votes are one per browser. Your browser keeps a random id, and the server stores only a scrambled version of it with your vote. It is not your name, and it is never sent to analytics. Analytics only sees that a vote was cast and which player it was for, under the separate id used for visit counts.",
+      "We use Amplitude to count visits and which features get used, such as takes run, links shared, player searches (what you typed and how many matches it found), mirage board views and clicks, which voice you pick, votes cast, and announcement views and clicks, so we know what to improve.",
     ],
   },
 ];
