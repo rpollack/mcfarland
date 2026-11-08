@@ -41,6 +41,19 @@ jobs:
       - name: Refresh baseball data
         run: Rscript refresh_data.R
 
+      # With no games being played the stat files come out identical, but data_freshness.json still advances
+      # its date. That would open a PR every day and, because analysis cache validity follows the data-through
+      # date, regenerate every cached take for no new information. Keep the previous freshness file in that
+      # case so no PR is opened; the next real stat change opens one as usual.
+      - name: Skip freshness-only updates
+        run: |
+          if git diff --quiet -- full_stats_hitters.csv full_stats_pitchers.csv player_lookup.csv; then
+            echo "Stat files are unchanged; discarding the freshness-only update."
+            git checkout -- data_freshness.json
+          else
+            echo "Stat files changed; keeping the refresh."
+          fi
+
       - name: Validate refresh PR token
         env:
           REFRESH_PR_TOKEN: ${{ secrets.REFRESH_PR_TOKEN }}
