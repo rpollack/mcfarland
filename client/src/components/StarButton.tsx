@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { logUiEvent } from "../api";
 import type { PlayerType } from "../types";
 import {
   getStarredPlayersUpdatedEventName,
@@ -38,7 +39,10 @@ function StarButton({ playerId, playerName, playerType, mlbamid }: Props) {
       aria-pressed={starred}
       aria-label={starred ? `Remove ${playerName} from your starred players` : `Star ${playerName}`}
       title={starred ? "Starred on this device. Tap to remove." : "Star this player. Saved on this device only."}
-      onClick={() => toggleStarredPlayer({ playerId, playerName, playerType, mlbamid: mlbamid ?? null })}
+      onClick={() => {
+        const nowStarred = toggleStarredPlayer({ playerId, playerName, playerType, mlbamid: mlbamid ?? null });
+        void logUiEvent({ event: "player_star_toggled", playerType, playerId, playerName, starred: nowStarred });
+      }}
     >
       <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
         <path

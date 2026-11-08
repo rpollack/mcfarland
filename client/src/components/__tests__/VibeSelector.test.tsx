@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import VibeSelector from "../VibeSelector";
+import * as api from "../../api";
 import { pickSurpriseVibe } from "../../utils/vibes";
 import { VibeContext } from "../../contexts/vibe";
 import type { VibeContextValue } from "../../contexts/vibe";
@@ -24,6 +25,16 @@ function renderSelector(overrides: Partial<VibeContextValue> = {}) {
 }
 
 describe("VibeSelector", () => {
+  let logSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    logSpy = vi.spyOn(api, "logUiEvent").mockResolvedValue();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("shows every vibe as a chip and marks the current one", () => {
     renderSelector();
 
@@ -38,6 +49,38 @@ describe("VibeSelector", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Gen Z" }));
     expect(setMode).toHaveBeenCalledWith("gen_z");
+  });
+
+  it("logs a chip pick with the vibe it replaced", () => {
+    renderSelector();
+
+    fireEvent.click(screen.getByRole("button", { name: "Gen Z" }));
+    expect(logSpy).toHaveBeenCalledWith({
+      event: "vibe_selected",
+      source: "chip",
+      vibe: "gen_z",
+      previousVibe: "straightforward",
+    });
+  });
+
+  it("does not log when the current vibe is tapped again", () => {
+    renderSelector();
+
+    fireEvent.click(screen.getByRole("button", { name: "Straightforward" }));
+    expect(logSpy).not.toHaveBeenCalled();
+  });
+
+  it("logs Surprise me separately from chip picks", () => {
+    const { setMode } = renderSelector({ mode: "gen_z" });
+
+    fireEvent.click(screen.getByRole("button", { name: /surprise me/i }));
+    expect(logSpy).toHaveBeenCalledTimes(1);
+    expect(logSpy).toHaveBeenCalledWith({
+      event: "vibe_selected",
+      source: "surprise",
+      vibe: setMode.mock.calls[0][0],
+      previousVibe: "gen_z",
+    });
   });
 
   it("surprise me picks a vibe other than the current one", () => {

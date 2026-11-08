@@ -176,7 +176,7 @@ export async function logAnnouncementEvent(event: AnnouncementLogEvent): Promise
 type UiLogEvent = {
   sessionId: string;
   eventType: string;
-  properties: Record<string, string | number | null | undefined>;
+  properties: Record<string, string | number | boolean | null | undefined>;
   referer?: string | null;
 };
 

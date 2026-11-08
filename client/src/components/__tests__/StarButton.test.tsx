@@ -1,12 +1,38 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import StarButton from "../StarButton";
+import * as api from "../../api";
 import { __resetSessionStarredForTests, isPlayerStarred } from "../../utils/starredPlayers";
 
 describe("StarButton", () => {
+  let logSpy: ReturnType<typeof vi.spyOn>;
+
   beforeEach(() => {
     window.localStorage.clear();
     __resetSessionStarredForTests();
+    logSpy = vi.spyOn(api, "logUiEvent").mockResolvedValue();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("logs stars and unstars with the new state", () => {
+    render(<StarButton playerId="15640" playerName="Aaron Judge" playerType="hitter" />);
+
+    expect(logSpy).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Star Aaron Judge" }));
+    expect(logSpy).toHaveBeenLastCalledWith({
+      event: "player_star_toggled",
+      playerType: "hitter",
+      playerId: "15640",
+      playerName: "Aaron Judge",
+      starred: true,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Remove Aaron Judge/ }));
+    expect(logSpy).toHaveBeenLastCalledWith(expect.objectContaining({ event: "player_star_toggled", starred: false }));
+    expect(logSpy).toHaveBeenCalledTimes(2);
   });
 
   it("stars and unstars with accessible labels", () => {

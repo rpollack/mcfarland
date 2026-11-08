@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { fetchRelatedPlayers } from "../api";
+import { fetchRelatedPlayers, logUiEvent } from "../api";
 import type { PlayerType } from "../types";
 import { buildCompareHref, formatLuckGap } from "../utils/keepGoing";
 import styles from "../styles/KeepGoing.module.css";
@@ -28,12 +28,30 @@ function KeepGoing({ playerId, playerType, onSelectPlayer }: Props) {
     return null;
   }
 
+  const { rival } = related;
+
   return (
     <div className={styles.container} role="group" aria-label="Keep going">
       <span className={styles.heading}>Keep going</span>
       <div className={styles.chips}>
-        {related.similarGap.map((player) => (
-          <button key={player.id} type="button" className={styles.chip} onClick={() => onSelectPlayer(player.id)}>
+        {related.similarGap.map((player, index) => (
+          <button
+            key={player.id}
+            type="button"
+            className={styles.chip}
+            onClick={() => {
+              void logUiEvent({
+                event: "keep_going_clicked",
+                playerType,
+                kind: "similar_gap",
+                rank: index + 1,
+                sourcePlayerId: playerId,
+                targetPlayerId: player.id,
+                targetPlayerName: player.name,
+              });
+              onSelectPlayer(player.id);
+            }}
+          >
             Similar luck gap: {player.name}
             {player.gap !== null && (
               <>
@@ -43,9 +61,23 @@ function KeepGoing({ playerId, playerType, onSelectPlayer }: Props) {
             )}
           </button>
         ))}
-        {related.rival && (
-          <Link className={styles.compare} to={buildCompareHref(playerType, [playerId, related.rival.id])}>
-            Compare with {related.rival.name}
+        {rival && (
+          <Link
+            className={styles.compare}
+            to={buildCompareHref(playerType, [playerId, rival.id])}
+            onClick={() =>
+              void logUiEvent({
+                event: "keep_going_clicked",
+                playerType,
+                kind: "rival_compare",
+                rank: 1,
+                sourcePlayerId: playerId,
+                targetPlayerId: rival.id,
+                targetPlayerName: rival.name,
+              })
+            }
+          >
+            Compare with {rival.name}
           </Link>
         )}
       </div>

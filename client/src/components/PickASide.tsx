@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { castCompareVote, fetchCompareVotes } from "../api";
+import { castCompareVote, fetchCompareVotes, logUiEvent } from "../api";
 import type { CompareVoteState, PlayerType } from "../types";
 import { computeVoteShares } from "../utils/votes";
 import styles from "../styles/PickASide.module.css";
@@ -22,8 +22,19 @@ function PickASide({ playerType, players }: Props) {
 
   const voteMutation = useMutation({
     mutationFn: (choice: string) => castCompareVote(playerType, ids, choice),
-    onSuccess: (state) => {
+    onSuccess: (state, choice) => {
       queryClient.setQueryData<CompareVoteState>(queryKey, state);
+      const choiceIndex = players.findIndex((player) => player.id === choice);
+      if (choiceIndex >= 0) {
+        void logUiEvent({
+          event: "compare_vote_cast",
+          playerType,
+          playerCount: players.length,
+          choiceRank: choiceIndex + 1,
+          choiceId: choice,
+          choiceName: players[choiceIndex].name,
+        });
+      }
     },
   });
 

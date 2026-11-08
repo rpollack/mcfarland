@@ -575,6 +575,40 @@ const uiEventSchema = z.discriminatedUnion("event", [
     ...uiEventSearchSchema,
     ...uiEventPlayerSchema,
   }),
+  z.object({
+    event: z.literal("vibe_selected"),
+    sessionId: z.string().min(1).max(128),
+    source: z.enum(["chip", "surprise"]),
+    vibe: z.string().min(1).max(64),
+    previousVibe: z.string().min(1).max(64),
+  }),
+  z.object({
+    event: z.literal("compare_vote_cast"),
+    sessionId: z.string().min(1).max(128),
+    playerType: playerTypeSchema,
+    playerCount: z.number().int().min(2).max(3),
+    choiceRank: z.number().int().min(1).max(3),
+    choiceId: z.string().min(1).max(128),
+    choiceName: z.string().min(1).max(256),
+  }),
+  z.object({
+    event: z.literal("player_star_toggled"),
+    sessionId: z.string().min(1).max(128),
+    playerType: playerTypeSchema,
+    playerId: z.string().min(1).max(128),
+    playerName: z.string().min(1).max(256),
+    starred: z.boolean(),
+  }),
+  z.object({
+    event: z.literal("keep_going_clicked"),
+    sessionId: z.string().min(1).max(128),
+    playerType: playerTypeSchema,
+    kind: z.enum(["similar_gap", "rival_compare"]),
+    rank: z.number().int().min(1).max(10),
+    sourcePlayerId: z.string().min(1).max(128),
+    targetPlayerId: z.string().min(1).max(128),
+    targetPlayerName: z.string().min(1).max(256),
+  }),
 ]);
 
 router.post("/api/ui-events", eventLimiter, async (req, res) => {

@@ -283,6 +283,25 @@ export type UiEvent =
       rank: number;
       playerId: string;
       playerName: string;
+    }
+  | { event: "vibe_selected"; source: "chip" | "surprise"; vibe: string; previousVibe: string }
+  | {
+      event: "compare_vote_cast";
+      playerType: PlayerType;
+      playerCount: number;
+      choiceRank: number;
+      choiceId: string;
+      choiceName: string;
+    }
+  | { event: "player_star_toggled"; playerType: PlayerType; playerId: string; playerName: string; starred: boolean }
+  | {
+      event: "keep_going_clicked";
+      playerType: PlayerType;
+      kind: "similar_gap" | "rival_compare";
+      rank: number;
+      sourcePlayerId: string;
+      targetPlayerId: string;
+      targetPlayerName: string;
     };
 
 export async function logUiEvent(event: UiEvent): Promise<void> {
