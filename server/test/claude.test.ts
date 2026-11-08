@@ -1,5 +1,6 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildStructuredAnalysisPrompt, callClaudeAnalysis, parseJsonPayload } from "../src/claude.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { buildStructuredAnalysisPrompt, callClaudeAnalysis, callClaudeFantasyDecision, parseJsonPayload } from "../src/claude.js";
+import { buildModelUsageRecord } from "../src/modelUsage.js";
 
 function mockAnthropicResponse(body: Record<string, unknown>) {
   return vi.spyOn(globalThis, "fetch").mockImplementation(
@@ -20,10 +21,17 @@ function mockAnthropicResponse(body: Record<string, unknown>) {
 }
 
 describe("Claude analysis request", () => {
+  beforeEach(() => {
+    // An empty key disables Amplitude forwarding, so fetch calls in these tests are only the model request.
+    process.env.AMPLITUDE_API_KEY = "";
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
     delete process.env.ANTHROPIC_API_KEY;
     delete process.env.ANTHROPIC_MODEL;
+    delete process.env.AMPLITUDE_API_KEY;
   });
 
   it("sends a structured-output request to Claude Sonnet 5.5 with refusal fallback and parses the result", async () => {
@@ -61,6 +69,168 @@ describe("Claude analysis request", () => {
   });
 });
 
+
+describe("model usage logging", () => {
+  const usage = {
+    input_tokens: 1200,
+    output_tokens: 900,
+    output_tokens_details: { thinking_tokens: 300 },
+    cache_creation_input_tokens: 10,
+    cache_read_input_tokens: 20,
+  };
+  const goodBody = {
+    content: [{ type: "text", text: JSON.stringify({ headline: "Headline", analysis: "Para one.\n\nPara two." }) }],
+    stop_reason: "end_turn",
+  };
+
+  function loggedRecords(infoSpy: ReturnType<typeof vi.spyOn>) {
+    return infoSpy.mock.calls
+      .filter(([label]) => label === "[model-usage]")
+      .map(([, json]) => JSON.parse(String(json)));
+  }
+
+  beforeEach(() => {
+    process.env.ANTHROPIC_API_KEY = "test-key";
+    process.env.AMPLITUDE_API_KEY = "";
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.ANTHROPIC_MODEL;
+    delete process.env.AMPLITUDE_API_KEY;
+  });
+
+  it("logs input, output, thinking and cache tokens with the model, effort, vibe and call kind", async () => {
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    mockAnthropicResponse({ ...goodBody, usage });
+
+    await callClaudeAnalysis("Analyze Player X.", "Straightforward", "gen_z", "compare");
+
+    const [record] = loggedRecords(infoSpy);
+    expect(record).toMatchObject({
+      kind: "compare",
+      analysisMode: "gen_z",
+      model: "claude-sonnet-5-5",
+      servedModel: "claude-sonnet-5-5",
+      fellBack: false,
+      effort: "medium",
+      stopReason: "end_turn",
+      inputTokens: 1200,
+      outputTokens: 900,
+      thinkingTokens: 300,
+      cacheCreationInputTokens: 10,
+      cacheReadInputTokens: 20,
+    });
+    expect(typeof record.durationMs).toBe("number");
+  });
+
+  it("does not put the prompt or any player data in the log", async () => {
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    mockAnthropicResponse({ ...goodBody, usage });
+
+    await callClaudeAnalysis("Analyze Aaron Judge, 285 PA.", "Straightforward", "straightforward");
+
+    const logged = infoSpy.mock.calls.map((call) => call.join(" ")).join("\n");
+    expect(logged).not.toContain("Judge");
+    expect(logged).not.toContain("285");
+  });
+
+  it("defaults to the single-player kind and records fantasy calls as fantasy", async () => {
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    mockAnthropicResponse({ ...goodBody, usage });
+    await callClaudeAnalysis("Analyze Player X.", "Straightforward", "straightforward");
+
+    mockAnthropicResponse({
+      content: [{ type: "text", text: JSON.stringify({ decision: "START", confidence: "High", headline: "H", analysis: "A" }) }],
+      stop_reason: "end_turn",
+      usage,
+    });
+    await callClaudeFantasyDecision("Start or sit?");
+
+    const records = loggedRecords(infoSpy);
+    expect(records.map((record) => record.kind)).toEqual(["single", "fantasy"]);
+    expect(records[1].analysisMode).toBeNull();
+  });
+
+  it("flags when the refusal fallback model served the response", async () => {
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    mockAnthropicResponse({
+      ...goodBody,
+      model: "claude-fable-5-1",
+      usage: {
+        ...usage,
+        iterations: [{ type: "fallback_message", model: "claude-fable-5-1", input_tokens: 1200, output_tokens: 900, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 }],
+      },
+    });
+
+    await callClaudeAnalysis("Analyze Player X.", "Straightforward", "straightforward");
+
+    expect(loggedRecords(infoSpy)[0]).toMatchObject({ model: "claude-sonnet-5-5", servedModel: "claude-fable-5-1", fellBack: true });
+  });
+
+  it("still logs tokens when the request is declined", async () => {
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    mockAnthropicResponse({ content: [], stop_reason: "refusal", usage });
+
+    const result = await callClaudeAnalysis("Analyze Player X.", "Straightforward", "straightforward");
+
+    expect(result.headline).toBe("Analysis unavailable");
+    expect(loggedRecords(infoSpy)[0]).toMatchObject({ stopReason: "refusal", inputTokens: 1200, outputTokens: 900 });
+  });
+
+  it("does not log when no model call is made", async () => {
+    delete process.env.ANTHROPIC_API_KEY;
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => undefined);
+
+    await callClaudeAnalysis("Analyze Player X.", "Straightforward", "straightforward");
+
+    expect(loggedRecords(infoSpy)).toEqual([]);
+  });
+
+  it("sends a model_call_completed event to Amplitude with snake_case properties and no user data", async () => {
+    process.env.AMPLITUDE_API_KEY = "amp-test-key";
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const fetchSpy = mockAnthropicResponse({ ...goodBody, usage });
+
+    await callClaudeAnalysis("Analyze Player X.", "Straightforward", "old_coot", "mirage_intro");
+
+    await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2));
+    const [url, init] = fetchSpy.mock.calls[1] as [string, RequestInit];
+    expect(String(url)).toContain("api2.amplitude.com");
+    const event = JSON.parse(String(init.body)).events[0];
+    expect(event.event_type).toBe("model_call_completed");
+    expect(event.user_id).toBe("server");
+    expect(event.event_properties).toMatchObject({
+      kind: "mirage_intro",
+      analysis_mode: "old_coot",
+      model: "claude-sonnet-5-5",
+      served_model: "claude-sonnet-5-5",
+      fell_back: false,
+      effort: "medium",
+      input_tokens: 1200,
+      output_tokens: 900,
+      thinking_tokens: 300,
+      cache_creation_input_tokens: 10,
+      cache_read_input_tokens: 20,
+    });
+    expect(JSON.stringify(event)).not.toContain("Analyze Player X");
+  });
+
+  it("returns null for token counts the API did not report", () => {
+    const record = buildModelUsageRecord(
+      { model: "claude-sonnet-5-5", stop_reason: "end_turn", usage: { input_tokens: 50, output_tokens: 20 } },
+      { kind: "single", model: "claude-sonnet-5-5", effort: "medium", durationMs: 5 }
+    );
+    expect(record).toMatchObject({ inputTokens: 50, outputTokens: 20, thinkingTokens: null, cacheCreationInputTokens: null, cacheReadInputTokens: null, fellBack: false });
+
+    const empty = buildModelUsageRecord(
+      { model: "claude-sonnet-5-5", stop_reason: null },
+      { kind: "single", model: "claude-sonnet-5-5", effort: "medium", durationMs: 5 }
+    );
+    expect(empty).toMatchObject({ inputTokens: null, outputTokens: null, thinkingTokens: null, stopReason: null });
+  });
+});
 
 describe("structured Claude prompt", () => {
   it("requires vibes to meaningfully alter writing style", () => {

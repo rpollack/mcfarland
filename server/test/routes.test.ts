@@ -382,6 +382,24 @@ describe("McFARLAND API", () => {
     expect(analysisHandler).toHaveBeenCalledTimes(1);
   });
 
+  it("tells the model layer which feature each call is for, so usage can be broken down by feature", async () => {
+    const analysisHandler = vi.fn(async (prompt: string, persona: string, _mode: string, _kind: string) => ({
+      prompt,
+      persona,
+      headline: "Headline",
+      analysis: "Analysis",
+      cached: false,
+    }));
+    __setAnalysisHandlerForTests(analysisHandler);
+
+    const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter" });
+    const playerIds = listBody.players.slice(0, 2).map((p: any) => p.id);
+    await request(app).post("/api/analyze").send({ playerId: playerIds[0], playerType: "hitter", analysisMode: "straightforward" });
+    await request(app).post("/api/compare/analyze").send({ playerType: "hitter", playerIds, analysisMode: "straightforward" });
+
+    expect(analysisHandler.mock.calls.map((call) => call[3])).toEqual(["single", "compare"]);
+  });
+
   it("does not cache unavailable Claude responses", async () => {
     const memoryCache = createMemoryCacheStore();
     __setAnalysisCacheStoreForTests(memoryCache.store);
@@ -431,7 +449,9 @@ describe("McFARLAND API", () => {
     await request(app).post("/api/analyze").send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
 
     await settleCacheWrites();
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    // Count model requests only; each one also forwards a usage event to Amplitude through fetch.
+    const modelRequests = fetchSpy.mock.calls.filter(([input]) => String(input).includes("/v1/messages"));
+    expect(modelRequests).toHaveLength(2);
     expect(memoryCache.rows.size).toBe(0);
   });
 

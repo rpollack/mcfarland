@@ -51,6 +51,7 @@ async function getAnalysisResponse(params: {
   mode: AnalysisMode;
   playerType: "hitter" | "pitcher";
   playerIds: string[];
+  kind: "single" | "compare" | "mirage_intro";
 }) {
   const freshness = getDataFreshness();
   const cacheKey = buildAnalysisCacheKey(params.mode, params.prompt);
@@ -65,7 +66,7 @@ async function getAnalysisResponse(params: {
     };
   }
 
-  const response = await callClaudeAnalysis(params.prompt, params.persona, params.mode);
+  const response = await callClaudeAnalysis(params.prompt, params.persona, params.mode, params.kind);
   if (isCacheableAnalysisResponse(response)) {
     void saveCachedAnalysis({
       cacheKey,
@@ -190,6 +191,7 @@ router.post("/api/mirage-board/intro", analyzeLimiter, async (req, res) => {
       mode,
       playerType,
       playerIds: [...board.lucky, ...board.unlucky].map((row) => row.id),
+      kind: "mirage_intro",
     });
     // The board is still useful without its intro, so a missing intro is an error, not text to display.
     if (response.headline === ANALYSIS_UNAVAILABLE_HEADLINE) {
@@ -236,6 +238,7 @@ router.post("/api/analyze", analyzeLimiter, async (req, res) => {
       mode,
       playerType,
       playerIds: [playerId],
+      kind: "single",
     });
     const sessionId = req.get("x-session-id") ?? "";
     res.json(response);
@@ -370,6 +373,7 @@ router.post("/api/compare/analyze", analyzeLimiter, async (req, res) => {
       mode,
       playerType,
       playerIds,
+      kind: "compare",
     });
 
     const sessionId = req.get("x-session-id") ?? "";

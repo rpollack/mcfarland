@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { buildModelUsageRecord, recordModelUsage, type ModelCallKind } from "./modelUsage.js";
 import type { AnalysisMode } from "./vibes.js";
 
 interface AnalysisResponse {
@@ -30,7 +31,8 @@ type ParsedFantasyPayload = {
   analysis: string;
 };
 
-type ChatHandler = (prompt: string, persona: string, mode: AnalysisMode) => Promise<AnalysisResponse>;
+type AnalysisCallKind = Exclude<ModelCallKind, "fantasy">;
+type ChatHandler = (prompt: string, persona: string, mode: AnalysisMode, kind: AnalysisCallKind) => Promise<AnalysisResponse>;
 type FantasyDecisionHandler = (prompt: string) => Promise<FantasyDecisionResponse>;
 
 let testChatHandler: ChatHandler | null = null;
@@ -38,6 +40,7 @@ let testFantasyDecisionHandler: FantasyDecisionHandler | null = null;
 const uncacheableResponses = new WeakSet<AnalysisResponse>();
 const uncacheableFantasyResponses = new WeakSet<FantasyDecisionResponse>();
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5-5";
+const MODEL_EFFORT = "medium";
 /** Headline used when no analysis could be produced (missing API key or a failed model call). */
 export const ANALYSIS_UNAVAILABLE_HEADLINE = "Analysis unavailable";
 
@@ -213,20 +216,29 @@ const FANTASY_OUTPUT_SCHEMA = {
   additionalProperties: false,
 };
 
-async function runMessage(apiKey: string, prompt: string, schema: Record<string, unknown>): Promise<string> {
+async function runMessage(
+  apiKey: string,
+  prompt: string,
+  schema: Record<string, unknown>,
+  meta: { kind: ModelCallKind; analysisMode?: string }
+): Promise<string> {
   const model = process.env.ANTHROPIC_MODEL?.trim() || DEFAULT_ANTHROPIC_MODEL;
   // Haiku has no server-side refusal fallback; other current models retry declines on Anthropic's recommended model.
   const fallbackOptions = model.startsWith("claude-haiku")
     ? {}
     : { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const };
+  const startedAt = Date.now();
   const response = await new Anthropic({ apiKey }).beta.messages.create({
     model,
     max_tokens: 16000,
     ...fallbackOptions,
-    output_config: { effort: "medium", format: { type: "json_schema", schema } },
+    output_config: { effort: MODEL_EFFORT, format: { type: "json_schema", schema } },
     system: SYSTEM_PROMPT,
     messages: [{ role: "user", content: prompt }],
   });
+
+  // Recorded before the refusal check: a declined request still bills tokens.
+  recordModelUsage(buildModelUsageRecord(response, { ...meta, model, effort: MODEL_EFFORT, durationMs: Date.now() - startedAt }));
 
   if (response.stop_reason === "refusal") {
     throw new Error(`Request declined${response.stop_details?.category ? ` (${response.stop_details.category})` : ""}`);
@@ -241,9 +253,14 @@ async function runMessage(apiKey: string, prompt: string, schema: Record<string,
   return text || "No response returned from the Anthropic API.";
 }
 
-export async function callClaudeAnalysis(prompt: string, persona: string, mode: AnalysisMode): Promise<AnalysisResponse> {
+export async function callClaudeAnalysis(
+  prompt: string,
+  persona: string,
+  mode: AnalysisMode,
+  kind: AnalysisCallKind = "single"
+): Promise<AnalysisResponse> {
   if (testChatHandler) {
-    return testChatHandler(prompt, persona, mode);
+    return testChatHandler(prompt, persona, mode, kind);
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -260,7 +277,10 @@ export async function callClaudeAnalysis(prompt: string, persona: string, mode: 
   }
 
   try {
-    const payload = await runMessage(apiKey, buildStructuredAnalysisPrompt(prompt, persona, mode), ANALYSIS_OUTPUT_SCHEMA);
+    const payload = await runMessage(apiKey, buildStructuredAnalysisPrompt(prompt, persona, mode), ANALYSIS_OUTPUT_SCHEMA, {
+      kind,
+      analysisMode: mode,
+    });
     const parsed = parseJsonPayload(payload);
     const analysis = parsed?.analysis || payload;
     const headline = parsed?.headline || buildFallbackHeadline(analysis);
@@ -313,7 +333,8 @@ export async function callClaudeFantasyDecision(prompt: string): Promise<Fantasy
         "",
         prompt,
       ].join("\n"),
-      FANTASY_OUTPUT_SCHEMA
+      FANTASY_OUTPUT_SCHEMA,
+      { kind: "fantasy" }
     );
     const parsed = parseFantasyJsonPayload(payload);
     if (!parsed) {
