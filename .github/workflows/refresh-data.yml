@@ -43,7 +43,8 @@ jobs:
       - name: Install R dependencies
         run: |
           mkdir -p "${R_LIBS_USER}"
-          cat >> ~/.Rprofile <<'RPROFILE'
+          export R_PROFILE_USER="${RUNNER_TEMP}/install.Rprofile"
+          cat > "${R_PROFILE_USER}" <<'RPROFILE'
           options(
             repos = c(CRAN = Sys.getenv("RSPM", "https://cloud.r-project.org")),
             HTTPUserAgent = sprintf("R/%s R (%s)", getRversion(), paste(getRversion(), R.version["platform"], R.version["arch"], R.version["os"]))
