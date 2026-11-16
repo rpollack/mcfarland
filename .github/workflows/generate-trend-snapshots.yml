@@ -1,8 +1,9 @@
 name: Generate Trend Snapshots
 
+# Called by the data refresh workflow once the refreshed data is live. Running it on its own schedule let it
+# beat the refresh and snapshot the previous day's data, so it no longer has one.
 on:
-  schedule:
-    - cron: "15 11 * * *"
+  workflow_call:
   workflow_dispatch:
 
 jobs:
