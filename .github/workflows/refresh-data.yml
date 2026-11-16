@@ -14,6 +14,8 @@ on:
 jobs:
   refresh:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     env:
       R_LIBS_USER: ${{ github.workspace }}/.github/r-lib
     steps:
@@ -118,3 +120,105 @@ jobs:
           gh pr merge --auto --squash \
             --subject "Daily baseball data refresh ${{ steps.refresh_meta.outputs.refresh_date }}" \
             "${{ steps.cpr.outputs.pull-request-number }}"
+
+      # The trend snapshot copies whatever data the running server has loaded, once per date. It used to run on
+      # its own cron and could land before this refresh had merged and deployed, snapshotting yesterday's data
+      # under today's date for good. So it now runs from this workflow, only once the new data is live.
+      - name: Wait for the refresh PR to merge
+        if: steps.cpr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ secrets.REFRESH_PR_TOKEN }}
+          PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
+        run: |
+          for _ in $(seq 1 60); do
+            state=$(gh pr view "${PR_NUMBER}" --json state --jq .state)
+            [[ "${state}" == "MERGED" ]] && exit 0
+            if [[ "${state}" == "CLOSED" ]]; then
+              echo "::error::Refresh PR #${PR_NUMBER} was closed without merging."
+              exit 1
+            fi
+            sleep 30
+          done
+          echo "::error::Refresh PR #${PR_NUMBER} did not merge within 30 minutes."
+          exit 1
+
+      - name: Wait for the refreshed data to be live
+        if: steps.cpr.outputs.pull-request-number != ''
+        env:
+          TRENDS_SNAPSHOT_URL: ${{ secrets.TRENDS_SNAPSHOT_URL }}
+        run: |
+          git fetch --quiet --depth=1 origin master
+          expected=$(git show origin/master:data_freshness.json | jq -r .data_through_date)
+          base="${TRENDS_SNAPSHOT_URL%%/api/*}"
+          for _ in $(seq 1 40); do
+            live=$(curl --silent --max-time 30 "${base}/api/data-freshness" | jq -r '.dataThroughDate // empty' || true)
+            if [[ "${live}" == "${expected}" ]]; then
+              echo "Live data is through ${live}."
+              exit 0
+            fi
+            echo "Live data is through '${live:-unknown}', waiting for ${expected}."
+            sleep 30
+          done
+          echo "::error::The deployed app did not reach data through ${expected} within 20 minutes."
+          exit 1
+
+  trends:
+    needs: refresh
+    if: github.event.inputs.publish != 'false'
+    uses: ./.github/workflows/generate-trend-snapshots.yml
+    secrets: inherit
+
+  # A single failure email is easy to write off as a blip. This job fails with a message that says how many
+  # runs in a row have failed, and when the live data is stale in season, so the email reads differently.
+  monitor:
+    needs: [refresh, trends]
+    if: always()
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Check refresh health
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          REFRESH_RESULT: ${{ needs.refresh.result }}
+          TRENDS_RESULT: ${{ needs.trends.result }}
+          TRENDS_SNAPSHOT_URL: ${{ secrets.TRENDS_SNAPSHOT_URL }}
+        run: |
+          problems=()
+
+          if [[ "${REFRESH_RESULT}" == "failure" || "${TRENDS_RESULT}" == "failure" ]]; then
+            # Count the failed runs immediately before this one, newest first, stopping at the first non-failure.
+            streak=1
+            while read -r conclusion; do
+              [[ "${conclusion}" == "failure" ]] || break
+              streak=$((streak + 1))
+            done < <(gh run list --workflow refresh-data.yml --branch master --limit 30 \
+              --json databaseId,status,conclusion \
+              --jq ".[] | select(.status == \"completed\" and .databaseId != (${RUN_ID} | tonumber)) | .conclusion")
+            echo "Consecutive failed refresh runs, including this one: ${streak}" | tee -a "${GITHUB_STEP_SUMMARY}"
+            if (( streak >= 2 )); then
+              problems+=("The daily data refresh has failed ${streak} runs in a row.")
+            fi
+          fi
+
+          # Regular season only: stats legitimately stand still in the offseason.
+          month=$(date -u +%-m)
+          base="${TRENDS_SNAPSHOT_URL%%/api/*}"
+          live=$(curl --silent --max-time 30 --retry 3 "${base}/api/data-freshness" | jq -r '.dataThroughDate // empty' || true)
+          if [[ -z "${live}" ]]; then
+            echo "::warning::Could not read the live data date from ${base}/api/data-freshness."
+          else
+            age=$(( ( $(date -u +%s) - $(date -u -d "${live}" +%s) ) / 86400 ))
+            echo "Live data is through ${live} (${age} days old)." | tee -a "${GITHUB_STEP_SUMMARY}"
+            if (( month >= 4 && month <= 9 && age > 3 )); then
+              problems+=("The live data is ${age} days old (through ${live}) during the season.")
+            fi
+          fi
+
+          for problem in "${problems[@]}"; do
+            echo "::error::${problem}"
+          done
+          (( ${#problems[@]} == 0 ))
