@@ -36,12 +36,19 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev zlib1g-dev pkg-config
           
-      # No `repos` argument on purpose: setup-r points R at the Posit binary mirror for this Ubuntu release,
-      # and naming CRAN here made every package compile from source (about 4 minutes). Only missing packages
-      # are installed so a restored cache is actually used; bumping this file starts a fresh cache.
+      # Install from the Posit binary mirror (setup-r exports it as RSPM). Pointing install.packages at CRAN
+      # made every package compile from source, about 4 minutes. The mirror serves binaries only to a
+      # request that identifies itself as R, hence HTTPUserAgent. Only missing packages are installed so a
+      # restored cache is actually used; bumping this file starts a fresh cache.
       - name: Install R dependencies
         run: |
           mkdir -p "${R_LIBS_USER}"
+          cat >> ~/.Rprofile <<'RPROFILE'
+          options(
+            repos = c(CRAN = Sys.getenv("RSPM", "https://cloud.r-project.org")),
+            HTTPUserAgent = sprintf("R/%s R (%s)", getRversion(), paste(getRversion(), R.version["platform"], R.version["arch"], R.version["os"]))
+          )
+          RPROFILE
           Rscript -e 'pkgs <- c("dplyr", "readr", "tibble", "stringr", "stringi", "jsonlite", "janitor", "remotes", "curl", "httr", "rvest"); missing <- setdiff(pkgs, rownames(installed.packages())); if (length(missing)) install.packages(missing)'
           Rscript -e 'library(curl); library(httr); library(rvest)'
           # baseballr needs the retired qs package; 0.27.3 is the last version that builds on R 4.3.
