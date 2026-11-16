@@ -6,23 +6,23 @@ on:
 
 jobs:
   refresh:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       R_LIBS_USER: ${{ github.workspace }}/.github/r-lib
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: '4.3'
 
       - name: Cache R package library
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.R_LIBS_USER }}
-          key: ${{ runner.os }}-r-4.3-refresh-${{ hashFiles('.github/workflows/refresh-data.yml') }}
+          key: ${{ runner.os }}-r-4.3-refresh-ubuntu2404-${{ hashFiles('.github/workflows/refresh-data.yml') }}
           restore-keys: |
-            ${{ runner.os }}-r-4.3-refresh-
+            ${{ runner.os }}-r-4.3-refresh-ubuntu2404-
 
       - name: Install system dependencies
         run: |
