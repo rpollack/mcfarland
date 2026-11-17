@@ -7,26 +7,43 @@ library(httr)
 library(jsonlite)
 library(janitor)
 
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
+# Yearly rollover: bump current_year once the new season has games (before that the stats APIs return no rows
+# and this script stops), and add last season's exports as fangraphs-leaderboards-<year>.csv and
+# pitcher-stats-<year>.csv. The hitter file is a FanGraphs leaderboard export; create the pitcher file with
+#   Rscript refresh_data.R export-pitcher-season <last season>
+# so it has the columns the baseline expects. The three seasons before current_year are the baseline, oldest
+# first; the weights make last season count five times as much as the oldest one.
 current_year <- 2026
+baseline_seasons <- data.frame(year = current_year - 3:1, weight = c(1, 3, 5))
 
-hitter_baseline_cache_file <- paste0("weighted_baselines_hitters_", current_year, ".csv")
-pitcher_baseline_cache_file <- paste0("weighted_baselines_pitchers_", current_year, ".csv")
+# The metrics compared against each player's own baseline. Each gets <metric>_diff (current minus baseline) and
+# <metric>_lg_adj_diff (that difference minus how far the whole league moved).
+hitter_metric_cols <- c("AVG", "OBP", "SLG", "K_pct", "BB_pct", "Barrel_pct", "BABIP", "wOBA", "xwOBA", "xwOBA_wOBA_gap")
+pitcher_metric_cols <- c("era", "k_percent", "bb_percent", "k_minus_bb_percent", "xera", "o_swing_percent", "csw_percent", "barrel_percent", "lob_percent", "babip")
 
-read_or_build_baseline <- function(cache_file, builder, label) {
-  if (file.exists(cache_file)) {
-    cached <- read_csv(cache_file, show_col_types = FALSE)
-    if ("baseline_for_year" %in% colnames(cached) && all(cached$baseline_for_year == current_year)) {
-      cat("Using cached", label, "weighted baselines from", cache_file, "\n")
-      return(cached |> select(-baseline_for_year))
-    }
+# =============================================================================
+# GENERAL HELPERS
+# =============================================================================
 
-    cat("Ignoring stale", label, "weighted baseline cache:", cache_file, "\n")
-  }
+safe_divide <- function(numerator, denominator) {
+  ifelse(is.na(denominator) | denominator == 0, NA_real_, numerator / denominator)
+}
 
-  cat("Building", label, "weighted baselines for", current_year, "\n")
-  baseline <- builder()
-  write_csv(baseline |> mutate(baseline_for_year = current_year), cache_file)
-  baseline
+nan_to_na <- function(value) {
+  ifelse(is.nan(value), NA_real_, value)
+}
+
+# Prefer the MLB value and fall back to the FanGraphs one when the MLB join found no match.
+coalesce_joined <- function(primary, fallback) {
+  ifelse(!is.na(primary), primary, fallback)
+}
+
+# Starters throw at least half their games as starts or average more than four innings an appearance.
+classify_pitcher_role <- function(gs, g, ip) {
+  if_else(gs / g >= .5 | ip / g > 4, "SP", "RP")
 }
 
 # The MLB and FanGraphs endpoints fail transiently now and then; a few retries keep one blip from costing a day
@@ -45,8 +62,14 @@ with_retry <- function(fn, label, attempts = 3, wait_seconds = 10) {
   stop(label, " failed after ", attempts, " attempts: ", conditionMessage(result), call. = FALSE)
 }
 
-safe_divide <- function(numerator, denominator) {
-  ifelse(is.na(denominator) | denominator == 0, NA_real_, numerator / denominator)
+# Fail with the missing column names up front instead of a cryptic error (or silent NAs) further down when an
+# upstream source renames or drops a field.
+require_columns <- function(data, columns, label) {
+  missing <- setdiff(columns, colnames(data))
+  if (length(missing) > 0) {
+    stop(label, " is missing expected columns: ", paste(missing, collapse = ", "), call. = FALSE)
+  }
+  invisible(data)
 }
 
 parse_mlb_number <- function(value) {
@@ -55,6 +78,7 @@ parse_mlb_number <- function(value) {
   parsed
 }
 
+# MLB reports innings as "123.2" meaning 123 and two thirds.
 parse_mlb_innings <- function(value) {
   parts <- str_split_fixed(as.character(value), "\\.", 2)
   whole <- suppressWarnings(as.numeric(parts[, 1]))
@@ -70,9 +94,9 @@ normalize_mlbam_id <- function(value) {
   value
 }
 
-coalesce_joined <- function(primary, fallback) {
-  ifelse(!is.na(primary), primary, fallback)
-}
+# =============================================================================
+# FRESHNESS
+# =============================================================================
 
 read_data_through_date <- function() {
   if (!file.exists("data_freshness.json")) {
@@ -86,10 +110,14 @@ read_data_through_date <- function() {
   as.character(parsed$data_through_date)
 }
 
+# The refresh runs in the morning, so the stats cover games through yesterday (Central time).
 current_data_through_date <- function() {
-  refresh_time_ct <- as.POSIXct(format(Sys.time(), tz = "America/Chicago", usetz = TRUE), tz = "America/Chicago")
-  as.character(as.Date(refresh_time_ct) - 1)
+  as.character(as.Date(Sys.time(), tz = "America/Chicago") - 1)
 }
+
+# =============================================================================
+# FETCHING CURRENT-SEASON DATA
+# =============================================================================
 
 fetch_mlb_stats <- function(current_year, group) {
   url <- paste0(
@@ -123,13 +151,9 @@ fetch_mlb_hitter_basics <- function(current_year) {
   fetch_mlb_stats(current_year, "hitting") |>
     transmute(
       mlbamid = normalize_mlbam_id(player.id),
-      team = team.name,
-      primary_position = player.primaryPosition.abbreviation,
       AB_mlb = parse_mlb_number(stat.atBats),
       PA_mlb = parse_mlb_number(stat.plateAppearances),
       H_mlb = parse_mlb_number(stat.hits),
-      `2B_mlb` = parse_mlb_number(stat.doubles),
-      `3B_mlb` = parse_mlb_number(stat.triples),
       HR_mlb = parse_mlb_number(stat.homeRuns),
       BB_mlb = parse_mlb_number(stat.baseOnBalls),
       HBP_mlb = parse_mlb_number(stat.hitByPitch),
@@ -143,12 +167,9 @@ fetch_mlb_pitcher_basics <- function(current_year) {
   fetch_mlb_stats(current_year, "pitching") |>
     transmute(
       mlbamid = normalize_mlbam_id(player.id),
-      team = team.name,
-      primary_position = player.primaryPosition.abbreviation,
       g_mlb = parse_mlb_number(stat.gamesPitched),
       gs_mlb = parse_mlb_number(stat.gamesStarted),
       ip_mlb = parse_mlb_innings(stat.inningsPitched),
-      outs_mlb = parse_mlb_number(stat.outs),
       tbf_mlb = parse_mlb_number(stat.battersFaced),
       h_mlb = parse_mlb_number(stat.hits),
       er_mlb = parse_mlb_number(stat.earnedRuns),
@@ -164,10 +185,12 @@ fetch_mlb_pitcher_basics <- function(current_year) {
 }
 
 fetch_fangraphs_hitter_current_contract <- function(current_year) {
-  with_retry(
+  fg_hitters <- with_retry(
     function() fg_batter_leaders(pos = "np", startseason = current_year, endseason = current_year),
     "FanGraphs hitter leaders request"
-  ) |>
+  )
+  fg_hitters |>
+    require_columns(c("PlayerName", "Age", "playerid", "xMLBAMID", "AB", "PA", "1B", "2B", "3B", "HR", "H", "HBP", "SF", "wOBA", "xwOBA", "SO", "BB", "Barrels"), "FanGraphs hitter leaders") |>
     select(Name = PlayerName, Age, PlayerId = playerid, mlbamid = xMLBAMID, AB, PA, `1B`, `2B`, `3B`, HR, H, HBP, SF, wOBA, xwOBA, SO, BB, Barrels) |>
     mutate(
       PlayerId = as.character(PlayerId),
@@ -207,6 +230,7 @@ fetch_fangraphs_pitcher_current_contract <- function(current_year) {
     tibble::as_tibble() |>
     clean_names() |>
     mutate(name = str_remove_all(name, "<[^>]+>")) |>
+    require_columns(c("playerid", "x_mlbamid", "name", "season", "age", "g", "gs", "ip", "tbf", "h", "er", "hr", "so", "bb", "ibb", "hbp", "babip", "lob_percent", "fip", "x_fip", "hr_fb", "f_bv", "c_tv", "s_fv", "o_swing_percent", "c_sw_str_percent", "x_era", "position", "ev90", "barrels", "barrel_percent"), "FanGraphs pitcher leaders") |>
     select(playerid, mlbamid = x_mlbamid, name, season, age, g, gs, ip, tbf, h, er, hr, so, bb, ibb, hbp, babip, lob_percent, fip, x_fip, hr_fb, f_bv, c_tv, s_fv, o_swing_percent, csw_percent = c_sw_str_percent, x_era, position, ev90, barrels, barrel_percent) |>
     mutate(
       playerid = as.character(playerid),
@@ -215,42 +239,130 @@ fetch_fangraphs_pitcher_current_contract <- function(current_year) {
     )
 }
 
-combine_hitter_current_stats <- function(fg_contract, mlb_basics) {
+# =============================================================================
+# SHARED AGGREGATION
+# =============================================================================
+# The same hitter and pitcher metrics are needed three ways: per player over the baseline seasons, league-wide
+# over the baseline seasons, and (hitters) per player and league-wide for the current season. Each way feeds the
+# same summary function so the formulas cannot drift apart. Input rows carry a weight column `w`: the season
+# weight for baselines, 1 for the current season.
+
+summarize_hitter_metrics <- function(data, na.rm = TRUE, ...) {
+  summarize(
+    data,
+    AVG = safe_divide(sum(H * w, na.rm = na.rm), sum(AB * w, na.rm = na.rm)),
+    OBP = safe_divide(sum(H * w, na.rm = na.rm) + sum(BB * w, na.rm = na.rm) + sum(HBP * w, na.rm = na.rm), sum(AB * w, na.rm = na.rm) + sum(BB * w, na.rm = na.rm) + sum(HBP * w, na.rm = na.rm) + sum(SF * w, na.rm = na.rm)),
+    SLG = safe_divide(sum(TB * w, na.rm = na.rm), sum(AB * w, na.rm = na.rm)),
+    K_pct = 100 * safe_divide(sum(SO * w, na.rm = na.rm), sum(PA * w, na.rm = na.rm)),
+    BB_pct = 100 * safe_divide(sum(BB * w, na.rm = na.rm), sum(PA * w, na.rm = na.rm)),
+    Barrel_pct = 100 * safe_divide(sum(Barrels * w, na.rm = na.rm), sum(PA * w, na.rm = na.rm)),
+    BABIP = safe_divide(sum(H * w, na.rm = na.rm) - sum(HR * w, na.rm = na.rm), sum(AB * w, na.rm = na.rm) - sum(SO * w, na.rm = na.rm) - sum(HR * w, na.rm = na.rm) + sum(SF * w, na.rm = na.rm)),
+    wOBA = weighted.mean(wOBA, w = PA * w, na.rm = TRUE),
+    xwOBA = weighted.mean(xwOBA, w = PA * w, na.rm = TRUE),
+    xwOBA_wOBA_gap = xwOBA - wOBA,
+    PA = sum(PA, na.rm = na.rm),
+    ...,
+    .groups = "drop"
+  ) |>
+    mutate(across(c(wOBA, xwOBA, xwOBA_wOBA_gap, Barrel_pct), nan_to_na))
+}
+
+summarize_pitcher_baseline_metrics <- function(data, na.rm = TRUE) {
+  summarize(
+    data,
+    era = safe_divide(sum(er * w, na.rm = na.rm), sum(ip * w, na.rm = na.rm)) * 9,
+    k_percent = safe_divide(sum(so * w, na.rm = na.rm), sum(tbf * w, na.rm = na.rm)) * 100,
+    bb_percent = safe_divide(sum(bb * w, na.rm = na.rm), sum(tbf * w, na.rm = na.rm)) * 100,
+    k_minus_bb_percent = k_percent - bb_percent,
+    xera = weighted.mean(x_era, w = tbf * w, na.rm = TRUE),
+    era_xera_gap = era - xera,
+    fip = weighted.mean(fip, w = tbf * w, na.rm = TRUE),
+    era_fip_gap = era - fip,
+    barrel_percent = weighted.mean(barrel_percent, w = tbf * w, na.rm = TRUE) * 100,
+    o_swing_percent = weighted.mean(o_swing_percent, w = tbf * w, na.rm = TRUE) * 100,
+    babip = weighted.mean(babip, w = tbf * w, na.rm = TRUE),
+    lob_percent = weighted.mean(lob_percent, w = tbf * w, na.rm = TRUE) * 100,
+    csw_percent = weighted.mean(c_sw_str_percent, w = tbf * w, na.rm = TRUE) * 100,
+    hr_fb = weighted.mean(hr_fb, w = tbf * w, na.rm = TRUE),
+    .groups = "drop"
+  )
+}
+
+# =============================================================================
+# BASELINES (weighted history)
+# =============================================================================
+
+# Every season file must carry the columns the summaries use. A file in another shape (a raw FanGraphs export
+# instead of the layout below, say) would otherwise bind in as all-NA rows and quietly drop that season.
+hitter_baseline_columns <- c("Name", "PlayerId", "AB", "PA", "H", "1B", "2B", "3B", "HR", "BB", "HBP", "SF", "SO", "Barrels", "wOBA", "xwOBA")
+pitcher_baseline_columns <- c("playerid", "name", "position", "er", "ip", "so", "bb", "tbf", "x_era", "fip", "barrel_percent", "o_swing_percent", "babip", "lob_percent", "c_sw_str_percent", "hr_fb")
+
+read_baseline_seasons <- function(file_prefix, required_columns) {
+  seasons <- lapply(seq_len(nrow(baseline_seasons)), function(i) {
+    file <- paste0(file_prefix, baseline_seasons$year[i], ".csv")
+    if (!file.exists(file)) {
+      stop("Baseline season file ", file, " is missing; add last season's export before refreshing.", call. = FALSE)
+    }
+    read_csv(file, show_col_types = FALSE) |>
+      require_columns(required_columns, file) |>
+      mutate(year = baseline_seasons$year[i], w = baseline_seasons$weight[i])
+  })
+  bind_rows(seasons)
+}
+
+read_hitter_baseline_seasons <- function() {
+  read_baseline_seasons("fangraphs-leaderboards-", hitter_baseline_columns) |>
+    mutate(
+      TB = `1B` + 2 * `2B` + 3 * `3B` + 4 * HR,
+      Name = stri_trans_general(Name, id = "Latin-ASCII")
+    )
+}
+
+read_pitcher_baseline_seasons <- function() {
+  read_baseline_seasons("pitcher-stats-", pitcher_baseline_columns) |>
+    mutate(playerid = as.character(playerid))
+}
+
+# Writes pitcher-stats-<year>.csv for a finished season: the same FanGraphs pull used for the current season,
+# with the role classified the way the current-season stats classify it, in the layout read_baseline_seasons
+# expects. Run it once a year (see CONFIGURATION).
+export_pitcher_season <- function(year) {
+  file <- paste0("pitcher-stats-", year, ".csv")
+  fetch_fangraphs_pitcher_current_contract(year) |>
+    mutate(position = classify_pitcher_role(gs, g, ip)) |>
+    rename(c_sw_str_percent = csw_percent) |>
+    write_csv(file)
+  cat("Wrote", file, "\n")
+}
+
+# =============================================================================
+# CURRENT SEASON
+# =============================================================================
+
+# FanGraphs supplies the player list and the Statcast fields; MLB's own totals win for the counting stats
+# because they update sooner. Rows with no MLB match fall back to FanGraphs and are flagged source_fallback.
+join_hitter_sources <- function(fg_contract, mlb_basics) {
   fg_contract |>
     left_join(mlb_basics, by = "mlbamid") |>
     mutate(
-      AB_src = coalesce_joined(AB_mlb, AB),
-      PA_src = coalesce_joined(PA_mlb, PA),
-      H_src = coalesce_joined(H_mlb, H),
-      `2B_src` = coalesce_joined(`2B_mlb`, `2B`),
-      `3B_src` = coalesce_joined(`3B_mlb`, `3B`),
-      HR_src = coalesce_joined(HR_mlb, HR),
-      BB_src = coalesce_joined(BB_mlb, BB),
-      HBP_src = coalesce_joined(HBP_mlb, HBP),
-      SF_src = coalesce_joined(SF_mlb, SF),
-      SO_src = coalesce_joined(SO_mlb, SO),
-      TB_src = coalesce_joined(TB_mlb, TB),
-      source_fallback = is.na(PA_mlb)
-    ) |>
+      source_fallback = is.na(PA_mlb),
+      AB = coalesce_joined(AB_mlb, AB),
+      PA = coalesce_joined(PA_mlb, PA),
+      H = coalesce_joined(H_mlb, H),
+      HR = coalesce_joined(HR_mlb, HR),
+      BB = coalesce_joined(BB_mlb, BB),
+      HBP = coalesce_joined(HBP_mlb, HBP),
+      SF = coalesce_joined(SF_mlb, SF),
+      SO = coalesce_joined(SO_mlb, SO),
+      TB = coalesce_joined(TB_mlb, TB),
+      w = 1
+    )
+}
+
+combine_hitter_current_stats <- function(hitters_joined) {
+  hitters_joined |>
     group_by(Name, PlayerId) |>
-    summarize(
-      AVG = safe_divide(sum(H_src, na.rm = TRUE), sum(AB_src, na.rm = TRUE)),
-      OBP = safe_divide(sum(H_src, na.rm = TRUE) + sum(BB_src, na.rm = TRUE) + sum(HBP_src, na.rm = TRUE), sum(AB_src, na.rm = TRUE) + sum(BB_src, na.rm = TRUE) + sum(HBP_src, na.rm = TRUE) + sum(SF_src, na.rm = TRUE)),
-      SLG = safe_divide(sum(TB_src, na.rm = TRUE), sum(AB_src, na.rm = TRUE)),
-      K_pct = 100 * safe_divide(sum(SO_src, na.rm = TRUE), sum(PA_src, na.rm = TRUE)),
-      BB_pct = 100 * safe_divide(sum(BB_src, na.rm = TRUE), sum(PA_src, na.rm = TRUE)),
-      Barrel_pct = 100 * safe_divide(sum(Barrels, na.rm = TRUE), sum(PA_src, na.rm = TRUE)),
-      BABIP = safe_divide(sum(H_src, na.rm = TRUE) - sum(HR_src, na.rm = TRUE), sum(AB_src, na.rm = TRUE) - sum(SO_src, na.rm = TRUE) - sum(HR_src, na.rm = TRUE) + sum(SF_src, na.rm = TRUE)),
-      wOBA = weighted.mean(wOBA, w = PA_src, na.rm = TRUE),
-      xwOBA = weighted.mean(xwOBA, w = PA_src, na.rm = TRUE),
-      xwOBA_wOBA_gap = xwOBA - wOBA,
-      PA = sum(PA_src, na.rm = TRUE),
-      Age = first(Age),
-      mlbamid = first(mlbamid),
-      source_fallback = any(source_fallback),
-      .groups = "drop"
-    ) |>
-    mutate(across(c(wOBA, xwOBA, xwOBA_wOBA_gap, Barrel_pct), ~ ifelse(is.nan(.x), NA_real_, .x)))
+    summarize_hitter_metrics(Age = first(Age), mlbamid = first(mlbamid), source_fallback = any(source_fallback))
 }
 
 combine_pitcher_current_stats <- function(fg_contract, mlb_basics) {
@@ -263,6 +375,8 @@ combine_pitcher_current_stats <- function(fg_contract, mlb_basics) {
       tbf = coalesce_joined(tbf_mlb, tbf),
       h = coalesce_joined(h_mlb, h),
       er = coalesce_joined(er_mlb, er),
+      # The FanGraphs pitcher feed has no runs allowed, so an unmatched pitcher falls back to earned runs. That
+      # only slightly overstates his LOB%.
       r = coalesce_joined(r_mlb, er),
       hr = coalesce_joined(hr_mlb, hr),
       so = coalesce_joined(so_mlb, so),
@@ -272,7 +386,7 @@ combine_pitcher_current_stats <- function(fg_contract, mlb_basics) {
       ab = ab_mlb,
       sf = sf_mlb,
       xera = x_era,
-      position = if_else(gs / g >= .5 | ip / g > 4, "SP", "RP"),
+      position = classify_pitcher_role(gs, g, ip),
       k_percent = 100 * safe_divide(so, tbf),
       bb_percent = 100 * safe_divide(bb, tbf),
       k_minus_bb_percent = k_percent - bb_percent,
@@ -288,6 +402,55 @@ combine_pitcher_current_stats <- function(fg_contract, mlb_basics) {
       source_fallback = is.na(tbf_mlb)
     )
 }
+
+build_pitcher_league_current <- function(pitching_stats_current) {
+  pitching_stats_current |>
+    summarize(
+      era = 9 * safe_divide(sum(er, na.rm = TRUE), sum(ip, na.rm = TRUE)),
+      k_percent = 100 * safe_divide(sum(so, na.rm = TRUE), sum(tbf, na.rm = TRUE)),
+      bb_percent = 100 * safe_divide(sum(bb, na.rm = TRUE), sum(tbf, na.rm = TRUE)),
+      k_minus_bb_percent = k_percent - bb_percent,
+      xera = weighted.mean(xera, w = tbf, na.rm = TRUE),
+      o_swing_percent = weighted.mean(o_swing_percent, w = tbf, na.rm = TRUE),
+      csw_percent = weighted.mean(csw_percent, w = tbf, na.rm = TRUE),
+      barrel_percent = weighted.mean(barrel_percent, w = tbf, na.rm = TRUE),
+      lob_percent = weighted.mean(lob_percent, w = tbf, na.rm = TRUE),
+      babip = weighted.mean(babip, w = tbf, na.rm = TRUE)
+    )
+}
+
+# =============================================================================
+# DIFFS AGAINST BASELINE
+# =============================================================================
+# `data` holds <metric>_cur and <metric>_l3 columns from joining current stats to the baseline.
+
+add_baseline_diffs <- function(data, metric_cols) {
+  for (metric in metric_cols) {
+    data[[paste0(metric, "_diff")]] <- data[[paste0(metric, "_cur")]] - data[[paste0(metric, "_l3")]]
+  }
+  data
+}
+
+build_league_diffs <- function(current, baseline, metric_cols) {
+  diffs <- list()
+  for (metric in metric_cols) {
+    diffs[[metric]] <- current[[metric]][1] - baseline[[metric]][1]
+  }
+  diffs
+}
+
+add_league_adjusted_diffs <- function(data, metric_cols, league_diffs) {
+  for (metric in metric_cols) {
+    diff_col <- paste0(metric, "_diff")
+    adjusted_col <- paste0(metric, "_lg_adj_diff")
+    data[[adjusted_col]] <- data[[diff_col]] - league_diffs[[metric]]
+  }
+  data
+}
+
+# =============================================================================
+# LOOKUP AND VALIDATION
+# =============================================================================
 
 build_player_lookup <- function(full_stats_hitters, full_stats_pitchers) {
   hitter_names <- full_stats_hitters$Name
@@ -371,36 +534,9 @@ compare_numeric_parity <- function(locked_data, candidate_data, tolerance = 0.00
   bind_rows(mismatches)
 }
 
-validate_diff_fields <- function(candidate_data) {
-  diff_fields <- grep("_diff$", colnames(candidate_data), value = TRUE)
-  mismatches <- lapply(diff_fields, function(diff_field) {
-    base <- str_remove(diff_field, "_diff$")
-    cur_field <- paste0(base, "_cur")
-    l3_field <- paste0(base, "_l3")
-    if (!cur_field %in% colnames(candidate_data) || !l3_field %in% colnames(candidate_data)) {
-      return(NULL)
-    }
-
-    expected <- candidate_data[[cur_field]] - candidate_data[[l3_field]]
-    actual <- candidate_data[[diff_field]]
-    diff <- abs(actual - expected)
-    bad <- which(!is.na(diff) & diff > 0.0015)
-    if (length(bad) == 0) {
-      return(NULL)
-    }
-
-    tibble::tibble(
-      row_key = row_keys(candidate_data)[bad],
-      field = diff_field,
-      expected_value = expected[bad],
-      actual_value = actual[bad],
-      difference = actual[bad] - expected[bad]
-    )
-  })
-
-  bind_rows(mismatches)
-}
-
+# Compares the freshly built candidate files with the files currently in production. When the data-through date
+# has not moved, the candidate must match production exactly (same players, same stats); when it has moved the
+# stats are expected to differ, so only the integrity checks apply (unique IDs, every served player has an MLB id).
 validate_migration_parity <- function(locked_hitters, locked_pitchers, locked_lookup, candidate_hitters, candidate_pitchers, candidate_lookup, locked_data_through_date, candidate_data_through_date) {
   locked_all <- bind_rows(locked_hitters, locked_pitchers)
   candidate_all <- bind_rows(candidate_hitters, candidate_pitchers)
@@ -430,10 +566,6 @@ validate_migration_parity <- function(locked_hitters, locked_pitchers, locked_lo
   } else {
     tibble::tibble()
   }
-  diff_mismatches <- bind_rows(
-    validate_diff_fields(candidate_hitters),
-    validate_diff_fields(candidate_pitchers)
-  )
 
   report <- list(
     status = "pass",
@@ -456,7 +588,6 @@ validate_migration_parity <- function(locked_hitters, locked_pitchers, locked_lo
     missing_mlbamids = missing_mlbamids,
     fallback_rows = fallback_rows,
     stat_mismatches = stat_mismatches,
-    diff_mismatches = diff_mismatches,
     warnings = list()
   )
 
@@ -469,7 +600,6 @@ validate_migration_parity <- function(locked_hitters, locked_pitchers, locked_lo
   if (nrow(duplicate_compound_ids) > 0) failures <- c(failures, "duplicate compound IDs")
   if (nrow(missing_mlbamids) > 0) failures <- c(failures, "served players missing mlbamid")
   if (same_cutoff && nrow(stat_mismatches) > 0) failures <- c(failures, "stat parity mismatches")
-  if (nrow(diff_mismatches) > 0) failures <- c(failures, "diff fields do not equal current minus baseline")
 
   report$failures <- failures
   if (length(failures) > 0) {
@@ -492,238 +622,51 @@ promote_candidate_outputs <- function(report) {
   TRUE
 }
 
-build_hitter_baselines <- function() {
-  bind_rows(
-    read_csv("fangraphs-leaderboards-2023.csv", show_col_types = FALSE) |> mutate(year = 2023),
-    read_csv("fangraphs-leaderboards-2024.csv", show_col_types = FALSE) |> mutate(year = 2024),
-    read_csv("fangraphs-leaderboards-2025.csv", show_col_types = FALSE) |> mutate(year = 2025)
-  ) |>
-    mutate(
-      TB = `1B` + 2 * `2B` + 3 * `3B` + 4 * HR,
-      Name = stri_trans_general(Name, id = "Latin-ASCII"),
-      baseline_weight = case_when(
-        year == current_year - 1 ~ 5,
-        year == current_year - 2 ~ 3,
-        year == current_year - 3 ~ 1,
-        TRUE ~ 0
-      )
-    ) |>
-    group_by(Name, PlayerId) |>
-    summarize(
-      AVG = sum(H * baseline_weight) / sum(AB * baseline_weight),
-      OBP = (sum(H * baseline_weight) + sum(BB * baseline_weight) + sum(HBP * baseline_weight)) / (sum(AB * baseline_weight) + sum(BB * baseline_weight) + sum(HBP * baseline_weight) + sum(SF * baseline_weight)),
-      SLG = sum(TB * baseline_weight) / sum(AB * baseline_weight),
-      K_pct = 100 * sum(SO * baseline_weight) / sum(PA * baseline_weight),
-      BB_pct = 100 * sum(BB * baseline_weight) / sum(PA * baseline_weight),
-      Barrel_pct = 100 * sum(Barrels * baseline_weight) / sum(PA * baseline_weight),
-      BABIP = (sum(H * baseline_weight) - sum(HR * baseline_weight)) / (sum(AB * baseline_weight) - sum(SO * baseline_weight) - sum(HR * baseline_weight) + sum(SF * baseline_weight)),
-      wOBA = weighted.mean(wOBA, w = PA * baseline_weight, na.rm = TRUE),
-      xwOBA = weighted.mean(xwOBA, w = PA * baseline_weight, na.rm = TRUE),
-      xwOBA_wOBA_gap = xwOBA - wOBA,
-      PA = sum(PA),
-      .groups = "drop"
-    )
-}
+# =============================================================================
+# ENTRY POINT
+# =============================================================================
 
-build_pitcher_baselines <- function() {
-  bind_rows(
-    read_csv("pitcher-stats-2023.csv", show_col_types = FALSE) |> mutate(year = 2023),
-    read_csv("pitcher-stats-2024.csv", show_col_types = FALSE) |> mutate(year = 2024),
-    read_csv("pitcher-stats-2025.csv", show_col_types = FALSE) |> mutate(year = 2025)
-  ) |>
-    mutate(
-      baseline_weight = case_when(
-        year == current_year - 1 ~ 5,
-        year == current_year - 2 ~ 3,
-        year == current_year - 3 ~ 1,
-        TRUE ~ 0
-      )
-    ) |>
-    group_by(playerid, name, position) |>
-    summarize(
-      era = sum(er * baseline_weight) / sum(ip * baseline_weight) * 9,
-      k_percent = sum(so * baseline_weight) / sum(tbf * baseline_weight) * 100,
-      bb_percent = sum(bb * baseline_weight) / sum(tbf * baseline_weight) * 100,
-      k_minus_bb_percent = k_percent - bb_percent,
-      xera = weighted.mean(x_era, w = tbf * baseline_weight, na.rm = TRUE),
-      era_xera_gap = era - xera,
-      fip = weighted.mean(fip, w = tbf * baseline_weight, na.rm = TRUE),
-      era_fip_gap = era - fip,
-      barrel_percent = weighted.mean(barrel_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100,
-      o_swing_percent = weighted.mean(o_swing_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100,
-      babip = weighted.mean(babip, w = tbf * baseline_weight, na.rm = TRUE),
-      lob_percent = weighted.mean(lob_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100,
-      csw_percent = weighted.mean(c_sw_str_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100,
-      hr_fb = weighted.mean(hr_fb, w = tbf * baseline_weight, na.rm = TRUE),
-      .groups = "drop"
-    )
-}
-
-hitter_metric_cols <- c("AVG", "OBP", "SLG", "K_pct", "BB_pct", "Barrel_pct", "BABIP", "wOBA", "xwOBA", "xwOBA_wOBA_gap")
-pitcher_metric_cols <- c("era", "k_percent", "bb_percent", "k_minus_bb_percent", "xera", "o_swing_percent", "csw_percent", "barrel_percent", "lob_percent", "babip")
-
-build_hitter_league_baseline <- function() {
-  bind_rows(
-    read_csv("fangraphs-leaderboards-2023.csv", show_col_types = FALSE) |> mutate(year = 2023),
-    read_csv("fangraphs-leaderboards-2024.csv", show_col_types = FALSE) |> mutate(year = 2024),
-    read_csv("fangraphs-leaderboards-2025.csv", show_col_types = FALSE) |> mutate(year = 2025)
-  ) |>
-    mutate(
-      TB = `1B` + 2 * `2B` + 3 * `3B` + 4 * HR,
-      baseline_weight = case_when(
-        year == current_year - 1 ~ 5,
-        year == current_year - 2 ~ 3,
-        year == current_year - 3 ~ 1,
-        TRUE ~ 0
-      )
-    ) |>
-    summarize(
-      AVG = sum(H * baseline_weight, na.rm = TRUE) / sum(AB * baseline_weight, na.rm = TRUE),
-      OBP = (sum(H * baseline_weight, na.rm = TRUE) + sum(BB * baseline_weight, na.rm = TRUE) + sum(HBP * baseline_weight, na.rm = TRUE)) / (sum(AB * baseline_weight, na.rm = TRUE) + sum(BB * baseline_weight, na.rm = TRUE) + sum(HBP * baseline_weight, na.rm = TRUE) + sum(SF * baseline_weight, na.rm = TRUE)),
-      SLG = sum(TB * baseline_weight, na.rm = TRUE) / sum(AB * baseline_weight, na.rm = TRUE),
-      K_pct = 100 * sum(SO * baseline_weight, na.rm = TRUE) / sum(PA * baseline_weight, na.rm = TRUE),
-      BB_pct = 100 * sum(BB * baseline_weight, na.rm = TRUE) / sum(PA * baseline_weight, na.rm = TRUE),
-      Barrel_pct = 100 * sum(Barrels * baseline_weight, na.rm = TRUE) / sum(PA * baseline_weight, na.rm = TRUE),
-      BABIP = (sum(H * baseline_weight, na.rm = TRUE) - sum(HR * baseline_weight, na.rm = TRUE)) / (sum(AB * baseline_weight, na.rm = TRUE) - sum(SO * baseline_weight, na.rm = TRUE) - sum(HR * baseline_weight, na.rm = TRUE) + sum(SF * baseline_weight, na.rm = TRUE)),
-      wOBA = weighted.mean(wOBA, w = PA * baseline_weight, na.rm = TRUE),
-      xwOBA = weighted.mean(xwOBA, w = PA * baseline_weight, na.rm = TRUE),
-      xwOBA_wOBA_gap = xwOBA - wOBA
-    )
-}
-
-build_hitter_league_current <- function(fg_contract, mlb_basics) {
-  fg_contract |>
-    left_join(mlb_basics, by = "mlbamid") |>
-    mutate(
-      AB_src = coalesce_joined(AB_mlb, AB),
-      PA_src = coalesce_joined(PA_mlb, PA),
-      H_src = coalesce_joined(H_mlb, H),
-      HR_src = coalesce_joined(HR_mlb, HR),
-      BB_src = coalesce_joined(BB_mlb, BB),
-      HBP_src = coalesce_joined(HBP_mlb, HBP),
-      SF_src = coalesce_joined(SF_mlb, SF),
-      SO_src = coalesce_joined(SO_mlb, SO),
-      TB_src = coalesce_joined(TB_mlb, TB)
-    ) |>
-    summarize(
-      AVG = safe_divide(sum(H_src, na.rm = TRUE), sum(AB_src, na.rm = TRUE)),
-      OBP = safe_divide(sum(H_src, na.rm = TRUE) + sum(BB_src, na.rm = TRUE) + sum(HBP_src, na.rm = TRUE), sum(AB_src, na.rm = TRUE) + sum(BB_src, na.rm = TRUE) + sum(HBP_src, na.rm = TRUE) + sum(SF_src, na.rm = TRUE)),
-      SLG = safe_divide(sum(TB_src, na.rm = TRUE), sum(AB_src, na.rm = TRUE)),
-      K_pct = 100 * safe_divide(sum(SO_src, na.rm = TRUE), sum(PA_src, na.rm = TRUE)),
-      BB_pct = 100 * safe_divide(sum(BB_src, na.rm = TRUE), sum(PA_src, na.rm = TRUE)),
-      Barrel_pct = 100 * safe_divide(sum(Barrels, na.rm = TRUE), sum(PA_src, na.rm = TRUE)),
-      BABIP = safe_divide(sum(H_src, na.rm = TRUE) - sum(HR_src, na.rm = TRUE), sum(AB_src, na.rm = TRUE) - sum(SO_src, na.rm = TRUE) - sum(HR_src, na.rm = TRUE) + sum(SF_src, na.rm = TRUE)),
-      wOBA = weighted.mean(wOBA, w = PA_src, na.rm = TRUE),
-      xwOBA = weighted.mean(xwOBA, w = PA_src, na.rm = TRUE),
-      xwOBA_wOBA_gap = xwOBA - wOBA
-    )
-}
-
-build_pitcher_league_baseline <- function() {
-  bind_rows(
-    read_csv("pitcher-stats-2023.csv", show_col_types = FALSE) |> mutate(year = 2023),
-    read_csv("pitcher-stats-2024.csv", show_col_types = FALSE) |> mutate(year = 2024),
-    read_csv("pitcher-stats-2025.csv", show_col_types = FALSE) |> mutate(year = 2025)
-  ) |>
-    mutate(
-      baseline_weight = case_when(
-        year == current_year - 1 ~ 5,
-        year == current_year - 2 ~ 3,
-        year == current_year - 3 ~ 1,
-        TRUE ~ 0
-      )
-    ) |>
-    summarize(
-      era = sum(er * baseline_weight, na.rm = TRUE) / sum(ip * baseline_weight, na.rm = TRUE) * 9,
-      k_percent = sum(so * baseline_weight, na.rm = TRUE) / sum(tbf * baseline_weight, na.rm = TRUE) * 100,
-      bb_percent = sum(bb * baseline_weight, na.rm = TRUE) / sum(tbf * baseline_weight, na.rm = TRUE) * 100,
-      k_minus_bb_percent = k_percent - bb_percent,
-      xera = weighted.mean(x_era, w = tbf * baseline_weight, na.rm = TRUE),
-      barrel_percent = weighted.mean(barrel_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100,
-      o_swing_percent = weighted.mean(o_swing_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100,
-      babip = weighted.mean(babip, w = tbf * baseline_weight, na.rm = TRUE),
-      lob_percent = weighted.mean(lob_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100,
-      csw_percent = weighted.mean(c_sw_str_percent, w = tbf * baseline_weight, na.rm = TRUE) * 100
-    )
-}
-
-build_pitcher_league_current <- function(pitching_stats_current) {
-  pitching_stats_current |>
-    summarize(
-      era = 9 * safe_divide(sum(er, na.rm = TRUE), sum(ip, na.rm = TRUE)),
-      k_percent = 100 * safe_divide(sum(so, na.rm = TRUE), sum(tbf, na.rm = TRUE)),
-      bb_percent = 100 * safe_divide(sum(bb, na.rm = TRUE), sum(tbf, na.rm = TRUE)),
-      k_minus_bb_percent = k_percent - bb_percent,
-      xera = weighted.mean(xera, w = tbf, na.rm = TRUE),
-      o_swing_percent = weighted.mean(o_swing_percent, w = tbf, na.rm = TRUE),
-      csw_percent = weighted.mean(csw_percent, w = tbf, na.rm = TRUE),
-      barrel_percent = weighted.mean(barrel_percent, w = tbf, na.rm = TRUE),
-      lob_percent = weighted.mean(lob_percent, w = tbf, na.rm = TRUE),
-      babip = weighted.mean(babip, w = tbf, na.rm = TRUE)
-    )
-}
-
-build_league_diffs <- function(current, baseline, metric_cols) {
-  diffs <- list()
-  for (metric in metric_cols) {
-    diffs[[metric]] <- current[[metric]][1] - baseline[[metric]][1]
-  }
-  diffs
-}
-
-add_league_adjusted_diffs <- function(data, metric_cols, league_diffs) {
-  for (metric in metric_cols) {
-    diff_col <- paste0(metric, "_diff")
-    adjusted_col <- paste0(metric, "_lg_adj_diff")
-    data[[adjusted_col]] <- data[[diff_col]] - league_diffs[[metric]]
-  }
-  data
+script_args <- commandArgs(trailingOnly = TRUE)
+if (length(script_args) == 2 && script_args[1] == "export-pitcher-season") {
+  export_pitcher_season(as.integer(script_args[2]))
+  quit(save = "no")
 }
 
 # =============================================================================
-# HITTERS DATA PROCESSING
+# HITTERS
 # =============================================================================
 
-hitters_last_3 <- read_or_build_baseline(hitter_baseline_cache_file, build_hitter_baselines, "hitter")
-hitters_last_3 <- hitters_last_3 |> mutate(PlayerId = as.character(PlayerId))
-hitter_league_baseline <- build_hitter_league_baseline()
+hitter_baseline_history <- read_hitter_baseline_seasons()
+hitters_last_3 <- hitter_baseline_history |>
+  group_by(Name, PlayerId) |>
+  summarize_hitter_metrics(na.rm = FALSE) |>
+  mutate(PlayerId = as.character(PlayerId))
+hitter_league_baseline <- summarize_hitter_metrics(hitter_baseline_history)
 
 fangraphs_hitters <- fetch_fangraphs_hitter_current_contract(current_year)
 mlb_hitter_basics <- fetch_mlb_hitter_basics(current_year)
-hitters_this_year <- combine_hitter_current_stats(fangraphs_hitters, mlb_hitter_basics)
-hitter_league_current <- build_hitter_league_current(fangraphs_hitters, mlb_hitter_basics)
+hitters_joined <- join_hitter_sources(fangraphs_hitters, mlb_hitter_basics)
+hitters_this_year <- combine_hitter_current_stats(hitters_joined)
+hitter_league_current <- summarize_hitter_metrics(hitters_joined)
 hitter_league_diffs <- build_league_diffs(hitter_league_current, hitter_league_baseline, hitter_metric_cols)
 
-# Combine hitter data and compute differences
 full_stats_hitters <-
   hitters_this_year |>
   left_join(hitters_last_3, by = c("Name", "PlayerId"), suffix = c("_cur", "_l3")) |>
-  mutate(
-    AVG_diff = AVG_cur - AVG_l3,
-    OBP_diff = OBP_cur - OBP_l3,
-    SLG_diff = SLG_cur - SLG_l3,
-    K_pct_diff = K_pct_cur - K_pct_l3,
-    BB_pct_diff = BB_pct_cur - BB_pct_l3,
-    Barrel_pct_diff = Barrel_pct_cur - Barrel_pct_l3,
-    BABIP_diff = BABIP_cur - BABIP_l3,
-    wOBA_diff = wOBA_cur - wOBA_l3,
-    xwOBA_diff = xwOBA_cur - xwOBA_l3,
-    xwOBA_wOBA_gap_diff = xwOBA_wOBA_gap_cur - xwOBA_wOBA_gap_l3,
-    player_type = "hitter"
-  ) |>
+  add_baseline_diffs(hitter_metric_cols) |>
+  mutate(player_type = "hitter") |>
   add_league_adjusted_diffs(hitter_metric_cols, hitter_league_diffs) |>
   mutate(across(where(is.numeric), ~ round(.x, 3)))
 
 # =============================================================================
-# PITCHERS DATA PROCESSING  
+# PITCHERS
 # =============================================================================
 
-# Load pitcher data for weighted baselines from the past 3 years
-pitching_stats_last_3 <- read_or_build_baseline(pitcher_baseline_cache_file, build_pitcher_baselines, "pitcher")
-pitching_stats_last_3 <- pitching_stats_last_3 |>
-  mutate(playerid = as.character(playerid)) |>
-  select(-any_of("ld_percent"))
-pitcher_league_baseline <- build_pitcher_league_baseline()
+pitcher_baseline_history <- read_pitcher_baseline_seasons()
+pitching_stats_last_3 <- pitcher_baseline_history |>
+  group_by(playerid, name, position) |>
+  summarize_pitcher_baseline_metrics(na.rm = FALSE)
+pitcher_league_baseline <- summarize_pitcher_baseline_metrics(pitcher_baseline_history)
 
 fangraphs_pitchers <- fetch_fangraphs_pitcher_current_contract(current_year)
 mlb_pitcher_basics <- fetch_mlb_pitcher_basics(current_year)
@@ -731,7 +674,6 @@ pitching_stats_current <- combine_pitcher_current_stats(fangraphs_pitchers, mlb_
 pitcher_league_current <- build_pitcher_league_current(pitching_stats_current)
 pitcher_league_diffs <- build_league_diffs(pitcher_league_current, pitcher_league_baseline, pitcher_metric_cols)
 
-# Combine pitcher data and compute differences
 # Baselines are role-specific (SP vs RP), so match on playerid and position. Names are not part of the key
 # because the same player can be spelled differently across sources (for example "Jake Latz" and "Jacob Latz"),
 # which silently dropped their baseline. If a spelling variant ever produces two baseline rows for one player
@@ -743,26 +685,15 @@ pitching_stats_last_3_by_role <- pitching_stats_last_3 |>
 full_stats_pitchers <-
   pitching_stats_current |>
   left_join(pitching_stats_last_3_by_role, by = c("playerid", "position"), suffix = c("_cur", "_l3")) |>
-  mutate(
-    era_diff = era_cur - era_l3,
-    k_percent_diff = k_percent_cur - k_percent_l3,
-    bb_percent_diff = bb_percent_cur - bb_percent_l3,
-    k_minus_bb_percent_diff = k_minus_bb_percent_cur - k_minus_bb_percent_l3,
-    xera_diff = xera_cur - xera_l3,
-    o_swing_percent_diff = o_swing_percent_cur - o_swing_percent_l3,
-    csw_percent_diff = csw_percent_cur - csw_percent_l3,
-    barrel_percent_diff = barrel_percent_cur - barrel_percent_l3,
-    lob_percent_diff = lob_percent_cur - lob_percent_l3,
-    babip_diff = babip_cur - babip_l3,
-    player_type = "pitcher"
-  ) |>
+  add_baseline_diffs(pitcher_metric_cols) |>
+  mutate(player_type = "pitcher") |>
   add_league_adjusted_diffs(pitcher_metric_cols, pitcher_league_diffs) |>
   select(-matches("_mlb$"), -any_of(c("team", "primary_position", "r", "ab", "sf", "lob_denominator"))) |>
   mutate(across(where(is.numeric), ~ round(.x, 3))) |>
   rename(Name = name, PlayerId = playerid, Age = age)
 
 # =============================================================================
-# CREATE CANDIDATE LOOKUP AND VALIDATE BEFORE PROMOTION
+# VALIDATE CANDIDATES, THEN PROMOTE
 # =============================================================================
 
 candidate_full_stats_hitters <- full_stats_hitters |> select(-source_fallback)
