@@ -1,0 +1,8 @@
+version: 2
+updates:
+  # Keeps the workflow actions current so deprecations (like the Node 20 retirement) arrive as a PR
+  # instead of a warning in a run log.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

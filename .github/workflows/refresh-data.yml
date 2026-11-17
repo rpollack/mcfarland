@@ -16,8 +16,6 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-    env:
-      R_LIBS_USER: ${{ github.workspace }}/.github/r-lib
     steps:
       - uses: actions/checkout@v5
       
