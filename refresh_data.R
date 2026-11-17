@@ -29,6 +29,22 @@ read_or_build_baseline <- function(cache_file, builder, label) {
   baseline
 }
 
+# The MLB and FanGraphs endpoints fail transiently now and then; a few retries keep one blip from costing a day
+# of data. Waits grow between attempts (10s, then 20s).
+with_retry <- function(fn, label, attempts = 3, wait_seconds = 10) {
+  for (attempt in seq_len(attempts)) {
+    result <- tryCatch(fn(), error = function(e) e)
+    if (!inherits(result, "error")) {
+      return(result)
+    }
+    cat(label, "failed (attempt", attempt, "of", attempts, "):", conditionMessage(result), "\n")
+    if (attempt < attempts) {
+      Sys.sleep(wait_seconds * attempt)
+    }
+  }
+  stop(label, " failed after ", attempts, " attempts: ", conditionMessage(result), call. = FALSE)
+}
+
 safe_divide <- function(numerator, denominator) {
   ifelse(is.na(denominator) | denominator == 0, NA_real_, numerator / denominator)
 }
@@ -86,10 +102,13 @@ fetch_mlb_stats <- function(current_year, group) {
     "&limit=10000"
   )
 
-  response <- GET(url)
-  if (http_error(response)) {
-    stop("MLB Stats API request failed for ", group, ": ", status_code(response))
-  }
+  response <- with_retry(function() {
+    response <- GET(url, timeout(60))
+    if (http_error(response)) {
+      stop("status ", status_code(response))
+    }
+    response
+  }, paste("MLB Stats API request for", group))
 
   parsed <- fromJSON(content(response, as = "text", encoding = "UTF-8"), flatten = TRUE)
   splits <- parsed$stats$splits[[1]]
@@ -145,7 +164,10 @@ fetch_mlb_pitcher_basics <- function(current_year) {
 }
 
 fetch_fangraphs_hitter_current_contract <- function(current_year) {
-  fg_batter_leaders(pos = "np", startseason = current_year, endseason = current_year) |>
+  with_retry(
+    function() fg_batter_leaders(pos = "np", startseason = current_year, endseason = current_year),
+    "FanGraphs hitter leaders request"
+  ) |>
     select(Name = PlayerName, Age, PlayerId = playerid, mlbamid = xMLBAMID, AB, PA, `1B`, `2B`, `3B`, HR, H, HBP, SF, wOBA, xwOBA, SO, BB, Barrels) |>
     mutate(
       PlayerId = as.character(PlayerId),
@@ -180,7 +202,7 @@ fetch_fangraphs_pitcher_current_contract <- function(current_year) {
   )
   url_api <- paste0("https://www.fangraphs.com/api/leaders/major-league/data?", qstring)
 
-  raw <- fromJSON(url_api)
+  raw <- with_retry(function() fromJSON(url_api), "FanGraphs pitcher leaders request")
   raw$data |>
     tibble::as_tibble() |>
     clean_names() |>
