@@ -176,14 +176,14 @@ function loadPreviousSeasonSamples(): PreviousSeasonSampleCache | null {
 
   const pitchers = new Map<string, PreviousPitcherSample>();
   readCsvRows(`pitcher-stats-${season}.csv`).forEach((row) => {
-    const playerId = row.PlayerId;
+    const playerId = row.playerid;
     if (!playerId) {
       return;
     }
-    const games = parseNumber(row.G);
-    const starts = parseNumber(row.GS);
+    const games = parseNumber(row.g);
+    const starts = parseNumber(row.gs);
     pitchers.set(String(playerId), {
-      battersFaced: parseNumber(row.TBF),
+      battersFaced: parseNumber(row.tbf),
       games,
       starts,
       role: getPitcherPreviousSeasonRole(games, starts),

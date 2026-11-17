@@ -19,21 +19,13 @@ playwright-report
 *.csv
 
 # KEEP source files (needed for GitHub Actions)
-!fangraphs-leaderboards-2022.csv
-!fangraphs-leaderboards-2023.csv
-!fangraphs-leaderboards-2024.csv
-!fangraphs-leaderboards-2025.csv
-!pitcher-stats-2022.csv
-!pitcher-stats-2023.csv
-!pitcher-stats-2024.csv
-!pitcher-stats-2025.csv
+!fangraphs-leaderboards-*.csv
+!pitcher-stats-*.csv
 
 # ALLOW generated files in remote repo (GitHub Actions needs to commit these)
 !full_stats_hitters.csv
 !full_stats_pitchers.csv
 !player_lookup.csv
-!weighted_baselines_hitters_*.csv
-!weighted_baselines_pitchers_*.csv
 
 # Keep other files
 *.Rproj
