@@ -22,7 +22,7 @@ What it does:
 - Surfaces quick-link player groups like breakouts, on-fire players, ice-cold players, and out-of-character profiles.
 - Provides weekly trend views based on stored daily trend snapshots.
 - Shows a dismissable "What's new" banner for announcements, with a history on the About page.
-- Includes an admin-only social assistant that suggests timely player links and draft posts for X and Bluesky.
+- Includes an admin-only social assistant that suggests timely player links and draft posts for X and Bluesky. Admins sign in at `/admin` with `ADMIN_PASSWORD`; the session is a signed, 12-hour cookie (a password in the URL is never accepted).
 - Produces share-friendly URLs, dynamic Open Graph/Twitter metadata, and a generated 1200x630 preview image for player and comparison links.
 
 The name is a tribute to former Orioles lefty T.J. McFarland, patron saint of adapting to the situation and doing useful work without needing the spotlight.
@@ -121,7 +121,8 @@ The Express server serves the built React app at `http://localhost:3000`.
 | `ANTHROPIC_MODEL` | Claude model used for generated headline and analysis responses. Non-Haiku models also get server-side refusal fallback. | `claude-sonnet-5-5` |
 | `DATABASE_URL` | Enables Postgres-backed analysis cache and weekly trend storage. | unset |
 | `AMPLITUDE_API_KEY` | Sends analytics events to a specific Amplitude project. | built-in project key |
-| `ADMIN_PASSWORD` | Enables admin mode protection for social assistant endpoints. | unset |
+| `ADMIN_PASSWORD` | Password entered at `/admin` to start an admin session. Failed logins are limited to 5 per IP per 15 minutes. Changing it signs out existing sessions. | unset |
+| `ADMIN_SESSION_SECRET` | Random secret (32+ bytes, e.g. `openssl rand -base64 48`) used to sign admin session cookies. Required in production: without it admin login is disabled. Outside production it falls back to `ADMIN_PASSWORD`. | unset |
 | `TRENDS_REFRESH_SECRET` | Required secret for `/api/trends/refresh`. | unset |
 | `TRENDS_TIMEZONE` | Timezone used for trend date calculations. | `America/Chicago` |
 | `CLIENT_ORIGIN` | Comma-separated allowed CORS origins. | unset |

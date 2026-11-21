@@ -15,5 +15,7 @@ services:
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
+      - key: ADMIN_SESSION_SECRET
+        sync: false
       - key: RENDER
         value: "true"
