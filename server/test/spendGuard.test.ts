@@ -356,7 +356,13 @@ describe("spend guard routes", () => {
       await exhaustBudget();
       await check().catch(() => undefined);
 
-      const response = await request(app).get("/api/admin/spend?admin=top-secret");
+      const login = await request(app).post("/api/admin/login").set("Accept", "application/json").send({ password: "top-secret" });
+      const cookie = ([] as string[])
+        .concat(login.headers["set-cookie"] ?? [])
+        .find((entry) => entry.startsWith("mcfarland_admin_mode="))!
+        .split(";")[0];
+
+      const response = await request(app).get("/api/admin/spend").set("Cookie", cookie);
 
       expect(response.status).toBe(200);
       expect(response.body).toMatchObject({
