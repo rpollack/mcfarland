@@ -1,5 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { logModelCall } from "./analytics.js";
+import { recordSpend } from "./spendGuard.js";
 
 /** What the model call was for, so cost can be broken down by feature. */
 export type ModelCallKind = "single" | "compare" | "mirage_intro" | "fantasy";
@@ -64,6 +65,8 @@ export function recordModelUsage(record: ModelUsageRecord): void {
   try {
     console.info("[model-usage]", JSON.stringify(record));
     void logModelCall(record);
+    // Every model call is recorded here, so spend is tracked without the call sites knowing about the guard.
+    void recordSpend(record);
   } catch (error) {
     console.warn("[model-usage] failed to record usage", error);
   }

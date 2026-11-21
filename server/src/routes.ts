@@ -14,6 +14,7 @@ import { logAnalysisEvent, logAnnouncementEvent, logSessionStart, logShareEvent,
 import { AnalysisMode, ANALYSIS_VIBE_LABELS, ANALYSIS_VIBES, DEFAULT_ANALYSIS_MODE } from "./vibes.js";
 import { getAdminPassword, isAdminModeRequest } from "./admin.js";
 import { getWeeklyTrends, refreshDailyTrendData } from "./weeklyTrends.js";
+import { checkBudget, getSpendReport, respondSpendLimit, SpendLimitError } from "./spendGuard.js";
 import { generateSocialSuggestions, getTrendingQuickLinks } from "./socialAssistant.js";
 
 const analyzeLimiter = rateLimit({
@@ -52,6 +53,9 @@ async function getAnalysisResponse(params: {
   playerType: "hitter" | "pitcher";
   playerIds: string[];
   kind: "single" | "compare" | "mirage_intro";
+  ip: string | undefined;
+  isAdmin: boolean;
+  sessionId: string | null;
 }) {
   const freshness = getDataFreshness();
   const cacheKey = buildAnalysisCacheKey(params.mode, params.prompt);
@@ -66,6 +70,8 @@ async function getAnalysisResponse(params: {
     };
   }
 
+  // Only cache misses reach the model, so only they are budgeted. Throws SpendLimitError when enforcement blocks.
+  await checkBudget({ kind: params.kind, ip: params.ip, isAdmin: params.isAdmin, sessionId: params.sessionId });
   const response = await callClaudeAnalysis(params.prompt, params.persona, params.mode, params.kind);
   if (isCacheableAnalysisResponse(response)) {
     void saveCachedAnalysis({
@@ -192,6 +198,9 @@ router.post("/api/mirage-board/intro", analyzeLimiter, async (req, res) => {
       playerType,
       playerIds: [...board.lucky, ...board.unlucky].map((row) => row.id),
       kind: "mirage_intro",
+      ip: req.ip,
+      isAdmin: isAdminModeRequest(req),
+      sessionId: req.get("x-session-id") ?? null,
     });
     // The board is still useful without its intro, so a missing intro is an error, not text to display.
     if (response.headline === ANALYSIS_UNAVAILABLE_HEADLINE) {
@@ -199,6 +208,9 @@ router.post("/api/mirage-board/intro", analyzeLimiter, async (req, res) => {
     }
     res.json(response);
   } catch (error) {
+    if (error instanceof SpendLimitError) {
+      return respondSpendLimit(res, error);
+    }
     console.error("[api/mirage-board/intro] Anthropic request failed", error);
     res.status(502).json({ error: "Analysis service temporarily unavailable" });
   }
@@ -239,6 +251,9 @@ router.post("/api/analyze", analyzeLimiter, async (req, res) => {
       playerType,
       playerIds: [playerId],
       kind: "single",
+      ip: req.ip,
+      isAdmin: isAdminModeRequest(req),
+      sessionId: req.get("x-session-id") ?? null,
     });
     const sessionId = req.get("x-session-id") ?? "";
     res.json(response);
@@ -253,6 +268,9 @@ router.post("/api/analyze", analyzeLimiter, async (req, res) => {
       });
     }
   } catch (error) {
+    if (error instanceof SpendLimitError) {
+      return respondSpendLimit(res, error);
+    }
     console.error("[api/analyze] Anthropic request failed", error);
     res.status(502).json({ error: "Analysis service temporarily unavailable" });
   }
@@ -374,6 +392,9 @@ router.post("/api/compare/analyze", analyzeLimiter, async (req, res) => {
       playerType,
       playerIds,
       kind: "compare",
+      ip: req.ip,
+      isAdmin: isAdminModeRequest(req),
+      sessionId: req.get("x-session-id") ?? null,
     });
 
     const sessionId = req.get("x-session-id") ?? "";
@@ -394,6 +415,9 @@ router.post("/api/compare/analyze", analyzeLimiter, async (req, res) => {
       });
     }
   } catch (error) {
+    if (error instanceof SpendLimitError) {
+      return respondSpendLimit(res, error);
+    }
     console.error("[api/compare/analyze] Anthropic request failed", error);
     res.status(502).json({ error: "Analysis service temporarily unavailable" });
   }
@@ -450,6 +474,7 @@ router.post("/api/fantasy/daily-matchup/analyze", analyzeLimiter, async (req, re
       }
     }
 
+    await checkBudget({ kind: "fantasy", ip: req.ip, isAdmin: isAdminModeRequest(req), sessionId: req.get("x-session-id") ?? null });
     const decision = await callClaudeFantasyDecision(prompt);
     if (isCacheableFantasyDecision(decision)) {
       void saveCachedAnalysis({
@@ -490,6 +515,9 @@ router.post("/api/fantasy/daily-matchup/analyze", analyzeLimiter, async (req, re
       });
     }
   } catch (error) {
+    if (error instanceof SpendLimitError) {
+      return respondSpendLimit(res, error);
+    }
     console.error("[api/fantasy/daily-matchup/analyze] failed", error);
     res.status(502).json({ error: "Fantasy matchup service temporarily unavailable" });
   }
@@ -675,6 +703,19 @@ router.get("/api/admin/social-suggestions", adminLimiter, async (req, res) => {
     console.error("[api/admin/social-suggestions] failed to generate suggestions", error);
     return res.status(500).json({ error: "Unable to generate social suggestions" });
   }
+});
+
+router.get("/api/admin/spend", adminLimiter, async (req, res) => {
+  const adminPassword = getAdminPassword();
+  if (!adminPassword && process.env.NODE_ENV === "production") {
+    return res.status(503).json({ error: "Admin access is not configured" });
+  }
+  if (adminPassword && !isAdminModeRequest(req)) {
+    return res.status(403).json({ error: "Admin access required" });
+  }
+
+  res.set("Cache-Control", "no-store");
+  return res.json(await getSpendReport());
 });
 
 router.get("/api/trends/weekly", async (_req, res) => {

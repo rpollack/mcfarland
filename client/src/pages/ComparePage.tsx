@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { analyzeComparison, fetchPlayers, logShareAnalyticsEvent, logUiEvent } from "../api";
+import { analyzeComparison, spendLimitMessage, fetchPlayers, logShareAnalyticsEvent, logUiEvent } from "../api";
 import { useVibe } from "../contexts/vibe";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { toLoggedQuery, useSearchLogging } from "../hooks/useSearchLogging";
@@ -105,6 +105,7 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
     reset: resetAnalysis,
     data: analysisData,
     isPending: isAnalysisPending,
+    error: analysisError,
   } = useMutation({
     mutationFn: ({ type, ids, vibe }: ActiveComparison & { vibe: string }) =>
       analyzeComparison(type, ids, vibe),
@@ -456,6 +457,7 @@ function CompareExperience({ initialPlayerType, initialPlayerIds, onStateChange 
             headline={analysisData?.headline}
             analysis={analysisData?.analysis}
             modeLabel={vibeLabel}
+            limitMessage={spendLimitMessage(analysisError)}
             nextSteps={
               analysisReady ? (
                 <>

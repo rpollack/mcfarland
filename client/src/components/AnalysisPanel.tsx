@@ -22,6 +22,8 @@ interface Props {
   analysis?: string;
   disabled?: boolean;
   modeLabel?: string;
+  /** Shown when the server has paused new takes (spend limit); cached takes still load. */
+  limitMessage?: string;
 }
 
 function AnalysisPanel({
@@ -37,6 +39,7 @@ function AnalysisPanel({
   analysis,
   disabled,
   modeLabel,
+  limitMessage,
 }: Props) {
   const showAnalysisBody = Boolean(isAnalyzing || analysis);
   const normalizedHeadline = headline?.replace(/\s+/g, " ").trim();
@@ -71,6 +74,12 @@ function AnalysisPanel({
         >
           {isAnalyzing ? "Analyzing…" : actionLabel ?? `Run ${modeLabel ?? "AI"} analysis`}
         </button>
+      )}
+
+      {limitMessage && !isAnalyzing && !analysis && (
+        <p className={styles.limitNotice} role="status">
+          {limitMessage}
+        </p>
       )}
 
       {showAnalysisBody && (

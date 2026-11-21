@@ -115,6 +115,14 @@
   font-style: italic;
 }
 
+.limitNotice {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: #fef3c7;
+  color: #78350f;
+}
+
 .skeleton {
   height: 0.8rem;
   border-radius: 0.4rem;

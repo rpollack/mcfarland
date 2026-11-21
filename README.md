@@ -122,11 +122,28 @@ The Express server serves the built React app at `http://localhost:3000`.
 | `DATABASE_URL` | Enables Postgres-backed analysis cache and weekly trend storage. | unset |
 | `AMPLITUDE_API_KEY` | Sends analytics events to a specific Amplitude project. | built-in project key |
 | `ADMIN_PASSWORD` | Enables admin mode protection for social assistant endpoints. | unset |
+| `MODEL_MONTHLY_BUDGET_USD` | Turns on the model spend guard with this monthly budget in USD (see "Model spend guard"). | unset (guard off) |
+| `MODEL_DAILY_CEILING_USD` | Daily spend ceiling in USD (UTC day). Must be above 0. | 10% of the monthly budget |
+| `MODEL_IP_HOURLY_CAP` | New (non-cached) generations allowed per IP per hour; `0` turns the per-IP cap off. | `20` |
+| `MODEL_CAP_ENFORCE` | `true` blocks generations over a limit with HTTP 429; anything else only logs what would have been blocked. | unset (log-only) |
 | `TRENDS_REFRESH_SECRET` | Required secret for `/api/trends/refresh`. | unset |
 | `TRENDS_TIMEZONE` | Timezone used for trend date calculations. | `America/Chicago` |
 | `CLIENT_ORIGIN` | Comma-separated allowed CORS origins. | unset |
 | `TRUST_PROXY` | Express trust proxy setting for deployed environments. A number is the count of proxies in front of the app (e.g. `2` for Cloudflare plus Render); it determines the client IP used by rate limits. | `1` |
 | `PORT` | API/server port. | `3000` |
+
+## Model spend guard
+
+The guard keeps Claude spend inside a budget even if a bot or a bug hammers the site. It is off until `MODEL_MONTHLY_BUDGET_USD` is set.
+
+- Cost is estimated from each call's token counts using the price table in `server/src/pricing.ts` (unknown models are priced at the most expensive known rates). Anthropic's console remains the source of truth for billing, so also set a spend limit on the Anthropic side.
+- A new generation is blocked when this UTC month's spend has reached the monthly budget, today's UTC spend has reached the daily ceiling, or the caller's IP has made `MODEL_IP_HOURLY_CAP` new generations in the last hour. Days that are not used roll over automatically because only the month total and the daily ceiling are checked. A call already in flight can overshoot a limit by about one call's cost.
+- Cached takes are never counted or blocked. Admin-mode requests are never blocked, but their spend counts. Calls made by the admin social assistant are not guarded, but their spend is recorded.
+- Blocked requests get HTTP 429 with `{ "error": "...", "code": "spend_limit" }` and a `Retry-After` header; the app shows the message in place of the take.
+- By default the guard is log-only: it records what it would have blocked and lets the request through. Set `MODEL_CAP_ENFORCE=true` to enforce.
+- Spend is stored per day in the `model_spend_daily` Postgres table (needs `DATABASE_URL`). Without a database, or if it errors, the guard fails open and uses an in-process tally (with at most one warning an hour).
+- Every limit hit (or would-be hit) is logged as a `[spend-guard] limit hit` line, stored in the `spend_limit_hits` table (feature, limit type, enforced or not, spend, and the anonymous session id, never an IP, prompt, or player), and sent to Amplitude as `spend_limit_hit`. The first request after UTC midnight logs `[spend-guard] daily summary` and sends `spend_daily_summary`.
+- `GET /api/admin/spend` (admin mode) returns today's and this month's estimated cost and call counts, the budget, ceiling and enforcement mode, and the last seven days of limit hits.
 
 ## Announcements
 

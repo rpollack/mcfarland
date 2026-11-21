@@ -228,3 +228,36 @@ export async function logModelCall(record: Record<string, string | number | bool
     event_properties: eventProperties,
   });
 }
+
+/** A generation request hit (or, in log-only mode, would have hit) a spend limit. Never carries IP, prompts or player names. */
+export async function logSpendLimitHit(
+  record: Record<string, string | number | boolean | null>,
+  sessionId: string | null
+): Promise<void> {
+  const eventProperties: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(record)) {
+    eventProperties[toSnakeCase(key)] = value;
+  }
+
+  await sendAmplitudeEvent({
+    event_type: "spend_limit_hit",
+    user_id: sessionId || "server",
+    time: Date.now(),
+    event_properties: eventProperties,
+  });
+}
+
+/** One summary per UTC day of model spend and limit hits. */
+export async function logSpendDailySummary(record: Record<string, string | number | boolean | null>): Promise<void> {
+  const eventProperties: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(record)) {
+    eventProperties[toSnakeCase(key)] = value;
+  }
+
+  await sendAmplitudeEvent({
+    event_type: "spend_daily_summary",
+    user_id: "server",
+    time: Date.now(),
+    event_properties: eventProperties,
+  });
+}
