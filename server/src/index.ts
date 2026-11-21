@@ -7,7 +7,8 @@ import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import cors from "cors";
 import router from "./routes.js";
-import { adminModeMiddleware } from "./admin.js";
+import { adminModeMiddleware, getAdminPassword, isAdminLoginConfigured } from "./admin.js";
+import adminRouter, { adminPageHandler } from "./adminRoutes.js";
 import { buildAnalysisPrompt, buildComparisonPrompt } from "./analysis.js";
 import { buildAnalysisCacheKey, getCachedAnalysis } from "./analysisCache.js";
 import { getDataFreshness, getPlayerById } from "./dataStore.js";
@@ -290,6 +291,13 @@ export function createServer() {
   app.use(express.json({ limit: "32kb" }));
   app.use(adminModeMiddleware);
 
+  if (isProduction && getAdminPassword() && !isAdminLoginConfigured()) {
+    console.warn("[admin] ADMIN_PASSWORD is set but ADMIN_SESSION_SECRET is not; admin login is disabled until it is set.");
+  }
+
+  // Registered before the SPA catch-all so the login page is not swallowed by the client shell.
+  app.get("/admin", adminPageHandler);
+  app.use(adminRouter);
   app.use(router);
   app.use("/api", (_req, res) => {
     res.status(404).json({ error: "Not found" });
