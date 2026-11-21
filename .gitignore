@@ -29,11 +29,8 @@ playwright-report
 
 # Keep other files
 *.Rproj
-app/.Renviron
 *.png
 !tjmcfarland.png
-!app/www/baseball.png
-!app/www/tjmcfarland.png
 *.txt
 *.html
 *.jpg
@@ -41,4 +38,3 @@ app/.Renviron
 .DS_Store
 tests/e2e/test-results/.last-run.json
 migration_parity_report.json
-DATA_SOURCE_MIGRATION_PLAN.md
