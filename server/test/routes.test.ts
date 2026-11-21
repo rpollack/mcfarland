@@ -10,6 +10,15 @@ import { formatEra, formatPercentage, formatStatValue } from "../src/utils.js";
 const app = createServer();
 const originalFreshness = getDataFreshness();
 
+async function adminLoginCookie(password = "top-secret"): Promise<string> {
+  const login = await request(app)
+    .post("/api/admin/login")
+    .set("Accept", "application/json")
+    .send({ password });
+  const setCookie = ([] as string[]).concat(login.headers["set-cookie"] ?? []);
+  return setCookie.find((cookie) => cookie.startsWith("mcfarland_admin_mode="))!.split(";")[0];
+}
+
 function createMemoryCacheStore() {
   const rows = new Map<string, { dataThroughDate: string; headline: string; analysis: string }>();
   return {
@@ -554,8 +563,10 @@ describe("McFARLAND API", () => {
     process.env.ADMIN_PASSWORD = "top-secret";
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true } as Response);
 
+    const cookie = await adminLoginCookie();
     const response = await request(app)
-      .post("/api/sessions?admin=top-secret")
+      .post("/api/sessions")
+      .set("Cookie", cookie)
       .send({ sessionId: "admin-session" });
 
     expect(response.status).toBe(204);
@@ -577,8 +588,10 @@ describe("McFARLAND API", () => {
 
     const { body: listBody } = await request(app).get("/api/players").query({ type: "hitter", q: "Judge" });
     const hitter = listBody.players[0];
+    const cookie = await adminLoginCookie();
     const response = await request(app)
-      .post("/api/analyze?admin=top-secret")
+      .post("/api/analyze")
+      .set("Cookie", cookie)
       .set("x-session-id", "admin-analysis")
       .send({ playerId: hitter.id, playerType: "hitter", analysisMode: "gen_z" });
 
@@ -833,25 +846,27 @@ describe("McFARLAND API", () => {
   it("issues a signed admin cookie that works on later requests", async () => {
     process.env.ADMIN_PASSWORD = "top-secret";
 
-    const login = await request(app).get("/api/admin/social-suggestions?admin=top-secret");
-    expect(login.status).toBe(200);
-
-    const setCookie = ([] as string[]).concat(login.headers["set-cookie"] ?? []);
-    const adminCookie = setCookie.find((cookie) => cookie.startsWith("mcfarland_admin_mode="));
-    expect(adminCookie).toBeDefined();
-    const cookieValue = adminCookie!.split(";")[0].split("=")[1];
+    const cookie = await adminLoginCookie();
+    const cookieValue = cookie.split("=")[1];
     expect(cookieValue).not.toBe("1");
     expect(cookieValue).not.toContain("top-secret");
 
-    const replay = await request(app).get("/api/admin/social-suggestions").set("Cookie", `mcfarland_admin_mode=${cookieValue}`);
+    const replay = await request(app).get("/api/admin/social-suggestions").set("Cookie", cookie);
     expect(replay.status).toBe(200);
+  });
+
+  it("does not grant admin mode from a password in the query string", async () => {
+    process.env.ADMIN_PASSWORD = "top-secret";
+
+    const response = await request(app).get("/api/admin/social-suggestions?admin=top-secret");
+
+    expect(response.status).toBe(403);
+    expect(response.headers["set-cookie"]).toBeUndefined();
   });
 
   it("invalidates admin cookies when the admin password changes", async () => {
     process.env.ADMIN_PASSWORD = "top-secret";
-    const login = await request(app).get("/api/admin/social-suggestions?admin=top-secret");
-    const setCookie = ([] as string[]).concat(login.headers["set-cookie"] ?? []);
-    const cookie = setCookie.find((entry) => entry.startsWith("mcfarland_admin_mode="))!.split(";")[0];
+    const cookie = await adminLoginCookie();
 
     process.env.ADMIN_PASSWORD = "rotated-secret";
     const response = await request(app).get("/api/admin/social-suggestions").set("Cookie", cookie);
@@ -1119,8 +1134,10 @@ describe("McFARLAND API", () => {
     process.env.ADMIN_PASSWORD = "top-secret";
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true } as Response);
 
+    const cookie = await adminLoginCookie();
     const response = await request(app)
-      .post("/api/ui-events?admin=top-secret")
+      .post("/api/ui-events")
+      .set("Cookie", cookie)
       .send({ sessionId: "ui-session", event: "mirage_board_viewed", playerType: "hitter" });
 
     expect(response.status).toBe(204);

@@ -16,10 +16,6 @@ export function getAdminPassword(): string | undefined {
   return password.length > 0 ? password : undefined;
 }
 
-function adminCookieToken(password: string): string {
-  return crypto.createHmac("sha256", password).update("mcfarland-admin-mode-v1").digest("hex");
-}
-
 function safeEqual(a: string, b: string): boolean {
   const left = Buffer.from(a);
   const right = Buffer.from(b);
@@ -67,16 +63,6 @@ function parseCookies(header: string | undefined): Record<string, string> {
     }, {});
 }
 
-function extractQueryValues(value: unknown): string[] {
-  if (typeof value === "string") {
-    return [value];
-  }
-  if (Array.isArray(value)) {
-    return value.filter((entry): entry is string => typeof entry === "string");
-  }
-  return [];
-}
-
 function isSecureRequest(req: Request): boolean {
   if (req.secure) {
     return true;
@@ -88,62 +74,114 @@ function isSecureRequest(req: Request): boolean {
   return false;
 }
 
+function passwordFingerprint(password: string): string {
+  return crypto.createHash("sha256").update(password).digest("hex").slice(0, 16);
+}
+
+/**
+ * Key used to sign session cookies. Production requires ADMIN_SESSION_SECRET (fail closed); outside production the
+ * password doubles as the key so local dev works without extra env.
+ */
+function getSessionSecret(): string | undefined {
+  const secret = process.env.ADMIN_SESSION_SECRET?.trim();
+  if (secret) {
+    return secret;
+  }
+  return process.env.NODE_ENV === "production" ? undefined : getAdminPassword();
+}
+
+/** True when a password exists and sessions can be signed. */
+export function isAdminLoginConfigured(): boolean {
+  return Boolean(getAdminPassword() && getSessionSecret());
+}
+
+function sign(payload: string, secret: string): string {
+  return crypto.createHmac("sha256", secret).update(payload).digest("base64url");
+}
+
+export function createAdminSessionToken(password: string, secret: string, now = Date.now()): string {
+  const payload = Buffer.from(
+    JSON.stringify({ exp: now + ADMIN_COOKIE_MAX_AGE_MS, pw: passwordFingerprint(password) })
+  ).toString("base64url");
+  return `${payload}.${sign(payload, secret)}`;
+}
+
+export function verifyAdminSessionToken(token: string | undefined, password: string, secret: string, now = Date.now()): boolean {
+  if (!token) {
+    return false;
+  }
+  const parts = token.split(".");
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    return false;
+  }
+  const [payload, signature] = parts;
+  if (!safeEqual(signature, sign(payload, secret))) {
+    return false;
+  }
+  try {
+    const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { exp?: unknown; pw?: unknown };
+    return (
+      typeof data.exp === "number" &&
+      data.exp > now &&
+      typeof data.pw === "string" &&
+      safeEqual(data.pw, passwordFingerprint(password))
+    );
+  } catch (_error) {
+    return false;
+  }
+}
+
+export function checkAdminPassword(candidate: unknown): boolean {
+  const password = getAdminPassword();
+  return password !== undefined && typeof candidate === "string" && safeEqual(candidate, password);
+}
+
+export function setAdminSessionCookie(req: Request, res: Response): void {
+  const password = getAdminPassword();
+  const secret = getSessionSecret();
+  if (!password || !secret) {
+    return;
+  }
+  res.cookie(ADMIN_COOKIE_NAME, createAdminSessionToken(password, secret), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: isSecureRequest(req),
+    maxAge: ADMIN_COOKIE_MAX_AGE_MS,
+  });
+}
+
+export function clearAdminSessionCookie(req: Request, res: Response): void {
+  res.clearCookie(ADMIN_COOKIE_NAME, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: isSecureRequest(req),
+  });
+}
+
+/**
+ * Validates the signed session cookie and sets req.isAdminMode. The only query handling left is `?admin=logout|off|false|0`,
+ * which clears the cookie; a password in the URL is never treated as a credential.
+ */
 export function adminModeMiddleware(req: Request, res: Response, next: NextFunction): void {
-  const adminPassword = getAdminPassword();
-  if (!adminPassword) {
+  const password = getAdminPassword();
+  const secret = getSessionSecret();
+  if (!password || !secret) {
     next();
     return;
   }
 
-  const adminToken = adminCookieToken(adminPassword);
-  const existingCookies = parseCookies(req.headers.cookie);
-  const hasValidCookie = safeEqual(existingCookies[ADMIN_COOKIE_NAME] ?? "", adminToken);
-  let isAdminMode = hasValidCookie;
-  let shouldClearCookie = false;
-
-  if (!isAdminMode) {
-    const query = req.query as Record<string, unknown>;
-    const queryValues = extractQueryValues(query[ADMIN_QUERY_PARAM]);
-    if (queryValues.length > 0) {
-      const normalized = queryValues.map((value) => value?.toString().toLowerCase());
-      if (normalized.some((value) => ADMIN_DISABLE_VALUES.has(value ?? ""))) {
-        shouldClearCookie = Boolean(existingCookies[ADMIN_COOKIE_NAME]);
-        isAdminMode = false;
-      } else {
-        isAdminMode = queryValues.some((value) => safeEqual(value, adminPassword));
-      }
-    }
-  } else {
-    // Allow disabling admin mode even if cookie already set
-    const query = req.query as Record<string, unknown>;
-    const queryValues = extractQueryValues(query[ADMIN_QUERY_PARAM]);
-    if (queryValues.length > 0) {
-      const normalized = queryValues.map((value) => value?.toString().toLowerCase());
-      if (normalized.some((value) => ADMIN_DISABLE_VALUES.has(value ?? ""))) {
-        shouldClearCookie = true;
-        isAdminMode = false;
-      }
-    }
+  const rawAdmin = (req.query as Record<string, unknown>)[ADMIN_QUERY_PARAM];
+  const values = typeof rawAdmin === "string" ? [rawAdmin] : Array.isArray(rawAdmin) ? rawAdmin : [];
+  if (values.some((value) => typeof value === "string" && ADMIN_DISABLE_VALUES.has(value.toLowerCase()))) {
+    clearAdminSessionCookie(req, res);
+    next();
+    return;
   }
 
-  if (isAdminMode) {
+  const cookie = parseCookies(req.headers.cookie)[ADMIN_COOKIE_NAME];
+  if (verifyAdminSessionToken(cookie, password, secret)) {
     req.isAdminMode = true;
-    if (!hasValidCookie) {
-      res.cookie(ADMIN_COOKIE_NAME, adminToken, {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: isSecureRequest(req),
-        maxAge: ADMIN_COOKIE_MAX_AGE_MS,
-      });
-    }
-  } else if (shouldClearCookie) {
-    res.clearCookie(ADMIN_COOKIE_NAME, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: isSecureRequest(req),
-    });
   }
-
   next();
 }
 
