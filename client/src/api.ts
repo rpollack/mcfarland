@@ -34,6 +34,20 @@ function buildUrl(path: string): string {
   return `${base}${path}`;
 }
 
+/** The server's dollar budget for new AI takes is used up. Cached takes still work; retrying right away will not help. */
+export class SpendLimitError extends Error {
+  readonly code = "spend_limit";
+  constructor(message: string) {
+    super(message);
+    this.name = "SpendLimitError";
+  }
+}
+
+/** The message to show when `error` is a spend-limit pause, otherwise undefined. */
+export function spendLimitMessage(error: unknown): string | undefined {
+  return error instanceof SpendLimitError ? error.message : undefined;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const sessionId = getOrCreateSessionId();
   const headers = new Headers({ "Content-Type": "application/json" });
@@ -56,6 +70,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}));
     const message = errorBody.error ?? response.statusText;
+    if (response.status === 429 && errorBody.code === "spend_limit") {
+      throw new SpendLimitError(message);
+    }
     throw new Error(message);
   }
 

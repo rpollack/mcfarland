@@ -15,6 +15,7 @@ import panelStyles from "../styles/AnalysisPanel.module.css";
 import { useVibe } from "../contexts/vibe";
 import {
   analyzePlayer,
+  spendLimitMessage,
   fetchPlayerDetail,
   fetchPlayers,
   logShareAnalyticsEvent,
@@ -231,6 +232,7 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
     mutate: runAnalysis,
     data: analysisData,
     isPending: isAnalysisPending,
+    error: analysisError,
   } = useMutation({
     mutationFn: ({ playerId, playerType: type, analysisMode }: { playerId: string; playerType: PlayerType; analysisMode: string }) =>
       analyzePlayer(playerId, type, analysisMode),
@@ -448,6 +450,7 @@ function SinglePlayerExperience({ initialPlayerType, initialPlayerId, onStateCha
                 headline={analysisData?.headline}
                 analysis={analysisData?.analysis}
                 modeLabel={vibeLabel}
+                limitMessage={spendLimitMessage(analysisError)}
                 nextSteps={
                   analysisReady ? (
                     <>

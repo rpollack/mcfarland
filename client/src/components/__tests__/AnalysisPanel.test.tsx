@@ -67,4 +67,16 @@ describe("AnalysisPanel", () => {
     expect(screen.getByRole("heading", { name: "Takeaway" })).toBeInTheDocument();
     expect(screen.getByLabelText("AI analysis").querySelector("article")).toHaveAttribute("aria-busy", "false");
   });
+
+  it("shows the spend-limit message instead of a blank panel when new takes are paused", () => {
+    render(<AnalysisPanel limitMessage="We've hit today's analysis limit. Takes that were already generated still work, and new ones come back tomorrow." />);
+
+    expect(screen.getByRole("status")).toHaveTextContent("We've hit today's analysis limit");
+  });
+
+  it("hides the spend-limit message once an analysis is showing", () => {
+    render(<AnalysisPanel limitMessage="limit" headline="Takeaway" analysis="Body" />);
+
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
 });
