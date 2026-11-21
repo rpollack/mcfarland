@@ -22,7 +22,7 @@ What it does:
 - Surfaces quick-link player groups like breakouts, on-fire players, ice-cold players, and out-of-character profiles.
 - Provides weekly trend views based on stored daily trend snapshots.
 - Shows a dismissable "What's new" banner for announcements, with a history on the About page.
-- Includes an admin-only social assistant that suggests timely player links and draft posts for X and Bluesky.
+- Includes an admin-only social assistant that suggests timely player links and draft posts for X and Bluesky. Admins sign in at `/admin` with `ADMIN_PASSWORD`; the session is a signed, 12-hour cookie (a password in the URL is never accepted).
 - Produces share-friendly URLs, dynamic Open Graph/Twitter metadata, and a generated 1200x630 preview image for player and comparison links.
 
 The name is a tribute to former Orioles lefty T.J. McFarland, patron saint of adapting to the situation and doing useful work without needing the spotlight.
@@ -121,7 +121,8 @@ The Express server serves the built React app at `http://localhost:3000`.
 | `ANTHROPIC_MODEL` | Claude model used for generated headline and analysis responses. Non-Haiku models also get server-side refusal fallback. | `claude-sonnet-5-5` |
 | `DATABASE_URL` | Enables Postgres-backed analysis cache and weekly trend storage. | unset |
 | `AMPLITUDE_API_KEY` | Sends analytics events to a specific Amplitude project. | built-in project key |
-| `ADMIN_PASSWORD` | Enables admin mode protection for social assistant endpoints. | unset |
+| `ADMIN_PASSWORD` | Password entered at `/admin` to start an admin session. Failed logins are limited to 5 per IP per 15 minutes. Changing it signs out existing sessions. | unset |
+| `ADMIN_SESSION_SECRET` | Random secret (32+ bytes, e.g. `openssl rand -base64 48`) used to sign admin session cookies. Required in production: without it admin login is disabled. Outside production it falls back to `ADMIN_PASSWORD`. | unset |
 | `MODEL_MONTHLY_BUDGET_USD` | Turns on the model spend guard with this monthly budget in USD (see "Model spend guard"). | unset (guard off) |
 | `MODEL_DAILY_CEILING_USD` | Daily spend ceiling in USD (UTC day). Must be above 0. | 10% of the monthly budget |
 | `MODEL_IP_HOURLY_CAP` | New (non-cached) generations allowed per IP per hour; `0` turns the per-IP cap off. | `20` |
@@ -195,6 +196,34 @@ Run the full production build:
 ```bash
 npm run build
 ```
+
+## Data Pipeline
+
+The app serves baseball data from CSV files in the repository root. They are produced by `refresh_data.R` and committed to git, so a data update is an ordinary PR.
+
+**Inputs** (all in the repo root, committed):
+
+- `fangraphs-leaderboards-<year>.csv` (hitters) and `pitcher-stats-<year>.csv` (pitchers): one file per baseline season. The three seasons before `current_year` in `refresh_data.R` form each player's weighted baseline (weights 1, 3, 5, oldest first). Rolling into a new year is described at the top of the script; `Rscript refresh_data.R export-pitcher-season <year>` creates the pitcher file.
+- Live current-season pulls on every run: the MLB Stats API, FanGraphs (via `baseballr` for hitters and the FanGraphs leaders API for pitchers).
+
+**Outputs committed to git**: `full_stats_hitters.csv`, `full_stats_pitchers.csv`, `player_lookup.csv`, and `data_freshness.json` (when the data is through, and when it was refreshed).
+
+**Scratch files**: the script also writes `candidate_full_stats_*.csv`, `candidate_player_lookup.csv`, `served_player_inventory.csv` and `migration_parity_report.json`. They are gitignored and regenerated on every run. The candidates are checked against the current files (row counts, player IDs, MLB IDs, stat parity) and only copied over the real CSVs if the check passes; otherwise the production files are left alone and the failures are printed.
+
+**Daily schedule** (`.github/workflows/refresh-data.yml`, 10:37 UTC, also runnable manually; set `publish` to false for a dry run):
+
+1. Installs R and packages, then runs `Rscript refresh_data.R`.
+2. "Skip freshness-only updates": if the three stat CSVs did not change, `data_freshness.json` is restored so no PR is opened (no new games means no PR, and cached takes are not regenerated).
+3. Otherwise opens a `Daily baseball data refresh YYYY-MM-DD` PR and enables squash auto-merge. This needs the `REFRESH_PR_TOKEN` secret, and the PR must pass the `playwright` check before it merges (master is protected).
+4. Waits for the merge, then waits until the deployed app reports the new `dataThroughDate`.
+5. Calls `generate-trend-snapshots.yml`, which POSTs to `TRENDS_SNAPSHOT_URL` with the `TRENDS_REFRESH_SECRET` secret so the server records the weekly trend snapshot from the new data. (It runs from the refresh workflow so it cannot snapshot yesterday's data.)
+6. A monitor job fails with a clear message after repeated failures or stale live data during the season.
+
+**Deploys**: Render redeploys on every merge to master. The Docker image contains the repo, and the server reads the CSVs and `data_freshness.json` from the repo root (`DATA_ROOT` in `server/src/dataStore.ts`), so merging the refresh PR is what publishes new data.
+
+**Run it locally**: `Rscript refresh_data.R` from the repo root (needs R with `dplyr`, `readr`, `tibble`, `stringr`, `stringi`, `jsonlite`, `janitor`, `httr`, `rvest`, `baseballr`). It overwrites the committed CSVs when the check passes; review with `git diff` and discard with `git checkout` if you do not want to keep it.
+
+Do not move the CSVs without updating `DATA_ROOT`, the `Dockerfile`, `refresh_data.R`, and the workflows.
 
 ## Data And Caching Notes
 

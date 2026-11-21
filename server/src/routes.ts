@@ -12,7 +12,7 @@ import { buildMirageBoard, buildMirageBoardPrompt } from "./mirageBoard.js";
 import { findRelatedPlayers } from "./relatedPlayers.js";
 import { logAnalysisEvent, logAnnouncementEvent, logSessionStart, logShareEvent, logUiEvent } from "./analytics.js";
 import { AnalysisMode, ANALYSIS_VIBE_LABELS, ANALYSIS_VIBES, DEFAULT_ANALYSIS_MODE } from "./vibes.js";
-import { getAdminPassword, isAdminModeRequest } from "./admin.js";
+import { getAdminPassword, isAdminLoginConfigured, isAdminModeRequest } from "./admin.js";
 import { getWeeklyTrends, refreshDailyTrendData } from "./weeklyTrends.js";
 import { checkBudget, getSpendReport, respondSpendLimit, SpendLimitError } from "./spendGuard.js";
 import { generateSocialSuggestions, getTrendingQuickLinks } from "./socialAssistant.js";
@@ -688,7 +688,7 @@ router.get("/api/trending", trendingLimiter, async (req, res) => {
 
 router.get("/api/admin/social-suggestions", adminLimiter, async (req, res) => {
   const adminPassword = getAdminPassword();
-  if (!adminPassword && process.env.NODE_ENV === "production") {
+  if (process.env.NODE_ENV === "production" && !isAdminLoginConfigured()) {
     return res.status(503).json({ error: "Admin access is not configured" });
   }
   if (adminPassword && !isAdminModeRequest(req)) {
