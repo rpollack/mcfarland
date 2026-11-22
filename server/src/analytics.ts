@@ -3,6 +3,30 @@ import { containsAdminSecret } from "./admin.js";
 const DEFAULT_AMPLITUDE_API_KEY = "f7a70fb74292a0b7b9f5dced71f2931";
 const AMPLITUDE_HTTP_API = "https://api2.amplitude.com/2/httpapi";
 
+function isTruthyEnv(value: string | undefined): boolean {
+  return value !== undefined && value !== "" && value !== "0" && value.toLowerCase() !== "false";
+}
+
+/**
+ * Which Amplitude key to send with, or null to send nothing.
+ *
+ * Only the live production service reports to the built-in project. Unit tests, CI (including the Playwright
+ * e2e run), local development and Render preview deploys must never create analytics events, so they get no
+ * key. Setting AMPLITUDE_API_KEY explicitly is the one deliberate opt-in (an empty value turns reporting off).
+ */
+export function resolveAmplitudeApiKey(env: NodeJS.ProcessEnv = process.env): string | null {
+  const explicit = env.AMPLITUDE_API_KEY;
+  if (explicit !== undefined) {
+    return explicit.trim() || null;
+  }
+  const isLiveProduction =
+    env.NODE_ENV === "production" &&
+    !isTruthyEnv(env.CI) &&
+    !isTruthyEnv(env.VITEST) &&
+    !isTruthyEnv(env.IS_PULL_REQUEST); // Render sets this on pull request preview deploys.
+  return isLiveProduction ? DEFAULT_AMPLITUDE_API_KEY : null;
+}
+
 function shouldSkipLogging(...sources: Array<string | null | undefined>): boolean {
   return sources.some((source) => containsAdminSecret(source));
 }
@@ -25,7 +49,7 @@ type AmplitudeEvent = {
 };
 
 async function sendAmplitudeEvent(event: AmplitudeEvent): Promise<void> {
-  const apiKey = (process.env.AMPLITUDE_API_KEY ?? DEFAULT_AMPLITUDE_API_KEY).trim();
+  const apiKey = resolveAmplitudeApiKey();
   if (!apiKey) {
     return;
   }

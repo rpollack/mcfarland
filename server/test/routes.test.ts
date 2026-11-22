@@ -158,10 +158,15 @@ describe("McFARLAND API", () => {
     __clearMlbMatchupCacheForTests();
     __setDataFreshnessForTests(originalFreshness);
     vi.restoreAllMocks();
+    // Analytics only forwards with an explicit key (see resolveAmplitudeApiKey). Opt in so the logging tests can
+    // assert on it, and default fetch to a stub so no test can ever reach the real Amplitude service.
+    process.env.AMPLITUDE_API_KEY = "test-amplitude-key";
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true } as Response);
   });
 
   afterEach(() => {
     delete process.env.ADMIN_PASSWORD;
+    delete process.env.AMPLITUDE_API_KEY;
     __setAnalysisCacheStoreForTests(null);
     __setAnalysisHandlerForTests(null);
     __setFantasyDecisionHandlerForTests(null);

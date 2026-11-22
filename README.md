@@ -120,7 +120,7 @@ The Express server serves the built React app at `http://localhost:3000`.
 | `ANTHROPIC_API_KEY` | Enables Claude-generated headline and analysis responses. | unset |
 | `ANTHROPIC_MODEL` | Claude model used for generated headline and analysis responses. Non-Haiku models also get server-side refusal fallback. | `claude-sonnet-5-5` |
 | `DATABASE_URL` | Enables Postgres-backed analysis cache and weekly trend storage. | unset |
-| `AMPLITUDE_API_KEY` | Sends analytics events to a specific Amplitude project. | built-in project key |
+| `AMPLITUDE_API_KEY` | Sends analytics events to a specific Amplitude project. Set it explicitly to report from a non-production run; set it empty to turn reporting off. | built-in project key, used only in live production (not tests, CI, local dev or Render preview deploys) |
 | `ADMIN_PASSWORD` | Password entered at `/admin` to start an admin session. Failed logins are limited to 5 per IP per 15 minutes. Changing it signs out existing sessions. | unset |
 | `ADMIN_SESSION_SECRET` | Random secret (32+ bytes, e.g. `openssl rand -base64 48`) used to sign admin session cookies. Required in production: without it admin login is disabled. Outside production it falls back to `ADMIN_PASSWORD`. | unset |
 | `MODEL_MONTHLY_BUDGET_USD` | Turns on the model spend guard with this monthly budget in USD (see "Model spend guard"). | unset (guard off) |
