@@ -119,7 +119,6 @@ describe("admin login", () => {
     const res = await login("top-secret");
     expect(res.status).toBe(204);
     expect((await suggestions(cookieFrom(res)!.split(";")[0])).status).toBe(200);
-    console.log("FETCH_CALLS", (globalThis.fetch as any).mock.calls.length);
   });
 
   it("returns 404 for login in dev when no password is configured", async () => {
