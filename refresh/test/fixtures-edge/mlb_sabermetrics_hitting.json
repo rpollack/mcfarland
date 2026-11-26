@@ -1,0 +1,222 @@
+{
+ "copyright": "fixture",
+ "stats": [
+  {
+   "type": {
+    "displayName": "season"
+   },
+   "splits": [
+    {
+     "season": "2025",
+     "stat": {
+      "woba": 0.462771,
+      "wRaa": 1.0
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 592450,
+      "fullName": "Aaron Judge",
+      "primaryPosition": {
+       "abbreviation": "RF"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "woba": ".417822",
+      "wRaa": 1.0
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 660271,
+      "fullName": "Shohei Ohtani",
+      "primaryPosition": {
+       "abbreviation": "TWP"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "woba": ".331",
+      "wRaa": 1.0
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 514888,
+      "fullName": "Jose Altuve",
+      "primaryPosition": {
+       "abbreviation": "2B"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "woba": ".0002",
+      "wRaa": 1.0
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 700001,
+      "fullName": "x",
+      "primaryPosition": {
+       "abbreviation": "CF"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "woba": ".301",
+      "wRaa": 1.0
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 54321,
+      "fullName": "Old Timer",
+      "primaryPosition": {
+       "abbreviation": "DH"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "woba": "-.--",
+      "wRaa": 1.0
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 700003,
+      "fullName": "Luis Garcia",
+      "primaryPosition": {
+       "abbreviation": "SS"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "woba": ".3105",
+      "wRaa": 1.0
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 700004,
+      "fullName": "Luis Garcia",
+      "primaryPosition": {
+       "abbreviation": "2B"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "woba": 0.2345,
+      "wRaa": 1.0
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 700005,
+      "fullName": "Tie Breaker",
+      "primaryPosition": {
+       "abbreviation": "LF"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "woba": ".288",
+      "wRaa": 1.0
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 700006,
+      "fullName": "Missing Hits",
+      "primaryPosition": {
+       "abbreviation": "RF"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "woba": ".0001",
+      "wRaa": 1.0
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 700010,
+      "fullName": "Tiny Rates",
+      "primaryPosition": {
+       "abbreviation": "3B"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    }
+   ]
+  }
+ ]
+}

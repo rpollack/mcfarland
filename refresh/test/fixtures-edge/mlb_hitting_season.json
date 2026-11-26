@@ -1,0 +1,487 @@
+{
+ "copyright": "fixture",
+ "stats": [
+  {
+   "type": {
+    "displayName": "season"
+   },
+   "splits": [
+    {
+     "season": "2025",
+     "stat": {
+      "age": 33,
+      "gamesPlayed": 152,
+      "atBats": 541,
+      "plateAppearances": 679,
+      "hits": 179,
+      "doubles": 24,
+      "triples": 1,
+      "homeRuns": 53,
+      "baseOnBalls": 124,
+      "hitByPitch": 7,
+      "sacFlies": 4,
+      "strikeOuts": 160,
+      "totalBases": 358
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 592450,
+      "fullName": "Aaron Judge",
+      "primaryPosition": {
+       "abbreviation": "RF"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 30,
+      "gamesPlayed": 158,
+      "atBats": 611,
+      "plateAppearances": 727,
+      "hits": 172,
+      "doubles": 25,
+      "triples": 9,
+      "homeRuns": 55,
+      "baseOnBalls": 109,
+      "hitByPitch": 3,
+      "sacFlies": 2,
+      "strikeOuts": 187,
+      "totalBases": 380
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 660271,
+      "fullName": "Shohei Ohtani",
+      "primaryPosition": {
+       "abbreviation": "TWP"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 35,
+      "gamesPlayed": 140,
+      "atBats": 510,
+      "plateAppearances": 573,
+      "hits": 150,
+      "doubles": 28,
+      "triples": 0,
+      "homeRuns": 12,
+      "baseOnBalls": 55,
+      "hitByPitch": 3,
+      "sacFlies": 5,
+      "strikeOuts": 114,
+      "totalBases": 214
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 514888,
+      "fullName": "Jos\u00e9 Altuve",
+      "primaryPosition": {
+       "abbreviation": "2B"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 23,
+      "gamesPlayed": 40,
+      "atBats": 140,
+      "plateAppearances": 150,
+      "hits": 38,
+      "doubles": 7,
+      "triples": 1,
+      "homeRuns": 6,
+      "baseOnBalls": 8,
+      "hitByPitch": 1,
+      "sacFlies": 1,
+      "strikeOuts": 33,
+      "totalBases": 65
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 700001,
+      "fullName": "\u00d8rsted \u0141ukasz \u0110uri\u0107 Jr.",
+      "primaryPosition": {
+       "abbreviation": "CF"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 28,
+      "gamesPlayed": 5,
+      "atBats": 0,
+      "plateAppearances": 10,
+      "hits": 0,
+      "doubles": 0,
+      "triples": 0,
+      "homeRuns": 0,
+      "baseOnBalls": 10,
+      "hitByPitch": 0,
+      "sacFlies": 0,
+      "strikeOuts": 0,
+      "totalBases": 0
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 700002,
+      "fullName": "Walks Only",
+      "primaryPosition": {
+       "abbreviation": "1B"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 41,
+      "gamesPlayed": 100,
+      "atBats": 300,
+      "plateAppearances": 340,
+      "hits": 75,
+      "doubles": 10,
+      "triples": 0,
+      "homeRuns": 9,
+      "baseOnBalls": 30,
+      "hitByPitch": 2,
+      "sacFlies": 3,
+      "strikeOuts": 70,
+      "totalBases": 112
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 54321,
+      "fullName": "Old Timer",
+      "primaryPosition": {
+       "abbreviation": "DH"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 25,
+      "gamesPlayed": 120,
+      "atBats": 400,
+      "plateAppearances": 450,
+      "hits": 100,
+      "doubles": 20,
+      "triples": 2,
+      "homeRuns": 10,
+      "baseOnBalls": 40,
+      "hitByPitch": 5,
+      "sacFlies": 2,
+      "strikeOuts": 90,
+      "totalBases": 154
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 700003,
+      "fullName": "Luis Garcia",
+      "primaryPosition": {
+       "abbreviation": "SS"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 26,
+      "gamesPlayed": 110,
+      "atBats": 380,
+      "plateAppearances": 420,
+      "hits": 95,
+      "doubles": 18,
+      "triples": 1,
+      "homeRuns": 8,
+      "baseOnBalls": 35,
+      "hitByPitch": 4,
+      "sacFlies": 1,
+      "strikeOuts": 85,
+      "totalBases": 139
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 700004,
+      "fullName": "Luis Garcia",
+      "primaryPosition": {
+       "abbreviation": "2B"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 30,
+      "gamesPlayed": 150,
+      "atBats": 2000,
+      "plateAppearances": 2300,
+      "hits": 469,
+      "doubles": 80,
+      "triples": 5,
+      "homeRuns": 40,
+      "baseOnBalls": 250,
+      "hitByPitch": 10,
+      "sacFlies": 20,
+      "strikeOuts": 400,
+      "totalBases": 1
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 700005,
+      "fullName": "Tie Breaker",
+      "primaryPosition": {
+       "abbreviation": "LF"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "gamesPlayed": 60,
+      "atBats": 200,
+      "plateAppearances": 230,
+      "doubles": 5,
+      "triples": 0,
+      "homeRuns": 4,
+      "baseOnBalls": 20,
+      "hitByPitch": 2,
+      "sacFlies": 1,
+      "strikeOuts": 50,
+      "totalBases": 70
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 700006,
+      "fullName": "Missing Hits",
+      "primaryPosition": {
+       "abbreviation": "RF"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 31,
+      "gamesPlayed": 30,
+      "atBats": 3,
+      "plateAppearances": 3,
+      "hits": 0,
+      "doubles": 0,
+      "triples": 0,
+      "homeRuns": 0,
+      "baseOnBalls": 0,
+      "hitByPitch": 0,
+      "sacFlies": 0,
+      "strikeOuts": 2,
+      "totalBases": 0
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 700007,
+      "fullName": "Pitcher Bat",
+      "primaryPosition": {
+       "abbreviation": "P"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 27,
+      "gamesPlayed": 3,
+      "atBats": 0,
+      "plateAppearances": 0,
+      "hits": 0,
+      "doubles": 0,
+      "triples": 0,
+      "homeRuns": 0,
+      "baseOnBalls": 0,
+      "hitByPitch": 0,
+      "sacFlies": 0,
+      "strikeOuts": 0,
+      "totalBases": 0
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 700008,
+      "fullName": "Zero PA",
+      "primaryPosition": {
+       "abbreviation": "2B"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 22,
+      "gamesPlayed": 5,
+      "atBats": 10,
+      "plateAppearances": 12,
+      "hits": 3,
+      "doubles": 1,
+      "triples": 0,
+      "homeRuns": 0,
+      "baseOnBalls": 1,
+      "hitByPitch": 0,
+      "sacFlies": 0,
+      "strikeOuts": 4,
+      "totalBases": 4
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 999002,
+      "fullName": "Minor Leaguer",
+      "primaryPosition": {
+       "abbreviation": "SS"
+      }
+     },
+     "sport": {
+      "id": 11
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 32,
+      "gamesPlayed": 20,
+      "atBats": 60,
+      "plateAppearances": 70,
+      "hits": 15,
+      "doubles": 3,
+      "triples": 0,
+      "homeRuns": 2,
+      "baseOnBalls": 8,
+      "hitByPitch": 0,
+      "sacFlies": 1,
+      "strikeOuts": 12,
+      "totalBases": 24
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 700009,
+      "fullName": "No Position"
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 27,
+      "gamesPlayed": 90,
+      "atBats": 2500,
+      "plateAppearances": 3000,
+      "hits": 1,
+      "doubles": 0,
+      "triples": 0,
+      "homeRuns": 0,
+      "baseOnBalls": 1,
+      "hitByPitch": 0,
+      "sacFlies": 0,
+      "strikeOuts": 2,
+      "totalBases": 1
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 700010,
+      "fullName": "Tiny Rates",
+      "primaryPosition": {
+       "abbreviation": "3B"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    }
+   ]
+  }
+ ]
+}

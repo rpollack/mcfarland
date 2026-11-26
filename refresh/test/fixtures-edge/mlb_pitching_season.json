@@ -1,0 +1,420 @@
+{
+ "copyright": "fixture",
+ "stats": [
+  {
+   "type": {
+    "displayName": "season"
+   },
+   "splits": [
+    {
+     "season": "2025",
+     "stat": {
+      "age": 28,
+      "gamesPitched": 70,
+      "gamesStarted": 0,
+      "inningsPitched": "70.1",
+      "battersFaced": 290,
+      "hits": 60,
+      "runs": 25,
+      "earnedRuns": 22,
+      "homeRuns": 6,
+      "strikeOuts": 80,
+      "baseOnBalls": 20,
+      "intentionalWalks": 1,
+      "hitByPitch": 2,
+      "atBats": 240,
+      "sacFlies": 2
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 657277,
+      "fullName": "Logan Webb",
+      "primaryPosition": {
+       "abbreviation": "P"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 26,
+      "gamesPitched": 30,
+      "gamesStarted": 30,
+      "inningsPitched": "180.2",
+      "battersFaced": 740,
+      "hits": 160,
+      "runs": 70,
+      "earnedRuns": 64,
+      "homeRuns": 18,
+      "strikeOuts": 190,
+      "baseOnBalls": 50,
+      "intentionalWalks": 2,
+      "hitByPitch": 6,
+      "atBats": 650,
+      "sacFlies": 4
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 695243,
+      "fullName": "Mason Miller",
+      "primaryPosition": {
+       "abbreviation": "P"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 30,
+      "gamesPitched": 14,
+      "gamesStarted": 14,
+      "inningsPitched": "47.0",
+      "battersFaced": 190,
+      "hits": 30,
+      "runs": 10,
+      "earnedRuns": 9,
+      "homeRuns": 3,
+      "strikeOuts": 60,
+      "baseOnBalls": 15,
+      "intentionalWalks": 0,
+      "hitByPitch": 1,
+      "atBats": 160,
+      "sacFlies": 0
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 660271,
+      "fullName": "Shohei Ohtani",
+      "primaryPosition": {
+       "abbreviation": "TWP"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 29,
+      "gamesPitched": 20,
+      "gamesStarted": 20,
+      "inningsPitched": "100.0",
+      "battersFaced": 5000,
+      "hits": 1,
+      "runs": 0,
+      "earnedRuns": 0,
+      "homeRuns": 0,
+      "strikeOuts": 0,
+      "baseOnBalls": 10,
+      "intentionalWalks": 0,
+      "hitByPitch": 0,
+      "atBats": 10000,
+      "sacFlies": 0
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 800001,
+      "fullName": "Tiny Babip",
+      "primaryPosition": {
+       "abbreviation": "P"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 31,
+      "gamesPitched": 1,
+      "gamesStarted": 0,
+      "inningsPitched": "0.0",
+      "battersFaced": 1,
+      "hits": 0,
+      "runs": 0,
+      "earnedRuns": 0,
+      "homeRuns": 0,
+      "strikeOuts": 0,
+      "baseOnBalls": 0,
+      "intentionalWalks": 0,
+      "hitByPitch": 1,
+      "atBats": 0,
+      "sacFlies": 0
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 800002,
+      "fullName": "Zero Innings",
+      "primaryPosition": {
+       "abbreviation": "P"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 33,
+      "gamesPitched": 10,
+      "gamesStarted": 5,
+      "inningsPitched": "30.2",
+      "battersFaced": 130,
+      "hits": 28,
+      "runs": 12,
+      "earnedRuns": 11,
+      "homeRuns": 3,
+      "strikeOuts": 33,
+      "baseOnBalls": 12,
+      "intentionalWalks": 0,
+      "hitByPitch": 1,
+      "atBats": 108,
+      "sacFlies": 1
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 800003,
+      "fullName": "Role Edge",
+      "primaryPosition": {
+       "abbreviation": "P"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 24,
+      "gamesPitched": 12,
+      "gamesStarted": 0,
+      "inningsPitched": "12.2",
+      "battersFaced": 55,
+      "hits": 11,
+      "runs": 5,
+      "earnedRuns": 5,
+      "homeRuns": 1,
+      "strikeOuts": 14,
+      "baseOnBalls": 6,
+      "intentionalWalks": 0,
+      "hitByPitch": 0,
+      "atBats": 44,
+      "sacFlies": 0
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 800004,
+      "fullName": "Twelve Two",
+      "primaryPosition": {
+       "abbreviation": "P"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 27,
+      "gamesPitched": 25,
+      "gamesStarted": 0,
+      "inningsPitched": "28.1",
+      "battersFaced": 120,
+      "hits": 24,
+      "runs": 10,
+      "earnedRuns": 9,
+      "homeRuns": 2,
+      "strikeOuts": 30,
+      "baseOnBalls": 11,
+      "intentionalWalks": 1,
+      "hitByPitch": 2,
+      "atBats": 100,
+      "sacFlies": 1
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 800005,
+      "fullName": "No Savant",
+      "primaryPosition": {
+       "abbreviation": "P"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 29,
+      "gamesPitched": 1,
+      "gamesStarted": 0,
+      "inningsPitched": "1.0",
+      "battersFaced": 6,
+      "hits": 3,
+      "runs": 2,
+      "earnedRuns": 2,
+      "homeRuns": 2,
+      "strikeOuts": 0,
+      "baseOnBalls": 0,
+      "intentionalWalks": 0,
+      "hitByPitch": 0,
+      "atBats": 3,
+      "sacFlies": 0
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 666126,
+      "fullName": "Carlos Cort\u00e9s",
+      "primaryPosition": {
+       "abbreviation": "LF"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 30,
+      "gamesPitched": 1,
+      "gamesStarted": 1,
+      "inningsPitched": "2000.0",
+      "battersFaced": 8000,
+      "hits": 1800,
+      "runs": 700,
+      "earnedRuns": 1,
+      "homeRuns": 150,
+      "strikeOuts": 2000,
+      "baseOnBalls": 600,
+      "intentionalWalks": 0,
+      "hitByPitch": 20,
+      "atBats": 7000,
+      "sacFlies": 30
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 800006,
+      "fullName": "Tie Era One",
+      "primaryPosition": {
+       "abbreviation": "P"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 30,
+      "gamesPitched": 1,
+      "gamesStarted": 1,
+      "inningsPitched": "2000.0",
+      "battersFaced": 8000,
+      "hits": 1800,
+      "runs": 700,
+      "earnedRuns": 3,
+      "homeRuns": 150,
+      "strikeOuts": 2000,
+      "baseOnBalls": 600,
+      "intentionalWalks": 0,
+      "hitByPitch": 20,
+      "atBats": 7000,
+      "sacFlies": 30
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 800007,
+      "fullName": "Tie Era Three",
+      "primaryPosition": {
+       "abbreviation": "P"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 30,
+      "gamesPitched": 1,
+      "gamesStarted": 1,
+      "inningsPitched": "2000.0",
+      "battersFaced": 8000,
+      "hits": 1800,
+      "runs": 700,
+      "earnedRuns": 5,
+      "homeRuns": 150,
+      "strikeOuts": 2000,
+      "baseOnBalls": 600,
+      "intentionalWalks": 0,
+      "hitByPitch": 20,
+      "atBats": 7000,
+      "sacFlies": 30
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 800008,
+      "fullName": "Tie Era Five",
+      "primaryPosition": {
+       "abbreviation": "P"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    }
+   ]
+  }
+ ]
+}
