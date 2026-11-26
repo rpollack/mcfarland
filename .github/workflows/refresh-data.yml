@@ -4,15 +4,14 @@ on:
     # Scheduled runs at the top of the hour are queued behind everyone else's; they started 1-9 hours late
     # at ':00'. Use an off-peak minute. The time of day itself doesn't matter: games finish well before this.
     #
-    # Paused for the offseason: this only runs March through October. Stats don't move in the offseason, and
-    # FanGraphs has been blocking the current-season pull with a Cloudflare challenge (see the 2026-11 failures).
-    # Before widening this back to every month, or bumping current_year in refresh_data.R for a new season:
-    #   1. Add fangraphs-leaderboards-<last season>.csv and pitcher-stats-<last season>.csv so the three-season
-    #      baseline (current_year - 3 .. current_year - 1) is complete; see the "Yearly rollover" note in
-    #      refresh_data.R. The pitcher export pulls from FanGraphs too, so it hits the same block.
-    #   2. Fix or replace the FanGraphs current-season fetch so the run doesn't fail on the bot challenge.
-    #   3. Run this workflow by hand with publish=false and confirm it passes.
-    # workflow_dispatch below still works at any time.
+    # Paused for the offseason: this only runs March through October, because stats don't move in the offseason.
+    # Before the first run of a new season (the "Yearly rollover" note in refresh_data.R has the details):
+    #   1. Make sure baseline-hitters-<year>.csv and baseline-pitchers-<year>.csv exist for current_year - 3 .. current_year - 1
+    #      (build the finished season with: Rscript refresh_data.R build-baseline-season <year>).
+    #   2. Bump current_year in refresh_data.R once the new season has games.
+    #   3. Run this workflow by hand with publish=false and confirm it passes, for a few days, before the cron resumes.
+    # Scheduled runs wait a random 0-3 hours before fetching (see the step below), so the run time varies. workflow_dispatch
+    # below still works at any time, and manual runs do not wait.
     - cron: '37 10 * 3-10 *'
   workflow_dispatch:  # Allows manual trigger
     inputs:
@@ -24,6 +23,8 @@ on:
 jobs:
   refresh:
     runs-on: ubuntu-24.04
+    # Up to 3 hours of random wait, then the refresh, then up to 30 minutes for the PR to merge and 20 for the deploy.
+    timeout-minutes: 300
     permissions:
       contents: read
     steps:
@@ -63,6 +64,18 @@ jobs:
           Rscript -e 'pkgs <- c("dplyr", "readr", "tibble", "stringr", "stringi", "jsonlite", "curl", "httr"); missing <- setdiff(pkgs, rownames(installed.packages())); if (length(missing)) install.packages(missing)'
           # Print the versions so a drifting dependency is visible in the log; this also fails the step if a package can't load.
           Rscript -e 'library(curl); library(httr); library(dplyr); library(readr); cat("dplyr", as.character(packageVersion("dplyr")), "readr", as.character(packageVersion("readr")), "\n")'
+
+      # A fixed time of day makes a machine-like pattern for the sites we read. Scheduled runs wait a random 0-3 hours
+      # first (games finish well before 10:37 UTC, and even the longest wait is still morning in the US). This only
+      # avoids a rigid pattern; it does not guarantee a site will not challenge us. What keeps the load low is the
+      # volume (about seven requests per run) and an honest User-Agent. If a run is ever refused, the app keeps serving
+      # the last good CSVs and the failure monitor reports it. Manual runs start at once.
+      - name: Wait a random time before fetching (scheduled runs only)
+        if: github.event_name == 'schedule'
+        run: |
+          delay=$(( (RANDOM * 32768 + RANDOM) % 10800 ))
+          echo "Waiting ${delay} seconds before fetching."
+          sleep "${delay}"
 
       - name: Refresh baseball data
         run: Rscript refresh_data.R

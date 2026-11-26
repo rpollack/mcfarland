@@ -46,6 +46,15 @@ test_that("a baseline file in another shape is refused by name", {
   expect_error(read_hitter_baseline_seasons(seasons, dir), "baseline-hitters-2024.csv is missing; run Rscript refresh_data.R build-baseline-season 2024")
 })
 
+test_that("the baseline files for the three seasons before current_year are committed", {
+  # Bumping current_year in refresh_data.R for a new season needs last season's files first
+  # (Rscript refresh_data.R build-baseline-season <year>); this fails the bump's PR if they are missing.
+  for (year in baseline_seasons_for(script_current_year)$year) {
+    expect_true(file.exists(file.path(repo_root, baseline_file("hitters", year))), info = paste("hitters", year))
+    expect_true(file.exists(file.path(repo_root, baseline_file("pitchers", year))), info = paste("pitchers", year))
+  }
+})
+
 # --- frozen player ids ---------------------------------------------------------
 
 test_that("the frozen id map is exactly as it was built and its two id ranges cannot overlap", {
