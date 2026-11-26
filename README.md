@@ -215,9 +215,9 @@ The app serves baseball data from CSV files in the repository root. They are pro
 
 **Scratch files**: the script also writes `candidate_full_stats_*.csv`, `candidate_player_lookup.csv`, `served_player_inventory.csv` and `migration_parity_report.json`. They are gitignored and regenerated on every run. The candidates are checked against the current files (row counts, player IDs, MLB IDs, stat parity) and only copied over the real CSVs if the check passes. If it fails (including the sanity checks: a feed that came back empty, or a player list that shrank within the season) the production files are left alone, the failures are printed and the run exits with an error. The one run that switched the data source needed `Rscript refresh_data.R --accept-source-migration`, which skips value parity; it is not needed again.
 
-**Daily schedule** (`.github/workflows/refresh-data.yml`, 10:37 UTC, also runnable manually; set `publish` to false for a dry run):
+**Daily schedule** (`.github/workflows/refresh-data.yml`, March through October, 10:37 UTC plus a random 0 to 3 hour wait before fetching so the run time varies; also runnable manually, without the wait; set `publish` to false for a dry run):
 
-1. Installs R and packages, then runs `Rscript refresh_data.R`.
+1. Installs R and packages, waits the random time (scheduled runs only), then runs `Rscript refresh_data.R`.
 2. "Skip freshness-only updates": if the three stat CSVs did not change, `data_freshness.json` is restored so no PR is opened (no new games means no PR, and cached takes are not regenerated).
 3. Otherwise opens a `Daily baseball data refresh YYYY-MM-DD` PR and enables squash auto-merge. This needs the `REFRESH_PR_TOKEN` secret, and the PR must pass the `playwright` check before it merges (master is protected).
 4. Waits for the merge, then waits until the deployed app reports the new `dataThroughDate`.
