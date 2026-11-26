@@ -19,10 +19,9 @@ playwright-report
 *.csv
 
 # KEEP source files (needed for GitHub Actions)
-!fangraphs-leaderboards-*.csv
-!pitcher-stats-*.csv
 !baseline-hitters-*.csv
 !baseline-pitchers-*.csv
+!player_id_map.csv
 
 # Test fixtures are CSVs too
 !tests/testthat/fixtures/*.csv

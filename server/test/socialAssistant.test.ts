@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { __setDataFreshnessForTests, getDataFreshness } from "../src/dataStore.js";
+import { __setDataFreshnessForTests, getDataFreshness, getPlayerById } from "../src/dataStore.js";
 import {
   __clearNewsworthyQuickLinkCacheForTests,
   __clearPreviousSeasonSampleCacheForTests,
@@ -275,6 +275,21 @@ describe("social assistant news discovery", () => {
       expect(eligibility?.sample).toBeGreaterThanOrEqual(eligibility?.threshold ?? Number.POSITIVE_INFINITY);
       expect([125, 350]).toContain(eligibility?.threshold);
     });
+  });
+
+  it("finds a player's previous-season sample by MLB id, whatever the app PlayerId", () => {
+    __setDataFreshnessForTests({ dataThroughDate: "2026-11-16", dataThroughLabel: "Nov 16" });
+
+    // Jose Altuve keeps the old FanGraphs PlayerId (5417); the sample comes from baseline-hitters-2025.csv by mlbamid 514888.
+    const hitter = getPlayerById("hitter", "5417");
+    expect(hitter?.mlbamid).toBe("514888");
+    expect(__getBreakoutBaselineEligibilityForTests("hitter", "5417")).toMatchObject({ qualified: true, sample: 654, threshold: 300 });
+
+    // Logan Webb: 856 batters faced and 34 starts in 2025, so a starter against the 350 TBF bar.
+    expect(__getBreakoutBaselineEligibilityForTests("pitcher", "17995")).toMatchObject({ qualified: true, sample: 856, threshold: 350, role: "starter" });
+
+    // A player the files do not know has no sample.
+    expect(__getBreakoutBaselineEligibilityForTests("hitter", "does-not-exist")).toBeNull();
   });
 
   it("uses different previous-year TBF thresholds for starter and reliever breakouts", () => {

@@ -203,13 +203,17 @@ The app serves baseball data from CSV files in the repository root. They are pro
 
 **Inputs** (all in the repo root, committed):
 
-- `fangraphs-leaderboards-<year>.csv` (hitters) and `pitcher-stats-<year>.csv` (pitchers): one file per baseline season. The three seasons before `current_year` in `refresh_data.R` form each player's weighted baseline (weights 1, 3, 5, oldest first). Rolling into a new year is described at the top of the script; `Rscript refresh_data.R export-pitcher-season <year>` creates the pitcher file.
-- Live current-season pulls on every run: the MLB Stats API, FanGraphs (via `baseballr` for hitters and the FanGraphs leaders API for pitchers).
-- `baseline-hitters-<year>.csv` and `baseline-pitchers-<year>.csv`: the same season tables built without FanGraphs, from the MLB Stats API and Baseball Savant, keyed by `mlbamid` (the MLB player id). They are the planned replacement for the two FanGraphs files above and are not read by the refresh yet. Build one with `Rscript refresh_data.R build-baseline-season <year>` (it refuses to overwrite existing files without `--force`); 2023 to 2026 are committed. Where each column comes from is documented at the top of `data_sources.R`. Percent columns (`barrel_percent`, `o_swing_percent`, `whiff_percent`, `lob_percent`) are 0 to 100, unlike the FanGraphs files, which held fractions for some of them.
+- `baseline-hitters-<year>.csv` and `baseline-pitchers-<year>.csv`: one pair per baseline season, keyed by `mlbamid` (the MLB player id). The three seasons before `current_year` in `refresh_data.R` form each player's weighted baseline (weights 1, 3, 5, oldest first). Each file is written by `Rscript refresh_data.R build-baseline-season <year>` from the same code that builds the current season (it refuses to overwrite existing files without `--force`). Where each column comes from is documented at the top of `data_sources.R`. Percent columns (`barrel_percent`, `o_swing_percent`, `whiff_percent`, `lob_percent`) are 0 to 100.
+- Live current-season pulls on every run, from the MLB Stats API (counts, Age, wOBA) and Baseball Savant (xwOBA, barrels, xERA, O-Swing%, whiff%). No other site is used; the pipeline no longer touches FanGraphs, which blocks scripted requests.
+- `player_id_map.csv` (`mlbamid`, `PlayerId`): the app's `PlayerId` for every player who was served before the move off FanGraphs. It is data, built once from the old `player_lookup.csv`, and must never be regenerated or edited (a test checks its checksum): a player's `PlayerId` is a key for URLs, votes, trend rows, cached analyses and stars. A player not in the map (first served after the move) gets `PlayerId` = their own `mlbamid`, so the column holds both 5-digit legacy ids and 6-digit MLB ids. Internal joins use `mlbamid`.
+
+**Yearly rollover**: each November run `Rscript refresh_data.R build-baseline-season <finished year>` and commit the two files; in March, once the new season has games, bump `current_year` in `refresh_data.R`.
 
 **Outputs committed to git**: `full_stats_hitters.csv`, `full_stats_pitchers.csv`, `player_lookup.csv`, and `data_freshness.json` (when the data is through, and when it was refreshed).
 
-**Scratch files**: the script also writes `candidate_full_stats_*.csv`, `candidate_player_lookup.csv`, `served_player_inventory.csv` and `migration_parity_report.json`. They are gitignored and regenerated on every run. The candidates are checked against the current files (row counts, player IDs, MLB IDs, stat parity) and only copied over the real CSVs if the check passes; otherwise the production files are left alone and the failures are printed.
+**Code layout**: `data_sources.R` (MLB and Savant fetchers, computed FIP/BABIP/LOB%, season tables), `pipeline.R` (baselines, joins, the frozen-id map, the output column contract, the gates) and `refresh_data.R` (configuration and orchestration).
+
+**Scratch files**: the script also writes `candidate_full_stats_*.csv`, `candidate_player_lookup.csv`, `served_player_inventory.csv` and `migration_parity_report.json`. They are gitignored and regenerated on every run. The candidates are checked against the current files (row counts, player IDs, MLB IDs, stat parity) and only copied over the real CSVs if the check passes. If it fails (including the sanity checks: a feed that came back empty, or a player list that shrank within the season) the production files are left alone, the failures are printed and the run exits with an error. The one run that switched the data source needed `Rscript refresh_data.R --accept-source-migration`, which skips value parity; it is not needed again.
 
 **Daily schedule** (`.github/workflows/refresh-data.yml`, 10:37 UTC, also runnable manually; set `publish` to false for a dry run):
 
@@ -222,16 +226,16 @@ The app serves baseball data from CSV files in the repository root. They are pro
 
 **Deploys**: Render redeploys on every merge to master. The Docker image contains the repo, and the server reads the CSVs and `data_freshness.json` from the repo root (`DATA_ROOT` in `server/src/dataStore.ts`), so merging the refresh PR is what publishes new data.
 
-**R tests**: `data_sources.R` (the MLB and Savant fetchers, the computed fields and the season tables) has fixture-based tests in `tests/testthat/` that never touch the network: `Rscript -e 'testthat::test_dir("tests/testthat", stop_on_failure = TRUE)'` (needs the `testthat` package). The `r-tests` workflow runs them on changes to the R files. `Rscript scripts/validate_fangraphs_transition.R <report path>` compares the new tables with the committed FanGraphs-sourced ones.
+**R tests**: `data_sources.R` and `pipeline.R` have fixture-based tests, including a run of `refresh_data.R` end to end on fixtures, in `tests/testthat/` that never touch the network: `Rscript -e 'testthat::test_dir("tests/testthat", stop_on_failure = TRUE)'` (needs the `testthat` package). The `r-tests` workflow runs them on changes to the R files.
 
-**Run it locally**: `Rscript refresh_data.R` from the repo root (needs R with `dplyr`, `readr`, `tibble`, `stringr`, `stringi`, `jsonlite`, `janitor`, `httr`, `rvest`, `baseballr`). It overwrites the committed CSVs when the check passes; review with `git diff` and discard with `git checkout` if you do not want to keep it.
+**Run it locally**: `Rscript refresh_data.R` from the repo root (needs R with `dplyr`, `readr`, `tibble`, `stringr`, `stringi`, `jsonlite`, `httr`). It overwrites the committed CSVs when the check passes; review with `git diff` and discard with `git checkout` if you do not want to keep it.
 
 Do not move the CSVs without updating `DATA_ROOT`, the `Dockerfile`, `refresh_data.R`, and the workflows.
 
 ## Data And Caching Notes
 
 - The app's baseball data comes from the CSV files in the repository root plus `data_freshness.json`.
-- `refresh_data.R` is the data refresh entrypoint (with its helpers in `data_sources.R`) and is intended to be run on a schedule during the season.
+- `refresh_data.R` is the data refresh entrypoint (with its code in `data_sources.R` and `pipeline.R`) and is intended to be run on a schedule during the season.
 - The daily refresh workflow only opens a PR when the stat files (`full_stats_*.csv`, `player_lookup.csv`) actually change. In the offseason nothing changes, so the data and `dataThroughDate` stay frozen and nothing is regenerated.
 - Analysis cache validity follows `dataThroughDate`, not wall-clock date.
 - Only successful structured Claude responses are cached. API errors, unavailable responses, and malformed model responses are not cached.

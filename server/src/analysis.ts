@@ -60,7 +60,7 @@ export function buildPitcherPrompt(player: PitcherRecord): string {
     formatMetricLine("BABIP", formatStatValue(player.babip_cur), formatStatValue(player.babip_l3), formatStatValue(player.babip_diff), formatStatValue(player.babip_lg_adj_diff)),
     formatMetricLine("Barrel Rate", formatPercentage(player.barrel_percent_cur), formatPercentage(player.barrel_percent_l3), formatPercentage(player.barrel_percent_diff), formatPercentage(player.barrel_percent_lg_adj_diff)),
     formatMetricLine("Strikeout Rate (K%)", formatPercentage(player.k_percent_cur), formatPercentage(player.k_percent_l3), formatPercentage(player.k_percent_diff), formatPercentage(player.k_percent_lg_adj_diff)),
-    formatMetricLine("Called Strike & Whiff Rate (CSW%)", formatPercentage(player.csw_percent_cur), formatPercentage(player.csw_percent_l3), formatPercentage(player.csw_percent_diff), formatPercentage(player.csw_percent_lg_adj_diff)),
+    formatMetricLine("Whiff Rate (Whiff%, swinging strikes per swing)", formatPercentage(player.whiff_percent_cur), formatPercentage(player.whiff_percent_l3), formatPercentage(player.whiff_percent_diff), formatPercentage(player.whiff_percent_lg_adj_diff)),
     formatMetricLine("Outside Zone Swing Rate (O-Swing%)", formatPercentage(player.o_swing_percent_cur), formatPercentage(player.o_swing_percent_l3), formatPercentage(player.o_swing_percent_diff), formatPercentage(player.o_swing_percent_lg_adj_diff)),
     formatMetricLine("Walk Rate (BB%)", formatPercentage(player.bb_percent_cur), formatPercentage(player.bb_percent_l3), formatPercentage(player.bb_percent_diff), formatPercentage(player.bb_percent_lg_adj_diff)),
     formatMetricLine("K-BB%", formatPercentage(player.k_minus_bb_percent_cur), formatPercentage(player.k_minus_bb_percent_l3), formatPercentage(player.k_minus_bb_percent_diff), formatPercentage(player.k_minus_bb_percent_lg_adj_diff)),
@@ -70,7 +70,7 @@ export function buildPitcherPrompt(player: PitcherRecord): string {
   const notes = [
     "",
     "--- Guidelines for analysis ---",
-    "- Core skills: K%, BB%, K-BB%, Barrel Rate; luck/regression: BABIP, LOB%, ERA/xERA, CSW%/K%, O-Swing%/BB%.",
+    "- Core skills: K%, BB%, K-BB%, Barrel Rate; luck/regression: BABIP, LOB%, ERA/xERA, Whiff%/K%, O-Swing%/BB%.",
     "- Sample context: starters about 700 TBF; relievers are more volatile. Adjust for age and SP/RP role.",
   ];
 
@@ -120,7 +120,7 @@ function buildMetricSelectionInstructions(type: PlayerType): string[] {
   return [
     "Metric selection guidance for pitchers:",
     "- Start from run-prevention quality and sustainability: xERA vs ERA, K-BB%, and Barrel Rate.",
-    "- Use K%, BB%, CSW%, and O-Swing% to explain whether the skill change is real.",
+    "- Use K%, BB%, Whiff%, and O-Swing% to explain whether the skill change is real.",
     "- Use BABIP, LOB%, and ERA/xERA gaps for luck/regression; do not lead with ERA alone when estimators or skills disagree.",
     "- Role and TBF should shape confidence: reliever samples need more caution than starter samples.",
   ];
@@ -188,7 +188,7 @@ export function buildComparisonPrompt(players: (HitterRecord | PitcherRecord)[],
       `  ${formatMetricLine("BB%", formatPercentage(pitcher.bb_percent_cur), formatPercentage(pitcher.bb_percent_l3), formatPercentage(pitcher.bb_percent_diff), formatPercentage(pitcher.bb_percent_lg_adj_diff))}`,
       `  ${formatMetricLine("K-BB%", formatPercentage(pitcher.k_minus_bb_percent_cur), formatPercentage(pitcher.k_minus_bb_percent_l3), formatPercentage(pitcher.k_minus_bb_percent_diff), formatPercentage(pitcher.k_minus_bb_percent_lg_adj_diff))}`,
       `  ${formatMetricLine("BABIP", formatStatValue(pitcher.babip_cur), formatStatValue(pitcher.babip_l3), formatStatValue(pitcher.babip_diff), formatStatValue(pitcher.babip_lg_adj_diff))}`,
-      `  ${formatMetricLine("CSW%", formatPercentage(pitcher.csw_percent_cur), formatPercentage(pitcher.csw_percent_l3), formatPercentage(pitcher.csw_percent_diff), formatPercentage(pitcher.csw_percent_lg_adj_diff))}`,
+      `  ${formatMetricLine("Whiff%", formatPercentage(pitcher.whiff_percent_cur), formatPercentage(pitcher.whiff_percent_l3), formatPercentage(pitcher.whiff_percent_diff), formatPercentage(pitcher.whiff_percent_lg_adj_diff))}`,
     ].join("\n");
   });
 

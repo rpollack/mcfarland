@@ -1,12 +1,14 @@
 name: r-tests
 
-# Fixture-based tests for the data refresh code (data_sources.R). They never touch the network, so they run on every
+# Fixture-based tests for the data refresh code (data_sources.R and pipeline.R). They never touch the network, so they run on every
 # change to the R files rather than waiting for the daily refresh to find a broken fetcher.
 on:
   pull_request:
     paths:
       - 'data_sources.R'
+      - 'pipeline.R'
       - 'refresh_data.R'
+      - 'player_id_map.csv'
       - 'tests/testthat/**'
       - '.github/workflows/r-tests.yml'
   push:
@@ -14,7 +16,9 @@ on:
       - master
     paths:
       - 'data_sources.R'
+      - 'pipeline.R'
       - 'refresh_data.R'
+      - 'player_id_map.csv'
       - 'tests/testthat/**'
       - '.github/workflows/r-tests.yml'
 

@@ -136,7 +136,7 @@ test_that("the hitter table drops batting pitchers and zero-PA players but keeps
   expect_equal(judge$xwOBA, 0.449)
 })
 
-test_that("a hitter with no Savant batted-ball row has 0 barrels but keeps his other values", {
+test_that("a hitter with no Savant batted-ball row has 0 barrels but keeps the other values", {
   altuve <- build_season_stats(2025, any_season_min_rows, fixture_http())$hitters |> dplyr::filter(mlbamid == "514888")
   expect_equal(altuve$Name, "Jose Altuve")
   expect_equal(altuve$Barrels, 0)
@@ -162,7 +162,7 @@ test_that("the pitcher table classifies roles, computes rates and leaves out pos
   expect_equal(miller$position, "RP")
   expect_equal(miller$ip, round(58 + 2 / 3, 6))
 
-  # A position player who pitched is not a pitcher (his FIP still counts in the league constant); Ohtani (TWP) is.
+  # A position player who pitched is not a pitcher (the FIP still counts in the league constant); Ohtani (TWP) is.
   expect_false("666126" %in% pitchers$mlbamid)
   expect_true("660271" %in% pitchers$mlbamid)
 })
