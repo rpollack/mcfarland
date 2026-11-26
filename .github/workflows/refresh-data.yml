@@ -3,7 +3,17 @@ on:
   schedule:
     # Scheduled runs at the top of the hour are queued behind everyone else's; they started 1-9 hours late
     # at ':00'. Use an off-peak minute. The time of day itself doesn't matter: games finish well before this.
-    - cron: '37 10 * * *'
+    #
+    # Paused for the offseason: this only runs March through October. Stats don't move in the offseason, and
+    # FanGraphs has been blocking the current-season pull with a Cloudflare challenge (see the 2026-11 failures).
+    # Before widening this back to every month, or bumping current_year in refresh_data.R for a new season:
+    #   1. Add fangraphs-leaderboards-<last season>.csv and pitcher-stats-<last season>.csv so the three-season
+    #      baseline (current_year - 3 .. current_year - 1) is complete; see the "Yearly rollover" note in
+    #      refresh_data.R. The pitcher export pulls from FanGraphs too, so it hits the same block.
+    #   2. Fix or replace the FanGraphs current-season fetch so the run doesn't fail on the bot challenge.
+    #   3. Run this workflow by hand with publish=false and confirm it passes.
+    # workflow_dispatch below still works at any time.
+    - cron: '37 10 * 3-10 *'
   workflow_dispatch:  # Allows manual trigger
     inputs:
       publish:
