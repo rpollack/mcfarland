@@ -1,6 +1,6 @@
 # Season stats from the MLB Stats API and Baseball Savant.
 #
-# Sourced by refresh_data.R and by the R tests; defining things here has no side effects, nothing runs on source.
+# Sourced by refresh/refresh_data.R and by the R tests; defining things here has no side effects, nothing runs on source.
 # Callers load the packages in the first block. Run everything from the repository root.
 #
 # One code path builds every season: build_season_stats(year) returns the hitter and pitcher tables for any
@@ -397,13 +397,21 @@ build_season_stats <- function(year, min_rows = full_season_min_rows, http_get =
 # BASELINE FILES
 # =============================================================================
 
-baseline_file <- function(kind, year, dir = ".") {
+# Where the data lives, relative to the repository root (the working directory for every run). The app's server reads
+# the same folder (DATA_ROOT in server/src/dataStore.ts), so moving it means changing both.
+DATA_DIR <- "data"
+BASELINE_DIR <- file.path(DATA_DIR, "baselines")
+# Candidate files and reports from each run; gitignored, rewritten every time.
+SCRATCH_DIR <- file.path(DATA_DIR, "scratch")
+data_path <- function(...) file.path(DATA_DIR, ...)
+
+baseline_file <- function(kind, year, dir = BASELINE_DIR) {
   file.path(dir, paste0("baseline-", kind, "-", year, ".csv"))
 }
 
 # Writes baseline-hitters-<year>.csv and baseline-pitchers-<year>.csv for a finished season. Refuses to replace
 # existing files unless force is TRUE, and writes neither file if either already exists.
-write_baseline_season <- function(year, stats, dir = ".", force = FALSE) {
+write_baseline_season <- function(year, stats, dir = BASELINE_DIR, force = FALSE) {
   files <- c(hitters = baseline_file("hitters", year, dir), pitchers = baseline_file("pitchers", year, dir))
   existing <- files[file.exists(files)]
   if (length(existing) > 0 && !force) {
@@ -415,7 +423,7 @@ write_baseline_season <- function(year, stats, dir = ".", force = FALSE) {
   invisible(files)
 }
 
-build_baseline_season <- function(year, force = FALSE, dir = ".", http_get = default_http_get) {
+build_baseline_season <- function(year, force = FALSE, dir = BASELINE_DIR, http_get = default_http_get) {
   files <- c(baseline_file("hitters", year, dir), baseline_file("pitchers", year, dir))
   if (any(file.exists(files)) && !force) {
     stop("Refusing to overwrite ", paste(files[file.exists(files)], collapse = ", "), "; pass --force to replace it", call. = FALSE)

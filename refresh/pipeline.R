@@ -1,6 +1,6 @@
 # Transformations, baselines, frozen player ids and the gates that guard the published CSVs.
 #
-# Sourced by refresh_data.R and by the R tests; defining things here has no side effects. Needs data_sources.R
+# Sourced by refresh/refresh_data.R and by the R tests; defining things here has no side effects. Needs data_sources.R
 # loaded first (for safe_divide, require_columns and the season tables). Run from the repository root.
 
 # =============================================================================
@@ -61,8 +61,8 @@ summarize_pitcher_baseline_metrics <- function(data, na.rm = TRUE) {
 # BASELINES (weighted history)
 # =============================================================================
 # The baseline for a player is the weighted history of the three seasons before the current one (weights 1, 3, 5,
-# oldest first). Each season is a baseline-hitters-<year>.csv / baseline-pitchers-<year>.csv written by
-# Rscript refresh_data.R build-baseline-season <year>, keyed by mlbamid.
+# oldest first). Each season is a baseline-hitters-<year>.csv / baseline-pitchers-<year>.csv in data/baselines/, written by
+# Rscript refresh/refresh_data.R build-baseline-season <year>, keyed by mlbamid.
 
 baseline_seasons_for <- function(current_year) {
   data.frame(year = current_year - 3:1, weight = c(1, 3, 5))
@@ -73,11 +73,11 @@ baseline_seasons_for <- function(current_year) {
 hitter_baseline_columns <- c("mlbamid", "Name", "AB", "PA", "H", "2B", "3B", "HR", "BB", "HBP", "SF", "SO", "TB", "Barrels", "wOBA", "xwOBA")
 pitcher_baseline_columns <- c("mlbamid", "name", "position", "er", "ip", "so", "bb", "tbf", "x_era", "fip", "barrel_percent", "o_swing_percent", "babip", "lob_percent", "whiff_percent")
 
-read_baseline_seasons <- function(kind, baseline_seasons, required_columns, dir = ".") {
+read_baseline_seasons <- function(kind, baseline_seasons, required_columns, dir = BASELINE_DIR) {
   seasons <- lapply(seq_len(nrow(baseline_seasons)), function(i) {
     file <- baseline_file(kind, baseline_seasons$year[i], dir)
     if (!file.exists(file)) {
-      stop("Baseline season file ", file, " is missing; run Rscript refresh_data.R build-baseline-season ", baseline_seasons$year[i], " first.", call. = FALSE)
+      stop("Baseline season file ", file, " is missing; run Rscript refresh/refresh_data.R build-baseline-season ", baseline_seasons$year[i], " first.", call. = FALSE)
     }
     read_csv(file, show_col_types = FALSE, col_types = cols(mlbamid = col_character())) |>
       require_columns(required_columns, file) |>
@@ -86,11 +86,11 @@ read_baseline_seasons <- function(kind, baseline_seasons, required_columns, dir 
   bind_rows(seasons)
 }
 
-read_hitter_baseline_seasons <- function(baseline_seasons, dir = ".") {
+read_hitter_baseline_seasons <- function(baseline_seasons, dir = BASELINE_DIR) {
   read_baseline_seasons("hitters", baseline_seasons, hitter_baseline_columns, dir)
 }
 
-read_pitcher_baseline_seasons <- function(baseline_seasons, dir = ".") {
+read_pitcher_baseline_seasons <- function(baseline_seasons, dir = BASELINE_DIR) {
   read_baseline_seasons("pitchers", baseline_seasons, pitcher_baseline_columns, dir)
 }
 
@@ -345,9 +345,9 @@ promote_candidate_outputs <- function(report) {
     return(FALSE)
   }
 
-  file.copy("candidate_full_stats_hitters.csv", "full_stats_hitters.csv", overwrite = TRUE)
-  file.copy("candidate_full_stats_pitchers.csv", "full_stats_pitchers.csv", overwrite = TRUE)
-  file.copy("candidate_player_lookup.csv", "player_lookup.csv", overwrite = TRUE)
+  file.copy(file.path(SCRATCH_DIR, "candidate_full_stats_hitters.csv"), data_path("full_stats_hitters.csv"), overwrite = TRUE)
+  file.copy(file.path(SCRATCH_DIR, "candidate_full_stats_pitchers.csv"), data_path("full_stats_pitchers.csv"), overwrite = TRUE)
+  file.copy(file.path(SCRATCH_DIR, "candidate_player_lookup.csv"), data_path("player_lookup.csv"), overwrite = TRUE)
   TRUE
 }
 
@@ -385,13 +385,13 @@ pitcher_output_columns <- c(
 # FROZEN PLAYER IDS
 # =============================================================================
 # PlayerId is the app's key for a player (URLs, votes, trend rows, cached analyses, stars). The first ids were
-# FanGraphs ids, which this pipeline no longer has, so they are frozen in player_id_map.csv (mlbamid, PlayerId), built
+# FanGraphs ids, which this pipeline no longer has, so they are frozen in data/player_id_map.csv (mlbamid, PlayerId), built
 # once from the committed player_lookup.csv and never regenerated: losing or rebuilding it would change every
 # existing player's id. A player in the map keeps the PlayerId; anyone else gets PlayerId = mlbamid. So the column
 # holds two eras of ids forever: 5-digit legacy ones and 6-digit MLB ones. The two ranges cannot overlap (legacy ids
 # top out at 37,238; MLB ids start at 434,378), and check_player_id_collisions enforces that.
 
-read_player_id_map <- function(file = "player_id_map.csv") {
+read_player_id_map <- function(file = data_path("player_id_map.csv")) {
   id_map <- read_csv(file, show_col_types = FALSE, col_types = cols(.default = col_character())) |>
     require_columns(c("mlbamid", "PlayerId"), file)
   if (anyDuplicated(id_map$mlbamid) > 0 || anyDuplicated(id_map$PlayerId) > 0) {

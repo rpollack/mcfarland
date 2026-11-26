@@ -175,8 +175,8 @@ test_that("a thin response is refused for a full season and accepted while a sea
 # --- baseline files ----------------------------------------------------------
 
 test_that("baseline files are named by kind and year", {
-  expect_equal(baseline_file("hitters", 2025, "data"), file.path("data", "baseline-hitters-2025.csv"))
-  expect_equal(baseline_file("pitchers", 2023), file.path(".", "baseline-pitchers-2023.csv"))
+  expect_equal(baseline_file("hitters", 2025, "elsewhere"), file.path("elsewhere", "baseline-hitters-2025.csv"))
+  expect_equal(baseline_file("pitchers", 2023), file.path("data", "baselines", "baseline-pitchers-2023.csv"))
 })
 
 test_that("a baseline season is written once and replaced only with force", {

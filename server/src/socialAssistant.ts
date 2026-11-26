@@ -8,7 +8,7 @@ import type { HitterRecord, PitcherRecord, PlayerType } from "./types.js";
 import { DEFAULT_ANALYSIS_MODE, type AnalysisMode } from "./vibes.js";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
-const DATA_ROOT = path.resolve(currentDir, "..", "..");
+const DATA_ROOT = path.resolve(currentDir, "..", "..", "data");
 const HITTER_BREAKOUT_PREVIOUS_SEASON_MIN_PA = 300;
 const STARTER_BREAKOUT_PREVIOUS_SEASON_MIN_TBF = 350;
 const RELIEVER_BREAKOUT_PREVIOUS_SEASON_MIN_TBF = 125;
@@ -170,7 +170,7 @@ function loadPreviousSeasonSamples(): PreviousSeasonSampleCache | null {
   }
 
   const hitters = new Map<string, PreviousHitterSample>();
-  readCsvRows(`baseline-hitters-${season}.csv`).forEach((row) => {
+  readCsvRows(`baselines/baseline-hitters-${season}.csv`).forEach((row) => {
     const mlbamid = row.mlbamid;
     if (!mlbamid) {
       return;
@@ -181,7 +181,7 @@ function loadPreviousSeasonSamples(): PreviousSeasonSampleCache | null {
   });
 
   const pitchers = new Map<string, PreviousPitcherSample>();
-  readCsvRows(`baseline-pitchers-${season}.csv`).forEach((row) => {
+  readCsvRows(`baselines/baseline-pitchers-${season}.csv`).forEach((row) => {
     const mlbamid = row.mlbamid;
     if (!mlbamid) {
       return;

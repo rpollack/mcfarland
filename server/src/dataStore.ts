@@ -21,7 +21,7 @@ interface BaseballDataStore {
 }
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
-const DATA_ROOT = path.resolve(currentDir, "..", "..");
+const DATA_ROOT = path.resolve(currentDir, "..", "..", "data");
 
 function readCsv<T>(filename: string): T[] {
   const filePath = path.resolve(DATA_ROOT, filename);

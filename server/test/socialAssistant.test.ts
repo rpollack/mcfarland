@@ -280,7 +280,7 @@ describe("social assistant news discovery", () => {
   it("finds a player's previous-season sample by MLB id, whatever the app PlayerId", () => {
     __setDataFreshnessForTests({ dataThroughDate: "2026-11-16", dataThroughLabel: "Nov 16" });
 
-    // Jose Altuve keeps the old FanGraphs PlayerId (5417); the sample comes from baseline-hitters-2025.csv by mlbamid 514888.
+    // Jose Altuve keeps the old FanGraphs PlayerId (5417); the sample comes from data/baselines/baseline-hitters-2025.csv by mlbamid 514888.
     const hitter = getPlayerById("hitter", "5417");
     expect(hitter?.mlbamid).toBe("514888");
     expect(__getBreakoutBaselineEligibilityForTests("hitter", "5417")).toMatchObject({ qualified: true, sample: 654, threshold: 300 });
