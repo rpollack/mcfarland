@@ -269,3 +269,20 @@ describe("the data-through date in a run", () => {
     expect(dataThroughDate(new Date("2026-11-26T15:00:00Z"))).toBe("2026-11-25");
   });
 });
+
+describe("review follow-ups", () => {
+  it("refuses stray text in a numeric baseline column, as R's arithmetic would", async () => {
+    const dir = makeTempDir();
+    const seasons = baselineSeasonsFor(2026);
+    const stats = await buildSeasonStats(2025, { minRows: ANY_SEASON_MIN_ROWS, httpGet: fixtureHttp(), log: quiet });
+    for (const { year } of seasons) writeBaselineSeason(year, stats, dir, true, quiet);
+    const file = baselineFile("hitters", 2025, dir);
+    const lines = readFileSync(file, "utf8").split("\n");
+    const header = lines[0]!.split(",");
+    const cells = lines[1]!.split(",");
+    cells[header.indexOf("H")] = "--";
+    lines[1] = cells.join(",");
+    writeFileSync(file, lines.join("\n"));
+    expect(() => readHitterBaselineSeasons(seasons, dir)).toThrow('non-numeric text in column H: "--"');
+  });
+});

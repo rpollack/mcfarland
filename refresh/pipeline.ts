@@ -87,6 +87,8 @@ export function summarizePitcherBaselineMetrics(rows: Rows, naRm = true): Row {
 // Each season is a baseline-hitters-<year>.csv / baseline-pitchers-<year>.csv in data/baselines/, written by
 // `npm run refresh:baseline -- <year>`, keyed by mlbamid.
 
+const TEXT_BASELINE_COLUMNS = new Set(["mlbamid", "Name", "name", "position"]);
+
 export function readBaselineSeasons(
   kind: "hitters" | "pitchers",
   seasons: { year: number; weight: number }[],
@@ -101,6 +103,11 @@ export function readBaselineSeasons(
     }
     const table = readCsvTable(readFileSync(file, "utf8"), ["mlbamid"]);
     requireColumns(table.columns, requiredColumns, file);
+    // R would type a column holding stray text as character and fail on the arithmetic; keep that loud instead of reading it as NA.
+    for (const column of requiredColumns.filter((name) => !TEXT_BASELINE_COLUMNS.has(name))) {
+      const bad = table.rows.find((row) => typeof row[column] === "string");
+      if (bad) throw new Error(`${file} has non-numeric text in column ${column}: "${bad[column]}"`);
+    }
     for (const row of table.rows) all.push({ ...row, year, w: weight });
   }
   return all;
@@ -328,15 +335,15 @@ export function buildPlayerLookup(hitters: Table, pitchers: Table): Table {
   const rows: Rows = [
     ...hitters.rows.map((row) => ({
       Name: row["Name"]!, PlayerId: row["PlayerId"]!, Age: row["Age"]!, player_type: row["player_type"]!, mlbamid: row["mlbamid"]!,
-      compound_id: `${row["PlayerId"]}_${row["player_type"]}`,
-      display_name: duplicateNames.has(row["Name"]!) ? `${row["Name"]} (Hitter)` : row["Name"]!,
+      compound_id: `${row["PlayerId"] ?? "NA"}_${row["player_type"] ?? "NA"}`,
+      display_name: duplicateNames.has(row["Name"]!) ? `${row["Name"] ?? "NA"} (Hitter)` : row["Name"]!,
       position_detail: "Hitter",
       position: null,
     })),
     ...pitchers.rows.map((row) => ({
       Name: row["Name"]!, PlayerId: row["PlayerId"]!, Age: row["Age"]!, player_type: row["player_type"]!, mlbamid: row["mlbamid"]!,
-      compound_id: `${row["PlayerId"]}_${row["player_type"]}`,
-      display_name: duplicateNames.has(row["Name"]!) ? `${row["Name"]} (${row["position"]})` : row["Name"]!,
+      compound_id: `${row["PlayerId"] ?? "NA"}_${row["player_type"] ?? "NA"}`,
+      display_name: duplicateNames.has(row["Name"]!) ? `${row["Name"] ?? "NA"} (${row["position"] ?? "NA"})` : row["Name"]!,
       position_detail: row["position"]!,
       position: row["position"]!,
     })),

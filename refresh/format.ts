@@ -179,7 +179,7 @@ export function readCsvTable(text: string, textColumns: readonly string[] = []):
 export function asciiName(name: string | null): string | null {
   if (name === null) return null;
   let out = "";
-  for (const char of name.normalize("NFC")) out += LATIN_ASCII.get(char) ?? char;
+  for (const char of name) out += LATIN_ASCII.get(char) ?? char;
   return out;
 }
 
