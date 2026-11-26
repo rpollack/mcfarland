@@ -70,7 +70,7 @@ emit("- **xwOBA, xERA, Barrels, barrel %**: Savant's own values; small differenc
 emit("- **LOB %**: matches exactly where it is in range. The committed current-season LOB % was not clamped, so a few one-inning pitchers show values outside 0-100; the new value is clamped.")
 emit("- **O-Swing %**: Savant's figure runs about 3 points below FanGraphs' for the same pitchers (same ranking, r about 0.93-0.94). A definition difference, not an error; baselines and current values now come from the same source.")
 emit("- **Whiff % vs CSW %**: different statistics (whiff rate vs called-plus-swinging strikes), so they correlate only about 0.7 and the scale differs. The app moves to whiff %.")
-emit("- **Player lists**: the new hitter list is MLB hitters with a plate appearance, minus pitchers who batted (so 5-6 batting pitchers per season leave the old list, and zero-PA hitters are not listed). The new pitcher list includes every pitcher who faced a batter.")
+emit("- **Player lists**: the new hitter list is MLB hitters with a plate appearance, minus pitchers who batted (so 5-6 batting pitchers per season leave the old list, and zero-PA hitters are not listed). The new pitcher list is pitchers who faced a batter, minus position players who pitched (Ohtani, primary position TWP, is in both lists).")
 emit("")
 
 # -----------------------------------------------------------------------------
@@ -122,7 +122,7 @@ for (year in baseline_years) {
   emit("SP/RP role agreement (baselines are role-specific): ", sum(joined$old_position == joined$position), " of ", nrow(joined), " matched pitchers (",
        round(100 * mean(joined$old_position == joined$position), 1), "%).")
   only_old <- old_p |> filter(!as.character(mlbamid) %in% new_p$mlbamid)
-  emit("Only in the old file: ", nrow(only_old), ". Only in the new file: ", sum(!new_p$mlbamid %in% as.character(old_p$mlbamid)), " (the new file lists every pitcher who faced a batter).")
+  emit("Only in the old file: ", nrow(only_old), ". Only in the new file: ", sum(!new_p$mlbamid %in% as.character(old_p$mlbamid)), " (the new file lists every pitcher who faced a batter; position players who pitched are left out of it).")
   emit("")
 }
 
@@ -199,19 +199,19 @@ exceptions <- bind_rows(
     mlbamid, name = Name, type = "hitter", side_missing = ifelse(in_new, "some fields in new", "new"),
     detail = ifelse(in_new, paste("missing:", missing_fields), "no plate appearances in the new data"),
     reason = ifelse(in_new, "no batted-ball row in Savant", paste0("committed row has ", PA_old, " PA; the MLB feed has no hitter row with PA > 0")),
-    proposed = ifelse(in_new, "accept with NA", "drop (nothing to say about a hitter with no PA); check for votes or stars first")
+    proposed = ifelse(in_new, "accept with NA", "drop (approved: a hitter with no PA)")
   ),
   pitcher_gate |> filter(!matched) |> transmute(
     mlbamid, name = Name, type = "pitcher", side_missing = ifelse(in_new, "some fields in new", "new"),
-    detail = ifelse(in_new, paste("missing:", missing_fields), "not in the MLB pitching feed"),
-    reason = ifelse(in_new & also_hitter, "position player who pitched; the Savant custom leaderboard has no rows for position players", ifelse(in_new, "no Savant custom row", "no pitching row in the new data")),
-    proposed = ifelse(in_new & also_hitter, "keep, NA O-Swing% and whiff% (barrel% from the statcast leaderboard)", "decide")
+    detail = ifelse(in_new, paste("missing:", missing_fields), "not in the new pitcher table"),
+    reason = ifelse(!in_new & also_hitter, "position player who pitched; the pitcher list excludes position players (Ohtani is kept)", ifelse(in_new, "no Savant custom row", "no pitching row in the new data")),
+    proposed = ifelse(!in_new & also_hitter, "drop (approved)", "decide")
   )
 )
 if (nrow(exceptions) == 0) {
   emit("No exceptions: the gate is met.")
 } else {
-  emit("**Exceptions (", nrow(exceptions), ")** need sign-off before the cutover:")
+  emit("**Exceptions (", nrow(exceptions), ")**; those marked approved were signed off, anything marked decide still needs a decision:")
   emit("")
   md_table(exceptions |> arrange(type, name))
 }

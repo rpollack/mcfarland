@@ -15,8 +15,11 @@
 #   pitchers  counts and Age        MLB stats=season
 #             FIP, BABIP, LOB%      computed from the counts (LOB% is clamped to 0-100)
 #             xERA                  Savant expected_statistics (xera)
-#             barrel%, O-Swing%,    Savant custom leaderboard; barrel% falls back to the statcast leaderboard
-#             whiff%                for position players who pitched, which the custom leaderboard leaves out
+#             barrel%, O-Swing%,    Savant custom leaderboard
+#             whiff%
+# Hitters and pitchers are separate lists: a pitcher who batted is not a hitter, and a position player who pitched is
+# not a pitcher (Savant's pitcher leaderboards have no rows for them anyway). Ohtani, whose primary position is TWP,
+# is in both.
 # Units: the percent columns (barrel_percent, o_swing_percent, whiff_percent, lob_percent) are 0-100, babip is
 # a fraction. FanGraphs' files held fractions for the first three, so do not mix the two.
 
@@ -297,13 +300,6 @@ fetch_savant_pitcher_custom <- function(year, http_get = default_http_get, min_r
     )
 }
 
-# The custom leaderboard has no rows for position players who pitched; this one does, and its barrel rate agrees
-# with the custom one (r = 0.9995).
-fetch_savant_pitcher_barrel_percent <- function(year, http_get = default_http_get, min_rows = 1) {
-  fetch_savant_csv("statcast", year, "pitcher", "brl_percent", http_get, min_rows) |>
-    transmute(mlbamid, barrel_percent_statcast = parse_mlb_number(brl_percent))
-}
-
 # =============================================================================
 # COMPUTED FIELDS
 # =============================================================================
@@ -348,20 +344,19 @@ build_hitter_season <- function(mlb_hitting, mlb_woba, savant_xwoba, savant_barr
     arrange(as.numeric(mlbamid))
 }
 
-# Everyone who faced a batter. The FIP constant uses the whole league, so it is computed before anyone is filtered out.
-build_pitcher_season <- function(mlb_pitching, savant_xera, savant_custom, savant_barrel_percent) {
+# Everyone who faced a batter, except position players who pitched in a blowout (Ohtani's primary position is TWP, so he
+# stays). The FIP constant uses the whole league, position players included, so it is computed before anyone is filtered out.
+build_pitcher_season <- function(mlb_pitching, savant_xera, savant_custom) {
   fip_const <- with(mlb_pitching, fip_constant(ip, er, hr, bb, hbp, so))
   mlb_pitching |>
-    filter(tbf > 0) |>
+    filter(tbf > 0, is.na(primary_position) | primary_position %in% c("P", "TWP")) |>
     left_join(savant_xera, by = "mlbamid") |>
     left_join(savant_custom, by = "mlbamid") |>
-    left_join(savant_barrel_percent, by = "mlbamid") |>
     mutate(
       position = classify_pitcher_role(gs, g, ip),
       fip = compute_fip(hr, bb, hbp, so, ip, fip_const),
       babip = compute_babip(h, hr, ab, so, sf),
-      lob_percent = compute_lob_percent(h, bb, hbp, hr, r),
-      barrel_percent = coalesce_joined(barrel_percent, barrel_percent_statcast)
+      lob_percent = compute_lob_percent(h, bb, hbp, hr, r)
     ) |>
     select(mlbamid, name, age, position, g, gs, ip, tbf, h, r, er, hr, bb, ibb, hbp, so, ab, sf, x_era, fip, barrel_percent, o_swing_percent, whiff_percent, babip, lob_percent) |>
     mutate(across(c(ip, fip, babip, lob_percent), ~ round(.x, 6))) |>
@@ -372,15 +367,15 @@ build_pitcher_season <- function(mlb_pitching, savant_xera, savant_custom, savan
 # changed or throttled response, which should stop the run rather than write a thin file.
 full_season_min_rows <- list(
   mlb_hitting = 600, mlb_pitching = 700, mlb_woba = 600,
-  savant_xwoba = 600, savant_barrels = 600, savant_xera = 700, savant_custom = 700, savant_pitcher_barrels = 700
+  savant_xwoba = 600, savant_barrels = 600, savant_xera = 700, savant_custom = 700
 )
 # For a season in progress: only rule out an empty or truncated response.
 any_season_min_rows <- list(
   mlb_hitting = 1, mlb_pitching = 1, mlb_woba = 1,
-  savant_xwoba = 1, savant_barrels = 1, savant_xera = 1, savant_custom = 1, savant_pitcher_barrels = 1
+  savant_xwoba = 1, savant_barrels = 1, savant_xera = 1, savant_custom = 1
 )
 
-# Roughly eight requests. Returns list(hitters, pitchers).
+# Seven requests. Returns list(hitters, pitchers).
 build_season_stats <- function(year, min_rows = full_season_min_rows, http_get = default_http_get) {
   cat("Building", year, "season stats from the MLB Stats API and Baseball Savant\n")
   list(
@@ -393,8 +388,7 @@ build_season_stats <- function(year, min_rows = full_season_min_rows, http_get =
     pitchers = build_pitcher_season(
       fetch_mlb_pitching_season(year, http_get, min_rows$mlb_pitching),
       fetch_savant_pitcher_xera(year, http_get, min_rows$savant_xera),
-      fetch_savant_pitcher_custom(year, http_get, min_rows$savant_custom),
-      fetch_savant_pitcher_barrel_percent(year, http_get, min_rows$savant_pitcher_barrels)
+      fetch_savant_pitcher_custom(year, http_get, min_rows$savant_custom)
     )
   )
 }

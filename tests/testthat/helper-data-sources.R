@@ -19,7 +19,6 @@ fixture_http <- function(requested = NULL) {
     else if (grepl("statcast?type=batter", url, fixed = TRUE)) "savant_statcast_batter.csv"
     else if (grepl("expected_statistics?type=pitcher", url, fixed = TRUE)) "savant_expected_pitcher.csv"
     else if (grepl("/custom?", url, fixed = TRUE)) "savant_custom_pitcher.csv"
-    else if (grepl("statcast?type=pitcher", url, fixed = TRUE)) "savant_statcast_pitcher.csv"
     else stop("no fixture for ", url)
     fixture_text(name)
   }

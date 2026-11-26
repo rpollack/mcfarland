@@ -111,6 +111,40 @@
     {
      "season": "2025",
      "stat": {
+      "age": 30,
+      "gamesPitched": 14,
+      "gamesStarted": 14,
+      "inningsPitched": "47.0",
+      "battersFaced": 190,
+      "hits": 30,
+      "runs": 10,
+      "earnedRuns": 9,
+      "homeRuns": 3,
+      "strikeOuts": 60,
+      "baseOnBalls": 15,
+      "intentionalWalks": 0,
+      "hitByPitch": 1,
+      "atBats": 160,
+      "sacFlies": 0
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 660271,
+      "fullName": "Shohei Ohtani",
+      "primaryPosition": {
+       "abbreviation": "TWP"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
       "age": 31,
       "gamesPitched": 1,
       "gamesStarted": 0,

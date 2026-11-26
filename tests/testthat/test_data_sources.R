@@ -79,13 +79,11 @@ test_that("each Savant fetcher asks for the right leaderboard, season and player
   fetch_savant_hitter_barrels(2025, http)
   fetch_savant_pitcher_xera(2025, http)
   fetch_savant_pitcher_custom(2025, http)
-  fetch_savant_pitcher_barrel_percent(2025, http)
   expect_match(requested$urls[1], "leaderboard/expected_statistics?type=batter&year=2025", fixed = TRUE)
   expect_match(requested$urls[2], "leaderboard/statcast?type=batter&year=2025", fixed = TRUE)
   expect_match(requested$urls[3], "leaderboard/expected_statistics?type=pitcher&year=2025", fixed = TRUE)
   expect_match(requested$urls[4], "leaderboard/custom?year=2025&type=pitcher", fixed = TRUE)
   expect_match(requested$urls[4], "barrel_batted_rate,oz_swing_percent,whiff_percent", fixed = TRUE)
-  expect_match(requested$urls[5], "leaderboard/statcast?type=pitcher&year=2025", fixed = TRUE)
   expect_true(all(grepl("&csv=true$", requested$urls)))
 })
 
@@ -94,8 +92,9 @@ test_that("each Savant fetcher asks for the right leaderboard, season and player
 test_that("FIP counts intentional walks and the constant makes league FIP equal league ERA", {
   pitching <- fetch_mlb_pitching_season(2025, fixture_http())
   constant <- with(pitching, fip_constant(ip, er, hr, bb, hbp, so))
-  # League: 266 2/3 IP, 92 ER, 21 HR, 66 BB, 8 HBP, 294 K -> ERA 3.105, constant 3.105 + 93 / 266 2/3.
-  expect_equal(constant, 3.105 + 93 / (266 + 2 / 3), tolerance = 1e-9)
+  # League (position players included): 313 2/3 IP, 101 ER, 24 HR, 81 BB, 9 HBP, 354 K.
+  # ERA = 9 * 101 / (313 2/3); constant = ERA - (13 * 24 + 3 * (81 + 9) - 2 * 354) / (313 2/3) = ERA + 126 / (313 2/3).
+  expect_equal(constant, (9 * 101 + 126) / (313 + 2 / 3), tolerance = 1e-9)
 
   fip <- compute_fip(pitching$hr, pitching$bb, pitching$hbp, pitching$so, pitching$ip, constant)
   with_batters <- pitching$ip > 0
@@ -144,9 +143,9 @@ test_that("a hitter with no Savant batted-ball row has 0 barrels but keeps his o
   expect_equal(altuve$xwOBA, 0.318)
 })
 
-test_that("the pitcher table classifies roles, computes rates and falls back to the statcast barrel rate", {
+test_that("the pitcher table classifies roles, computes rates and leaves out position players", {
   pitchers <- build_season_stats(2025, any_season_min_rows, fixture_http())$pitchers
-  expect_equal(sort(pitchers$mlbamid), sort(c("657277", "695243", "666126")))
+  expect_equal(sort(pitchers$mlbamid), sort(c("657277", "695243", "660271")))
   expect_false("555001" %in% pitchers$mlbamid)
 
   webb <- pitchers[pitchers$mlbamid == "657277", ]
@@ -163,14 +162,9 @@ test_that("the pitcher table classifies roles, computes rates and falls back to 
   expect_equal(miller$position, "RP")
   expect_equal(miller$ip, round(58 + 2 / 3, 6))
 
-  # A position player who pitched: no custom-leaderboard row, so no O-Swing% or whiff%, but a barrel rate from the
-  # statcast leaderboard; his one-inning LOB% is clamped.
-  cortes <- pitchers[pitchers$mlbamid == "666126", ]
-  expect_equal(cortes$name, "Carlos Cortes")
-  expect_true(is.na(cortes$o_swing_percent))
-  expect_true(is.na(cortes$whiff_percent))
-  expect_equal(cortes$barrel_percent, 25)
-  expect_equal(cortes$lob_percent, 100)
+  # A position player who pitched is not a pitcher (his FIP still counts in the league constant); Ohtani (TWP) is.
+  expect_false("666126" %in% pitchers$mlbamid)
+  expect_true("660271" %in% pitchers$mlbamid)
 })
 
 test_that("a thin response is refused for a full season and accepted while a season is in progress", {
