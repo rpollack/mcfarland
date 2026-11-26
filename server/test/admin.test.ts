@@ -41,12 +41,16 @@ describe("admin login", () => {
   beforeEach(() => {
     process.env.ADMIN_PASSWORD = "top-secret";
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // The production-mode tests reach the social suggestions route, which skips its Google News lookups only when
+    // NODE_ENV is "test". Fail every outgoing fetch right away so these tests never wait on the network.
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network disabled in tests")));
   });
 
   afterEach(() => {
     delete process.env.ADMIN_PASSWORD;
     delete process.env.ADMIN_SESSION_SECRET;
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
     vi.useRealTimers();
     vi.restoreAllMocks();
   });
@@ -115,6 +119,7 @@ describe("admin login", () => {
     const res = await login("top-secret");
     expect(res.status).toBe(204);
     expect((await suggestions(cookieFrom(res)!.split(";")[0])).status).toBe(200);
+    console.log("FETCH_CALLS", (globalThis.fetch as any).mock.calls.length);
   });
 
   it("returns 404 for login in dev when no password is configured", async () => {
