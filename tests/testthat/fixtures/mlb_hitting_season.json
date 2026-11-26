@@ -1,0 +1,204 @@
+{
+ "copyright": "fixture",
+ "stats": [
+  {
+   "type": {
+    "displayName": "season"
+   },
+   "splits": [
+    {
+     "season": "2025",
+     "stat": {
+      "age": 33,
+      "gamesPlayed": 152,
+      "atBats": 541,
+      "plateAppearances": 679,
+      "hits": 179,
+      "doubles": 24,
+      "triples": 1,
+      "homeRuns": 53,
+      "baseOnBalls": 124,
+      "hitByPitch": 7,
+      "sacFlies": 4,
+      "strikeOuts": 160,
+      "totalBases": 358
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 592450,
+      "fullName": "Aaron Judge",
+      "primaryPosition": {
+       "abbreviation": "RF"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 30,
+      "gamesPlayed": 158,
+      "atBats": 611,
+      "plateAppearances": 727,
+      "hits": 172,
+      "doubles": 25,
+      "triples": 9,
+      "homeRuns": 55,
+      "baseOnBalls": 109,
+      "hitByPitch": 3,
+      "sacFlies": 2,
+      "strikeOuts": 187,
+      "totalBases": 380
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 660271,
+      "fullName": "Shohei Ohtani",
+      "primaryPosition": {
+       "abbreviation": "TWP"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 35,
+      "gamesPlayed": 140,
+      "atBats": 510,
+      "plateAppearances": 573,
+      "hits": 150,
+      "doubles": 28,
+      "triples": 0,
+      "homeRuns": 12,
+      "baseOnBalls": 55,
+      "hitByPitch": 3,
+      "sacFlies": 5,
+      "strikeOuts": 114,
+      "totalBases": 214
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 514888,
+      "fullName": "José Altuve",
+      "primaryPosition": {
+       "abbreviation": "2B"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 24,
+      "gamesPlayed": 2,
+      "atBats": 1,
+      "plateAppearances": 1,
+      "hits": 0,
+      "doubles": 0,
+      "triples": 0,
+      "homeRuns": 0,
+      "baseOnBalls": 0,
+      "hitByPitch": 0,
+      "sacFlies": 0,
+      "strikeOuts": 1,
+      "totalBases": 0
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 607067,
+      "fullName": "Colin Rea",
+      "primaryPosition": {
+       "abbreviation": "P"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 27,
+      "gamesPlayed": 3,
+      "atBats": 0,
+      "plateAppearances": 0,
+      "hits": 0,
+      "doubles": 0,
+      "triples": 0,
+      "homeRuns": 0,
+      "baseOnBalls": 0,
+      "hitByPitch": 0,
+      "sacFlies": 0,
+      "strikeOuts": 0,
+      "totalBases": 0
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 680911,
+      "fullName": "Owen Miller",
+      "primaryPosition": {
+       "abbreviation": "2B"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 22,
+      "gamesPlayed": 5,
+      "atBats": 10,
+      "plateAppearances": 12,
+      "hits": 3,
+      "doubles": 1,
+      "triples": 0,
+      "homeRuns": 0,
+      "baseOnBalls": 1,
+      "hitByPitch": 0,
+      "sacFlies": 0,
+      "strikeOuts": 4,
+      "totalBases": 4
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 999001,
+      "fullName": "Minor Leaguer",
+      "primaryPosition": {
+       "abbreviation": "SS"
+      }
+     },
+     "sport": {
+      "id": 11
+     }
+    }
+   ]
+  }
+ ]
+}

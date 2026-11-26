@@ -1,0 +1,62 @@
+name: r-tests
+
+# Fixture-based tests for the data refresh code (data_sources.R). They never touch the network, so they run on every
+# change to the R files rather than waiting for the daily refresh to find a broken fetcher.
+on:
+  pull_request:
+    paths:
+      - 'data_sources.R'
+      - 'refresh_data.R'
+      - 'tests/testthat/**'
+      - '.github/workflows/r-tests.yml'
+  push:
+    branches:
+      - master
+    paths:
+      - 'data_sources.R'
+      - 'refresh_data.R'
+      - 'tests/testthat/**'
+      - '.github/workflows/r-tests.yml'
+
+jobs:
+  testthat:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.3'
+
+      - name: Cache R package library
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: ${{ runner.os }}-r-4.3-tests-ubuntu2404-${{ hashFiles('.github/workflows/r-tests.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-r-4.3-tests-ubuntu2404-
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev zlib1g-dev pkg-config
+
+      # Same Posit binary mirror setup as refresh-data.yml: CRAN would compile every package from source.
+      - name: Install R dependencies
+        run: |
+          mkdir -p "${R_LIBS_USER}"
+          export R_PROFILE_USER="${RUNNER_TEMP}/install.Rprofile"
+          cat > "${R_PROFILE_USER}" <<'RPROFILE'
+          options(
+            repos = c(CRAN = Sys.getenv("RSPM", "https://cloud.r-project.org")),
+            HTTPUserAgent = sprintf("R/%s R (%s)", getRversion(), paste(getRversion(), R.version["platform"], R.version["arch"], R.version["os"]))
+          )
+          RPROFILE
+          Rscript -e 'pkgs <- c("dplyr", "readr", "tibble", "stringr", "stringi", "jsonlite", "curl", "httr", "testthat"); missing <- setdiff(pkgs, rownames(installed.packages())); if (length(missing)) install.packages(missing)'
+          Rscript -e 'library(testthat); library(httr); cat("testthat", as.character(packageVersion("testthat")), "\n")'
+
+      - name: Run R tests
+        run: Rscript -e 'testthat::test_dir("tests/testthat", reporter = "summary", stop_on_failure = TRUE)'

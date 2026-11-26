@@ -7,6 +7,9 @@ library(httr)
 library(jsonlite)
 library(janitor)
 
+# MLB and Savant fetchers, the computed fields and the season tables; shared with the R tests.
+source("data_sources.R")
+
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
@@ -23,76 +26,6 @@ baseline_seasons <- data.frame(year = current_year - 3:1, weight = c(1, 3, 5))
 # <metric>_lg_adj_diff (that difference minus how far the whole league moved).
 hitter_metric_cols <- c("AVG", "OBP", "SLG", "K_pct", "BB_pct", "Barrel_pct", "BABIP", "wOBA", "xwOBA", "xwOBA_wOBA_gap")
 pitcher_metric_cols <- c("era", "k_percent", "bb_percent", "k_minus_bb_percent", "xera", "o_swing_percent", "csw_percent", "barrel_percent", "lob_percent", "babip")
-
-# =============================================================================
-# GENERAL HELPERS
-# =============================================================================
-
-safe_divide <- function(numerator, denominator) {
-  ifelse(is.na(denominator) | denominator == 0, NA_real_, numerator / denominator)
-}
-
-nan_to_na <- function(value) {
-  ifelse(is.nan(value), NA_real_, value)
-}
-
-# Prefer the MLB value and fall back to the FanGraphs one when the MLB join found no match.
-coalesce_joined <- function(primary, fallback) {
-  ifelse(!is.na(primary), primary, fallback)
-}
-
-# Starters throw at least half their games as starts or average more than four innings an appearance.
-classify_pitcher_role <- function(gs, g, ip) {
-  if_else(gs / g >= .5 | ip / g > 4, "SP", "RP")
-}
-
-# The MLB and FanGraphs endpoints fail transiently now and then; a few retries keep one blip from costing a day
-# of data. Waits grow between attempts (10s, then 20s).
-with_retry <- function(fn, label, attempts = 3, wait_seconds = 10) {
-  for (attempt in seq_len(attempts)) {
-    result <- tryCatch(fn(), error = function(e) e)
-    if (!inherits(result, "error")) {
-      return(result)
-    }
-    cat(label, "failed (attempt", attempt, "of", attempts, "):", conditionMessage(result), "\n")
-    if (attempt < attempts) {
-      Sys.sleep(wait_seconds * attempt)
-    }
-  }
-  stop(label, " failed after ", attempts, " attempts: ", conditionMessage(result), call. = FALSE)
-}
-
-# Fail with the missing column names up front instead of a cryptic error (or silent NAs) further down when an
-# upstream source renames or drops a field.
-require_columns <- function(data, columns, label) {
-  missing <- setdiff(columns, colnames(data))
-  if (length(missing) > 0) {
-    stop(label, " is missing expected columns: ", paste(missing, collapse = ", "), call. = FALSE)
-  }
-  invisible(data)
-}
-
-parse_mlb_number <- function(value) {
-  parsed <- suppressWarnings(as.numeric(value))
-  parsed[is.nan(parsed)] <- NA_real_
-  parsed
-}
-
-# MLB reports innings as "123.2" meaning 123 and two thirds.
-parse_mlb_innings <- function(value) {
-  parts <- str_split_fixed(as.character(value), "\\.", 2)
-  whole <- suppressWarnings(as.numeric(parts[, 1]))
-  remainder <- suppressWarnings(as.numeric(parts[, 2]))
-  whole[is.na(whole)] <- 0
-  remainder[is.na(remainder)] <- 0
-  whole + remainder / 3
-}
-
-normalize_mlbam_id <- function(value) {
-  value <- as.character(value)
-  value[value == "" | value == "NA"] <- NA_character_
-  value
-}
 
 # =============================================================================
 # FRESHNESS
@@ -119,36 +52,8 @@ current_data_through_date <- function() {
 # FETCHING CURRENT-SEASON DATA
 # =============================================================================
 
-fetch_mlb_stats <- function(current_year, group) {
-  url <- paste0(
-    "https://statsapi.mlb.com/api/v1/stats?",
-    "stats=season",
-    "&group=", group,
-    "&playerPool=ALL",
-    "&season=", current_year,
-    "&hydrate=person(currentTeam,primaryPosition)",
-    "&limit=10000"
-  )
-
-  response <- with_retry(function() {
-    response <- GET(url, timeout(60))
-    if (http_error(response)) {
-      stop("status ", status_code(response))
-    }
-    response
-  }, paste("MLB Stats API request for", group))
-
-  parsed <- fromJSON(content(response, as = "text", encoding = "UTF-8"), flatten = TRUE)
-  splits <- parsed$stats$splits[[1]]
-  if (is.null(splits) || nrow(splits) == 0) {
-    stop("MLB Stats API returned no ", group, " rows")
-  }
-
-  tibble::as_tibble(splits)
-}
-
 fetch_mlb_hitter_basics <- function(current_year) {
-  fetch_mlb_stats(current_year, "hitting") |>
+  fetch_mlb_stats(current_year, "hitting", one_row_per_player = FALSE) |>
     transmute(
       mlbamid = normalize_mlbam_id(player.id),
       AB_mlb = parse_mlb_number(stat.atBats),
@@ -164,7 +69,7 @@ fetch_mlb_hitter_basics <- function(current_year) {
 }
 
 fetch_mlb_pitcher_basics <- function(current_year) {
-  fetch_mlb_stats(current_year, "pitching") |>
+  fetch_mlb_stats(current_year, "pitching", one_row_per_player = FALSE) |>
     transmute(
       mlbamid = normalize_mlbam_id(player.id),
       g_mlb = parse_mlb_number(stat.gamesPitched),
@@ -629,6 +534,14 @@ promote_candidate_outputs <- function(report) {
 script_args <- commandArgs(trailingOnly = TRUE)
 if (length(script_args) == 2 && script_args[1] == "export-pitcher-season") {
   export_pitcher_season(as.integer(script_args[2]))
+  quit(save = "no")
+}
+# Rscript refresh_data.R build-baseline-season <year> [--force]
+# Writes baseline-hitters-<year>.csv and baseline-pitchers-<year>.csv from the MLB Stats API and Baseball Savant.
+# These replace the FanGraphs exports as the baseline inputs (the cutover is a separate change). Refuses to
+# overwrite existing files without --force.
+if (length(script_args) >= 2 && script_args[1] == "build-baseline-season") {
+  build_baseline_season(as.integer(script_args[2]), force = "--force" %in% script_args)
   quit(save = "no")
 }
 
