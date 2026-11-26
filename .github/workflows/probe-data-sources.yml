@@ -1,0 +1,64 @@
+name: Probe Data Sources
+
+# Checks that the stats sources we plan to move to (Baseball Savant, MLB Stats API) answer scripted requests from a
+# GitHub-hosted runner, and that FanGraphs still does not. FanGraphs started serving a Cloudflare bot challenge in
+# 2026-11, and a source that works from a laptop can still be blocked from runner IPs. See
+# docs/fangraphs-transition-plan.md. Read-only: it writes nothing and publishes nothing.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/probe-data-sources.yml
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Probe endpoints
+        run: |
+          set -u
+          year=2025
+          failures=0
+
+          # probe <label> <expected-first-header-column> <url>
+          # Passes only on HTTP 200, no Cloudflare challenge, and a CSV whose header contains the expected column.
+          probe() {
+            local label="$1" column="$2" url="$3" body headers code rows
+            body="$(mktemp)"; headers="$(mktemp)"
+            code="$(curl --silent --show-error --location --max-time 90 --retry 2 \
+              --dump-header "${headers}" --output "${body}" --write-out '%{http_code}' "${url}" || echo 000)"
+            rows=$(( $(wc -l < "${body}") - 1 ))
+            if [[ "${code}" == "200" ]] && ! grep -qi '^cf-mitigated' "${headers}" && head -1 "${body}" | grep -q "${column}"; then
+              echo "PASS ${label}: HTTP ${code}, ${rows} rows" | tee -a "${GITHUB_STEP_SUMMARY}"
+            else
+              echo "FAIL ${label}: HTTP ${code}, $(grep -i '^cf-mitigated' "${headers}" | tr -d '\r')" | tee -a "${GITHUB_STEP_SUMMARY}"
+              head -c 300 "${body}"; echo
+              failures=$((failures + 1))
+            fi
+          }
+
+          savant="https://baseballsavant.mlb.com/leaderboard"
+          probe "Savant expected stats (batters)"  est_woba "${savant}/expected_statistics?type=batter&year=${year}&min=1&csv=true"
+          probe "Savant expected stats (pitchers)" xera     "${savant}/expected_statistics?type=pitcher&year=${year}&min=1&csv=true"
+          probe "Savant statcast (batters)"        brl_percent "${savant}/statcast?type=batter&year=${year}&min=1&csv=true"
+          probe "Savant custom (pitchers)"         oz_swing_percent "${savant}/custom?year=${year}&type=pitcher&min=1&selections=xera,whiff_percent,oz_swing_percent,barrel_batted_rate,babip&csv=true"
+          probe "Savant custom (batters)"          xwoba    "${savant}/custom?year=${year}&type=batter&min=1&selections=xwoba,woba,barrel_batted_rate,b_total_pa&csv=true"
+
+          # MLB Stats API returns JSON, not CSV, so check it separately.
+          mlb="$(curl --silent --max-time 60 --retry 2 --write-out '\n%{http_code}' 'https://statsapi.mlb.com/api/v1/people/660271')"
+          if [[ "${mlb##*$'\n'}" == "200" ]] && grep -q '"fullName"' <<<"${mlb}"; then
+            echo "PASS MLB Stats API: HTTP 200" | tee -a "${GITHUB_STEP_SUMMARY}"
+          else
+            echo "FAIL MLB Stats API: HTTP ${mlb##*$'\n'}" | tee -a "${GITHUB_STEP_SUMMARY}"
+            failures=$((failures + 1))
+          fi
+
+          # Control: FanGraphs is expected to be challenged. Informational only; never fails the job.
+          fg="$(curl --silent --max-time 60 --output /dev/null --write-out '%{http_code}' \
+            "https://www.fangraphs.com/api/leaders/major-league/data?pos=all&stats=pit&season=${year}&season1=${year}&type=c%2C7&pageitems=5&pagenum=1" || true)"
+          echo "INFO FanGraphs (expected blocked): HTTP ${fg}" | tee -a "${GITHUB_STEP_SUMMARY}"
+
+          (( failures == 0 ))
