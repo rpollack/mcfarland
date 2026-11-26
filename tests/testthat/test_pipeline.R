@@ -3,7 +3,7 @@
 
 repo_root <- normalizePath(file.path("..", ".."))
 # The refresh script's own current_year, so these tests keep working when it is bumped for a new season.
-script_current_year <- as.integer(sub(".*current_year <- ([0-9]+).*", "\\1", grep("^current_year <- ", readLines(file.path(repo_root, "refresh_data.R")), value = TRUE)))
+script_current_year <- as.integer(sub(".*current_year <- ([0-9]+).*", "\\1", grep("^current_year <- ", readLines(file.path(repo_root, "refresh", "refresh_data.R")), value = TRUE)))
 data_through_today <- function() as.character(as.Date(Sys.time(), tz = "America/Chicago") - 1)
 
 # --- baselines ----------------------------------------------------------------
@@ -43,12 +43,12 @@ test_that("a baseline file in another shape is refused by name", {
   expect_error(read_pitcher_baseline_seasons(seasons, dir), "baseline-pitchers-2025.csv is missing expected columns: whiff_percent")
 
   file.remove(baseline_file("hitters", 2024, dir))
-  expect_error(read_hitter_baseline_seasons(seasons, dir), "baseline-hitters-2024.csv is missing; run Rscript refresh_data.R build-baseline-season 2024")
+  expect_error(read_hitter_baseline_seasons(seasons, dir), "baseline-hitters-2024.csv is missing; run Rscript refresh/refresh_data.R build-baseline-season 2024")
 })
 
 test_that("the baseline files for the three seasons before current_year are committed", {
-  # Bumping current_year in refresh_data.R for a new season needs last season's files first
-  # (Rscript refresh_data.R build-baseline-season <year>); this fails the bump's PR if they are missing.
+  # Bumping current_year in refresh/refresh_data.R for a new season needs last season's files first
+  # (Rscript refresh/refresh_data.R build-baseline-season <year>); this fails the bump's PR if they are missing.
   for (year in baseline_seasons_for(script_current_year)$year) {
     expect_true(file.exists(file.path(repo_root, baseline_file("hitters", year))), info = paste("hitters", year))
     expect_true(file.exists(file.path(repo_root, baseline_file("pitchers", year))), info = paste("pitchers", year))
@@ -58,7 +58,7 @@ test_that("the baseline files for the three seasons before current_year are comm
 # --- frozen player ids ---------------------------------------------------------
 
 test_that("the frozen id map is exactly as it was built and its two id ranges cannot overlap", {
-  map_file <- file.path(repo_root, "player_id_map.csv")
+  map_file <- file.path(repo_root, "data", "player_id_map.csv")
   # Built once from the player_lookup.csv that was live when the pipeline left FanGraphs. Never regenerate it: doing
   # so would change every existing player's id (URLs, votes, trend rows, cached analyses, stars).
   expect_equal(unname(tools::md5sum(map_file)), "49d04183a2e4f47f0ba412549425a6e7")
@@ -90,9 +90,9 @@ test_that("a map that repeats a player or an id is refused, and so is an id coll
 })
 
 test_that("the committed outputs still carry every mapped player's legacy id", {
-  id_map <- read_player_id_map(file.path(repo_root, "player_id_map.csv"))
+  id_map <- read_player_id_map(file.path(repo_root, "data", "player_id_map.csv"))
   for (file in c("full_stats_hitters.csv", "full_stats_pitchers.csv", "player_lookup.csv")) {
-    published <- readr::read_csv(file.path(repo_root, file), show_col_types = FALSE, col_types = readr::cols(.default = readr::col_character()))
+    published <- readr::read_csv(file.path(repo_root, "data", file), show_col_types = FALSE, col_types = readr::cols(.default = readr::col_character()))
     joined <- dplyr::inner_join(published, id_map, by = "mlbamid", suffix = c("", "_frozen"))
     expect_true(nrow(joined) > 0, info = file)
     expect_equal(joined$PlayerId, joined$PlayerId_frozen, info = file)
@@ -104,8 +104,8 @@ test_that("the committed outputs still carry every mapped player's legacy id", {
 # --- the published files -------------------------------------------------------
 
 test_that("the committed outputs have exactly the contracted columns", {
-  hitters <- readr::read_csv(file.path(repo_root, "full_stats_hitters.csv"), show_col_types = FALSE)
-  pitchers <- readr::read_csv(file.path(repo_root, "full_stats_pitchers.csv"), show_col_types = FALSE)
+  hitters <- readr::read_csv(file.path(repo_root, "data", "full_stats_hitters.csv"), show_col_types = FALSE)
+  pitchers <- readr::read_csv(file.path(repo_root, "data", "full_stats_pitchers.csv"), show_col_types = FALSE)
   expect_equal(colnames(hitters), hitter_output_columns)
   expect_equal(colnames(pitchers), pitcher_output_columns)
   expect_false(any(grepl("csw|x_fip|hr_fb|f_bv|c_tv|s_fv|ev90|barrels", colnames(pitchers))))
@@ -188,28 +188,31 @@ test_that("within a season the player lists may not shrink, but a new season sta
 
 # --- refresh_data.R end to end, on fixtures ------------------------------------
 
-# Copies the scripts, fixtures, a frozen id map and three baseline seasons into a scratch directory, then runs
-# refresh_data.R there with the network replaced by the fixtures.
+# Copies the scripts, fixtures, a frozen id map and three baseline seasons into a scratch directory laid out like the
+# repository (refresh/ and data/), then runs refresh/refresh_data.R there with the network replaced by the fixtures.
 run_refresh <- function(args = character(), locked_date = "2026-11-16", blank_whiff = FALSE) {
   dir <- make_temp_dir()
-  for (file in c("refresh_data.R", "data_sources.R", "pipeline.R")) file.copy(file.path(repo_root, file), dir)
+  data_dir <- file.path(dir, "data")
+  baseline_dir <- file.path(data_dir, "baselines")
+  dir.create(baseline_dir, recursive = TRUE)
+  file.copy(file.path(repo_root, "refresh"), dir, recursive = TRUE)
   file.copy(file.path("fixture_http.R"), dir)
   file.copy(test_path("fixtures"), dir, recursive = TRUE)
-  writeLines(c("mlbamid,PlayerId", "592450,15640", "657277,17995", "111111,11111"), file.path(dir, "player_id_map.csv"))
-  for (year in baseline_seasons_for(script_current_year)$year) write_baseline_season(year, build_season_stats(2025, any_season_min_rows, fixture_http()), dir, force = TRUE)
+  writeLines(c("mlbamid,PlayerId", "592450,15640", "657277,17995", "111111,11111"), file.path(data_dir, "player_id_map.csv"))
+  for (year in baseline_seasons_for(script_current_year)$year) write_baseline_season(year, build_season_stats(2025, any_season_min_rows, fixture_http()), baseline_dir, force = TRUE)
 
   # What is "in production": an old hitter who is gone from the new data, Judge, and one pitcher.
-  writeLines(c("Name,PlayerId,PA_cur,Age,mlbamid", "Old Guy,11111,200,35,111111", "Aaron Judge,15640,679,33,592450"), file.path(dir, "full_stats_hitters.csv"))
-  writeLines(c("PlayerId,mlbamid,Name,Age,tbf,position", "17995,657277,Logan Webb,28,856,SP"), file.path(dir, "full_stats_pitchers.csv"))
+  writeLines(c("Name,PlayerId,PA_cur,Age,mlbamid", "Old Guy,11111,200,35,111111", "Aaron Judge,15640,679,33,592450"), file.path(data_dir, "full_stats_hitters.csv"))
+  writeLines(c("PlayerId,mlbamid,Name,Age,tbf,position", "17995,657277,Logan Webb,28,856,SP"), file.path(data_dir, "full_stats_pitchers.csv"))
   writeLines(c(
     "Name,PlayerId,Age,player_type,mlbamid,compound_id,display_name,position_detail,position",
     "Old Guy,11111,35,hitter,111111,11111_hitter,Old Guy,Hitter,NA", "Aaron Judge,15640,33,hitter,592450,15640_hitter,Aaron Judge,Hitter,NA",
     "Logan Webb,17995,28,pitcher,657277,17995_pitcher,Logan Webb,SP,SP"
-  ), file.path(dir, "player_lookup.csv"))
-  writeLines(sprintf('{"refreshed_at": "x", "refreshed_timezone": "UTC", "data_through_date": "%s"}', locked_date), file.path(dir, "data_freshness.json"))
-  before <- tools::md5sum(file.path(dir, c("full_stats_hitters.csv", "full_stats_pitchers.csv", "player_lookup.csv")))
+  ), file.path(data_dir, "player_lookup.csv"))
+  writeLines(sprintf('{"refreshed_at": "x", "refreshed_timezone": "UTC", "data_through_date": "%s"}', locked_date), file.path(data_dir, "data_freshness.json"))
+  before <- tools::md5sum(file.path(data_dir, c("full_stats_hitters.csv", "full_stats_pitchers.csv", "player_lookup.csv")))
 
-  expression <- "source('fixture_http.R'); options(refresh_http_get = fixture_http()); source('refresh_data.R')"
+  expression <- "source('fixture_http.R'); options(refresh_http_get = fixture_http()); source('refresh/refresh_data.R')"
   original_dir <- setwd(dir)
   on.exit(setwd(original_dir), add = TRUE)
   output <- suppressWarnings(system2(file.path(R.home("bin"), "Rscript"), c("-e", shQuote(expression), args),
@@ -219,7 +222,7 @@ run_refresh <- function(args = character(), locked_date = "2026-11-16", blank_wh
 `%||%` <- function(a, b) if (is.null(a)) b else a
 
 read_published <- function(dir, file) {
-  readr::read_csv(file.path(dir, file), show_col_types = FALSE, col_types = readr::cols(PlayerId = readr::col_character(), mlbamid = readr::col_character()))
+  readr::read_csv(file.path(dir, "data", file), show_col_types = FALSE, col_types = readr::cols(PlayerId = readr::col_character(), mlbamid = readr::col_character()))
 }
 
 test_that("refresh_data.R builds the published files from the sources, keeping legacy ids", {
@@ -251,7 +254,7 @@ test_that("refresh_data.R builds the published files from the sources, keeping l
   # Ohtani is on both lists, with the same id.
   expect_equal(sort(lookup$compound_id[lookup$mlbamid == "660271"]), c("660271_hitter", "660271_pitcher"))
   expect_false(anyDuplicated(lookup$compound_id) > 0)
-  expect_equal(jsonlite::fromJSON(file.path(run$dir, "data_freshness.json"))$data_through_date, data_through_today())
+  expect_equal(jsonlite::fromJSON(file.path(run$dir, "data", "data_freshness.json"))$data_through_date, data_through_today())
 })
 
 test_that("a source migration run needs the flag when the data date has not moved", {
@@ -259,7 +262,7 @@ test_that("a source migration run needs the flag when the data date has not move
   expect_equal(without$status, 1L)
   expect_match(without$output, "Migration parity status: fail")
   expect_match(without$output, "locked players missing from candidates")
-  expect_equal(unname(tools::md5sum(file.path(without$dir, c("full_stats_hitters.csv", "full_stats_pitchers.csv", "player_lookup.csv")))), unname(without$before))
+  expect_equal(unname(tools::md5sum(file.path(without$dir, "data", c("full_stats_hitters.csv", "full_stats_pitchers.csv", "player_lookup.csv")))), unname(without$before))
 
   with_flag <- run_refresh(args = "--accept-source-migration", locked_date = data_through_today())
   expect_equal(with_flag$status, 0L, info = with_flag$output)
@@ -272,5 +275,5 @@ test_that("a feed that comes back empty fails the run, names the source and leav
   expect_equal(run$status, 1L)
   expect_match(run$output, "whiff_percent_cur is empty for every pitcher \\(source: Savant custom\\)")
   expect_match(run$output, "Production files promoted: FALSE")
-  expect_equal(unname(tools::md5sum(file.path(run$dir, c("full_stats_hitters.csv", "full_stats_pitchers.csv", "player_lookup.csv")))), unname(run$before))
+  expect_equal(unname(tools::md5sum(file.path(run$dir, "data", c("full_stats_hitters.csv", "full_stats_pitchers.csv", "player_lookup.csv")))), unname(run$before))
 })

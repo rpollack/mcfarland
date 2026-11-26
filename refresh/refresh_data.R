@@ -4,21 +4,21 @@ library(jsonlite)
 
 # Sources of the data (MLB Stats API, Baseball Savant) and the season tables, then the transformations and the gates
 # on the published CSVs. Both are shared with the R tests.
-source("data_sources.R")
-source("pipeline.R")
+source("refresh/data_sources.R")
+source("refresh/pipeline.R")
 
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
 # Yearly rollover, in November: build the baseline files for the season that just finished,
-#   Rscript refresh_data.R build-baseline-season <that year>
+#   Rscript refresh/refresh_data.R build-baseline-season <that year>
 # and in March, once the new season has games (before that the stats APIs return no rows and this script stops), bump
 # current_year. The three seasons before current_year are the baseline, oldest first; the weights make last season
 # count five times as much as the oldest one.
 #
 # One-off runs:
-#   Rscript refresh_data.R build-baseline-season <year> [--force]   write the two baseline files for a finished season
-#   Rscript refresh_data.R --accept-source-migration                the single run that switched the data source
+#   Rscript refresh/refresh_data.R build-baseline-season <year> [--force]   write the two baseline files for a finished season
+#   Rscript refresh/refresh_data.R --accept-source-migration                the single run that switched the data source
 #                                                                   (skips value parity; see validate_migration_parity)
 current_year <- 2026
 baseline_seasons <- baseline_seasons_for(current_year)
@@ -28,11 +28,11 @@ baseline_seasons <- baseline_seasons_for(current_year)
 # =============================================================================
 
 read_data_through_date <- function() {
-  if (!file.exists("data_freshness.json")) {
+  if (!file.exists(data_path("data_freshness.json"))) {
     return(NA_character_)
   }
 
-  parsed <- fromJSON("data_freshness.json")
+  parsed <- fromJSON(data_path("data_freshness.json"))
   if (is.null(parsed$data_through_date)) {
     return(NA_character_)
   }
@@ -49,7 +49,7 @@ current_data_through_date <- function() {
 # =============================================================================
 
 script_args <- commandArgs(trailingOnly = TRUE)
-# Rscript refresh_data.R build-baseline-season <year> [--force]
+# Rscript refresh/refresh_data.R build-baseline-season <year> [--force]
 # Writes baseline-hitters-<year>.csv and baseline-pitchers-<year>.csv from the MLB Stats API and Baseball Savant.
 # Refuses to overwrite existing files without --force.
 if (length(script_args) >= 2 && script_args[1] == "build-baseline-season") {
@@ -132,11 +132,11 @@ candidate_full_stats_hitters <- full_stats_hitters
 candidate_full_stats_pitchers <- full_stats_pitchers
 candidate_player_lookup <- build_player_lookup(candidate_full_stats_hitters, candidate_full_stats_pitchers)
 
-locked_full_stats_hitters <- read_csv("full_stats_hitters.csv", show_col_types = FALSE) |>
+locked_full_stats_hitters <- read_csv(data_path("full_stats_hitters.csv"), show_col_types = FALSE) |>
   mutate(PlayerId = as.character(PlayerId), mlbamid = as.character(mlbamid), player_type = "hitter")
-locked_full_stats_pitchers <- read_csv("full_stats_pitchers.csv", show_col_types = FALSE) |>
+locked_full_stats_pitchers <- read_csv(data_path("full_stats_pitchers.csv"), show_col_types = FALSE) |>
   mutate(PlayerId = as.character(PlayerId), mlbamid = as.character(mlbamid), player_type = "pitcher")
-locked_player_lookup <- read_csv("player_lookup.csv", show_col_types = FALSE) |>
+locked_player_lookup <- read_csv(data_path("player_lookup.csv"), show_col_types = FALSE) |>
   mutate(PlayerId = as.character(PlayerId), mlbamid = as.character(mlbamid))
 
 served_player_inventory <- build_served_player_inventory(locked_full_stats_hitters, locked_full_stats_pitchers, locked_player_lookup)
@@ -162,11 +162,12 @@ parity_report <- validate_migration_parity(
   extra_failures = sanity_failures
 )
 
-write_csv(candidate_full_stats_hitters, "candidate_full_stats_hitters.csv")
-write_csv(candidate_full_stats_pitchers, "candidate_full_stats_pitchers.csv")
-write_csv(candidate_player_lookup, "candidate_player_lookup.csv")
-write_csv(served_player_inventory, "served_player_inventory.csv")
-write_json(parity_report, "migration_parity_report.json", auto_unbox = TRUE, pretty = TRUE, na = "null")
+dir.create(SCRATCH_DIR, showWarnings = FALSE, recursive = TRUE)
+write_csv(candidate_full_stats_hitters, file.path(SCRATCH_DIR, "candidate_full_stats_hitters.csv"))
+write_csv(candidate_full_stats_pitchers, file.path(SCRATCH_DIR, "candidate_full_stats_pitchers.csv"))
+write_csv(candidate_player_lookup, file.path(SCRATCH_DIR, "candidate_player_lookup.csv"))
+write_csv(served_player_inventory, file.path(SCRATCH_DIR, "served_player_inventory.csv"))
+write_json(parity_report, file.path(SCRATCH_DIR, "migration_parity_report.json"), auto_unbox = TRUE, pretty = TRUE, na = "null")
 
 promoted <- promote_candidate_outputs(parity_report)
 
@@ -177,7 +178,7 @@ if (promoted) {
       refreshed_timezone = "UTC",
       data_through_date = data_through_date
     ),
-    "data_freshness.json",
+    data_path("data_freshness.json"),
     auto_unbox = TRUE,
     pretty = TRUE
   )
