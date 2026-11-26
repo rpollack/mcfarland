@@ -143,7 +143,7 @@ mlb_stats_url <- function(stats, group, year, extra = "") {
 }
 
 # The splits of one stats response as a flat table. The feeds used here return one row per player (a traded
-# player's teams are already combined); a duplicate id would double count him, so it stops the run.
+# player's teams are already combined); a duplicate id would be counted twice, so it stops the run.
 parse_mlb_stats <- function(text, label, min_rows = 1, one_row_per_player = TRUE) {
   parsed <- fromJSON(text, flatten = TRUE)
   splits <- parsed$stats$splits[[1]]
@@ -331,7 +331,7 @@ compute_lob_percent <- function(h, bb, hbp, hr, r) {
 # SEASON TABLES
 # =============================================================================
 
-# Everyone with a plate appearance, except pitchers who happened to bat. Ohtani's primary position is TWP, so he stays.
+# Everyone with a plate appearance, except pitchers who happened to bat. Ohtani's primary position is TWP, so Ohtani stays.
 # A hitter Savant has no batted-ball row for (a few players with one to three PA) has no barrels, so 0.
 build_hitter_season <- function(mlb_hitting, mlb_woba, savant_xwoba, savant_barrels) {
   mlb_hitting |>
@@ -344,7 +344,7 @@ build_hitter_season <- function(mlb_hitting, mlb_woba, savant_xwoba, savant_barr
     arrange(as.numeric(mlbamid))
 }
 
-# Everyone who faced a batter, except position players who pitched in a blowout (Ohtani's primary position is TWP, so he
+# Everyone who faced a batter, except position players who pitched in a blowout (Ohtani's primary position is TWP, so Ohtani
 # stays). The FIP constant uses the whole league, position players included, so it is computed before anyone is filtered out.
 build_pitcher_season <- function(mlb_pitching, savant_xera, savant_custom) {
   fip_const <- with(mlb_pitching, fip_constant(ip, er, hr, bb, hbp, so))

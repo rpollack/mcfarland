@@ -133,7 +133,8 @@ function buildQuickStatSignals(player: HitterRecord | PitcherRecord, playerType:
           buildSignal("xERA", (player as PitcherRecord).xera_lg_adj_diff ?? (player as PitcherRecord).xera_diff, 2, 1, -1),
           buildSignal("ERA", (player as PitcherRecord).era_lg_adj_diff ?? (player as PitcherRecord).era_diff, 2, 1, -1),
           buildSignal("K-BB%", (player as PitcherRecord).k_minus_bb_percent_lg_adj_diff ?? (player as PitcherRecord).k_minus_bb_percent_diff, 1, 1),
-          buildSignal("CSW%", (player as PitcherRecord).csw_percent_lg_adj_diff ?? (player as PitcherRecord).csw_percent_diff, 1, 1),
+          // Whiff% changes about 1.5x as much as the CSW% this replaced, so its score weight is scaled down to keep it comparable.
+          buildSignal("Whiff%", (player as PitcherRecord).whiff_percent_lg_adj_diff ?? (player as PitcherRecord).whiff_percent_diff, 1, 1 / 1.5),
           buildSignal("Barrel%", (player as PitcherRecord).barrel_percent_lg_adj_diff ?? (player as PitcherRecord).barrel_percent_diff, 1, 1, -1),
           buildSignal("BABIP", (player as PitcherRecord).babip_lg_adj_diff ?? (player as PitcherRecord).babip_diff, 3, 100, 0),
           buildSignal("LOB%", (player as PitcherRecord).lob_percent_lg_adj_diff ?? (player as PitcherRecord).lob_percent_diff, 1, 1, 0),
@@ -159,7 +160,7 @@ function buildQuickStatSignals(player: HitterRecord | PitcherRecord, playerType:
       : [
           buildCurrentSignal("xERA", (player as PitcherRecord).xera_cur, 2),
           buildCurrentSignal("K-BB%", (player as PitcherRecord).k_minus_bb_percent_cur, 1, "%"),
-          buildCurrentSignal("CSW%", (player as PitcherRecord).csw_percent_cur, 1, "%"),
+          buildCurrentSignal("Whiff%", (player as PitcherRecord).whiff_percent_cur, 1, "%"),
         ];
 
   return fallbackSignals.filter((signal): signal is QuickStatSignal => Boolean(signal));

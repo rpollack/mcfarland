@@ -60,11 +60,9 @@ jobs:
             HTTPUserAgent = sprintf("R/%s R (%s)", getRversion(), paste(getRversion(), R.version["platform"], R.version["arch"], R.version["os"]))
           )
           RPROFILE
-          Rscript -e 'pkgs <- c("dplyr", "readr", "tibble", "stringr", "stringi", "jsonlite", "janitor", "curl", "httr", "rvest"); missing <- setdiff(pkgs, rownames(installed.packages())); if (length(missing)) install.packages(missing)'
-          Rscript -e 'library(curl); library(httr); library(rvest)'
-          Rscript -e 'if (!requireNamespace("baseballr", quietly = TRUE)) install.packages("baseballr")'
-          # Print the version so a drifting dependency is visible in the log; this also fails the step if baseballr can't load.
-          Rscript -e 'library(baseballr); cat("baseballr", as.character(packageVersion("baseballr")), "\n")'
+          Rscript -e 'pkgs <- c("dplyr", "readr", "tibble", "stringr", "stringi", "jsonlite", "curl", "httr"); missing <- setdiff(pkgs, rownames(installed.packages())); if (length(missing)) install.packages(missing)'
+          # Print the versions so a drifting dependency is visible in the log; this also fails the step if a package can't load.
+          Rscript -e 'library(curl); library(httr); library(dplyr); library(readr); cat("dplyr", as.character(packageVersion("dplyr")), "readr", as.character(packageVersion("readr")), "\n")'
 
       - name: Refresh baseball data
         run: Rscript refresh_data.R

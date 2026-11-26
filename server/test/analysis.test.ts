@@ -88,7 +88,7 @@ describe("analysis prompts", () => {
       lob_percent_cur: 72,
       barrel_percent_cur: 7,
       o_swing_percent_cur: 30,
-      csw_percent_cur: 28,
+      whiff_percent_cur: 28,
       xera_cur: 3.5,
       k_percent_cur: 25,
       bb_percent_cur: 8,
@@ -103,14 +103,14 @@ describe("analysis prompts", () => {
       o_swing_percent_l3: 29,
       babip_l3: 0.3,
       lob_percent_l3: 74,
-      csw_percent_l3: 27,
+      whiff_percent_l3: 27,
       era_diff: -0.4,
       k_percent_diff: 1,
       bb_percent_diff: 1,
       k_minus_bb_percent_diff: 0,
       xera_diff: -0.2,
       o_swing_percent_diff: 1,
-      csw_percent_diff: 1,
+      whiff_percent_diff: 1,
       barrel_percent_diff: -1,
       lob_percent_diff: -2,
       babip_diff: -0.01,
@@ -120,7 +120,7 @@ describe("analysis prompts", () => {
       k_minus_bb_percent_lg_adj_diff: -0.3,
       xera_lg_adj_diff: -0.1,
       o_swing_percent_lg_adj_diff: 0.6,
-      csw_percent_lg_adj_diff: 0.3,
+      whiff_percent_lg_adj_diff: 0.3,
       barrel_percent_lg_adj_diff: -0.5,
       lob_percent_lg_adj_diff: -1,
       babip_lg_adj_diff: -0.005,
@@ -137,7 +137,10 @@ describe("analysis prompts", () => {
     const analysisPrompt = buildAnalysisPrompt(pitcher, "pitcher", "straightforward");
     expect(analysisPrompt).toContain("Metric selection guidance for pitchers");
     expect(analysisPrompt).toContain("xERA vs ERA, K-BB%, and Barrel Rate");
-    expect(analysisPrompt).toContain("Use K%, BB%, CSW%, and O-Swing%");
+    expect(analysisPrompt).toContain("Use K%, BB%, Whiff%, and O-Swing%");
+    expect(prompt).toContain("Whiff Rate (Whiff%");
+    expect(prompt).not.toContain("CSW");
+    expect(analysisPrompt).not.toContain("CSW");
     expect(analysisPrompt).toContain("Do not cram current value, weighted baseline, raw diff, and league-adjusted diff into one sentence");
     expect(analysisPrompt).toContain("Use age in the rest-of-season judgment");
     expect(analysisPrompt).toContain("Use league-adjusted diff as the main read");

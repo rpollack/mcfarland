@@ -68,7 +68,8 @@ function scorePitcher(player: PitcherRecord): number | null {
     toFinite(player.k_percent_diff) * 1.1 -
     toFinite(player.bb_percent_diff) * 1.2 -
     toFinite(player.barrel_percent_diff) * 1.4 +
-    toFinite(player.csw_percent_diff) * 0.9 -
+    // Whiff% moves about 1.5x as much as the CSW% this replaced (SD of the change vs baseline 4.1 vs 2.7 points), so 0.9 became 0.6.
+    toFinite(player.whiff_percent_diff) * 0.6 -
     toFinite(player.babip_diff) * 14
   );
 }

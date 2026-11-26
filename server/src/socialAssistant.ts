@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "csv-parse/sync";
-import { getDataFreshness, listPlayers } from "./dataStore.js";
+import { getDataFreshness, getPlayerById, listPlayers } from "./dataStore.js";
 import { callClaudeAnalysis } from "./claude.js";
 import type { HitterRecord, PitcherRecord, PlayerType } from "./types.js";
 import { DEFAULT_ANALYSIS_MODE, type AnalysisMode } from "./vibes.js";
@@ -12,6 +12,12 @@ const DATA_ROOT = path.resolve(currentDir, "..", "..");
 const HITTER_BREAKOUT_PREVIOUS_SEASON_MIN_PA = 300;
 const STARTER_BREAKOUT_PREVIOUS_SEASON_MIN_TBF = 350;
 const RELIEVER_BREAKOUT_PREVIOUS_SEASON_MIN_TBF = 125;
+// The pitcher signals below were tuned on CSW% changes. Whiff% replaced CSW% when the data moved off FanGraphs, and a
+// pitcher's whiff% changes about 1.5x as much as their CSW% did (standard deviation of the change vs baseline: 4.1 vs 2.7
+// points over pitchers with 100+ batters faced in 2026), so the weights are scaled by 1/1.5 and the "improved" bar of
+// 1 point became 1.5.
+const WHIFF_SCALE_FROM_CSW = 1 / 1.5;
+const WHIFF_BREAKOUT_GAIN = 1.5;
 const STARTER_MIN_PREVIOUS_SEASON_STARTS = 10;
 const STARTER_MIN_PREVIOUS_SEASON_START_RATE = 0.5;
 
@@ -164,25 +170,25 @@ function loadPreviousSeasonSamples(): PreviousSeasonSampleCache | null {
   }
 
   const hitters = new Map<string, PreviousHitterSample>();
-  readCsvRows(`fangraphs-leaderboards-${season}.csv`).forEach((row) => {
-    const playerId = row.PlayerId;
-    if (!playerId) {
+  readCsvRows(`baseline-hitters-${season}.csv`).forEach((row) => {
+    const mlbamid = row.mlbamid;
+    if (!mlbamid) {
       return;
     }
-    hitters.set(String(playerId), {
+    hitters.set(String(mlbamid), {
       plateAppearances: parseNumber(row.PA),
     });
   });
 
   const pitchers = new Map<string, PreviousPitcherSample>();
-  readCsvRows(`pitcher-stats-${season}.csv`).forEach((row) => {
-    const playerId = row.playerid;
-    if (!playerId) {
+  readCsvRows(`baseline-pitchers-${season}.csv`).forEach((row) => {
+    const mlbamid = row.mlbamid;
+    if (!mlbamid) {
       return;
     }
     const games = parseNumber(row.g);
     const starts = parseNumber(row.gs);
-    pitchers.set(String(playerId), {
+    pitchers.set(String(mlbamid), {
       battersFaced: parseNumber(row.tbf),
       games,
       starts,
@@ -194,12 +200,12 @@ function loadPreviousSeasonSamples(): PreviousSeasonSampleCache | null {
   return previousSeasonSampleCache;
 }
 
-function getPreviousSeasonHitterSample(playerId: string): PreviousHitterSample | null {
-  return loadPreviousSeasonSamples()?.hitters.get(playerId) ?? null;
+function getPreviousSeasonHitterSample(mlbamid: string | null | undefined): PreviousHitterSample | null {
+  return mlbamid ? (loadPreviousSeasonSamples()?.hitters.get(mlbamid) ?? null) : null;
 }
 
-function getPreviousSeasonPitcherSample(playerId: string): PreviousPitcherSample | null {
-  return loadPreviousSeasonSamples()?.pitchers.get(playerId) ?? null;
+function getPreviousSeasonPitcherSample(mlbamid: string | null | undefined): PreviousPitcherSample | null {
+  return mlbamid ? (loadPreviousSeasonSamples()?.pitchers.get(mlbamid) ?? null) : null;
 }
 
 function getPitcherBreakoutPreviousSeasonThreshold(sample: PreviousPitcherSample): number {
@@ -207,12 +213,12 @@ function getPitcherBreakoutPreviousSeasonThreshold(sample: PreviousPitcherSample
 }
 
 function hasQualifiedHitterBreakoutBaseline(player: HitterRecord): boolean {
-  const previousSample = getPreviousSeasonHitterSample(String(player.PlayerId));
+  const previousSample = getPreviousSeasonHitterSample(player.mlbamid);
   return Boolean(previousSample && previousSample.plateAppearances >= HITTER_BREAKOUT_PREVIOUS_SEASON_MIN_PA);
 }
 
 function hasQualifiedPitcherBreakoutBaseline(player: PitcherRecord): boolean {
-  const previousSample = getPreviousSeasonPitcherSample(String(player.PlayerId));
+  const previousSample = getPreviousSeasonPitcherSample(player.mlbamid);
   return Boolean(previousSample && previousSample.battersFaced >= getPitcherBreakoutPreviousSeasonThreshold(previousSample));
 }
 
@@ -229,8 +235,9 @@ export function __getBreakoutBaselineEligibilityForTests(
   playerType: PlayerType,
   playerId: string
 ): { qualified: boolean; sample: number; threshold: number; role?: PreviousPitcherSample["role"] } | null {
+  const mlbamid = getPlayerById(playerType, playerId)?.mlbamid;
   if (playerType === "hitter") {
-    const sample = getPreviousSeasonHitterSample(playerId);
+    const sample = getPreviousSeasonHitterSample(mlbamid);
     if (!sample) {
       return null;
     }
@@ -241,7 +248,7 @@ export function __getBreakoutBaselineEligibilityForTests(
     };
   }
 
-  const sample = getPreviousSeasonPitcherSample(playerId);
+  const sample = getPreviousSeasonPitcherSample(mlbamid);
   if (!sample) {
     return null;
   }
@@ -332,7 +339,7 @@ function buildPitcherCandidate(player: PitcherRecord, baseUrl: string): SocialCa
   const kMinusBbDiff = player.k_minus_bb_percent_lg_adj_diff ?? player.k_minus_bb_percent_diff;
   const kDiff = player.k_percent_lg_adj_diff ?? player.k_percent_diff;
   const bbDiff = player.bb_percent_lg_adj_diff ?? player.bb_percent_diff;
-  const cswDiff = player.csw_percent_lg_adj_diff ?? player.csw_percent_diff;
+  const whiffDiff = player.whiff_percent_lg_adj_diff ?? player.whiff_percent_diff;
   const barrelDiff = player.barrel_percent_lg_adj_diff ?? player.barrel_percent_diff;
   const score =
     (absolute(eraDiff) * 5 +
@@ -340,7 +347,7 @@ function buildPitcherCandidate(player: PitcherRecord, baseUrl: string): SocialCa
       absolute(kMinusBbDiff) * 0.3 +
       absolute(kDiff) * 0.2 +
       absolute(bbDiff) * 0.2 +
-      absolute(cswDiff) * 0.18 +
+      absolute(whiffDiff) * WHIFF_SCALE_FROM_CSW * 0.18 +
       absolute(barrelDiff) * 0.2) *
     sampleWeight(player.tbf, 70);
 
@@ -421,7 +428,7 @@ function buildPitcherBreakoutCandidate(player: PitcherRecord, baseUrl: string): 
   const kMinusBbDiff = valueOrZero(player.k_minus_bb_percent_lg_adj_diff ?? player.k_minus_bb_percent_diff);
   const kDiff = valueOrZero(player.k_percent_lg_adj_diff ?? player.k_percent_diff);
   const bbDiff = valueOrZero(player.bb_percent_lg_adj_diff ?? player.bb_percent_diff);
-  const cswDiff = valueOrZero(player.csw_percent_lg_adj_diff ?? player.csw_percent_diff);
+  const whiffDiff = valueOrZero(player.whiff_percent_lg_adj_diff ?? player.whiff_percent_diff);
   const barrelDiff = valueOrZero(player.barrel_percent_lg_adj_diff ?? player.barrel_percent_diff);
   const eraDiff = valueOrZero(player.era_lg_adj_diff ?? player.era_diff);
   const babipDiff = valueOrZero(player.babip_lg_adj_diff ?? player.babip_diff);
@@ -435,7 +442,7 @@ function buildPitcherBreakoutCandidate(player: PitcherRecord, baseUrl: string): 
     xeraDiff < -0.2,
     kMinusBbDiff > 2,
     bbDiff < -1,
-    cswDiff > 1,
+    whiffDiff > WHIFF_BREAKOUT_GAIN,
     barrelDiff < -1,
   ]);
 
@@ -448,9 +455,9 @@ function buildPitcherBreakoutCandidate(player: PitcherRecord, baseUrl: string): 
     kMinusBbDiff * 1.8 +
     kDiff * 0.9 +
     (-bbDiff) * 1.1 +
-    cswDiff * 0.8 +
+    whiffDiff * WHIFF_SCALE_FROM_CSW * 0.8 +
     (-barrelDiff) * 1.0;
-  const support = (kMinusBbDiff > 0 && xeraDiff < 0 ? 4 : 0) + (cswDiff > 0 && bbDiff < 0 ? 3 : 0);
+  const support = (kMinusBbDiff > 0 && xeraDiff < 0 ? 4 : 0) + (whiffDiff > 0 && bbDiff < 0 ? 3 : 0);
   const luckPenalty =
     Math.max(0, xeraDiff - eraDiff) * 10 +
     Math.max(0, -babipDiff - 0.015) * 8 +
@@ -469,7 +476,7 @@ function buildPitcherBreakoutCandidate(player: PitcherRecord, baseUrl: string): 
     mlbamid: player.mlbamid ?? null,
     score,
     whyNow: `${player.Name} has the look of a real pitching breakout: league-adjusted xERA ${formatSigned(xeraDiff, 2)} and K-BB% ${formatSigned(kMinusBbDiff, 1)} over ${Math.round(battersFaced)} TBF.`,
-    statSnapshot: `${Math.round(battersFaced)} TBF · lg-adj xERA ${formatSigned(xeraDiff, 2)} · K-BB% ${formatSigned(kMinusBbDiff, 1)} · CSW% ${formatSigned(cswDiff, 1)}`,
+    statSnapshot: `${Math.round(battersFaced)} TBF · lg-adj xERA ${formatSigned(xeraDiff, 2)} · K-BB% ${formatSigned(kMinusBbDiff, 1)} · Whiff% ${formatSigned(whiffDiff, 1)}`,
     shareUrl: buildShareUrl(baseUrl, "pitcher", String(player.PlayerId)),
     news: [],
   };

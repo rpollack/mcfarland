@@ -86,9 +86,9 @@ export interface PitcherRecord {
   k_minus_bb_percent_cur: number | null;
   k_minus_bb_percent_l3: number | null;
   k_minus_bb_percent_diff: number | null;
-  csw_percent_cur: number | null;
-  csw_percent_l3: number | null;
-  csw_percent_diff: number | null;
+  whiff_percent_cur: number | null;
+  whiff_percent_l3: number | null;
+  whiff_percent_diff: number | null;
   o_swing_percent_cur: number | null;
   o_swing_percent_l3: number | null;
   o_swing_percent_diff: number | null;
@@ -101,7 +101,7 @@ export interface PitcherRecord {
   k_minus_bb_percent_lg_adj_diff?: number | null;
   xera_lg_adj_diff?: number | null;
   o_swing_percent_lg_adj_diff?: number | null;
-  csw_percent_lg_adj_diff?: number | null;
+  whiff_percent_lg_adj_diff?: number | null;
   barrel_percent_lg_adj_diff?: number | null;
   lob_percent_lg_adj_diff?: number | null;
   babip_lg_adj_diff?: number | null;

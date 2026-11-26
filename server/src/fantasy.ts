@@ -78,7 +78,7 @@ function buildFantasyPlayerLines(player: HitterRecord | PitcherRecord, type: Pla
     formatLine("K%", formatPercentage(pitcher.k_percent_cur)),
     formatLine("BB%", formatPercentage(pitcher.bb_percent_cur)),
     formatLine("K-BB%", formatPercentage(pitcher.k_minus_bb_percent_cur)),
-    formatLine("CSW%", formatPercentage(pitcher.csw_percent_cur)),
+    formatLine("Whiff%", formatPercentage(pitcher.whiff_percent_cur)),
     formatLine("Barrel% allowed", formatPercentage(pitcher.barrel_percent_cur)),
     formatLine("xERA weighted baseline", formatEra(pitcher.xera_l3)),
     formatLine("xERA diff vs weighted baseline", formatEra(pitcher.xera_diff)),
