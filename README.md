@@ -4,7 +4,7 @@
 
 McFARLAND is a baseball analysis app that turns current-season performance data into readable, shareable takes. It is built for the space between a spreadsheet and a group chat: enough statistical rigor to be useful, but written in plain English and customizable voices.
 
-The app compares a player's current-year stats against his weighted baseline, highlights what has actually changed, and asks the question fans and fantasy players usually care about: should this get better, worse, or stay about the same?
+The app compares a player's current-year stats against that player's weighted baseline, highlights what has actually changed, and asks the question fans and fantasy players usually care about: should this get better, worse, or stay about the same?
 
 ## About The Project
 
@@ -41,13 +41,19 @@ The production server builds the React app and serves it from the Express API. D
 
 ```text
 .
-├── client/              # React + Vite UI
-├── server/              # Express API and analysis services
-├── tests/e2e/           # Playwright tests
-├── full_stats_*.csv     # Current hitter/pitcher stat inputs
-├── player_lookup.csv    # Player lookup metadata
-├── data_freshness.json  # Current dataThroughDate metadata
-├── refresh_data.R       # Data refresh script
+├── client/                    # React + Vite UI
+├── server/                    # Express API and analysis services
+├── tests/e2e/                 # Playwright tests
+├── tests/testthat/            # R tests for the data refresh (fixtures, no network)
+├── full_stats_*.csv           # Current hitter/pitcher stats the app serves (generated)
+├── player_lookup.csv          # Player lookup metadata (generated)
+├── data_freshness.json        # Current dataThroughDate metadata (generated)
+├── baseline-*-<year>.csv      # One finished season each; the three before current_year are the baseline
+├── player_id_map.csv          # Frozen PlayerIds of players served before the move off FanGraphs
+├── refresh_data.R             # Data refresh: configuration and orchestration
+├── data_sources.R             # MLB Stats API and Baseball Savant fetchers, season tables
+├── pipeline.R                 # Baselines, joins, frozen ids, output contract, gates
+├── .github/workflows/         # CI (e2e, R tests) and the daily data refresh
 └── README.md
 ```
 
@@ -75,7 +81,7 @@ The production server builds the React app and serves it from the Express API. D
 - npm 9+
 - Optional: Anthropic API key for generated analysis.
 - Optional: PostgreSQL 17 or compatible Postgres database for shared analysis cache and weekly trend persistence.
-- Optional: R runtime for running `refresh_data.R` locally.
+- Optional: R 4.3+ (with `dplyr`, `readr`, `tibble`, `stringr`, `stringi`, `jsonlite`, `httr`; `testthat` for the R tests) for running `refresh_data.R` and its tests locally. The app itself does not need R.
 
 ## Getting Started
 
@@ -185,6 +191,12 @@ npm run test:e2e
 
 The e2e command builds the app and starts the server itself, and it does not need an Anthropic key or a database. Without a key the AI responses fall back to an "unavailable" message, and votes use the in-memory store. If Playwright reports missing browsers, run `npx playwright install` first.
 
+Run the R tests for the data refresh (needs R and `testthat`; no network):
+
+```bash
+Rscript -e 'testthat::test_dir("tests/testthat", stop_on_failure = TRUE)'
+```
+
 Run the server build only:
 
 ```bash
@@ -199,7 +211,19 @@ npm run build
 
 ## Data Pipeline
 
-The app serves baseball data from CSV files in the repository root. They are produced by `refresh_data.R` and committed to git, so a data update is an ordinary PR.
+The app serves baseball data from CSV files in the repository root. They are produced by `refresh_data.R` and committed to git, so a data update is an ordinary PR. All data comes from two sources: the MLB Stats API and Baseball Savant. Nothing depends on FanGraphs.
+
+**Where the numbers come from** (the same code builds the current season and every baseline season, so the definitions cannot drift apart):
+
+| Stat | Source |
+| ---- | ------ |
+| Counts (PA, AB, H, HR, BB, SO, IP, batters faced, and so on), Age | MLB Stats API season stats (Age is the age on June 30 of the season) |
+| Hitter wOBA | MLB Stats API sabermetrics |
+| Hitter xwOBA, Barrels | Baseball Savant expected statistics and statcast leaderboards |
+| Pitcher xERA, barrel %, O-Swing %, Whiff % | Baseball Savant expected statistics and custom leaderboards |
+| Pitcher FIP, BABIP, LOB % | Computed from the MLB counts (FIP counts intentional walks; LOB % is clamped to 0 to 100) |
+
+Notes on definitions: **Whiff%** is swinging strikes per swing (it replaced CSW%, which is not available outside FanGraphs). Savant's **O-Swing%** runs about 3 points lower than FanGraphs' did. Hitters are MLB players with at least one plate appearance, minus pitchers who batted; pitchers are those who faced a batter, minus position players who pitched (Ohtani, whose primary position is two-way, is in both lists). The Savant CSV links are the ones behind its public leaderboards, not a documented API, so the refresh checks every response (columns present, enough rows, not an HTML page) and fails loudly instead of publishing thin data.
 
 **Inputs** (all in the repo root, committed):
 
@@ -226,11 +250,11 @@ The app serves baseball data from CSV files in the repository root. They are pro
 
 **Deploys**: Render redeploys on every merge to master. The Docker image contains the repo, and the server reads the CSVs and `data_freshness.json` from the repo root (`DATA_ROOT` in `server/src/dataStore.ts`), so merging the refresh PR is what publishes new data.
 
-**R tests**: `data_sources.R` and `pipeline.R` have fixture-based tests, including a run of `refresh_data.R` end to end on fixtures, in `tests/testthat/` that never touch the network: `Rscript -e 'testthat::test_dir("tests/testthat", stop_on_failure = TRUE)'` (needs the `testthat` package). The `r-tests` workflow runs them on changes to the R files.
+**R tests**: `data_sources.R` and `pipeline.R` have fixture-based tests in `tests/testthat/`, including a run of `refresh_data.R` end to end on fixtures. They never touch the network (see Testing). The `r-tests` workflow runs them on changes to the R files, and one of them fails a `current_year` bump if last season's baseline files are missing.
 
 **Run it locally**: `Rscript refresh_data.R` from the repo root (needs R with `dplyr`, `readr`, `tibble`, `stringr`, `stringi`, `jsonlite`, `httr`). It overwrites the committed CSVs when the check passes; review with `git diff` and discard with `git checkout` if you do not want to keep it.
 
-Do not move the CSVs without updating `DATA_ROOT`, the `Dockerfile`, `refresh_data.R`, and the workflows.
+Do not move the CSVs without updating `DATA_ROOT`, the `Dockerfile`, `refresh_data.R`, `pipeline.R`, and the workflows.
 
 ## Data And Caching Notes
 
