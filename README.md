@@ -44,7 +44,6 @@ The production server builds the React app and serves it from the Express API. D
 ├── client/                    # React + Vite UI
 ├── server/                    # Express API and analysis services
 ├── tests/e2e/                 # Playwright tests
-├── tests/testthat/            # R tests for the data refresh (fixtures, no network)
 ├── data/                      # Everything the app serves and the refresh reads (committed)
 │   ├── full_stats_*.csv       #   Current hitter/pitcher stats (generated)
 │   ├── player_lookup.csv      #   Player lookup metadata (generated)
@@ -52,11 +51,14 @@ The production server builds the React app and serves it from the Express API. D
 │   ├── player_id_map.csv      #   Frozen PlayerIds of players served before the move off FanGraphs
 │   ├── baselines/             #   baseline-*-<year>.csv: one finished season each; the three before current_year are the baseline
 │   └── scratch/               #   Candidate files and reports from each refresh run (gitignored)
-├── refresh/                   # The R data refresh
-│   ├── refresh_data.R         #   Configuration and orchestration
-│   ├── data_sources.R         #   MLB Stats API and Baseball Savant fetchers, season tables
-│   └── pipeline.R             #   Baselines, joins, frozen ids, output contract, gates
-├── .github/workflows/         # CI (e2e, R tests) and the daily data refresh
+├── refresh/                   # The TypeScript data refresh (plain folder, run with tsx; not an npm workspace)
+│   ├── refreshData.ts         #   Entry point: the daily refresh and the baseline builder
+│   ├── config.ts              #   CURRENT_YEAR and DATA_DIR
+│   ├── dataSources.ts         #   MLB Stats API and Baseball Savant fetchers, season tables
+│   ├── pipeline.ts            #   Baselines, joins, frozen ids, gates
+│   ├── format.ts, doubleDigits.ts  # Byte-exact number/CSV/JSON formatting (see refresh/test/README.md)
+│   └── test/                  #   Fixture tests and golden files (no network)
+├── .github/workflows/         # CI (e2e) and the daily data refresh
 └── README.md
 ```
 
@@ -84,7 +86,6 @@ The production server builds the React app and serves it from the Express API. D
 - npm 9+
 - Optional: Anthropic API key for generated analysis.
 - Optional: PostgreSQL 17 or compatible Postgres database for shared analysis cache and weekly trend persistence.
-- Optional: R 4.3+ (with `dplyr`, `readr`, `tibble`, `stringr`, `stringi`, `jsonlite`, `httr`; `testthat` for the R tests) for running `refresh/refresh_data.R` and its tests locally. The app itself does not need R.
 
 ## Getting Started
 
@@ -194,11 +195,7 @@ npm run test:e2e
 
 The e2e command builds the app and starts the server itself, and it does not need an Anthropic key or a database. Without a key the AI responses fall back to an "unavailable" message, and votes use the in-memory store. If Playwright reports missing browsers, run `npx playwright install` first.
 
-Run the R tests for the data refresh (needs R and `testthat`; no network):
-
-```bash
-Rscript -e 'testthat::test_dir("tests/testthat", stop_on_failure = TRUE)'
-```
+The data refresh tests (no network) run as part of `npm run test:unit`; to run only them: `npm run test:refresh`. Type-check the refresh code with `npm run typecheck:refresh`.
 
 Run the server build only:
 
@@ -214,7 +211,7 @@ npm run build
 
 ## Data Pipeline
 
-The app serves baseball data from CSV files in the `data/` folder. They are produced by `refresh/refresh_data.R` and committed to git, so a data update is an ordinary PR. All data comes from two sources: the MLB Stats API and Baseball Savant. Nothing depends on FanGraphs.
+The app serves baseball data from CSV files in the `data/` folder. They are produced by `npm run refresh` (`refresh/refreshData.ts`) and committed to git, so a data update is an ordinary PR. All data comes from two sources: the MLB Stats API and Baseball Savant. Nothing depends on FanGraphs.
 
 **Where the numbers come from** (the same code builds the current season and every baseline season, so the definitions cannot drift apart):
 
@@ -230,21 +227,21 @@ Notes on definitions: **Whiff%** is swinging strikes per swing (it replaced CSW%
 
 **Inputs** (all in `data/`, committed):
 
-- `data/baselines/baseline-hitters-<year>.csv` and `baseline-pitchers-<year>.csv`: one pair per baseline season, keyed by `mlbamid` (the MLB player id). The three seasons before `current_year` in `refresh/refresh_data.R` form each player's weighted baseline (weights 1, 3, 5, oldest first). Each file is written by `Rscript refresh/refresh_data.R build-baseline-season <year>` from the same code that builds the current season (it refuses to overwrite existing files without `--force`). Where each column comes from is documented at the top of `data_sources.R`. Percent columns (`barrel_percent`, `o_swing_percent`, `whiff_percent`, `lob_percent`) are 0 to 100.
+- `data/baselines/baseline-hitters-<year>.csv` and `baseline-pitchers-<year>.csv`: one pair per baseline season, keyed by `mlbamid` (the MLB player id). The three seasons before `CURRENT_YEAR` in `refresh/config.ts` form each player's weighted baseline (weights 1, 3, 5, oldest first). Each file is written by `npm run refresh:baseline -- <year>` from the same code that builds the current season (it refuses to overwrite existing files without `--force`). Where each column comes from is documented at the top of `refresh/dataSources.ts`. Percent columns (`barrel_percent`, `o_swing_percent`, `whiff_percent`, `lob_percent`) are 0 to 100.
 - Live current-season pulls on every run, from the MLB Stats API (counts, Age, wOBA) and Baseball Savant (xwOBA, barrels, xERA, O-Swing%, whiff%). No other site is used; the pipeline no longer touches FanGraphs, which blocks scripted requests.
 - `data/player_id_map.csv` (`mlbamid`, `PlayerId`): the app's `PlayerId` for every player who was served before the move off FanGraphs. It is data, built once from the old `player_lookup.csv`, and must never be regenerated or edited (a test checks its checksum): a player's `PlayerId` is a key for URLs, votes, trend rows, cached analyses and stars. A player not in the map (first served after the move) gets `PlayerId` = their own `mlbamid`, so the column holds both 5-digit legacy ids and 6-digit MLB ids. Internal joins use `mlbamid`.
 
-**Yearly rollover**: each November run `Rscript refresh/refresh_data.R build-baseline-season <finished year>` and commit the two files; in March, once the new season has games, bump `current_year` in `refresh/refresh_data.R`.
+**Yearly rollover**: each November run `npm run refresh:baseline -- <finished year>` and commit the two files; in March, once the new season has games, bump `CURRENT_YEAR` in `refresh/config.ts`.
 
 **Outputs committed to git**: `data/full_stats_hitters.csv`, `data/full_stats_pitchers.csv`, `data/player_lookup.csv`, and `data/data_freshness.json` (when the data is through, and when it was refreshed).
 
-**Code layout** (`refresh/`): `data_sources.R` (MLB and Savant fetchers, computed FIP/BABIP/LOB%, season tables), `pipeline.R` (baselines, joins, the frozen-id map, the output column contract, the gates) and `refresh_data.R` (configuration and orchestration). Run everything from the repo root.
+**Code layout** (`refresh/`): `dataSources.ts` (MLB and Savant fetchers, computed FIP/BABIP/LOB%, season tables), `pipeline.ts` (baselines, joins, the frozen-id map, the gates), `types.ts` (the output column contract), `format.ts` and `doubleDigits.ts` (writing numbers, CSV and JSON byte for byte as the original R refresh did) and `refreshData.ts` (orchestration and command line). Run everything from the repo root.
 
-**Scratch files**: the script also writes `candidate_full_stats_*.csv`, `candidate_player_lookup.csv`, `served_player_inventory.csv` and `migration_parity_report.json` into `data/scratch/`. They are gitignored and regenerated on every run. The candidates are checked against the current files (row counts, player IDs, MLB IDs, stat parity) and only copied over the real CSVs if the check passes. If it fails (including the sanity checks: a feed that came back empty, or a player list that shrank within the season) the production files are left alone, the failures are printed and the run exits with an error. The one run that switched the data source needed `Rscript refresh_data.R --accept-source-migration`, which skips value parity; it is not needed again.
+**Scratch files**: the script also writes `candidate_full_stats_*.csv`, `candidate_player_lookup.csv`, `served_player_inventory.csv` and `migration_parity_report.json` into `data/scratch/`. They are gitignored and regenerated on every run. The candidates are checked against the current files (row counts, player IDs, MLB IDs, stat parity) and only copied over the real CSVs if the check passes. If it fails (including the sanity checks: a feed that came back empty, or a player list that shrank within the season) the production files are left alone, the failures are printed and the run exits with an error.
 
 **Daily schedule** (`.github/workflows/refresh-data.yml`, March through October, 10:37 UTC plus a random 0 to 3 hour wait before fetching so the run time varies; also runnable manually, without the wait; set `publish` to false for a dry run):
 
-1. Installs R and packages, waits the random time (scheduled runs only), then runs `Rscript refresh/refresh_data.R`.
+1. Installs Node dependencies, waits the random time (scheduled runs only), then runs `npm run refresh`.
 2. "Skip freshness-only updates": if the three stat CSVs did not change, `data/data_freshness.json` is restored so no PR is opened (no new games means no PR, and cached takes are not regenerated).
 3. Otherwise opens a `Daily baseball data refresh YYYY-MM-DD` PR and enables squash auto-merge. This needs the `REFRESH_PR_TOKEN` secret, and the PR must pass the `playwright` check before it merges (master is protected).
 4. Waits for the merge, then waits until the deployed app reports the new `dataThroughDate`.
@@ -253,16 +250,16 @@ Notes on definitions: **Whiff%** is swinging strikes per swing (it replaced CSW%
 
 **Deploys**: Render redeploys on every merge to master. The Docker image contains the repo, and the server reads the CSVs and `data_freshness.json` from `data/` (`DATA_ROOT` in `server/src/dataStore.ts`), so merging the refresh PR is what publishes new data.
 
-**R tests**: `refresh/data_sources.R` and `refresh/pipeline.R` have fixture-based tests in `tests/testthat/`, including a run of `refresh/refresh_data.R` end to end on fixtures. They never touch the network (see Testing). The `r-tests` workflow runs them on changes to the R files, and one of them fails a `current_year` bump if last season's baseline files are missing.
+**Refresh tests**: `refresh/test/` has fixture-based tests, including a run of the whole refresh on fixtures whose expected files are golden copies of what the original R refresh produced (see `refresh/test/README.md`). They never touch the network and run in `npm run test:unit`, so in the `playwright` check; one of them fails a `CURRENT_YEAR` bump if last season's baseline files are missing.
 
-**Run it locally**: `Rscript refresh/refresh_data.R` from the repo root (needs R with `dplyr`, `readr`, `tibble`, `stringr`, `stringi`, `jsonlite`, `httr`). It overwrites the committed CSVs when the check passes; review with `git diff` and discard with `git checkout` if you do not want to keep it.
+**Run it locally**: `npm run refresh` from the repo root. It overwrites the committed CSVs when the check passes; review with `git diff` and discard with `git checkout` if you do not want to keep it.
 
-Do not move `data/` without updating `DATA_ROOT` in `server/src/dataStore.ts` and `server/src/socialAssistant.ts`, `DATA_DIR` in `refresh/data_sources.R`, `.gitignore`, and the workflows.
+Do not move `data/` without updating `DATA_ROOT` in `server/src/dataStore.ts` and `server/src/socialAssistant.ts`, `DATA_DIR` in `refresh/config.ts`, `.gitignore`, and the workflows.
 
 ## Data And Caching Notes
 
 - The app's baseball data comes from the CSV files in `data/` plus `data/data_freshness.json`.
-- `refresh/refresh_data.R` is the data refresh entrypoint (with its code in `refresh/data_sources.R` and `refresh/pipeline.R`) and is intended to be run on a schedule during the season.
+- `refresh/refreshData.ts` is the data refresh entrypoint (run with `npm run refresh`) and is intended to be run on a schedule during the season.
 - The daily refresh workflow only opens a PR when the stat files (`full_stats_*.csv`, `player_lookup.csv`) actually change. In the offseason nothing changes, so the data and `dataThroughDate` stay frozen and nothing is regenerated.
 - Analysis cache validity follows `dataThroughDate`, not wall-clock date.
 - Only successful structured Claude responses are cached. API errors, unavailable responses, and malformed model responses are not cached.

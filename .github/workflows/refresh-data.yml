@@ -5,10 +5,10 @@ on:
     # at ':00'. Use an off-peak minute. The time of day itself doesn't matter: games finish well before this.
     #
     # Paused for the offseason: this only runs March through October, because stats don't move in the offseason.
-    # Before the first run of a new season (the "Yearly rollover" note in refresh/refresh_data.R has the details):
-    #   1. Make sure data/baselines/baseline-hitters-<year>.csv and baseline-pitchers-<year>.csv exist for current_year - 3 .. current_year - 1
-    #      (build the finished season with: Rscript refresh/refresh_data.R build-baseline-season <year>).
-    #   2. Bump current_year in refresh/refresh_data.R once the new season has games.
+    # Before the first run of a new season (the "Yearly rollover" note in refresh/config.ts has the details):
+    #   1. Make sure data/baselines/baseline-hitters-<year>.csv and baseline-pitchers-<year>.csv exist for CURRENT_YEAR - 3 .. CURRENT_YEAR - 1
+    #      (build the finished season with: npm run refresh:baseline -- <year>).
+    #   2. Bump CURRENT_YEAR in refresh/config.ts once the new season has games.
     #   3. Run this workflow by hand with publish=false and confirm it passes, for a few days, before the cron resumes.
     # Scheduled runs wait a random 0-3 hours before fetching (see the step below), so the run time varies. workflow_dispatch
     # below still works at any time, and manual runs do not wait.
@@ -30,40 +30,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       
-      - uses: r-lib/actions/setup-r@v2
+      - uses: actions/setup-node@v7
         with:
-          r-version: '4.3'
+          node-version: 24
+          cache: npm
 
-      - name: Cache R package library
-        uses: actions/cache@v6
-        with:
-          path: ${{ env.R_LIBS_USER }}
-          key: ${{ runner.os }}-r-4.3-refresh-ubuntu2404-${{ hashFiles('.github/workflows/refresh-data.yml') }}
-          restore-keys: |
-            ${{ runner.os }}-r-4.3-refresh-ubuntu2404-
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev zlib1g-dev pkg-config
-          
-      # Install from the Posit binary mirror (setup-r exports it as RSPM). Pointing install.packages at CRAN
-      # made every package compile from source, about 4 minutes. The mirror serves binaries only to a
-      # request that identifies itself as R, hence HTTPUserAgent. Only missing packages are installed so a
-      # restored cache is actually used; bumping this file starts a fresh cache.
-      - name: Install R dependencies
-        run: |
-          mkdir -p "${R_LIBS_USER}"
-          export R_PROFILE_USER="${RUNNER_TEMP}/install.Rprofile"
-          cat > "${R_PROFILE_USER}" <<'RPROFILE'
-          options(
-            repos = c(CRAN = Sys.getenv("RSPM", "https://cloud.r-project.org")),
-            HTTPUserAgent = sprintf("R/%s R (%s)", getRversion(), paste(getRversion(), R.version["platform"], R.version["arch"], R.version["os"]))
-          )
-          RPROFILE
-          Rscript -e 'pkgs <- c("dplyr", "readr", "tibble", "stringr", "stringi", "jsonlite", "curl", "httr"); missing <- setdiff(pkgs, rownames(installed.packages())); if (length(missing)) install.packages(missing)'
-          # Print the versions so a drifting dependency is visible in the log; this also fails the step if a package can't load.
-          Rscript -e 'library(curl); library(httr); library(dplyr); library(readr); cat("dplyr", as.character(packageVersion("dplyr")), "readr", as.character(packageVersion("readr")), "\n")'
+      # The refresh only needs the root package's dev tools (tsx), but a full install keeps the lockfile check simple.
+      - name: Install dependencies
+        run: npm ci
 
       # A fixed time of day makes a machine-like pattern for the sites we read. Scheduled runs wait a random 0-3 hours
       # first (games finish well before 10:37 UTC, and even the longest wait is still morning in the US). This only
@@ -78,7 +52,7 @@ jobs:
           sleep "${delay}"
 
       - name: Refresh baseball data
-        run: Rscript refresh/refresh_data.R
+        run: npm run refresh
 
       # With no games being played the stat files come out identical, but data/data_freshness.json still advances
       # its date. That would open a PR every day and, because analysis cache validity follows the data-through

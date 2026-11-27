@@ -23,8 +23,7 @@ playwright-report
 !data/baselines/baseline-pitchers-*.csv
 !data/player_id_map.csv
 
-# Test fixtures are CSVs too
-!tests/testthat/fixtures/*.csv
+# Test fixtures and goldens are CSVs too
 !refresh/test/**/*.csv
 
 # ALLOW generated files in remote repo (GitHub Actions needs to commit these)
@@ -33,7 +32,6 @@ playwright-report
 !data/player_lookup.csv
 
 # Keep other files
-*.Rproj
 *.png
 !tjmcfarland.png
 *.txt

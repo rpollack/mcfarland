@@ -1,4 +1,4 @@
-// The daily data refresh, and the one-off baseline builder. A port of refresh/refresh_data.R.
+// The daily data refresh, and the one-off baseline builder. Replaces the original R refresh/refresh_data.R.
 //
 //   npm run refresh                                  rebuild the published CSVs from the MLB Stats API and Baseball Savant
 //   npm run refresh:baseline -- <year> [--force]     write the two baseline files for a finished season
