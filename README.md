@@ -64,7 +64,7 @@ The production server builds the React app and serves it from the Express API. D
 
 ## Core Runtime Behavior
 
-- The server loads baseball CSV data at startup from the repository root.
+- The server loads baseball CSV data at startup from the `data/` folder.
 - `/api/players`, `/api/players/:playerId`, `/api/trending`, and `/api/data-freshness` serve structured data to the client.
 - `/api/players/:playerId/related` returns players with a similar luck gap and a rival to compare, computed from the current stats among players with a meaningful sample (300+ PA or batters faced). The luck-gap math lives in `server/src/luckGap.ts` and is shared with the mirage board.
 - `/api/mirage-board` returns the board for hitters or pitchers (players with 300+ PA or batters faced, five per side). `/api/mirage-board/intro` writes its intro in the requested vibe through the same analysis cache as takes, so it costs one model call per vibe per data update, shared by everyone. If the intro cannot be written it returns a 502 and the board still renders without it.
@@ -231,7 +231,7 @@ Notes on definitions: **Whiff%** is swinging strikes per swing (it replaced CSW%
 - Live current-season pulls on every run, from the MLB Stats API (counts, Age, wOBA) and Baseball Savant (xwOBA, barrels, xERA, O-Swing%, whiff%). No other site is used; the pipeline no longer touches FanGraphs, which blocks scripted requests.
 - `data/player_id_map.csv` (`mlbamid`, `PlayerId`): the app's `PlayerId` for every player who was served before the move off FanGraphs. It is data, built once from the old `player_lookup.csv`, and must never be regenerated or edited (a test checks its checksum): a player's `PlayerId` is a key for URLs, votes, trend rows, cached analyses and stars. A player not in the map (first served after the move) gets `PlayerId` = their own `mlbamid`, so the column holds both 5-digit legacy ids and 6-digit MLB ids. Internal joins use `mlbamid`.
 
-**Yearly rollover**: each November run `npm run refresh:baseline -- <finished year>` and commit the two files; in March, once the new season has games, bump `CURRENT_YEAR` in `refresh/config.ts`.
+**Yearly rollover**: each November run `npm run refresh:baseline -- <finished year>` and commit the two files, then set `CURRENT_YEAR` in `refresh/config.ts` to the next season. This was done for 2027 on 2026-11-27 (baseline seasons 2024 to 2026). Until the new season has games the stats APIs return no rows, so the refresh stops without publishing and the app keeps serving the last 2026 data. In March, before the cron resumes, follow the checklist in the comment at the top of `.github/workflows/refresh-data.yml` (dry runs with `publish=false`).
 
 **Outputs committed to git**: `data/full_stats_hitters.csv`, `data/full_stats_pitchers.csv`, `data/player_lookup.csv`, and `data/data_freshness.json` (when the data is through, and when it was refreshed).
 
