@@ -1,0 +1,7 @@
+Name,PlayerId,Age,player_type,mlbamid,compound_id,display_name,position_detail,position
+Aaron Judge,15640,33,hitter,592450,15640_hitter,Aaron Judge,Hitter,NA
+Jose Altuve,514888,35,hitter,514888,514888_hitter,Jose Altuve,Hitter,NA
+Logan Webb,17995,28,pitcher,657277,17995_pitcher,Logan Webb,SP,SP
+Mason Miller,695243,26,pitcher,695243,695243_pitcher,Mason Miller,RP,RP
+Shohei Ohtani,660271,30,hitter,660271,660271_hitter,Shohei Ohtani (Hitter),Hitter,NA
+Shohei Ohtani,660271,30,pitcher,660271,660271_pitcher,Shohei Ohtani (SP),SP,SP

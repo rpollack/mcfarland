@@ -1,0 +1,4 @@
+PlayerId,player_type,display_name,compound_id,position_detail,Name,Age,mlbamid,locked_source_file,locked_row_identity
+11111,hitter,Old Guy,11111_hitter,Hitter,Old Guy,35,111111,full_stats_hitters.csv,1
+15640,hitter,Aaron Judge,15640_hitter,Hitter,Aaron Judge,33,592450,full_stats_hitters.csv,1
+17995,pitcher,Logan Webb,17995_pitcher,SP,Logan Webb,28,657277,full_stats_pitchers.csv,1

@@ -1,0 +1,24 @@
+{
+  "status": "fail",
+  "locked_data_through_date": "2026-11-16",
+  "candidate_data_through_date": "2026-11-25",
+  "same_cutoff": false,
+  "source_migration": false,
+  "row_counts": {
+    "locked_hitters": 2,
+    "candidate_hitters": 3,
+    "locked_pitchers": 1,
+    "candidate_pitchers": 3,
+    "locked_lookup": 3,
+    "candidate_lookup": 6
+  },
+  "missing_players": "11111_hitter",
+  "added_players": ["514888_hitter", "660271_hitter", "660271_pitcher", "695243_pitcher"],
+  "missing_lookup_compound_ids": "11111_hitter",
+  "added_lookup_compound_ids": ["514888_hitter", "695243_pitcher", "660271_hitter", "660271_pitcher"],
+  "duplicate_compound_ids": [],
+  "missing_mlbamids": [],
+  "stat_mismatches": [],
+  "warnings": [],
+  "failures": "whiff_percent_cur is empty for every pitcher (source: Savant custom)"
+}

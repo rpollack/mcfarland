@@ -13,12 +13,20 @@
     "start": "npm run build && npm run start --workspace server",
     "start:server": "npm run start --workspace server",
     "test": "npm run --workspaces --if-present test",
-    "test:unit": "npm run test --workspace server && npm run test --workspace client",
+    "test:unit": "npm run test --workspace server && npm run test --workspace client && npm run test:refresh",
     "test:e2e": "npm run test --workspace tests/e2e",
-    "lint": "npm run --workspaces --if-present lint"
+    "lint": "npm run --workspaces --if-present lint",
+    "test:refresh": "vitest run --root refresh",
+    "typecheck:refresh": "tsc -p refresh --noEmit",
+    "refresh": "tsx refresh/refreshData.ts",
+    "refresh:baseline": "tsx refresh/refreshData.ts build-baseline-season"
   },
   "devDependencies": {
-    "concurrently": "^10.0.6"
+    "concurrently": "^10.0.6",
+    "@types/node": "^24.19.2",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0",
+    "vitest": "^5.0.5"
   },
   "dependencies": {
     "pg": "^8.23.1"

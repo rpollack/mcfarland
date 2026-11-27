@@ -1,0 +1,24 @@
+Name,PlayerId,Age,player_type,mlbamid,compound_id,display_name,position_detail,position
+Aaron Judge,15640,33,hitter,592450,15640_hitter,Aaron Judge,Hitter,NA
+Jose Altuve,514888,35,hitter,514888,514888_hitter,Jose Altuve,Hitter,NA
+Logan Webb,17995,28,pitcher,657277,17995_pitcher,Logan Webb,RP,RP
+Luis Garcia,700003,25,hitter,700003,700003_hitter,Luis Garcia,Hitter,NA
+Luis Garcia,700004,26,hitter,700004,700004_hitter,Luis Garcia,Hitter,NA
+Mason Miller,695243,26,pitcher,695243,695243_pitcher,Mason Miller,SP,SP
+Missing Hits,700006,NA,hitter,700006,700006_hitter,Missing Hits,Hitter,NA
+No Position,700009,32,hitter,700009,700009_hitter,No Position,Hitter,NA
+No Savant,800005,27,pitcher,800005,800005_pitcher,No Savant,RP,RP
+Old Timer,2222,41,hitter,54321,2222_hitter,Old Timer,Hitter,NA
+Orsted Lukasz Duric Jr.,700001,23,hitter,700001,700001_hitter,Orsted Lukasz Duric Jr.,Hitter,NA
+Role Edge,800003,33,pitcher,800003,800003_pitcher,Role Edge,SP,SP
+Shohei Ohtani,660271,30,hitter,660271,660271_hitter,Shohei Ohtani (Hitter),Hitter,NA
+Shohei Ohtani,660271,30,pitcher,660271,660271_pitcher,Shohei Ohtani (SP),SP,SP
+Tie Breaker,700005,30,hitter,700005,700005_hitter,Tie Breaker,Hitter,NA
+Tie Era Five,800008,30,pitcher,800008,800008_pitcher,Tie Era Five,SP,SP
+Tie Era One,800006,30,pitcher,800006,800006_pitcher,Tie Era One,SP,SP
+Tie Era Three,800007,30,pitcher,800007,800007_pitcher,Tie Era Three,SP,SP
+Tiny Babip,800001,29,pitcher,800001,800001_pitcher,Tiny Babip,SP,SP
+Tiny Rates,700010,27,hitter,700010,700010_hitter,Tiny Rates,Hitter,NA
+Twelve Two,800004,24,pitcher,800004,800004_pitcher,Twelve Two,RP,RP
+Walks Only,700002,28,hitter,700002,700002_hitter,Walks Only,Hitter,NA
+Zero Innings,800002,31,pitcher,800002,800002_pitcher,Zero Innings,RP,RP

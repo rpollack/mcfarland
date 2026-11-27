@@ -25,6 +25,7 @@ playwright-report
 
 # Test fixtures are CSVs too
 !tests/testthat/fixtures/*.csv
+!refresh/test/**/*.csv
 
 # ALLOW generated files in remote repo (GitHub Actions needs to commit these)
 !data/full_stats_hitters.csv

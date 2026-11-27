@@ -1,0 +1,182 @@
+{
+ "copyright": "fixture",
+ "stats": [
+  {
+   "type": {
+    "displayName": "season"
+   },
+   "splits": [
+    {
+     "season": "2025",
+     "stat": {
+      "age": 28,
+      "gamesPitched": 34,
+      "gamesStarted": 34,
+      "inningsPitched": "207.0",
+      "battersFaced": 856,
+      "hits": 190,
+      "runs": 80,
+      "earnedRuns": 74,
+      "homeRuns": 14,
+      "strikeOuts": 224,
+      "baseOnBalls": 46,
+      "intentionalWalks": 0,
+      "hitByPitch": 5,
+      "atBats": 770,
+      "sacFlies": 5
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 657277,
+      "fullName": "Logan Webb",
+      "primaryPosition": {
+       "abbreviation": "P"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 26,
+      "gamesPitched": 62,
+      "gamesStarted": 0,
+      "inningsPitched": "58.2",
+      "battersFaced": 240,
+      "hits": 45,
+      "runs": 18,
+      "earnedRuns": 16,
+      "homeRuns": 5,
+      "strikeOuts": 70,
+      "baseOnBalls": 20,
+      "intentionalWalks": 2,
+      "hitByPitch": 3,
+      "atBats": 200,
+      "sacFlies": 2
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 695243,
+      "fullName": "Mason Miller",
+      "primaryPosition": {
+       "abbreviation": "P"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 29,
+      "gamesPitched": 1,
+      "gamesStarted": 0,
+      "inningsPitched": "1.0",
+      "battersFaced": 6,
+      "hits": 3,
+      "runs": 2,
+      "earnedRuns": 2,
+      "homeRuns": 2,
+      "strikeOuts": 0,
+      "baseOnBalls": 0,
+      "intentionalWalks": 0,
+      "hitByPitch": 0,
+      "atBats": 3,
+      "sacFlies": 0
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 666126,
+      "fullName": "Carlos Cortés",
+      "primaryPosition": {
+       "abbreviation": "LF"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 30,
+      "gamesPitched": 14,
+      "gamesStarted": 14,
+      "inningsPitched": "47.0",
+      "battersFaced": 190,
+      "hits": 30,
+      "runs": 10,
+      "earnedRuns": 9,
+      "homeRuns": 3,
+      "strikeOuts": 60,
+      "baseOnBalls": 15,
+      "intentionalWalks": 0,
+      "hitByPitch": 1,
+      "atBats": 160,
+      "sacFlies": 0
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 660271,
+      "fullName": "Shohei Ohtani",
+      "primaryPosition": {
+       "abbreviation": "TWP"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    },
+    {
+     "season": "2025",
+     "stat": {
+      "age": 31,
+      "gamesPitched": 1,
+      "gamesStarted": 0,
+      "inningsPitched": "0.0",
+      "battersFaced": 0,
+      "hits": 0,
+      "runs": 0,
+      "earnedRuns": 0,
+      "homeRuns": 0,
+      "strikeOuts": 0,
+      "baseOnBalls": 0,
+      "intentionalWalks": 0,
+      "hitByPitch": 0,
+      "atBats": 0,
+      "sacFlies": 0
+     },
+     "team": {
+      "id": 1,
+      "name": "Test Team"
+     },
+     "player": {
+      "id": 555001,
+      "fullName": "No Batters Faced",
+      "primaryPosition": {
+       "abbreviation": "P"
+      }
+     },
+     "sport": {
+      "id": 1
+     }
+    }
+   ]
+  }
+ ]
+}
