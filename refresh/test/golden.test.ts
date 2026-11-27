@@ -10,6 +10,8 @@ import { refreshData } from "../refreshData.ts";
 import { fixtureHttp, listFiles, makeTempDir, stageInputs, TEST_DIR } from "./support.ts";
 
 const NOW = new Date("2026-11-26T15:00:00Z");
+// The golden files were made for the 2026 season; pinned here so bumping CURRENT_YEAR in config.ts does not change them.
+const GOLDEN_YEAR = 2026;
 
 const scenarios = [
   { name: "basic", fixtures: "fixtures", blankWhiff: false },
@@ -25,6 +27,7 @@ describe.each(scenarios)("scenario $name leaves exactly the files R left", ({ na
     const { promoted } = await refreshData({
       paths: dataPaths(join(dir, "data")),
       now: NOW,
+      currentYear: GOLDEN_YEAR,
       httpGet: fixtureHttp(fixtures, [], blankWhiff),
       log: (line) => logs.push(line),
     });
