@@ -1,6 +1,14 @@
 import { HitterRecord, PitcherRecord, PlayerType } from "./types.js";
-import { CURRENT_YEAR, formatEra, formatPercentage, formatStatValue } from "./utils.js";
+import { getDataFreshness } from "./dataStore.js";
+import { formatEra, formatPercentage, formatStatValue } from "./utils.js";
 import { ANALYSIS_VIBES, AnalysisMode } from "./vibes.js";
+
+// The season the stats are from: the year of the data, not the calendar. From January to March the app still serves last season's
+// numbers, and the prompt must not call them this year's.
+function currentSeason(): number {
+  const year = Number(getDataFreshness()?.dataThroughDate?.slice(0, 4));
+  return Number.isFinite(year) && year > 0 ? year : new Date().getFullYear();
+}
 
 function formatMetricLine(label: string, current: string, weightedBaseline: string, diff: string, leagueAdjustedDiff: string): string {
   return `${label}: ${current} | WB ${weightedBaseline} | diff ${diff} | diff from league-wide weighted baseline ${leagueAdjustedDiff}`;
@@ -13,7 +21,7 @@ export function buildHitterPrompt(player: HitterRecord): string {
     "--- Key metrics to analyze ---",
     "Format: current | WB (weighted baseline) | diff | diff from league-wide weighted baseline (player diff minus league-wide diff)",
     `Age: ${formatStatValue(player.Age, 0)}`,
-    `Year: ${CURRENT_YEAR}`,
+    `Year: ${currentSeason()}`,
     `Plate Appearances (PA): ${formatStatValue(player.PA_cur, 0)}`,
     "",
   ];
@@ -48,7 +56,7 @@ export function buildPitcherPrompt(player: PitcherRecord): string {
     "--- Key metrics to analyze ---",
     "Format: current | WB (weighted baseline) | diff | diff from league-wide weighted baseline (player diff minus league-wide diff)",
     `Age: ${formatStatValue(player.Age, 0)}`,
-    `Year: ${CURRENT_YEAR}`,
+    `Year: ${currentSeason()}`,
     `Position: ${player.position ?? "Pitcher"}`,
     `Total Batters Faced: ${formatStatValue(player.tbf, 0)}`,
     "",

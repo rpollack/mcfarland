@@ -1,5 +1,3 @@
-export const CURRENT_YEAR = new Date().getFullYear();
-
 export function safeNumber(value: unknown): number | null {
   if (value === null || value === undefined || value === "") {
     return null;
